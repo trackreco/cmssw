@@ -657,6 +657,7 @@ private:
   const bool includeAllHits_;
   const bool includeMVA_;
   const bool includeTrackingParticles_;
+  const bool includeOOT_;
 
   HistoryBase tracer_;
 
@@ -1294,7 +1295,8 @@ TrackingNtuple::TrackingNtuple(const edm::ParameterSet& iConfig)
       includeSeeds_(iConfig.getUntrackedParameter<bool>("includeSeeds")),
       includeAllHits_(iConfig.getUntrackedParameter<bool>("includeAllHits")),
       includeMVA_(iConfig.getUntrackedParameter<bool>("includeMVA")),
-      includeTrackingParticles_(iConfig.getUntrackedParameter<bool>("includeTrackingParticles")) {
+      includeTrackingParticles_(iConfig.getUntrackedParameter<bool>("includeTrackingParticles")),
+      includeOOT_(iConfig.getUntrackedParameter<bool>("includeOOT")) {
   if (includeSeeds_) {
     seedTokens_ =
         edm::vector_transform(iConfig.getUntrackedParameter<std::vector<edm::InputTag>>("seedTracks"),
@@ -2045,7 +2047,7 @@ void TrackingNtuple::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
   TrackingVertexRefKeyToIndex tvKeyToIndex;
   for (size_t i = 0; i < tvs.size(); ++i) {
     const TrackingVertex& v = tvs[i];
-    if (v.eventId().bunchCrossing() != 0)  // Ignore OOTPU; would be better to not to hardcode?
+    if (!includeOOT_ && v.eventId().bunchCrossing() != 0)  // Ignore OOTPU
       continue;
     tvKeyToIndex[i] = tvRefs.size();
     tvRefs.push_back(TrackingVertexRef(htv, i));
@@ -2289,7 +2291,7 @@ TrackingNtuple::SimHitData TrackingNtuple::matchCluster(
       HitSimType type = HitSimType::OOTPileup;
       if (bx == 0) {
         type = (event == 0 ? HitSimType::Signal : HitSimType::ITPileup);
-      }
+      } else type = HitSimType::OOTPileup;
       ret.type = static_cast<HitSimType>(std::min(static_cast<int>(ret.type), static_cast<int>(type)));
 
       // Limit to only input TrackingParticles (usually signal+ITPU)
@@ -3681,6 +3683,7 @@ void TrackingNtuple::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.addUntracked<bool>("includeAllHits", false);
   desc.addUntracked<bool>("includeMVA", true);
   desc.addUntracked<bool>("includeTrackingParticles", true);
+  desc.addUntracked<bool>("includeOOT", false);
   descriptions.add("trackingNtuple", desc);
 }
 
