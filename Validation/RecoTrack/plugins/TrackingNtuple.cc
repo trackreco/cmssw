@@ -2353,6 +2353,21 @@ TrackingNtuple::SimHitData TrackingNtuple::matchCluster(const OmniClusterRef& cl
                                     simHitTPpairWithDummyTP, SimHitTPAssociationProducer::simHitTPAssociationListGreater);
       bool foundSimHit = false;
       bool foundElectron = false;
+      int foundElectrons = 0;
+      int foundNonElectrons = 0;
+      edm::ProductID simHitID;
+      for(auto ip = range.first; ip != range.second; ++ip) {
+        TrackPSimHitRef TPhit = ip->second;
+        DetId dId = DetId(TPhit->detUnitId());
+        if (dId.rawId()==hitId.rawId()) {
+          // skip electron SimHits for non-electron TPs also here
+          if(std::abs(TPhit->particleType()) == 11 && std::abs(trackingParticle->pdgId()) != 11) {
+	    foundElectrons++;
+          } else {
+	    foundNonElectrons++;
+	  }
+        }
+      }
       for(auto ip = range.first; ip != range.second; ++ip) {
         TrackPSimHitRef TPhit = ip->second;
         DetId dId = DetId(TPhit->detUnitId());
@@ -2361,6 +2376,7 @@ TrackingNtuple::SimHitData TrackingNtuple::matchCluster(const OmniClusterRef& cl
           if(std::abs(TPhit->particleType()) == 11 && std::abs(trackingParticle->pdgId()) != 11) {
             foundElectron = true;
             if (!keepEleSimHits_) continue;
+	    if (foundNonElectrons > 0) continue;//prioritize: skip electrons if non-electrons are present
           }
 
           foundSimHit = true;
