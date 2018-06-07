@@ -10,9 +10,16 @@
   <use name="DataFormats/TrackerCommon"/>
   <use name="Geometry/Records"/>
   <use name="Geometry/TrackerGeometryBuilder"/>
+  <use name="RecoTracker/TransientTrackingRecHit"/>
+  <use name="TrackingTools/GeomPropagators"/>
+  <use name="TrackingTools/KalmanUpdators"/>
+  <use name="TrackingTools/MaterialEffects"/>
+  <use name="RecoTracker/MeasurementDet"/>
   <use name="TrackingTools/Records"/>
-  <use name="TrackingTools/TransientTrackingRecHit"/>
+  <use name="RecoTracker/TkDetLayers"/>
+  <use name="TrackingTools/TrackFitters"/>
   <use name="TrackingTools/TrajectoryState"/>
+  <use name="TrackingTools/TransientTrackingRecHit"/>
   <use name="rootmath"/>
   <use name="mkfit"/>
   <flags EDM_PLUGIN="1"/>
