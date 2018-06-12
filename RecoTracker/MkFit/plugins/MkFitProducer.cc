@@ -228,9 +228,22 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig):
   else {
     throw cms::Exception("Configuration") << "Invalid value for parameter 'buildingRoutine' " << build << ", allowed are bestHit, standard, cloneEngine, fullVector";
   }
+
+  const auto seedClean = iConfig.getParameter<std::string>("seedCleaning");
+  auto seedCleanOpt = mkfit::ConfigWrapper::SeedCleaningOpts::noCleaning;
+  if(seedClean == "none") {
+    seedCleanOpt = mkfit::ConfigWrapper::SeedCleaningOpts::noCleaning;
+  }
+  else if(seedClean == "N2") {
+    seedCleanOpt = mkfit::ConfigWrapper::SeedCleaningOpts::cleanSeedsN2;
+  }
+  else {
+    throw cms::Exception("Configuration") << "Invalida value for parameter 'seedCleaning' " << seedClean << ", allowed are none, N2";
+  }
+
   // TODO: what to do when we have multiple instances of MkFitProducer in a job?
   mkfit::MkBuilderWrapper::populate(isFV);
-  mkfit::ConfigWrapper::setInputToCMSSW();
+  mkfit::ConfigWrapper::initializeForCMSSW(seedCleanOpt, mkfit::ConfigWrapper::BackwardFit::noFit);
 
   produces<TrackCandidateCollection>();
   produces<std::vector<SeedStopInfo> >();
@@ -244,10 +257,11 @@ void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& description
   desc.add("stripStereoRecHits", edm::InputTag("siStripMatchedRecHits", "stereoRecHit"));
   desc.add("seeds", edm::InputTag("initialStepSeeds"));
   desc.add("measurementTrackerEvent", edm::InputTag("MeasurementTrackerEvent"));
-  desc.add("buildingRoutine", std::string("what should be the default?"));
   desc.add<std::string>("ttrhBuilder", "WithTrackAngle");
   desc.add<std::string>("propagatorAlong", "PropagatorWithMaterial");
   desc.add<std::string>("propagatorOpposite", "PropagatorWithMaterialOpposite");
+  desc.add("buildingRoutine", std::string("what should be the default?"));
+  desc.add<std::string>("seedCleaning", "none")->setComment("Valid values are: 'none', 'N2'");
 
   descriptions.add("mkFitProducer", desc);
 }
