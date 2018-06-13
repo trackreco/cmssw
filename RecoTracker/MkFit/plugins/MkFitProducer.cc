@@ -179,12 +179,17 @@ private:
                                                               const TkClonerImpl& hitCloner,
                                                               const std::vector<const DetLayer *>& detLayers,
                                                               const mkfit::TrackVec& mkfitSeeds) const;
-  std::pair<TrajectoryStateOnSurface, const GeomDet *> convertToInitialState(const FreeTrajectoryState& fts,
+
+  std::pair<TrajectoryStateOnSurface, const GeomDet *> backwardFit(const FreeTrajectoryState& fts,
+                                                                   const edm::OwnVector<TrackingRecHit>& hits,
+                                                                   const Propagator& propagatorAlong,
+                                                                   const Propagator& propagatorOpposite,
+                                                                   const TkClonerImpl& hitCloner) const;
+
+  std::pair<TrajectoryStateOnSurface, const GeomDet *> convertInnermostState(const FreeTrajectoryState& fts,
                                                                              const edm::OwnVector<TrackingRecHit>& hits,
                                                                              const Propagator& propagatorAlong,
-                                                                             const Propagator& propagatorOpposite,
-                                                                             const TkClonerImpl& hitCloner) const;
-
+                                                                             const Propagator& propagatorOpposite) const;
   using SVector3 = ROOT::Math::SVector<float, 3>;
   using SMatrixSym33 = ROOT::Math::SMatrix<float,3,3,ROOT::Math::MatRepSym<float,3> >;
   using SMatrixSym66 = ROOT::Math::SMatrix<float,6,6,ROOT::Math::MatRepSym<float,6> >;
@@ -198,6 +203,7 @@ private:
   std::string propagatorAlongName_;
   std::string propagatorOppositeName_;
   std::function<double(mkfit::Event&, mkfit::MkBuilder&)> buildFunction_;
+  bool backwardFitInCMSSW_;
 };
 
 MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig):
@@ -208,7 +214,8 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig):
   mteToken_(consumes<MeasurementTrackerEvent>(iConfig.getParameter<edm::InputTag>("measurementTrackerEvent"))),
   ttrhBuilderName_(iConfig.getParameter<std::string>("ttrhBuilder")),
   propagatorAlongName_(iConfig.getParameter<std::string>("propagatorAlong")),
-  propagatorOppositeName_(iConfig.getParameter<std::string>("propagatorOpposite"))
+  propagatorOppositeName_(iConfig.getParameter<std::string>("propagatorOpposite")),
+  backwardFitInCMSSW_(iConfig.getParameter<bool>("backwardFitInCMSSW"))
 {
   const auto build = iConfig.getParameter<std::string>("buildingRoutine");
   bool isFV = false;
@@ -241,9 +248,11 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig):
     throw cms::Exception("Configuration") << "Invalida value for parameter 'seedCleaning' " << seedClean << ", allowed are none, N2";
   }
 
+  auto backwardFitOpt = backwardFitInCMSSW_ ? mkfit::ConfigWrapper::BackwardFit::noFit : mkfit::ConfigWrapper::BackwardFit::toFirstLayer;
+
   // TODO: what to do when we have multiple instances of MkFitProducer in a job?
   mkfit::MkBuilderWrapper::populate(isFV);
-  mkfit::ConfigWrapper::initializeForCMSSW(seedCleanOpt, mkfit::ConfigWrapper::BackwardFit::noFit);
+  mkfit::ConfigWrapper::initializeForCMSSW(seedCleanOpt, backwardFitOpt);
 
   produces<TrackCandidateCollection>();
   produces<std::vector<SeedStopInfo> >();
@@ -262,6 +271,7 @@ void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& description
   desc.add<std::string>("propagatorOpposite", "PropagatorWithMaterialOpposite");
   desc.add("buildingRoutine", std::string("what should be the default?"));
   desc.add<std::string>("seedCleaning", "none")->setComment("Valid values are: 'none', 'N2'");
+  desc.add("backwardFitInCMSSW", true);
 
   descriptions.add("mkFitProducer", desc);
 }
@@ -555,14 +565,15 @@ std::unique_ptr<TrackCandidateCollection> MkFitProducer::convertCandidates(const
                                                                            const std::vector<const DetLayer *>& detLayers,
                                                                            const mkfit::TrackVec& mkfitSeeds) const {
   auto output = std::make_unique<TrackCandidateCollection>();
-  output->reserve(ev.candidateTracks_.size());
+  const auto& candidates = backwardFitInCMSSW_ ? ev.candidateTracks_ : ev.fitTracks_;
+  output->reserve(candidates.size());
 
   LogTrace("MkFitProducer") << "Number of candidates " << ev.candidateTracks_.size()
                             << " extras " << ev.candidateTracksExtra_.size()
                             << "  seeds " << ev.seedTracks_.size();
 
   int candIndex = -1;
-  for(const auto& cand: ev.candidateTracks_) {
+  for(const auto& cand: candidates) {
     ++candIndex;
     LogTrace("MkFitProducer") << "Candidate " << candIndex << " pT " << cand.pT() << " eta " << cand.momEta() << " phi " << cand.momPhi() << " chi2 " << cand.chi2();
 
@@ -647,7 +658,8 @@ std::unique_ptr<TrackCandidateCollection> MkFitProducer::convertCandidates(const
       continue;
     }
 
-    auto tsosDet = convertToInitialState(fts, recHits, propagatorAlong, propagatorOpposite, hitCloner);
+    auto tsosDet = backwardFitInCMSSW_ ? backwardFit(fts, recHits, propagatorAlong, propagatorOpposite, hitCloner):
+                                         convertInnermostState(fts, recHits, propagatorAlong, propagatorOpposite);
     if(!tsosDet.first.isValid()) {
       edm::LogWarning("MkFitProducer") << "Backward fit of candidate " << candIndex << " failed, ignoring the candidate";
       continue;
@@ -667,11 +679,11 @@ std::unique_ptr<TrackCandidateCollection> MkFitProducer::convertCandidates(const
   return output;
 }
 
-std::pair<TrajectoryStateOnSurface, const GeomDet *> MkFitProducer::convertToInitialState(const FreeTrajectoryState& fts,
-                                                                                          const edm::OwnVector<TrackingRecHit>& hits,
-                                                                                          const Propagator& propagatorAlong,
-                                                                                          const Propagator& propagatorOpposite,
-                                                                                          const TkClonerImpl& hitCloner) const {
+std::pair<TrajectoryStateOnSurface, const GeomDet *> MkFitProducer::backwardFit(const FreeTrajectoryState& fts,
+                                                                                const edm::OwnVector<TrackingRecHit>& hits,
+                                                                                const Propagator& propagatorAlong,
+                                                                                const Propagator& propagatorOpposite,
+                                                                                const TkClonerImpl& hitCloner) const {
   // First filter valid hits as in TransientInitialStateEstimator
   TransientTrackingRecHit::ConstRecHitContainer firstHits;
 
@@ -757,6 +769,27 @@ std::pair<TrajectoryStateOnSurface, const GeomDet *> MkFitProducer::convertToIni
 
 
   return std::make_pair(firstState, firstMeas.recHit()->det());
+}
+
+std::pair<TrajectoryStateOnSurface, const GeomDet *> MkFitProducer::convertInnermostState(const FreeTrajectoryState& fts,
+                                                                                          const edm::OwnVector<TrackingRecHit>& hits,
+                                                                                          const Propagator& propagatorAlong,
+                                                                                          const Propagator& propagatorOpposite) const {
+  auto det = hits[0].det();
+  if(det == nullptr) {
+    throw cms::Exception("LogicError") << "Got nullptr from the first hit det()";
+  }
+
+  const auto& firstHitSurface = det->surface();
+
+  auto tsosDouble = propagatorAlong.propagateWithPath(fts, firstHitSurface);
+  if(!tsosDouble.first.isValid()) {
+    LogDebug("MkFitProducer") << "Propagating to startingState along momentum failed, trying opposite next";
+    tsosDouble = propagatorOpposite.propagateWithPath(fts, firstHitSurface);
+  }
+
+  //return std::make_pair(TrajectoryStateOnSurface(fts, det->surface()), det);
+  return std::make_pair(tsosDouble.first, det);
 }
 
 
