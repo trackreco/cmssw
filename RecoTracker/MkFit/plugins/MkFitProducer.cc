@@ -204,6 +204,7 @@ private:
   std::string propagatorOppositeName_;
   std::function<double(mkfit::Event&, mkfit::MkBuilder&)> buildFunction_;
   bool backwardFitInCMSSW_;
+  bool mkfitSilent_;
 };
 
 MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig):
@@ -215,7 +216,8 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig):
   ttrhBuilderName_(iConfig.getParameter<std::string>("ttrhBuilder")),
   propagatorAlongName_(iConfig.getParameter<std::string>("propagatorAlong")),
   propagatorOppositeName_(iConfig.getParameter<std::string>("propagatorOpposite")),
-  backwardFitInCMSSW_(iConfig.getParameter<bool>("backwardFitInCMSSW"))
+  backwardFitInCMSSW_(iConfig.getParameter<bool>("backwardFitInCMSSW")),
+  mkfitSilent_(iConfig.getUntrackedParameter<bool>("mkfitSilent"))
 {
   const auto build = iConfig.getParameter<std::string>("buildingRoutine");
   bool isFV = false;
@@ -252,7 +254,7 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig):
 
   // TODO: what to do when we have multiple instances of MkFitProducer in a job?
   mkfit::MkBuilderWrapper::populate(isFV);
-  mkfit::ConfigWrapper::initializeForCMSSW(seedCleanOpt, backwardFitOpt);
+  mkfit::ConfigWrapper::initializeForCMSSW(seedCleanOpt, backwardFitOpt, mkfitSilent_);
 
   produces<TrackCandidateCollection>();
   produces<std::vector<SeedStopInfo> >();
@@ -272,6 +274,7 @@ void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& description
   desc.add("buildingRoutine", std::string("what should be the default?"));
   desc.add<std::string>("seedCleaning", "none")->setComment("Valid values are: 'none', 'N2'");
   desc.add("backwardFitInCMSSW", true);
+  desc.addUntracked("mkfitSilent", true)->setComment("Allows to enables printouts from mkfit with 'False'");
 
   descriptions.add("mkFitProducer", desc);
 }
