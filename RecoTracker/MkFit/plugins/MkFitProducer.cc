@@ -173,6 +173,7 @@ private:
   std::unique_ptr<TrackCandidateCollection> convertCandidates(const mkfit::Event& ev,
                                                               const IndexLayer& indexLayers,
                                                               const edm::View<TrajectorySeed>& seeds,
+                                                              const TrackerGeometry& geom,
                                                               const MagneticField& mf,
                                                               const Propagator& propagatorAlong,
                                                               const Propagator& propagatorOpposite,
@@ -289,12 +290,13 @@ namespace {
 void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::EventSetup& iSetup) const {
   mkfit::LayerNumberConverter lnc{mkfit::TkLayout::phase1};
 
+  edm::ESHandle<TrackerGeometry> trackerGeometry;
+  iSetup.get<TrackerDigiGeometryRecord>().get(trackerGeometry);
+  const auto& geom = *trackerGeometry;
+
   // First do some initialization
   // TODO: the mechanism needs to be improved...
-  std::call_once(geometryFlag, [&iSetup, &lnc]() {
-      edm::ESHandle<TrackerGeometry> trackerGeometry;
-      iSetup.get<TrackerDigiGeometryRecord>().get(trackerGeometry);
-      const auto& geom = *trackerGeometry;
+  std::call_once(geometryFlag, [&geom, &lnc]() {
       // TODO: eventually automatize fully
       // For now it is easier to use purely the infrastructure from mkfit
       /*
@@ -373,7 +375,7 @@ void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::Ev
     });
 
   // Convert mkfit presentation back to CMSSW
-  auto cands = convertCandidates(ev, indexLayers, *seeds, *mf, *propagatorAlong, *propagatorOpposite, hc, detLayers, tmpSeeds);
+  auto cands = convertCandidates(ev, indexLayers, *seeds, geom, *mf, *propagatorAlong, *propagatorOpposite, hc, detLayers, tmpSeeds);
 
   // For starters let's put empty collections
   iEvent.put(std::move(cands));
@@ -561,6 +563,7 @@ mkfit::TrackVec MkFitProducer::convertSeeds(const edm::View<TrajectorySeed>& see
 std::unique_ptr<TrackCandidateCollection> MkFitProducer::convertCandidates(const mkfit::Event& ev,
                                                                            const IndexLayer& indexLayers,
                                                                            const edm::View<TrajectorySeed>& seeds,
+                                                                           const TrackerGeometry& geom,
                                                                            const MagneticField& mf,
                                                                            const Propagator& propagatorAlong,
                                                                            const Propagator& propagatorOpposite,
@@ -613,6 +616,36 @@ std::unique_ptr<TrackCandidateCollection> MkFitProducer::convertCandidates(const
                                   << " cluster " << indexLayers.getClusterIndex(hitOnTrack.layer, hitOnTrack.index);
       }
     }
+
+    // MkFit hits are *not* in the order of propagation, sort by 3D radius for now (as we don't have loopers)
+    // TODO: Improve the sorting (extract keys? maybe even bubble sort would work well as the hits are almost in the correct order)
+    recHits.sort([&geom](const auto& a, const auto& b) {
+        const auto aid = a.geographicalId();
+        const auto bid = b.geographicalId();
+
+        const auto asub = aid.subdetId();
+        const auto bsub = bid.subdetId();
+        if(asub != bsub) {
+          // Subdetector order (BPix, FPix, TIB, TID, TOB, TEC) corresponds also the navigation
+          return asub < bsub;
+        }
+
+        /*
+        const auto *adet = geom.idToDet(aid);
+        const auto *bdet = geom.idToDet(bid);
+
+        const auto& apos = adet->position();
+        const auto& bpos = bdet->position();
+        */
+
+        const auto& apos = a.globalPosition();
+        const auto& bpos = b.globalPosition();
+
+        if(asub == PixelSubdetector::PixelBarrel || asub == StripSubdetector::TIB || asub == StripSubdetector::TOB) {
+          return apos.perp2() < bpos.perp2();
+        }
+        return std::abs(apos.z()) < std::abs(bpos.z());
+      });
 
     // seed
     const auto seedIndex = cand.label();
