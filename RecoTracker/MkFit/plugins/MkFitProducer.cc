@@ -187,6 +187,12 @@ private:
                                                                    const Propagator& propagatorOpposite,
                                                                    const TkClonerImpl& hitCloner) const;
 
+  std::pair<TrajectoryStateOnSurface, const GeomDet *> backwardFitImpl(const FreeTrajectoryState& fts,
+                                                                       const TransientTrackingRecHit::ConstRecHitContainer& firstHits,
+                                                                       const Propagator& propagatorAlong,
+                                                                       const Propagator& propagatorOpposite,
+                                                                       const TkClonerImpl& hitCloner) const;
+
   std::pair<TrajectoryStateOnSurface, const GeomDet *> convertInnermostState(const FreeTrajectoryState& fts,
                                                                              const edm::OwnVector<TrackingRecHit>& hits,
                                                                              const Propagator& propagatorAlong,
@@ -733,6 +739,20 @@ std::pair<TrajectoryStateOnSurface, const GeomDet *> MkFitProducer::backwardFit(
     }
   }
 
+  auto ret = backwardFitImpl(fts, firstHits, propagatorAlong, propagatorOpposite, hitCloner);
+  if(!ret.first.isValid()) {
+    edm::LogWarning("MkFitProducer") << "Backward fit with all hits failed, let's try dropping last hit";
+    firstHits.erase(firstHits.begin());
+    ret = backwardFitImpl(fts, firstHits, propagatorAlong, propagatorOpposite, hitCloner);
+  }
+  return ret;
+}
+
+std::pair<TrajectoryStateOnSurface, const GeomDet *> MkFitProducer::backwardFitImpl(const FreeTrajectoryState& fts,
+                                                                                    const TransientTrackingRecHit::ConstRecHitContainer& firstHits,
+                                                                                    const Propagator& propagatorAlong,
+                                                                                    const Propagator& propagatorOpposite,
+                                                                                    const TkClonerImpl& hitCloner) const {
   // Then propagate along to the surface of the last hit to get a TSOS
   const auto& lastHitSurface = firstHits.front()->det()->surface();
   /*
