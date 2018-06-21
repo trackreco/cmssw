@@ -139,6 +139,17 @@ namespace {
     std::vector<Coll> colls_; // mapping from CMSSW(ProductID, index) -> mkfit(index, layer)
     std::vector<std::vector<CMSSWHit> > hits_; // reverse mapping, mkfit(layer, index) -> CMSSW hit
   };
+
+
+  template <typename T>
+  bool isBarrel(T subdet) {
+    return subdet == PixelSubdetector::PixelBarrel || subdet == StripSubdetector::TIB || subdet == StripSubdetector::TOB;
+  }
+
+  template <typename T>
+  bool isEndcap(T subdet) {
+    return subdet == PixelSubdetector::PixelEndcap || subdet == StripSubdetector::TID || subdet == StripSubdetector::TEC;
+  }
 }
 
 class MkFitProducer: public edm::global::EDProducer<edm::StreamCache<mkfit::MkBuilderWrapper> > {
@@ -185,13 +196,17 @@ private:
                                                                    const edm::OwnVector<TrackingRecHit>& hits,
                                                                    const Propagator& propagatorAlong,
                                                                    const Propagator& propagatorOpposite,
-                                                                   const TkClonerImpl& hitCloner) const;
+                                                                   const TkClonerImpl& hitCloner,
+                                                                   bool lastHitWasInvalid,
+                                                                   bool lastHitWasChanged) const;
 
   std::pair<TrajectoryStateOnSurface, const GeomDet *> backwardFitImpl(const FreeTrajectoryState& fts,
                                                                        const TransientTrackingRecHit::ConstRecHitContainer& firstHits,
                                                                        const Propagator& propagatorAlong,
                                                                        const Propagator& propagatorOpposite,
-                                                                       const TkClonerImpl& hitCloner) const;
+                                                                       const TkClonerImpl& hitCloner,
+                                                                       bool lastHitWasInvalid,
+                                                                       bool lastHitWasChanged) const;
 
   std::pair<TrajectoryStateOnSurface, const GeomDet *> convertInnermostState(const FreeTrajectoryState& fts,
                                                                              const edm::OwnVector<TrackingRecHit>& hits,
@@ -592,6 +607,7 @@ std::unique_ptr<TrackCandidateCollection> MkFitProducer::convertCandidates(const
     // hits
     edm::OwnVector<TrackingRecHit> recHits;
     const int nhits = cand.nTotalHits(); // what exactly is the difference between nTotalHits() and nFoundHits()?
+    bool lastHitInvalid = false;
     for(int i=0; i<nhits; ++i) {
       const auto& hitOnTrack = cand.getHitOnTrack(i);
       LogTrace("MkFitProducer") << " hit on layer " << hitOnTrack.layer << " index " << hitOnTrack.index;
@@ -611,6 +627,7 @@ std::unique_ptr<TrackCandidateCollection> MkFitProducer::convertCandidates(const
         }
         // Actually it is necessary to leave dealing with invalid hits to the TrackProducer?
         //recHits.push_back(new InvalidTrackingRecHitNoDet(detLayer->surface(), TrackingRecHit::missing)); // let's put them all as missing for now
+        lastHitInvalid = true;
       }
       else {
         recHits.push_back(indexLayers.getHitPtr(hitOnTrack.layer, hitOnTrack.index)->clone());
@@ -620,8 +637,11 @@ std::unique_ptr<TrackCandidateCollection> MkFitProducer::convertCandidates(const
                                   << " mag2 " << recHits.back().globalPosition().mag2()
                                   << " detid " << recHits.back().geographicalId().rawId()
                                   << " cluster " << indexLayers.getClusterIndex(hitOnTrack.layer, hitOnTrack.index);
+        lastHitInvalid = false;
       }
     }
+
+    const auto lastHitId = recHits.back().geographicalId();
 
     // MkFit hits are *not* in the order of propagation, sort by 3D radius for now (as we don't have loopers)
     // TODO: Improve the sorting (extract keys? maybe even bubble sort would work well as the hits are almost in the correct order)
@@ -647,11 +667,13 @@ std::unique_ptr<TrackCandidateCollection> MkFitProducer::convertCandidates(const
         const auto& apos = a.globalPosition();
         const auto& bpos = b.globalPosition();
 
-        if(asub == PixelSubdetector::PixelBarrel || asub == StripSubdetector::TIB || asub == StripSubdetector::TOB) {
+        if(isBarrel(asub)) {
           return apos.perp2() < bpos.perp2();
         }
         return std::abs(apos.z()) < std::abs(bpos.z());
       });
+
+    const bool lastHitChanged = (recHits.back().geographicalId() != lastHitId); // TODO: make use of the bools
 
     // seed
     const auto seedIndex = cand.label();
@@ -700,7 +722,7 @@ std::unique_ptr<TrackCandidateCollection> MkFitProducer::convertCandidates(const
       continue;
     }
 
-    auto tsosDet = backwardFitInCMSSW_ ? backwardFit(fts, recHits, propagatorAlong, propagatorOpposite, hitCloner):
+    auto tsosDet = backwardFitInCMSSW_ ? backwardFit(fts, recHits, propagatorAlong, propagatorOpposite, hitCloner, lastHitInvalid, lastHitChanged):
                                          convertInnermostState(fts, recHits, propagatorAlong, propagatorOpposite);
     if(!tsosDet.first.isValid()) {
       edm::LogWarning("MkFitProducer") << "Backward fit of candidate " << candIndex << " failed, ignoring the candidate";
@@ -725,7 +747,9 @@ std::pair<TrajectoryStateOnSurface, const GeomDet *> MkFitProducer::backwardFit(
                                                                                 const edm::OwnVector<TrackingRecHit>& hits,
                                                                                 const Propagator& propagatorAlong,
                                                                                 const Propagator& propagatorOpposite,
-                                                                                const TkClonerImpl& hitCloner) const {
+                                                                                const TkClonerImpl& hitCloner,
+                                                                                bool lastHitWasInvalid,
+                                                                                bool lastHitWasChanged) const {
   // First filter valid hits as in TransientInitialStateEstimator
   TransientTrackingRecHit::ConstRecHitContainer firstHits;
 
@@ -739,12 +763,15 @@ std::pair<TrajectoryStateOnSurface, const GeomDet *> MkFitProducer::backwardFit(
     }
   }
 
-  auto ret = backwardFitImpl(fts, firstHits, propagatorAlong, propagatorOpposite, hitCloner);
+  auto ret = backwardFitImpl(fts, firstHits, propagatorAlong, propagatorOpposite, hitCloner, lastHitWasInvalid, lastHitWasChanged);
+  // I think now that this doesn't really make sense
+  /*
   if(!ret.first.isValid()) {
     edm::LogWarning("MkFitProducer") << "Backward fit with all hits failed, let's try dropping last hit";
     firstHits.erase(firstHits.begin());
     ret = backwardFitImpl(fts, firstHits, propagatorAlong, propagatorOpposite, hitCloner);
   }
+  */
   return ret;
 }
 
@@ -752,19 +779,50 @@ std::pair<TrajectoryStateOnSurface, const GeomDet *> MkFitProducer::backwardFitI
                                                                                     const TransientTrackingRecHit::ConstRecHitContainer& firstHits,
                                                                                     const Propagator& propagatorAlong,
                                                                                     const Propagator& propagatorOpposite,
-                                                                                    const TkClonerImpl& hitCloner) const {
+                                                                                    const TkClonerImpl& hitCloner,
+                                                                                    bool lastHitWasInvalid,
+                                                                                    bool lastHitWasChanged) const {
   // Then propagate along to the surface of the last hit to get a TSOS
   const auto& lastHitSurface = firstHits.front()->det()->surface();
+
+  const Propagator *tryFirst = &propagatorAlong;
+  const Propagator *trySecond = &propagatorOpposite;
+  if(lastHitWasInvalid || lastHitWasChanged) {
+    LogTrace("MkFitProducer") << "Propagating first opposite, then along, because lastHitWasInvalid? " << lastHitWasInvalid
+                              << " or lastHitWasChanged? " << lastHitWasChanged;
+    std::swap(tryFirst, trySecond);
+  }
+  else {
+    const auto lastHitSubdet = firstHits.front()->geographicalId().subdetId();
+    const auto& surfacePos = lastHitSurface.position();
+    const auto& lastHitPos = firstHits.front()->globalPosition();
+    bool doSwitch = false;
+    if(isBarrel(lastHitSubdet)) {
+      doSwitch = (surfacePos.perp2() < lastHitPos.perp2());
+    }
+    else {
+      doSwitch = (surfacePos.z() < lastHitPos.z());
+    }
+    if(doSwitch) {
+      LogTrace("MkFitProducer") << "Propagating first opposite, then along, because surface is inner than the hit; surface perp2 " << surfacePos.perp()
+                                << " hit " << lastHitPos.perp2()
+                                << " surface z " << surfacePos.z()
+                                << " hit " << lastHitPos.z();
+
+      std::swap(tryFirst, trySecond);
+    }
+  }
+
   /*
   const Propagator *propagator = &propagatorAlong;
   if(const auto *prop = dynamic_cast<const PropagatorWithMaterial *>(propagator)) {
     propagator = prop;
   }
   */
-  auto tsosDouble = propagatorAlong.propagateWithPath(fts, lastHitSurface);
+  auto tsosDouble = tryFirst->propagateWithPath(fts, lastHitSurface);
   if(!tsosDouble.first.isValid()) {
-    LogDebug("MkFitProducer") << "Propagating to startingState along momentum failed, trying opposite next";
-    tsosDouble = propagatorOpposite.propagateWithPath(fts, lastHitSurface);
+    LogDebug("MkFitProducer") << "Propagating to startingState failed, trying in another direction next";
+    tsosDouble = trySecond->propagateWithPath(fts, lastHitSurface);
   }
   auto& startingState = tsosDouble.first;
 
