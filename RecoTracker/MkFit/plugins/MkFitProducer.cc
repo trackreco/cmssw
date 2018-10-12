@@ -293,9 +293,9 @@ void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& description
   desc.add<std::string>("ttrhBuilder", "WithTrackAngle");
   desc.add<std::string>("propagatorAlong", "PropagatorWithMaterial");
   desc.add<std::string>("propagatorOpposite", "PropagatorWithMaterialOpposite");
-  desc.add("buildingRoutine", std::string("what should be the default?"));
-  desc.add<std::string>("seedCleaning", "none")->setComment("Valid values are: 'none', 'N2'");
-  desc.add("backwardFitInCMSSW", true);
+  desc.add<std::string>("buildingRoutine", "cloneEngine")->setComment("Valid values are: 'bestHit', 'standard', 'cloneEngine', 'fullVector'");
+  desc.add<std::string>("seedCleaning", "N2")->setComment("Valid values are: 'none', 'N2'");
+  desc.add("backwardFitInCMSSW", false)->setComment("Do backward fit (to innermost hit) in CMSSW (true) or mkFit (false)");
   desc.addUntracked("mkfitSilent", true)->setComment("Allows to enables printouts from mkfit with 'False'");
 
   descriptions.add("mkFitProducer", desc);
