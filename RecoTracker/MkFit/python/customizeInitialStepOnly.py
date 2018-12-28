@@ -89,3 +89,57 @@ def customizeInitialStepOnly(process):
     removePath(process, "RECOSIMoutput_step")
 
     return process
+
+
+def customizeInitialStepOnlyNoMTV(process):
+    process = customizeInitialStepOnly(process)
+
+    process.options.wantSummary = cms.untracked.bool(True)
+
+    # Remove validation
+    removePath(process, "prevalidation_step")
+    removePath(process, "validation_step")
+    removePath(process, "DQMoutput_step")
+
+    # Minimize the rest
+    process.RawToDigiTask = cms.Task(
+        process.siPixelDigis,
+        process.siStripDigis
+    )
+    process.reconstruction_trackingOnly = cms.Sequence(
+        process.trackerlocalreco +
+        process.offlineBeamSpot +
+        process.siPixelClusterShapeCachePreSplitting +
+        process.MeasurementTrackerEventPreSplitting,
+        process.iterTrackingTask
+    )
+    process.trackerlocalrecoTask.remove(process.clusterSummaryProducer)
+    process.iterTrackingTask.remove(process.ak4CaloJetsForTrk)
+    process.iterTrackingTask.remove(process.caloTowerForTrk)
+    process.iterTrackingTask.remove(process.firstStepPrimaryVertices)
+    process.iterTrackingTask.remove(process.firstStepPrimaryVerticesUnsorted)
+    process.iterTrackingTask.remove(process.initialStepTrackRefsForJets)
+    process.iterTrackingTask.remove(process.initialStepClassifier1)
+    process.iterTrackingTask.remove(process.initialStep)
+
+    # Add a dummy output module to trigger the (minimal) prefetching
+    process.out = cms.OutputModule("AsciiOutputModule",
+        outputCommands = cms.untracked.vstring(
+            "keep *_initialStepTracks_*_*",
+        ),
+        verbosity = cms.untracked.uint32(0)
+    )
+    process.outPath = cms.EndPath(process.out)
+    process.schedule = cms.Schedule(process.raw2digi_step, process.reconstruction_step, process.outPath)
+
+    # Minimize printouts
+    process.MessageLogger.cerr.FwkReport.reportEvery = 100
+    process.MessageLogger.cerr.default.limit = 1
+    process.MessageLogger.suppressWarning.extend([
+            "initialStepTrackCandidatesMkFitInput",
+            "initialStepTrackCandidatesMkFit",
+            "initialStepTrackCandidates",
+            "initialStepTracks",
+    ])
+
+    return process
