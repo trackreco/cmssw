@@ -6,6 +6,7 @@
 #include "FWCore/Utilities/interface/do_nothing_deleter.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 
+#include "DataFormats/SiStripCluster/interface/SiStripClusterTools.h"
 #include "DataFormats/SiPixelDetId/interface/PixelSubdetector.h"
 #include "DataFormats/SiStripDetId/interface/StripSubdetector.h"
 #include "DataFormats/TrajectorySeed/interface/TrajectorySeed.h"
@@ -175,6 +176,9 @@ private:
                    const TrackerTopology& ttopo,
                    const TransientTrackingRecHitBuilder& ttrhBuilder,
                    const mkfit::LayerNumberConverter& lnc) const;
+
+  bool passCCC(const SiStripRecHit2D& hit, const DetId hitId) const;
+  bool passCCC(const SiPixelRecHit& hit, const DetId hitId) const;
 
   mkfit::TrackVec convertSeeds(const edm::View<TrajectorySeed>& seeds,
                                const IndexLayer& indexLayers,
@@ -491,6 +495,14 @@ std::vector<const DetLayer *> MkFitProducer::createDetLayers(const mkfit::LayerN
   return dets;
 }
 
+bool MkFitProducer::passCCC(const SiStripRecHit2D& hit, const DetId hitId) const {
+  return (siStripClusterTools::chargePerCM(hitId,hit.firstClusterRef().stripCluster()) < 1620 );
+}
+
+bool MkFitProducer::passCCC(const SiPixelRecHit& hit, const DetId hitId) const {
+  return true;
+}
+
 template <typename HitCollection>
 void MkFitProducer::convertHits(const HitCollection& hits,
                                 std::vector<mkfit::HitVec>& mkfitHits,
@@ -506,6 +518,8 @@ void MkFitProducer::convertHits(const HitCollection& hits,
     const auto isStereo = ttopo.isStereo(detid);
 
     for(const auto& hit: detset) {
+      if(!passCCC(hit, detid)) continue;
+
       TransientTrackingRecHit::RecHitPointer ttrh = ttrhBuilder.build(&hit);
 
       SVector3 pos(ttrh->globalPosition().x(),
