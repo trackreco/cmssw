@@ -20,6 +20,7 @@
   <use name="TrackingTools/TrackFitters"/>
   <use name="TrackingTools/TrajectoryState"/>
   <use name="TrackingTools/TransientTrackingRecHit"/>
+  <use name="RecoTracker/MkFit"/>
   <use name="rootmath"/>
   <use name="mkfit"/>
   <flags EDM_PLUGIN="1"/>
