@@ -202,7 +202,8 @@ mkfit::TrackVec MkFitInputConverter::convertSeeds(const edm::View<TrajectorySeed
                  stateGlobal.momentum().y(),
                  stateGlobal.momentum().z());
 
-    const auto& cov = tsos.cartesianError().matrix();
+    const auto cartError = tsos.cartesianError(); // returns a temporary, so can't chain with the following line
+    const auto& cov = cartError.matrix();
     SMatrixSym66 err;
     for(int i=0; i<6; ++i) {
       for(int j=i; j<6; ++j) {
