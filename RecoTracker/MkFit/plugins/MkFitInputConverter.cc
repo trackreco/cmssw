@@ -130,7 +130,7 @@ void MkFitInputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const e
 }
 
 bool MkFitInputConverter::passCCC(const SiStripRecHit2D& hit, const DetId hitId) const {
-  return (siStripClusterTools::chargePerCM(hitId,hit.firstClusterRef().stripCluster()) < 1620 );
+  return (siStripClusterTools::chargePerCM(hitId,hit.firstClusterRef().stripCluster()) >= 1620 );
 }
 
 bool MkFitInputConverter::passCCC(const SiPixelRecHit& hit, const DetId hitId) const {
