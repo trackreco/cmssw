@@ -156,16 +156,16 @@ void MkFitInputConverter::convertHits(const HitCollection& hits,
 
       TransientTrackingRecHit::RecHitPointer ttrh = ttrhBuilder.build(&hit);
 
-      SVector3 pos(ttrh->globalPosition().x(),
-                   ttrh->globalPosition().y(),
-                   ttrh->globalPosition().z());
+      const auto& gpos = ttrh->globalPosition();
+      SVector3 pos(gpos.x(), gpos.y(), gpos.z());
+      const auto& gerr = ttrh->globalPositionError();
       SMatrixSym33 err;
-      err.At(0,0) = ttrh->globalPositionError().cxx();
-      err.At(1,1) = ttrh->globalPositionError().cyy();
-      err.At(2,2) = ttrh->globalPositionError().czz();
-      err.At(0,1) = ttrh->globalPositionError().cyx();
-      err.At(0,2) = ttrh->globalPositionError().czx();
-      err.At(1,2) = ttrh->globalPositionError().czy();
+      err.At(0,0) = gerr.cxx();
+      err.At(1,1) = gerr.cyy();
+      err.At(2,2) = gerr.czz();
+      err.At(0,1) = gerr.cyx();
+      err.At(0,2) = gerr.czx();
+      err.At(1,2) = gerr.czy();
 
       const auto ilay = lnc.convertLayerNumber(subdet, layer, false, isStereo, ttrh->globalPosition().z()>0);
       LogTrace("MkFitInputConverter") << "Adding hit detid " << detid.rawId()
@@ -195,12 +195,10 @@ mkfit::TrackVec MkFitInputConverter::convertSeeds(const edm::View<TrajectorySeed
     const auto lastRecHit = ttrhBuilder.build(&*(hitRange.second-1));
     const auto tsos = trajectoryStateTransform::transientState( seed.startingState(), lastRecHit->surface(), &mf);
     const auto& stateGlobal = tsos.globalParameters();
-    SVector3 pos(stateGlobal.position().x(),
-                 stateGlobal.position().y(),
-                 stateGlobal.position().z());
-    SVector3 mom(stateGlobal.momentum().x(),
-                 stateGlobal.momentum().y(),
-                 stateGlobal.momentum().z());
+    const auto& gpos = stateGlobal.position();
+    const auto& gmom = stateGlobal.momentum();
+    SVector3 pos(gpos.x(), gpos.y(), gpos.z());
+    SVector3 mom(gmom.x(), gmom.y(), gmom.z());
 
     const auto cartError = tsos.cartesianError(); // returns a temporary, so can't chain with the following line
     const auto& cov = cartError.matrix();
