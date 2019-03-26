@@ -4,7 +4,8 @@
 
 import FWCore.ParameterSet.Config as cms
 
-process = cms.Process( "TEST" )
+from Configuration.StandardSequences.Eras import eras
+process = cms.Process( "TEST",eras.Run2_2018 )
 
 process.HLTConfigVersion = cms.PSet(
   tableName = cms.string('/dev/CMSSW_10_3_0/GRun/V47')
