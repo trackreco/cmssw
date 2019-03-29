@@ -41,7 +41,7 @@ process.options = cms.untracked.PSet(
     numberOfThreads = cms.untracked.uint32(1),
 )
 
-import input
+import RecoTracker.MkFit.input as input
 options = input.apply(process)
 
 # Production Info

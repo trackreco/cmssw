@@ -8791,7 +8791,7 @@ from HLTrigger.Configuration.Eras import modifyHLTforEras
 modifyHLTforEras(process)
 
 # customizations
-import input
+import RecoTracker.MkFit.input as input
 options = input.apply(process)
 
 if options.hltOnDemand == 0:
@@ -8800,7 +8800,7 @@ if options.hltOnDemand == 0:
 process.MessageLogger.cerr.FwkReport.limit = 1000000
 
 if options.timing == 0:
-    process.load("hlt_validation_cff")
+    process.load("RecoTracker.MkFit.hlt_validation_cff")
 
 if options.mkfit != 0:
     import RecoTracker.MkFit.mkFitInputConverter_cfi as mkFitInputConverter_cfi
