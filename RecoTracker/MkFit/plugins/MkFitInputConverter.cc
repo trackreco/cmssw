@@ -167,12 +167,12 @@ void MkFitInputConverter::convertHits(const HitCollection& hits,
       err.At(0,2) = gerr.czx();
       err.At(1,2) = gerr.czy();
 
-      const auto ilay = lnc.convertLayerNumber(subdet, layer, false, isStereo, ttrh->globalPosition().z()>0);
+      const auto ilay = lnc.convertLayerNumber(subdet, layer, false, isStereo, gpos.z()>0);
       LogTrace("MkFitInputConverter") << "Adding hit detid " << detid.rawId()
                                       << " subdet " << subdet
                                       << " layer " << layer
                                       << " isStereo " << isStereo
-                                      << " zplus " << (ttrh->globalPosition().z()>0)
+                                      << " zplus " << (gpos.z()>0)
                                       << " ilay " << ilay;
 
 
