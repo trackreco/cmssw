@@ -154,11 +154,9 @@ void MkFitInputConverter::convertHits(const HitCollection& hits,
     for(const auto& hit: detset) {
       if(!passCCC(hit, detid)) continue;
 
-      TransientTrackingRecHit::RecHitPointer ttrh = ttrhBuilder.build(&hit);
-
-      const auto& gpos = ttrh->globalPosition();
+      const auto& gpos = hit.globalPosition();
       SVector3 pos(gpos.x(), gpos.y(), gpos.z());
-      const auto& gerr = ttrh->globalPositionError();
+      const auto& gerr = hit.globalPositionError();
       SMatrixSym33 err;
       err.At(0,0) = gerr.cxx();
       err.At(1,1) = gerr.cyy();
