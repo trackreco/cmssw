@@ -166,7 +166,8 @@ _pageNameMap = {
     "v0": "V0",
     "miniaod": "MiniAOD",
     "timing": "Timing",
-    "hlt": "HLT",
+    "hlt": "HLT (offline MTV cuts)",
+    "hltOnline": "HLT (online MTV cuts)",
     "pixel": "Pixel tracks",
 }
 
