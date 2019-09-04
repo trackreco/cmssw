@@ -122,9 +122,9 @@ void MkFitInputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const e
   std::vector<mkfit::HitVec> mkFitHits(lnc.nLayers());
   MkFitIndexLayer indexLayers;
   int totalHits = 0; // I need to have a global hit index in order to have the hit remapping working?
-  convertHits(*pixelHits, mkFitHits, indexLayers, totalHits, *ttopo, *ttrhBuilder, lnc);
   convertHits(*stripRphiHits, mkFitHits, indexLayers, totalHits, *ttopo, *ttrhBuilder, lnc);
   convertHits(*stripStereoHits, mkFitHits, indexLayers, totalHits, *ttopo, *ttrhBuilder, lnc);
+  convertHits(*pixelHits, mkFitHits, indexLayers, totalHits, *ttopo, *ttrhBuilder, lnc);
 
   // Then import seeds
   edm::Handle<edm::View<TrajectorySeed>> seeds;
@@ -154,15 +154,29 @@ void MkFitInputConverter::convertHits(const HitCollection& hits,
                                       const TrackerTopology& ttopo,
                                       const TransientTrackingRecHitBuilder& ttrhBuilder,
                                       const mkfit::LayerNumberConverter& lnc) const {
+  if (hits.empty())
+    return;
   auto isPlusSide = [&ttopo](const DetId& detid) {
     return ttopo.side(detid) == static_cast<unsigned>(TrackerDetSide::PosEndcap);
   };
+
+  {
+    const DetId detid{hits.ids().back()};
+    const auto ilay =
+        lnc.convertLayerNumber(detid.subdetId(), ttopo.layer(detid), false, ttopo.isStereo(detid), isPlusSide(detid));
+    // Do initial reserves to minimize further memory allocations
+    const auto& lastClusterRef = hits.data().back().firstClusterRef();
+    indexLayers.resizeByClusterIndex(lastClusterRef.id(), lastClusterRef.index());
+    indexLayers.increaseLayerSize(ilay, hits.detsetSize(hits.ids().size() - 1));
+  }
+
   for (const auto& detset : hits) {
     const DetId detid = detset.detId();
     const auto subdet = detid.subdetId();
     const auto layer = ttopo.layer(detid);
     const auto isStereo = ttopo.isStereo(detid);
     const auto ilay = lnc.convertLayerNumber(subdet, layer, false, isStereo, isPlusSide(detid));
+    indexLayers.increaseLayerSize(ilay, detset.size());  // to minimize memory allocations
 
     for(const auto& hit: detset) {
       if(!passCCC(hit, detid)) continue;
