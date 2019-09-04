@@ -53,16 +53,16 @@ def apply(process):
     else:
         prefix = "root://redirector.t2.ucsd.edu//store/user"; fname = "step2.root"
     if options.sample == "10mu":
-        process.source.fileNames = [prefix+"/slava77/CMSSW_10_4_0_patch1-orig/10muPt0p2to10HS/"+fname]
+        process.source.fileNames = [prefix+"/slava77/CMSSW_10_4_0_patch1-orig/default/10muPt0p2to10HS/"+fname]
         process.maxEvents.input = 1000
     elif options.sample == "ttbarnopu":
-        process.source.fileNames = [prefix+"/slava77/CMSSW_10_4_0_patch1-orig/11024.0_TTbar_13/AVE_0_BX01_25ns/"+fname]
+        process.source.fileNames = [prefix+"/slava77/CMSSW_10_4_0_patch1-orig/default/11024.0_TTbar_13/AVE_0_BX01_25ns/"+fname]
         process.maxEvents.input = 100
     elif options.sample == "ttbarpu50":
-        process.source.fileNames = [prefix+"/slava77/CMSSW_10_4_0_patch1-orig/11024.0_TTbar_13/AVE_50_BX01_25ns/"+fname]
+        process.source.fileNames = [prefix+"/slava77/CMSSW_10_4_0_patch1-orig/default/11024.0_TTbar_13/AVE_50_BX01_25ns/"+fname]
         process.maxEvents.input = 100
     elif options.sample == "ttbarpu70":
-        process.source.fileNames = [prefix+"/slava77/CMSSW_10_4_0_patch1-orig/11024.0_TTbar_13/AVE_70_BX01_25ns/"+fname]
+        process.source.fileNames = [prefix+"/slava77/CMSSW_10_4_0_patch1-orig/default/11024.0_TTbar_13/AVE_70_BX01_25ns/"+fname]
         process.maxEvents.input = 10
     else:
         raise Exception("Incorrect value of sample=%s, supported ones are 10mu, ttbarnopu, ttbarpu50, ttbarpu70" % options.sample)
