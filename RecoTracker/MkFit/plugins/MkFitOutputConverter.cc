@@ -308,13 +308,15 @@ std::unique_ptr<TrackCandidateCollection> MkFitOutputConverter::convertCandidate
         // inserted here, but it seems that it is best to deal with
         // them in the TrackProducer.
         lastHitInvalid = true;
-        recHits.push_back(hitIndexMap.getHitPtr(hitOnTrack.layer, hitOnTrack.index)->clone());
+      } else {
+        recHits.push_back(hitIndexMap.hitPtr(MkFitHitIndexMap::MkFitHit{hitOnTrack.index, hitOnTrack.layer})->clone());
         LogTrace("MkFitOutputConverter") << "  pos " << recHits.back().globalPosition().x() << " "
                                          << recHits.back().globalPosition().y() << " "
                                          << recHits.back().globalPosition().z() << " mag2 "
                                          << recHits.back().globalPosition().mag2() << " detid "
                                          << recHits.back().geographicalId().rawId() << " cluster "
-                                         << hitIndexMap.getClusterIndex(hitOnTrack.layer, hitOnTrack.index);
+                                         << hitIndexMap.clusterIndex(
+                                                MkFitHitIndexMap::MkFitHit{hitOnTrack.index, hitOnTrack.layer});
         lastHitInvalid = false;
       }
     }
