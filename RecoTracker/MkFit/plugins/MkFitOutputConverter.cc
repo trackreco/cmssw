@@ -302,13 +302,17 @@ std::unique_ptr<TrackCandidateCollection> MkFitOutputConverter::convertCandidate
 
     // hits
     edm::OwnVector<TrackingRecHit> recHits;
-    const int nhits = cand.nTotalHits(); // what exactly is the difference between nTotalHits() and nFoundHits()?
+    // nTotalHits() gives sum of valid hits (nFoundHits()) and
+    // invalid/missing hits (up to a maximum of 32 inside mkFit,
+    // restriction to be lifted in the future)
+    const int nhits = cand.nTotalHits();
     bool lastHitInvalid = false;
     for(int i=0; i<nhits; ++i) {
       const auto& hitOnTrack = cand.getHitOnTrack(i);
       LogTrace("MkFitOutputConverter") << " hit on layer " << hitOnTrack.layer << " index " << hitOnTrack.index;
-      if(hitOnTrack.index < 0 ) {
-        // What is the exact meaning of -1, -2, -3?
+      if (hitOnTrack.index < 0) {
+        // See index-desc.txt file in mkFit for description of negative values
+        //
         // In order to use the regular InvalidTrackingRecHit I'd need
         // a GeomDet (and "unfortunately" that is needed in
         // TrackProducer).
@@ -428,13 +432,14 @@ std::unique_ptr<TrackCandidateCollection> MkFitOutputConverter::convertCandidate
     // convert to persistent, from CkfTrackCandidateMakerBase
     auto pstate = trajectoryStateTransform::persistentState(tsosDet.first, tsosDet.second->geographicalId().rawId());
 
-    output->emplace_back(recHits,
-                         seeds.at(seedIndex),
-                         pstate,
-                         seeds.refAt(seedIndex),
-                         0, // nloops, let's ignore for now
-                         static_cast<uint8_t>(StopReason::UNINITIALIZED) // let's ignore the details of stopping reason as well for now
-                         );
+    output->emplace_back(
+        recHits,
+        seeds.at(seedIndex),
+        pstate,
+        seeds.refAt(seedIndex),
+        0,                                               // mkFit does not produce loopers, so set nLoops=0
+        static_cast<uint8_t>(StopReason::UNINITIALIZED)  // TODO: ignore details of stopping reason as well for now
+    );
   }
   return output;
 }
@@ -544,14 +549,14 @@ std::pair<TrajectoryStateOnSurface, const GeomDet *> MkFitOutputConverter::backw
                                  &aChi2MeasurementEstimator,
                                  firstHits.size(), nullptr, &hitCloner);
 
-  PropagationDirection backFitDirection = oppositeToMomentum; // assume for now that the propagation in mkfit always alongMomentum
+  // assume for now that the propagation in mkfit always alongMomentum
+  PropagationDirection backFitDirection = oppositeToMomentum;
 
-  // only direction matters in this contest
-  TrajectorySeed fakeSeed(PTrajectoryStateOnDet(),
-                          edm::OwnVector<TrackingRecHit>(),
-                          backFitDirection);
+  // only direction matters in this context
+  TrajectorySeed fakeSeed(PTrajectoryStateOnDet(), edm::OwnVector<TrackingRecHit>(), backFitDirection);
 
-  Trajectory && fitres = backFitter.fitOne( fakeSeed, firstHits, startingState, TrajectoryFitter::standard); // ignore loopers for now
+  // ignore loopers for now
+  Trajectory fitres = backFitter.fitOne(fakeSeed, firstHits, startingState, TrajectoryFitter::standard);
 
   LogDebug("MkFitOutputConverter")
     <<"using a backward fit of :"<<firstHits.size()<<" hits, starting from:\n"<<startingState
