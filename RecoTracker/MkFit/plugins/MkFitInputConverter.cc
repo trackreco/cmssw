@@ -69,16 +69,20 @@ private:
   edm::EDGetTokenT<edm::View<TrajectorySeed> > seedToken_;
   edm::EDPutTokenT<MkFitInputWrapper> putToken_;
   std::string ttrhBuilderName_;
+  const float minGoodStripCharge_;
 };
 
-MkFitInputConverter::MkFitInputConverter(edm::ParameterSet const& iConfig):
-  pixelRecHitToken_(consumes<SiPixelRecHitCollection>(iConfig.getParameter<edm::InputTag>("pixelRecHits"))),
-  stripRphiRecHitToken_(consumes<SiStripRecHit2DCollection>(iConfig.getParameter<edm::InputTag>("stripRphiRecHits"))),
-  stripStereoRecHitToken_(consumes<SiStripRecHit2DCollection>(iConfig.getParameter<edm::InputTag>("stripStereoRecHits"))),
-  seedToken_(consumes<edm::View<TrajectorySeed> >(iConfig.getParameter<edm::InputTag>("seeds"))),
-  putToken_(produces<MkFitInputWrapper>()),
-  ttrhBuilderName_(iConfig.getParameter<std::string>("ttrhBuilder"))
-{}
+MkFitInputConverter::MkFitInputConverter(edm::ParameterSet const& iConfig)
+    : pixelRecHitToken_{consumes<SiPixelRecHitCollection>(iConfig.getParameter<edm::InputTag>("pixelRecHits"))},
+      stripRphiRecHitToken_{
+          consumes<SiStripRecHit2DCollection>(iConfig.getParameter<edm::InputTag>("stripRphiRecHits"))},
+      stripStereoRecHitToken_{
+          consumes<SiStripRecHit2DCollection>(iConfig.getParameter<edm::InputTag>("stripStereoRecHits"))},
+      seedToken_{consumes<edm::View<TrajectorySeed>>(iConfig.getParameter<edm::InputTag>("seeds"))},
+      putToken_{produces<MkFitInputWrapper>()},
+      ttrhBuilderName_{iConfig.getParameter<std::string>("ttrhBuilder")},
+      minGoodStripCharge_{static_cast<float>(
+          iConfig.getParameter<edm::ParameterSet>("minGoodStripCharge").getParameter<double>("value"))} {}
 
 void MkFitInputConverter::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
@@ -89,7 +93,11 @@ void MkFitInputConverter::fillDescriptions(edm::ConfigurationDescriptions& descr
   desc.add("seeds", edm::InputTag("initialStepSeeds"));
   desc.add<std::string>("ttrhBuilder", "WithTrackAngle");
 
-  descriptions.addWithDefaultLabel(desc);
+  edm::ParameterSetDescription descCCC;
+  descCCC.add<double>("value");
+  desc.add("minGoodStripCharge", descCCC);
+
+  descriptions.add("mkFitInputConverterDefault", desc);
 }
 
 void MkFitInputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const edm::EventSetup& iSetup) const {
@@ -131,7 +139,7 @@ void MkFitInputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const e
 }
 
 bool MkFitInputConverter::passCCC(const SiStripRecHit2D& hit, const DetId hitId) const {
-  return (siStripClusterTools::chargePerCM(hitId,hit.firstClusterRef().stripCluster()) >= 1620 );
+  return (siStripClusterTools::chargePerCM(hitId, hit.firstClusterRef().stripCluster()) > minGoodStripCharge_);
 }
 
 bool MkFitInputConverter::passCCC(const SiPixelRecHit& hit, const DetId hitId) const {
