@@ -11,6 +11,7 @@
 #include "DataFormats/TrackerRecHit2D/interface/SiStripRecHit2DCollection.h"
 
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
+#include "DataFormats/TrackerCommon/interface/TrackerDetSide.h"
 #include "Geometry/Records/interface/TrackerTopologyRcd.h"
 
 #include "TrackingTools/Records/interface/TransientRecHitRecord.h"
@@ -145,11 +146,15 @@ void MkFitInputConverter::convertHits(const HitCollection& hits,
                                       const TrackerTopology& ttopo,
                                       const TransientTrackingRecHitBuilder& ttrhBuilder,
                                       const mkfit::LayerNumberConverter& lnc) const {
+  auto isPlusSide = [&ttopo](const DetId& detid) {
+    return ttopo.side(detid) == static_cast<unsigned>(TrackerDetSide::PosEndcap);
+  };
   for (const auto& detset : hits) {
     const DetId detid = detset.detId();
     const auto subdet = detid.subdetId();
     const auto layer = ttopo.layer(detid);
     const auto isStereo = ttopo.isStereo(detid);
+    const auto ilay = lnc.convertLayerNumber(subdet, layer, false, isStereo, isPlusSide(detid));
 
     for(const auto& hit: detset) {
       if(!passCCC(hit, detid)) continue;
@@ -158,21 +163,16 @@ void MkFitInputConverter::convertHits(const HitCollection& hits,
       SVector3 pos(gpos.x(), gpos.y(), gpos.z());
       const auto& gerr = hit.globalPositionError();
       SMatrixSym33 err;
-      err.At(0,0) = gerr.cxx();
-      err.At(1,1) = gerr.cyy();
-      err.At(2,2) = gerr.czz();
-      err.At(0,1) = gerr.cyx();
-      err.At(0,2) = gerr.czx();
-      err.At(1,2) = gerr.czy();
+      err.At(0, 0) = gerr.cxx();
+      err.At(1, 1) = gerr.cyy();
+      err.At(2, 2) = gerr.czz();
+      err.At(0, 1) = gerr.cyx();
+      err.At(0, 2) = gerr.czx();
+      err.At(1, 2) = gerr.czy();
 
-      const auto ilay = lnc.convertLayerNumber(subdet, layer, false, isStereo, gpos.z()>0);
-      LogTrace("MkFitInputConverter") << "Adding hit detid " << detid.rawId()
-                                      << " subdet " << subdet
-                                      << " layer " << layer
-                                      << " isStereo " << isStereo
-                                      << " zplus " << (gpos.z()>0)
-                                      << " ilay " << ilay;
-
+      LogTrace("MkFitInputConverter") << "Adding hit detid " << detid.rawId() << " subdet " << subdet << " layer "
+                                      << layer << " isStereo " << isStereo << " zplus " << isPlusSide(detid) << " ilay "
+                                      << ilay;
 
       indexLayers.insert(hit.firstClusterRef().id(), hit.firstClusterRef().index(), mkFitHits[ilay].size(), ilay, &hit);
       mkFitHits[ilay].emplace_back(pos, err, totalHits);
