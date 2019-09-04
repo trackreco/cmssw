@@ -26,7 +26,7 @@
 #include "Math/SVector.h"
 #include "Math/SMatrix.h"
 
-// MkFit includes
+// mkFit includes
 #include "Hit.h"
 #include "Track.h"
 #include "LayerNumberConverter.h"
@@ -43,7 +43,7 @@ private:
 
   template <typename HitCollection>
   void convertHits(const HitCollection& hits,
-                   std::vector<mkfit::HitVec>& mkfitHits,
+                   std::vector<mkfit::HitVec>& mkFitHits,
                    MkFitIndexLayer& indexLayers,
                    int& totalHits,
                    const TrackerTopology& ttopo,
@@ -110,12 +110,12 @@ void MkFitInputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const e
   edm::ESHandle<TrackerTopology> ttopo;
   iSetup.get<TrackerTopologyRcd>().get(ttopo);
 
-  std::vector<mkfit::HitVec> mkfitHits(lnc.nLayers());
+  std::vector<mkfit::HitVec> mkFitHits(lnc.nLayers());
   MkFitIndexLayer indexLayers;
   int totalHits = 0; // I need to have a global hit index in order to have the hit remapping working?
-  convertHits(*pixelHits, mkfitHits, indexLayers, totalHits, *ttopo, *ttrhBuilder, lnc);
-  convertHits(*stripRphiHits, mkfitHits, indexLayers, totalHits, *ttopo, *ttrhBuilder, lnc);
-  convertHits(*stripStereoHits, mkfitHits, indexLayers, totalHits, *ttopo, *ttrhBuilder, lnc);
+  convertHits(*pixelHits, mkFitHits, indexLayers, totalHits, *ttopo, *ttrhBuilder, lnc);
+  convertHits(*stripRphiHits, mkFitHits, indexLayers, totalHits, *ttopo, *ttrhBuilder, lnc);
+  convertHits(*stripStereoHits, mkFitHits, indexLayers, totalHits, *ttopo, *ttrhBuilder, lnc);
 
   // Then import seeds
   edm::Handle<edm::View<TrajectorySeed>> seeds;
@@ -124,9 +124,9 @@ void MkFitInputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const e
   edm::ESHandle<MagneticField> mf;
   iSetup.get<IdealMagneticFieldRecord>().get(mf);
 
-  auto mkfitSeeds = convertSeeds(*seeds, indexLayers, *ttrhBuilder, *mf);
+  auto mkFitSeeds = convertSeeds(*seeds, indexLayers, *ttrhBuilder, *mf);
 
-  iEvent.emplace(putToken_, std::move(indexLayers), std::move(mkfitHits), std::move(mkfitSeeds), std::move(lnc));
+  iEvent.emplace(putToken_, std::move(indexLayers), std::move(mkFitHits), std::move(mkFitSeeds), std::move(lnc));
 }
 
 bool MkFitInputConverter::passCCC(const SiStripRecHit2D& hit, const DetId hitId) const {
@@ -139,13 +139,13 @@ bool MkFitInputConverter::passCCC(const SiPixelRecHit& hit, const DetId hitId) c
 
 template <typename HitCollection>
 void MkFitInputConverter::convertHits(const HitCollection& hits,
-                                std::vector<mkfit::HitVec>& mkfitHits,
-                                MkFitIndexLayer& indexLayers,
-                                int& totalHits,
-                                const TrackerTopology& ttopo,
-                                const TransientTrackingRecHitBuilder& ttrhBuilder,
-                                const mkfit::LayerNumberConverter& lnc) const {
-  for(const auto& detset: hits) {
+                                      std::vector<mkfit::HitVec>& mkFitHits,
+                                      MkFitIndexLayer& indexLayers,
+                                      int& totalHits,
+                                      const TrackerTopology& ttopo,
+                                      const TransientTrackingRecHitBuilder& ttrhBuilder,
+                                      const mkfit::LayerNumberConverter& lnc) const {
+  for (const auto& detset : hits) {
     const DetId detid = detset.detId();
     const auto subdet = detid.subdetId();
     const auto layer = ttopo.layer(detid);
@@ -174,8 +174,8 @@ void MkFitInputConverter::convertHits(const HitCollection& hits,
                                       << " ilay " << ilay;
 
 
-      indexLayers.insert(hit.firstClusterRef().id(), hit.firstClusterRef().index(), mkfitHits[ilay].size(), ilay, &hit);
-      mkfitHits[ilay].emplace_back(pos, err, totalHits);
+      indexLayers.insert(hit.firstClusterRef().id(), hit.firstClusterRef().index(), mkFitHits[ilay].size(), ilay, &hit);
+      mkFitHits[ilay].emplace_back(pos, err, totalHits);
       ++totalHits;
     }
   }
