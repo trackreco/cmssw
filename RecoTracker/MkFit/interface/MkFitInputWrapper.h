@@ -20,8 +20,10 @@ public:
   MkFitInputWrapper(MkFitIndexLayer&& indexLayers, std::vector<mkfit::HitVec>&& hits, mkfit::TrackVec&& seeds, mkfit::LayerNumberConverter&& lnc);
   ~MkFitInputWrapper();
 
-  MkFitInputWrapper(MkFitInputWrapper&&) = default;
-  MkFitInputWrapper& operator=(MkFitInputWrapper&&) = default;
+  MkFitInputWrapper(MkFitInputWrapper const&) = delete;
+  MkFitInputWrapper& operator=(MkFitInputWrapper const&) = delete;
+  MkFitInputWrapper(MkFitInputWrapper&&);
+  MkFitInputWrapper& operator=(MkFitInputWrapper&&);
 
   MkFitIndexLayer const& indexLayers() const { return indexLayers_; }
   mkfit::TrackVec const& seeds() const { return *seeds_; }

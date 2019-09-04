@@ -11,3 +11,6 @@ MkFitOutputWrapper::MkFitOutputWrapper(mkfit::TrackVec&& candidateTracks, mkfit:
 {}
 
 MkFitOutputWrapper::~MkFitOutputWrapper() = default;
+
+MkFitOutputWrapper::MkFitOutputWrapper(MkFitOutputWrapper&&) = default;
+MkFitOutputWrapper& MkFitOutputWrapper::operator=(MkFitOutputWrapper&&) = default;
