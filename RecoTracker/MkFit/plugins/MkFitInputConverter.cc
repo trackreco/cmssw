@@ -45,7 +45,7 @@ private:
   template <typename HitCollection>
   void convertHits(const HitCollection& hits,
                    std::vector<mkfit::HitVec>& mkFitHits,
-                   MkFitIndexLayer& indexLayers,
+                   MkFitHitIndexMap& hitIndexMap,
                    int& totalHits,
                    const TrackerTopology& ttopo,
                    const TransientTrackingRecHitBuilder& ttrhBuilder,
@@ -55,7 +55,7 @@ private:
   bool passCCC(const SiPixelRecHit& hit, const DetId hitId) const;
 
   mkfit::TrackVec convertSeeds(const edm::View<TrajectorySeed>& seeds,
-                               const MkFitIndexLayer& indexLayers,
+                               const MkFitHitIndexMap& hitIndexMap,
                                const TransientTrackingRecHitBuilder& ttrhBuilder,
                                const MagneticField& mf) const;
 
@@ -120,11 +120,11 @@ void MkFitInputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const e
   iSetup.get<TrackerTopologyRcd>().get(ttopo);
 
   std::vector<mkfit::HitVec> mkFitHits(lnc.nLayers());
-  MkFitIndexLayer indexLayers;
+  MkFitHitIndexMap hitIndexMap;
   int totalHits = 0; // I need to have a global hit index in order to have the hit remapping working?
-  convertHits(*stripRphiHits, mkFitHits, indexLayers, totalHits, *ttopo, *ttrhBuilder, lnc);
-  convertHits(*stripStereoHits, mkFitHits, indexLayers, totalHits, *ttopo, *ttrhBuilder, lnc);
-  convertHits(*pixelHits, mkFitHits, indexLayers, totalHits, *ttopo, *ttrhBuilder, lnc);
+  convertHits(*stripRphiHits, mkFitHits, hitIndexMap, totalHits, *ttopo, *ttrhBuilder, lnc);
+  convertHits(*stripStereoHits, mkFitHits, hitIndexMap, totalHits, *ttopo, *ttrhBuilder, lnc);
+  convertHits(*pixelHits, mkFitHits, hitIndexMap, totalHits, *ttopo, *ttrhBuilder, lnc);
 
   // Then import seeds
   edm::Handle<edm::View<TrajectorySeed>> seeds;
@@ -133,9 +133,9 @@ void MkFitInputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const e
   edm::ESHandle<MagneticField> mf;
   iSetup.get<IdealMagneticFieldRecord>().get(mf);
 
-  auto mkFitSeeds = convertSeeds(*seeds, indexLayers, *ttrhBuilder, *mf);
+  auto mkFitSeeds = convertSeeds(*seeds, hitIndexMap, *ttrhBuilder, *mf);
 
-  iEvent.emplace(putToken_, std::move(indexLayers), std::move(mkFitHits), std::move(mkFitSeeds), std::move(lnc));
+  iEvent.emplace(putToken_, std::move(hitIndexMap), std::move(mkFitHits), std::move(mkFitSeeds), std::move(lnc));
 }
 
 bool MkFitInputConverter::passCCC(const SiStripRecHit2D& hit, const DetId hitId) const {
@@ -149,7 +149,7 @@ bool MkFitInputConverter::passCCC(const SiPixelRecHit& hit, const DetId hitId) c
 template <typename HitCollection>
 void MkFitInputConverter::convertHits(const HitCollection& hits,
                                       std::vector<mkfit::HitVec>& mkFitHits,
-                                      MkFitIndexLayer& indexLayers,
+                                      MkFitHitIndexMap& hitIndexMap,
                                       int& totalHits,
                                       const TrackerTopology& ttopo,
                                       const TransientTrackingRecHitBuilder& ttrhBuilder,
@@ -166,8 +166,8 @@ void MkFitInputConverter::convertHits(const HitCollection& hits,
         lnc.convertLayerNumber(detid.subdetId(), ttopo.layer(detid), false, ttopo.isStereo(detid), isPlusSide(detid));
     // Do initial reserves to minimize further memory allocations
     const auto& lastClusterRef = hits.data().back().firstClusterRef();
-    indexLayers.resizeByClusterIndex(lastClusterRef.id(), lastClusterRef.index());
-    indexLayers.increaseLayerSize(ilay, hits.detsetSize(hits.ids().size() - 1));
+    hitIndexMap.resizeByClusterIndex(lastClusterRef.id(), lastClusterRef.index());
+    hitIndexMap.increaseLayerSize(ilay, hits.detsetSize(hits.ids().size() - 1));
   }
 
   for (const auto& detset : hits) {
@@ -176,7 +176,7 @@ void MkFitInputConverter::convertHits(const HitCollection& hits,
     const auto layer = ttopo.layer(detid);
     const auto isStereo = ttopo.isStereo(detid);
     const auto ilay = lnc.convertLayerNumber(subdet, layer, false, isStereo, isPlusSide(detid));
-    indexLayers.increaseLayerSize(ilay, detset.size());  // to minimize memory allocations
+    hitIndexMap.increaseLayerSize(ilay, detset.size());  // to minimize memory allocations
 
     for(const auto& hit: detset) {
       if(!passCCC(hit, detid)) continue;
@@ -196,7 +196,7 @@ void MkFitInputConverter::convertHits(const HitCollection& hits,
                                       << layer << " isStereo " << isStereo << " zplus " << isPlusSide(detid) << " ilay "
                                       << ilay;
 
-      indexLayers.insert(hit.firstClusterRef().id(), hit.firstClusterRef().index(), mkFitHits[ilay].size(), ilay, &hit);
+      hitIndexMap.insert(hit.firstClusterRef().id(), hit.firstClusterRef().index(), mkFitHits[ilay].size(), ilay, &hit);
       mkFitHits[ilay].emplace_back(pos, err, totalHits);
       ++totalHits;
     }
@@ -204,9 +204,9 @@ void MkFitInputConverter::convertHits(const HitCollection& hits,
 }
 
 mkfit::TrackVec MkFitInputConverter::convertSeeds(const edm::View<TrajectorySeed>& seeds,
-                                            const MkFitIndexLayer& indexLayers,
-                                            const TransientTrackingRecHitBuilder& ttrhBuilder,
-                                            const MagneticField& mf) const {
+                                                  const MkFitHitIndexMap& hitIndexMap,
+                                                  const TransientTrackingRecHitBuilder& ttrhBuilder,
+                                                  const MagneticField& mf) const {
   mkfit::TrackVec ret;
   ret.reserve(seeds.size());
   int index = 0;
@@ -239,9 +239,9 @@ mkfit::TrackVec MkFitInputConverter::convertSeeds(const edm::View<TrajectorySeed
       if(hit == nullptr) {
         throw cms::Exception("Assert") << "Encountered a seed with a hit which is not BaseTrackerRecHit";
       }
-
-      const auto& info = indexLayers.get(hit->firstClusterRef().id(), hit->firstClusterRef().index());
-      ret.back().addHitIdx(info.index, info.layer, 0); // per-hit chi2 is not known
+      const auto& clusterRef = static_cast<const BaseTrackerRecHit&>(*iHit).firstClusterRef();
+      const auto& info = hitIndexMap.get(clusterRef.id(), clusterRef.index());
+      ret.back().addHitIdx(info.index, info.layer, 0);  // per-hit chi2 is not known
     }
     ++index;
   }

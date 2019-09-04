@@ -73,7 +73,7 @@ private:
                                                const TrackerTopology& ttopo) const;
 
   std::unique_ptr<TrackCandidateCollection> convertCandidates(const MkFitOutputWrapper& mkFitOutput,
-                                                              const MkFitIndexLayer& indexLayers,
+                                                              const MkFitHitIndexMap& hitIndexMap,
                                                               const edm::View<TrajectorySeed>& seeds,
                                                               const TrackerGeometry& geom,
                                                               const MagneticField& mf,
@@ -175,7 +175,7 @@ void MkFitOutputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const 
   auto detLayers = createDetLayers(hitsSeeds.layerNumberConverter(), *(mte->geometricSearchTracker()), *ttopo);
 
   // Convert mkfit presentation back to CMSSW
-  auto cands = convertCandidates(*tracks, hitsSeeds.indexLayers(), *seeds, geom, *mf, *propagatorAlong, *propagatorOpposite, hc, detLayers, hitsSeeds.seeds());
+  auto cands = convertCandidates(*tracks, hitsSeeds.hitIndexMap(), *seeds, geom, *mf, *propagatorAlong, *propagatorOpposite, hc, detLayers, hitsSeeds.seeds());
 
   iEvent.put(std::move(cands));
   // For starters let's put empty collections
@@ -259,7 +259,7 @@ std::vector<const DetLayer *> MkFitOutputConverter::createDetLayers(const mkfit:
 }
 
 std::unique_ptr<TrackCandidateCollection> MkFitOutputConverter::convertCandidates(const MkFitOutputWrapper& mkFitOutput,
-                                                                                  const MkFitIndexLayer& indexLayers,
+                                                                                  const MkFitHitIndexMap& hitIndexMap,
                                                                                   const edm::View<TrajectorySeed>& seeds,
                                                                                   const TrackerGeometry& geom,
                                                                                   const MagneticField& mf,
@@ -308,15 +308,13 @@ std::unique_ptr<TrackCandidateCollection> MkFitOutputConverter::convertCandidate
         // inserted here, but it seems that it is best to deal with
         // them in the TrackProducer.
         lastHitInvalid = true;
-      }
-      else {
-        recHits.push_back(indexLayers.getHitPtr(hitOnTrack.layer, hitOnTrack.index)->clone());
-        LogTrace("MkFitOutputConverter") << "  pos " << recHits.back().globalPosition().x()
-                                  << " " << recHits.back().globalPosition().y()
-                                  << " " << recHits.back().globalPosition().z()
-                                  << " mag2 " << recHits.back().globalPosition().mag2()
-                                  << " detid " << recHits.back().geographicalId().rawId()
-                                  << " cluster " << indexLayers.getClusterIndex(hitOnTrack.layer, hitOnTrack.index);
+        recHits.push_back(hitIndexMap.getHitPtr(hitOnTrack.layer, hitOnTrack.index)->clone());
+        LogTrace("MkFitOutputConverter") << "  pos " << recHits.back().globalPosition().x() << " "
+                                         << recHits.back().globalPosition().y() << " "
+                                         << recHits.back().globalPosition().z() << " mag2 "
+                                         << recHits.back().globalPosition().mag2() << " detid "
+                                         << recHits.back().geographicalId().rawId() << " cluster "
+                                         << hitIndexMap.getClusterIndex(hitOnTrack.layer, hitOnTrack.index);
         lastHitInvalid = false;
       }
     }
