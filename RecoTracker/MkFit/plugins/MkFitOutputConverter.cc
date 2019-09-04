@@ -90,15 +90,6 @@ private:
                                                                   bool lastHitWasInvalid,
                                                                   bool lastHitWasChanged) const;
 
-  std::pair<TrajectoryStateOnSurface, const GeomDet*> backwardFitImpl(
-      const FreeTrajectoryState& fts,
-      const TransientTrackingRecHit::ConstRecHitContainer& firstHits,
-      const Propagator& propagatorAlong,
-      const Propagator& propagatorOpposite,
-      const TkClonerImpl& hitCloner,
-      bool lastHitWasInvalid,
-      bool lastHitWasChanged) const;
-
   std::pair<TrajectoryStateOnSurface, const GeomDet*> convertInnermostState(const FreeTrajectoryState& fts,
                                                                             const edm::OwnVector<TrackingRecHit>& hits,
                                                                             const Propagator& propagatorAlong,
@@ -464,25 +455,6 @@ std::pair<TrajectoryStateOnSurface, const GeomDet *> MkFitOutputConverter::backw
     }
   }
 
-  auto ret = backwardFitImpl(fts, firstHits, propagatorAlong, propagatorOpposite, hitCloner, lastHitWasInvalid, lastHitWasChanged);
-  // I think now that this doesn't really make sense
-  /*
-  if(!ret.first.isValid()) {
-    edm::LogWarning("MkFitOutputConverter") << "Backward fit with all hits failed, let's try dropping last hit";
-    firstHits.erase(firstHits.begin());
-    ret = backwardFitImpl(fts, firstHits, propagatorAlong, propagatorOpposite, hitCloner);
-  }
-  */
-  return ret;
-}
-
-std::pair<TrajectoryStateOnSurface, const GeomDet *> MkFitOutputConverter::backwardFitImpl(const FreeTrajectoryState& fts,
-                                                                                    const TransientTrackingRecHit::ConstRecHitContainer& firstHits,
-                                                                                    const Propagator& propagatorAlong,
-                                                                                    const Propagator& propagatorOpposite,
-                                                                                    const TkClonerImpl& hitCloner,
-                                                                                    bool lastHitWasInvalid,
-                                                                                    bool lastHitWasChanged) const {
   // Then propagate along to the surface of the last hit to get a TSOS
   const auto& lastHitSurface = firstHits.front()->det()->surface();
 
