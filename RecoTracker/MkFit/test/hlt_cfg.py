@@ -8820,6 +8820,7 @@ if options.mkfit != 0:
         stripStereoRecHits = "hltSiStripRecHits:stereoRecHit",
         seeds = "hltIter0PFLowPixelSeedsFromPixelTracks",
         ttrhBuilder = "hltESPTTRHBWithTrackAngle",
+        minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutLoose'),
     )
     process.hltIter0PFlowCkfTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
         hitsSeeds = "hltIter0PFlowCkfTrackCandidatesMkFitInput",
