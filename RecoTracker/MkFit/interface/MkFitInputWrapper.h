@@ -19,8 +19,7 @@ public:
   MkFitInputWrapper();
   MkFitInputWrapper(MkFitHitIndexMap&& hitIndexMap,
                     std::vector<mkfit::HitVec>&& hits,
-                    mkfit::TrackVec&& seeds,
-                    mkfit::LayerNumberConverter&& lnc);
+                    mkfit::TrackVec&& seeds);
   ~MkFitInputWrapper();
 
   MkFitInputWrapper(MkFitInputWrapper const&) = delete;
@@ -31,14 +30,11 @@ public:
   MkFitHitIndexMap const& hitIndexMap() const { return hitIndexMap_; }
   mkfit::TrackVec const& seeds() const { return *seeds_; }
   std::vector<mkfit::HitVec> const& hits() const { return hits_; }
-  mkfit::LayerNumberConverter const& layerNumberConverter() const { return *lnc_; }
-  unsigned int nlayers() const;
 
 private:
   MkFitHitIndexMap hitIndexMap_;
   std::vector<mkfit::HitVec> hits_;
   std::unique_ptr<mkfit::TrackVec> seeds_;            // for pimpl pattern
-  std::unique_ptr<mkfit::LayerNumberConverter> lnc_;  // for pimpl pattern
 };
 
 #endif

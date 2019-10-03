@@ -13,12 +13,6 @@
 #include "DataFormats/TrackReco/interface/SeedStopInfo.h"
 #include "DataFormats/TrackingRecHit/interface/InvalidTrackingRecHit.h"
 
-#include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
-#include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
-#include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
-#include "DataFormats/TrackerCommon/interface/TrackerDetSide.h"
-#include "Geometry/Records/interface/TrackerTopologyRcd.h"
-
 #include "TrackingTools/Records/interface/TransientRecHitRecord.h"
 #include "TrackingTools/TransientTrackingRecHit/interface/TransientTrackingRecHitBuilder.h"
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateTransform.h"
@@ -35,11 +29,10 @@
 #include "RecoTracker/TransientTrackingRecHit/interface/TkTransientTrackingRecHitBuilder.h"
 #include "TrackingTools/MaterialEffects/src/PropagatorWithMaterial.cc"
 
-#include "RecoTracker/MeasurementDet/interface/MeasurementTrackerEvent.h"
-#include "RecoTracker/TkDetLayers/interface/GeometricSearchTracker.h"
-
 #include "RecoTracker/MkFit/interface/MkFitInputWrapper.h"
 #include "RecoTracker/MkFit/interface/MkFitOutputWrapper.h"
+#include "RecoTracker/MkFit/interface/MkFitGeometry.h"
+#include "RecoTracker/Record/interface/TrackerRecoGeometryRecord.h"
 
 // mkFit indludes
 #include "LayerNumberConverter.h"
@@ -68,14 +61,9 @@ public:
 private:
   void produce(edm::StreamID, edm::Event& iEvent, const edm::EventSetup& iSetup) const override;
 
-  std::vector<const DetLayer*> createDetLayers(const mkfit::LayerNumberConverter& lnc,
-                                               const GeometricSearchTracker& tracker,
-                                               const TrackerTopology& ttopo) const;
-
   std::unique_ptr<TrackCandidateCollection> convertCandidates(const MkFitOutputWrapper& mkFitOutput,
                                                               const MkFitHitIndexMap& hitIndexMap,
                                                               const edm::View<TrajectorySeed>& seeds,
-                                                              const TrackerGeometry& geom,
                                                               const MagneticField& mf,
                                                               const Propagator& propagatorAlong,
                                                               const Propagator& propagatorOpposite,
@@ -99,7 +87,6 @@ private:
   edm::EDGetTokenT<MkFitInputWrapper> hitsSeedsToken_;
   edm::EDGetTokenT<MkFitOutputWrapper> tracksToken_;
   edm::EDGetTokenT<edm::View<TrajectorySeed> > seedToken_;
-  edm::EDGetTokenT<MeasurementTrackerEvent> mteToken_;
   std::string ttrhBuilderName_;
   std::string propagatorAlongName_;
   std::string propagatorOppositeName_;
@@ -110,7 +97,6 @@ MkFitOutputConverter::MkFitOutputConverter(edm::ParameterSet const& iConfig):
   hitsSeedsToken_(consumes<MkFitInputWrapper>(iConfig.getParameter<edm::InputTag>("hitsSeeds"))),
   tracksToken_(consumes<MkFitOutputWrapper>(iConfig.getParameter<edm::InputTag>("tracks"))),
   seedToken_(consumes<edm::View<TrajectorySeed> >(iConfig.getParameter<edm::InputTag>("seeds"))),
-  mteToken_(consumes<MeasurementTrackerEvent>(iConfig.getParameter<edm::InputTag>("measurementTrackerEvent"))),
   ttrhBuilderName_(iConfig.getParameter<std::string>("ttrhBuilder")),
   propagatorAlongName_(iConfig.getParameter<std::string>("propagatorAlong")),
   propagatorOppositeName_(iConfig.getParameter<std::string>("propagatorOpposite")),
@@ -126,7 +112,6 @@ void MkFitOutputConverter::fillDescriptions(edm::ConfigurationDescriptions& desc
   desc.add("hitsSeeds", edm::InputTag("mkFitInputConverter"));
   desc.add("tracks", edm::InputTag("mkfitProducer"));
   desc.add("seeds", edm::InputTag("initialStepSeeds"));
-  desc.add("measurementTrackerEvent", edm::InputTag("MeasurementTrackerEvent"));
   desc.add<std::string>("ttrhBuilder", "WithTrackAngle");
   desc.add<std::string>("propagatorAlong", "PropagatorWithMaterial");
   desc.add<std::string>("propagatorOpposite", "PropagatorWithMaterialOpposite");
@@ -146,23 +131,16 @@ void MkFitOutputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const 
   edm::Handle<edm::View<TrajectorySeed>> seeds;
   iEvent.getByToken(seedToken_, seeds);
 
-  edm::Handle<MeasurementTrackerEvent> mte;
-  iEvent.getByToken(mteToken_, mte);
-
-  edm::ESHandle<TrackerGeometry> trackerGeometry;
-  iSetup.get<TrackerDigiGeometryRecord>().get(trackerGeometry);
-  const auto& geom = *trackerGeometry;
-
   edm::ESHandle<Propagator> propagatorAlong;
   iSetup.get<TrackingComponentsRecord>().get(propagatorAlongName_, propagatorAlong);
   edm::ESHandle<Propagator> propagatorOpposite;
   iSetup.get<TrackingComponentsRecord>().get(propagatorOppositeName_, propagatorOpposite);
 
-  edm::ESHandle<TrackerTopology> ttopo;
-  iSetup.get<TrackerTopologyRcd>().get(ttopo);
-
   edm::ESHandle<MagneticField> mf;
   iSetup.get<IdealMagneticFieldRecord>().get(mf);
+
+  edm::ESHandle<MkFitGeometry> mkFitGeom;
+  iSetup.get<TrackerRecoGeometryRecord>().get(mkFitGeom);
 
   edm::ESHandle<TransientTrackingRecHitBuilder> ttrhBuilder;
   iSetup.get<TransientRecHitRecord>().get(ttrhBuilderName_, ttrhBuilder);
@@ -172,10 +150,8 @@ void MkFitOutputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const 
   }
   TkClonerImpl hc = tkBuilder->cloner();
 
-  auto detLayers = createDetLayers(hitsSeeds.layerNumberConverter(), *(mte->geometricSearchTracker()), *ttopo);
-
   // Convert mkfit presentation back to CMSSW
-  auto cands = convertCandidates(*tracks, hitsSeeds.hitIndexMap(), *seeds, geom, *mf, *propagatorAlong, *propagatorOpposite, hc, detLayers, hitsSeeds.seeds());
+  auto cands = convertCandidates(*tracks, hitsSeeds.hitIndexMap(), *seeds, *mf, *propagatorAlong, *propagatorOpposite, hc, mkFitGeom->detLayers(), hitsSeeds.seeds());
 
   iEvent.put(std::move(cands));
   // For starters let's put empty collections
@@ -183,51 +159,9 @@ void MkFitOutputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const 
 }
 
 
-std::vector<const DetLayer *> MkFitOutputConverter::createDetLayers(const mkfit::LayerNumberConverter& lnc,
-                                                             const GeometricSearchTracker& tracker,
-                                                             const TrackerTopology& ttopo) const {
-  std::vector<const DetLayer *> dets(lnc.nLayers(), nullptr);
-
-  auto isPlusSide = [&ttopo](const DetId& detid) {
-    return ttopo.side(detid) == static_cast<unsigned>(TrackerDetSide::PosEndcap);
-  };
-  auto setDet = [&lnc, &dets, &isPlusSide](
-                    const int subdet, const int layer, const int isStereo, const DetId& detId, const DetLayer* lay) {
-    const int index = lnc.convertLayerNumber(subdet, layer, false, isStereo, isPlusSide(detId));
-    if (index < 0 or static_cast<unsigned>(index) >= dets.size()) {
-      throw cms::Exception("LogicError") << "Invalid mkFit layer index " << index << " for DetId " << detId.rawId()
-                                         << " subdet " << subdet << " layer " << layer << " isStereo " << isStereo;
-    }
-    dets[index] = lay;
-  };
-  constexpr int monoLayer = 0;
-  constexpr int stereoLayer = 1;
-  for (const DetLayer* lay : tracker.allLayers()) {
-    const auto& comp = lay->basicComponents();
-    if (UNLIKELY(comp.empty())) {
-      throw cms::Exception("LogicError") << "Got a tracker layer (subdet " << lay->subDetector()
-                                         << ") with empty basicComponents.";
-    }
-    // First component is enough for layer and side information
-    const auto& detId = comp.front()->geographicalId();
-    const auto subdet = detId.subdetId();
-    const auto layer = ttopo.layer(detId);
-
-    // TODO: mono/stereo structure is still hardcoded for phase0/1 strip tracker
-    setDet(subdet, layer, monoLayer, detId, lay);
-    if (((subdet == StripSubdetector::TIB or subdet == StripSubdetector::TOB) and (layer == 1 or layer == 2)) or
-        subdet == StripSubdetector::TID or subdet == StripSubdetector::TEC) {
-      setDet(subdet, layer, stereoLayer, detId, lay);
-    }
-  }
-
-  return dets;
-}
-
 std::unique_ptr<TrackCandidateCollection> MkFitOutputConverter::convertCandidates(const MkFitOutputWrapper& mkFitOutput,
                                                                                   const MkFitHitIndexMap& hitIndexMap,
                                                                                   const edm::View<TrajectorySeed>& seeds,
-                                                                                  const TrackerGeometry& geom,
                                                                                   const MagneticField& mf,
                                                                                   const Propagator& propagatorAlong,
                                                                                   const Propagator& propagatorOpposite,
@@ -291,7 +225,7 @@ std::unique_ptr<TrackCandidateCollection> MkFitOutputConverter::convertCandidate
 
     // MkFit hits are *not* in the order of propagation, sort by 3D radius for now (as we don't have loopers)
     // TODO: Improve the sorting (extract keys? maybe even bubble sort would work well as the hits are almost in the correct order)
-    recHits.sort([&geom](const auto& a, const auto& b) {
+    recHits.sort([](const auto& a, const auto& b) {
         const auto aid = a.geographicalId();
         const auto bid = b.geographicalId();
 
@@ -301,14 +235,6 @@ std::unique_ptr<TrackCandidateCollection> MkFitOutputConverter::convertCandidate
           // Subdetector order (BPix, FPix, TIB, TID, TOB, TEC) corresponds also the navigation
           return asub < bsub;
         }
-
-        /*
-        const auto *adet = geom.idToDet(aid);
-        const auto *bdet = geom.idToDet(bid);
-
-        const auto& apos = adet->position();
-        const auto& bpos = bdet->position();
-        */
 
         const auto& apos = a.globalPosition();
         const auto& bpos = b.globalPosition();

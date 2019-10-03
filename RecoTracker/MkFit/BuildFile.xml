@@ -1,6 +1,9 @@
 <use name="DataFormats/Provenance"/>
+<use name="DataFormats/TrackerCommon"/>
 <use name="FWCore/Framework"/>
 <use name="FWCore/MessageLogger"/>
+<use name="Geometry/TrackerGeometryBuilder"/>
+<use name="RecoTracker/TkDetLayers"/>
 <use name="mkfit"/>
 <use name="rootcore"/>
 <export>

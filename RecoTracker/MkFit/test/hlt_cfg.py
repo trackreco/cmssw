@@ -8806,7 +8806,10 @@ if options.mkfit != 0:
     import RecoTracker.MkFit.mkFitInputConverter_cfi as mkFitInputConverter_cfi
     import RecoTracker.MkFit.mkFitProducer_cfi as mkFitProducer_cfi
     import RecoTracker.MkFit.mkFitOutputConverter_cfi as mkFitOutputConverter_cfi
+    import RecoTracker.MkFit.mkFitGeometryESProducer_cfi as mkFitGeometryESProducer_cfi
     import RecoLocalTracker.SiStripRecHitConverter.SiStripRecHitConverter_cfi as SiStripRecHitConverter_cfi
+
+    process.hltMkFitGeometryESProducer = mkFitGeometryESProducer_cfi.mkFitGeometryESProducer.clone()
 
     process.hltSiStripRecHits = SiStripRecHitConverter_cfi.siStripMatchedRecHits.clone(
         ClusterProducer = "hltSiStripRawToClustersFacility",
@@ -8829,7 +8832,6 @@ if options.mkfit != 0:
         seeds = "hltIter0PFLowPixelSeedsFromPixelTracks",
         hitsSeeds = "hltIter0PFlowCkfTrackCandidatesMkFitInput",
         tracks = "hltIter0PFlowCkfTrackCandidatesMkFit",
-        measurementTrackerEvent = "hltSiStripClusters",
         ttrhBuilder = "hltESPTTRHBWithTrackAngle",
         propagatorAlong = "PropagatorWithMaterialParabolicMf",
         propagatorOpposite = "PropagatorWithMaterialParabolicMfOpposite",

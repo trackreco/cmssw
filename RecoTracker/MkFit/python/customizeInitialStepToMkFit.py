@@ -3,6 +3,7 @@ import RecoTracker.MkFit.mkFitProducer_cfi as mkFitProducer_cfi
 import RecoTracker.MkFit.mkFitOutputConverter_cfi as mkFitOutputConverter_cfi
 
 def customizeInitialStepToMkFit(process):
+    process.load("RecoTracker.MkFit.mkFitGeometryESProducer_cfi")
     process.initialStepTrackCandidatesMkFitInput = mkFitInputConverter_cfi.mkFitInputConverter.clone(
         seeds = "initialStepSeeds",
     )
