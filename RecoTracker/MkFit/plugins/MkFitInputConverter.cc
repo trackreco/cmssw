@@ -51,10 +51,13 @@ private:
                    int& totalHits,
                    const TrackerTopology& ttopo,
                    const TransientTrackingRecHitBuilder& ttrhBuilder,
-                   const mkfit::LayerNumberConverter& lnc) const;
+                   const MkFitGeometry& mkFitGeom) const;
 
   bool passCCC(const SiStripRecHit2D& hit, const DetId hitId) const;
   bool passCCC(const SiPixelRecHit& hit, const DetId hitId) const;
+
+  void setDetails(mkfit::Hit& mhit, const SiPixelRecHit& hit, const DetId hitId, const int shortId) const;
+  void setDetails(mkfit::Hit& mhit, const SiStripRecHit2D& hit, const DetId hitId, const int shortId) const;
 
   mkfit::TrackVec convertSeeds(const edm::View<TrajectorySeed>& seeds,
                                const MkFitHitIndexMap& hitIndexMap,
@@ -121,14 +124,13 @@ void MkFitInputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const e
 
   edm::ESHandle<MkFitGeometry> mkFitGeom;
   iSetup.get<TrackerRecoGeometryRecord>().get(mkFitGeom);
-  const auto& lnc = mkFitGeom->layerNumberConverter();
 
-  std::vector<mkfit::HitVec> mkFitHits(lnc.nLayers());
+  std::vector<mkfit::HitVec> mkFitHits(mkFitGeom->layerNumberConverter().nLayers());
   MkFitHitIndexMap hitIndexMap;
   int totalHits = 0; // I need to have a global hit index in order to have the hit remapping working?
-  convertHits(*stripRphiHits, mkFitHits, hitIndexMap, totalHits, *ttopo, *ttrhBuilder, lnc);
-  convertHits(*stripStereoHits, mkFitHits, hitIndexMap, totalHits, *ttopo, *ttrhBuilder, lnc);
-  convertHits(*pixelHits, mkFitHits, hitIndexMap, totalHits, *ttopo, *ttrhBuilder, lnc);
+  convertHits(*stripRphiHits, mkFitHits, hitIndexMap, totalHits, *ttopo, *ttrhBuilder, *mkFitGeom);
+  convertHits(*stripStereoHits, mkFitHits, hitIndexMap, totalHits, *ttopo, *ttrhBuilder, *mkFitGeom);
+  convertHits(*pixelHits, mkFitHits, hitIndexMap, totalHits, *ttopo, *ttrhBuilder, *mkFitGeom);
 
   // Then import seeds
   edm::Handle<edm::View<TrajectorySeed>> seeds;
@@ -150,6 +152,19 @@ bool MkFitInputConverter::passCCC(const SiPixelRecHit& hit, const DetId hitId) c
   return true;
 }
 
+void MkFitInputConverter::setDetails(mkfit::Hit& mhit, const SiPixelRecHit& hit, const DetId hitId, const int shortId) const {
+  mhit.setupAsPixel(shortId,
+                    hit.cluster()->sizeX(),
+                    hit.cluster()->sizeY());
+}
+
+void MkFitInputConverter::setDetails(mkfit::Hit& mhit, const SiStripRecHit2D& hit, const DetId hitId, const int shortId) const {
+  mhit.setupAsStrip(shortId,
+                    siStripClusterTools::chargePerCM(hitId, hit.firstClusterRef().stripCluster()),
+                    hit.cluster()->amplitudes().size());
+}
+
+
 template <typename HitCollection>
 void MkFitInputConverter::convertHits(const HitCollection& hits,
                                       std::vector<mkfit::HitVec>& mkFitHits,
@@ -157,7 +172,7 @@ void MkFitInputConverter::convertHits(const HitCollection& hits,
                                       int& totalHits,
                                       const TrackerTopology& ttopo,
                                       const TransientTrackingRecHitBuilder& ttrhBuilder,
-                                      const mkfit::LayerNumberConverter& lnc) const {
+                                      const MkFitGeometry& mkFitGeom) const {
   if (hits.empty())
     return;
   auto isPlusSide = [&ttopo](const DetId& detid) {
@@ -167,7 +182,7 @@ void MkFitInputConverter::convertHits(const HitCollection& hits,
   {
     const DetId detid{hits.ids().back()};
     const auto ilay =
-        lnc.convertLayerNumber(detid.subdetId(), ttopo.layer(detid), false, ttopo.isStereo(detid), isPlusSide(detid));
+      mkFitGeom.layerNumberConverter().convertLayerNumber(detid.subdetId(), ttopo.layer(detid), false, ttopo.isStereo(detid), isPlusSide(detid));
     // Do initial reserves to minimize further memory allocations
     const auto& lastClusterRef = hits.data().back().firstClusterRef();
     hitIndexMap.resizeByClusterIndex(lastClusterRef.id(), lastClusterRef.index());
@@ -179,7 +194,7 @@ void MkFitInputConverter::convertHits(const HitCollection& hits,
     const auto subdet = detid.subdetId();
     const auto layer = ttopo.layer(detid);
     const auto isStereo = ttopo.isStereo(detid);
-    const auto ilay = lnc.convertLayerNumber(subdet, layer, false, isStereo, isPlusSide(detid));
+    const auto ilay = mkFitGeom.layerNumberConverter().convertLayerNumber(subdet, layer, false, isStereo, isPlusSide(detid));
     hitIndexMap.increaseLayerSize(ilay, detset.size());  // to minimize memory allocations
 
     for(const auto& hit: detset) {
@@ -205,6 +220,7 @@ void MkFitInputConverter::convertHits(const HitCollection& hits,
                          MkFitHitIndexMap::MkFitHit{static_cast<int>(mkFitHits[ilay].size()), ilay},
                          &hit);
       mkFitHits[ilay].emplace_back(pos, err, totalHits);
+      setDetails(mkFitHits[ilay].back(), hit, detid, mkFitGeom.uniqueIdInLayer(detid.rawId()));
       ++totalHits;
     }
   }
