@@ -24,6 +24,7 @@ private:
   const bool useEventsWithNoVertex;
   const std::string builderName;
   const bool usePV_;
+  const bool includeFourthHit_;
   const edm::EDGetTokenT<reco::TrackCollection> theInputCollectionTag;
   const edm::EDGetTokenT<reco::VertexCollection> theInputVertexCollectionTag;
 

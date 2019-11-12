@@ -22,6 +22,11 @@ def apply(process):
                      VarParsing.multiplicity.singleton,
                      VarParsing.varType.int,
                      "Run HLT strip local reco fully (0) or on-demand (1) (on-demand won't work for mkfit)")
+    options.register("hltIncludeFourthHit",
+                     0,
+                     VarParsing.multiplicity.singleton,
+                     VarParsing.varType.int,
+                     "Include fourth hit of pixel track in iter0 seeds (default 0)")
     options.register("maxEvents",
                      0,
                      VarParsing.multiplicity.singleton,
