@@ -8827,8 +8827,8 @@ if options.mkfit != 0:
         hitsSeeds = "hltIter0PFlowCkfTrackCandidatesMkFitInput",
     )
     # Disable seed cleaning for triplet seeds
-    if options.hltIncludeFourthHit == 0:
-        process.hltIter0PFlowCkfTrackCandidatesMkFit.seedCleaning = "none"
+    #if options.hltIncludeFourthHit == 0:
+    #    process.hltIter0PFlowCkfTrackCandidatesMkFit.seedCleaning = "none"
     process.hltIter0PFlowCkfTrackCandidates = mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
         seeds = "hltIter0PFLowPixelSeedsFromPixelTracks",
         hitsSeeds = "hltIter0PFlowCkfTrackCandidatesMkFitInput",
