@@ -2088,6 +2088,7 @@ void TrackingNtuple::clearVariables() {
   see_stopReason.clear();
   see_nCands  .clear();
   see_trkIdx  .clear();
+  see_isTrue  .clear();
   see_bestSimTrkIdx.clear();
   see_bestSimTrkShareFrac.clear();
   see_bestFromFirstHitSimTrkIdx.clear();
@@ -2115,6 +2116,7 @@ void TrackingNtuple::clearVariables() {
   // Tracking vertices
   simvtx_event.clear();
   simvtx_bunchCrossing.clear();
+  simvtx_processType.clear();
   simvtx_x.clear();
   simvtx_y.clear();
   simvtx_z.clear();
