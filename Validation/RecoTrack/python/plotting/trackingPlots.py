@@ -1367,11 +1367,17 @@ plotter.append("packedCandidateLostTracks", _trackingFolders("PackedCandidate/lo
 _hltFolder = [
     "DQMData/Run 1/HLT/Run summary/Tracking/ValidationWRTtp",
 ]
+_hltFolder2 = [
+    "DQMData/Run 1/HLT/Run summary/Tracking/ValidationWRTtpOnlineCuts",
+]
 plotterHLT = Plotter()
 plotterHLTExt = Plotter()
 _common = dict(purpose=PlotPurpose.HLT, page="hlt")
 plotterHLT.append("hlt", _hltFolder, TrackingPlotFolder(*(_simBasedPlots+_recoBasedPlots), **_common))
 plotterHLTExt.append("hlt", _hltFolder, TrackingPlotFolder(*_extendedPlots, **_common))
+_common = dict(purpose=PlotPurpose.HLT, page="hltOnline")
+plotterHLT.append("hltOnline", _hltFolder2, TrackingPlotFolder(*(_simBasedPlots+_recoBasedPlots), **_common))
+plotterHLTExt.append("hltOnline", _hltFolder2, TrackingPlotFolder(*_extendedPlots, **_common))
 
 # Timing
 class Iteration:
@@ -1451,6 +1457,9 @@ _iterations = [
                          "initialStepClassifier3",
                          "initialStep",
                          "initialStepSelector"],
+              building=["initialStepTrackCandidatesMkFitInput",
+                        "initialStepTrackCandidatesMkFit",
+                        "initialStepTrackCandidates"],
               other=["firstStepPrimaryVerticesUnsorted",
                      "initialStepTrackRefsForJets",
                      "caloTowerForTrk",
