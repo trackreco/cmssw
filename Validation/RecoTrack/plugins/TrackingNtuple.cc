@@ -33,6 +33,7 @@
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
 #include "CommonTools/Utils/interface/DynArray.h"
 #include "DataFormats/Provenance/interface/ProductID.h"
+#include "DataFormats/Common/interface/ContainerMask.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/Utilities/interface/transform.h"
@@ -501,6 +502,9 @@ private:
   using MVACollection = std::vector<float>;
   using QualityMaskCollection = std::vector<unsigned char>;
 
+  using PixelMaskContainer = edm::ContainerMask<edmNew::DetSetVector<SiPixelCluster>>;
+  using StripMaskContainer = edm::ContainerMask<edmNew::DetSetVector<SiStripCluster>>;
+
   struct TPHitIndex {
     TPHitIndex(unsigned int tp=0, unsigned int simHit=0, float to=0, unsigned int id=0): tpKey(tp), simHitIdx(simHit), tof(to), detId(id) {}
     unsigned int tpKey;
@@ -551,6 +555,7 @@ private:
   size_t addStripMatchedHit(const SiStripMatchedRecHit2D& hit,
                             const TransientTrackingRecHitBuilder& theTTRHBuilder,
                             const TrackerTopology& tTopo,
+                            const std::vector<std::pair<uint64_t, StripMaskContainer const*> >& stripMasks,
                             std::vector<std::pair<int, int> >& monoStereoClusterList
                             );
 
@@ -674,6 +679,10 @@ private:
   edm::EDGetTokenT<edm::ValueMap<unsigned int> > tpNLayersToken_;
   edm::EDGetTokenT<edm::ValueMap<unsigned int> > tpNPixelLayersToken_;
   edm::EDGetTokenT<edm::ValueMap<unsigned int> > tpNStripStereoLayersToken_;
+
+  std::vector<std::pair<unsigned int, edm::EDGetTokenT<PixelMaskContainer> > > pixelUseMaskTokens_;
+  std::vector<std::pair<unsigned int, edm::EDGetTokenT<StripMaskContainer> > > stripUseMaskTokens_;
+
   std::string builderName_;
   std::string parametersDefinerName_;
   const bool includeSeeds_;
@@ -1110,6 +1119,7 @@ private:
   std::vector<float> pix_bbxi ;
   std::vector<int> pix_clustSizeCol;
   std::vector<int> pix_clustSizeRow;
+  std::vector<uint64_t> pix_usedMask;
   ////////////////////
   // strip hits
   // (first) index runs through hits
@@ -1134,6 +1144,7 @@ private:
   std::vector<float> str_bbxi ;
   std::vector<float> str_chargePerCM;
   std::vector<int> str_clustSize;
+  std::vector<uint64_t> str_usedMask;
   ////////////////////
   // strip matched hits
   // (first) index runs through hits
@@ -1156,6 +1167,8 @@ private:
   std::vector<float> glu_chargePerCM ;
   std::vector<int> glu_clustSizeMono;
   std::vector<int> glu_clustSizeStereo;
+  std::vector<uint64_t> glu_usedMaskMono;
+  std::vector<uint64_t> glu_usedMaskStereo;
   ////////////////////
   // phase2 Outer Tracker hits
   // (first) index runs through hits
@@ -1373,6 +1386,18 @@ TrackingNtuple::TrackingNtuple(const edm::ParameterSet& iConfig):
     if(!includeStripHits_ && !includePhase2OTHits_) {
       throw cms::Exception("Configuration") << "Neither stripDigiSimLink or phase2OTSimLink are set, please set either one.";
     }
+
+    auto const& maskVPset = iConfig.getUntrackedParameterSetVector("clusterMasks");
+    pixelUseMaskTokens_.reserve(maskVPset.size());
+    stripUseMaskTokens_.reserve(maskVPset.size());
+    for (auto const& mask : maskVPset) {
+      auto index = mask.getUntrackedParameter<unsigned int>("index");
+      assert(index < 64);
+      pixelUseMaskTokens_.emplace_back(index, consumes<PixelMaskContainer>(mask.getUntrackedParameter<edm::InputTag>("src")));
+      if (includeStripHits_)
+        stripUseMaskTokens_.emplace_back(index, consumes<StripMaskContainer>(mask.getUntrackedParameter<edm::InputTag>("src")));
+    }
+
   }
 
   const bool tpRef = iConfig.getUntrackedParameter<bool>("trackingParticlesRef");
@@ -1564,6 +1589,7 @@ TrackingNtuple::TrackingNtuple(const edm::ParameterSet& iConfig):
     t->Branch("pix_bbxi"  , &pix_bbxi );
     t->Branch("pix_clustSizeCol"  , &pix_clustSizeCol );
     t->Branch("pix_clustSizeRow"  , &pix_clustSizeRow );
+    t->Branch("pix_usedMask"      , &pix_usedMask );
     //strips
     if(includeStripHits_){
       t->Branch("str_isBarrel"  , &str_isBarrel );
@@ -1593,6 +1619,7 @@ TrackingNtuple::TrackingNtuple(const edm::ParameterSet& iConfig):
       t->Branch("str_bbxi"  , &str_bbxi );
       t->Branch("str_chargePerCM"  , &str_chargePerCM );
       t->Branch("str_clustSize"  , &str_clustSize );
+      t->Branch("str_usedMask"   , &str_usedMask );
       //matched hits
       t->Branch("glu_isBarrel"  , &glu_isBarrel );
       glu_detId.book("glu", t);
@@ -1615,6 +1642,8 @@ TrackingNtuple::TrackingNtuple(const edm::ParameterSet& iConfig):
       t->Branch("glu_chargePerCM"      , &glu_chargePerCM);
       t->Branch("glu_clustSizeMono"    , &glu_clustSizeMono);
       t->Branch("glu_clustSizeStereo"  , &glu_clustSizeStereo);
+      t->Branch("glu_usedMaskMono"     , &glu_usedMaskMono);
+      t->Branch("glu_usedMaskStereo"   , &glu_usedMaskStereo);
     }
     //phase2 OT
     if(includePhase2OTHits_){
@@ -1938,6 +1967,7 @@ void TrackingNtuple::clearVariables() {
   pix_bbxi .clear();
   pix_clustSizeCol.clear();
   pix_clustSizeRow.clear();
+  pix_usedMask.clear();
   //strips
   str_isBarrel .clear();
   str_detId    .clear();
@@ -1960,6 +1990,7 @@ void TrackingNtuple::clearVariables() {
   str_bbxi .clear();
   str_chargePerCM.clear();
   str_clustSize.clear();
+  str_usedMask.clear();
   //matched hits
   glu_isBarrel .clear();
   glu_detId    .clear();
@@ -1980,6 +2011,8 @@ void TrackingNtuple::clearVariables() {
   glu_chargePerCM.clear();
   glu_clustSizeMono.clear();
   glu_clustSizeStereo.clear();
+  glu_usedMaskMono.clear();
+  glu_usedMaskStereo.clear();
   //phase2 OT
   ph2_isBarrel .clear();
   ph2_detId    .clear();
@@ -2647,6 +2680,22 @@ void TrackingNtuple::fillPixelHits(const edm::Event& iEvent,
                                    const SimHitRefKeyToIndex& simHitRefKeyToIndex,
                                    std::set<edm::ProductID>& hitProductIds
                                    ) {
+  std::vector<std::pair<uint64_t, PixelMaskContainer const*> > pixelMasks;
+  pixelMasks.reserve(pixelUseMaskTokens_.size());
+  for (const auto& itoken : pixelUseMaskTokens_) {
+    edm::Handle<PixelMaskContainer> aH;
+    iEvent.getByToken(itoken.second, aH);
+    pixelMasks.emplace_back(1 << itoken.first, aH.product());
+  }
+  auto pixUsedMask = [&pixelMasks] (size_t key) {
+    uint64_t mask = 0;
+    for (auto const& m : pixelMasks) {
+      if (m.second->mask(key))
+        mask |= m.first;
+    }
+    return mask;
+  };
+
   edm::Handle<SiPixelRecHitCollection> pixelHits;
   iEvent.getByToken(pixelRecHitToken_, pixelHits);
   for (auto it = pixelHits->begin(); it!=pixelHits->end(); it++ ) {
@@ -2676,6 +2725,7 @@ void TrackingNtuple::fillPixelHits(const edm::Event& iEvent,
       pix_bbxi .push_back( ttrh->surface()->mediumProperties().xi() );
       pix_clustSizeCol.push_back( hit->cluster()->sizeY() );
       pix_clustSizeRow.push_back( hit->cluster()->sizeX() );
+      pix_usedMask.push_back(pixUsedMask(hit->firstClusterRef().key()));
 
       LogTrace("TrackingNtuple") << "pixHit cluster=" << key
                                  << " subdId=" << hitId.subdetId()
@@ -2716,6 +2766,22 @@ void TrackingNtuple::fillStripRphiStereoHits(const edm::Event& iEvent,
                                              const SimHitRefKeyToIndex& simHitRefKeyToIndex,
                                              std::set<edm::ProductID>& hitProductIds
                                              ) {
+  std::vector<std::pair<uint64_t, StripMaskContainer const*> > stripMasks;
+  stripMasks.reserve(stripUseMaskTokens_.size());
+  for (const auto& itoken : stripUseMaskTokens_) {
+    edm::Handle<StripMaskContainer> aH;
+    iEvent.getByToken(itoken.second, aH);
+    stripMasks.emplace_back(1 << itoken.first, aH.product());
+  }
+  auto strUsedMask = [&stripMasks] (size_t key) {
+    uint64_t mask = 0;
+    for (auto const& m : stripMasks) {
+      if (m.second->mask(key))
+        mask |= m.first;
+    }
+    return mask;
+  };
+
   //index strip hit branches by cluster index
   edm::Handle<SiStripRecHit2DCollection> rphiHits;
   iEvent.getByToken(stripRphiRecHitToken_, rphiHits);
@@ -2744,6 +2810,7 @@ void TrackingNtuple::fillStripRphiStereoHits(const edm::Event& iEvent,
   str_bbxi .resize(totalStripHits);
   str_chargePerCM .resize(totalStripHits);
   str_clustSize .resize(totalStripHits);
+  str_usedMask  .resize(totalStripHits);
 
   auto fill = [&](const SiStripRecHit2DCollection& hits, const char *name) {
     for(const auto& detset: hits) {
@@ -2770,6 +2837,7 @@ void TrackingNtuple::fillStripRphiStereoHits(const edm::Event& iEvent,
         str_bbxi [key] = ttrh->surface()->mediumProperties().xi();        
         str_chargePerCM[key] = siStripClusterTools::chargePerCM(hitId,hit.firstClusterRef().stripCluster());
         str_clustSize[key] = hit.cluster()->amplitudes().size();
+        str_usedMask[key]  = strUsedMask(key);
         LogTrace("TrackingNtuple") << name << " cluster=" << key
                                    << " subdId=" << hitId.subdetId()
                                    << " lay=" << lay
@@ -2808,8 +2876,18 @@ void TrackingNtuple::fillStripRphiStereoHits(const edm::Event& iEvent,
 size_t TrackingNtuple::addStripMatchedHit(const SiStripMatchedRecHit2D& hit,
                                           const TransientTrackingRecHitBuilder& theTTRHBuilder,
                                           const TrackerTopology& tTopo,
+                                          const std::vector<std::pair<uint64_t, StripMaskContainer const*> >& stripMasks,
                                           std::vector<std::pair<int, int> >& monoStereoClusterList
                                           ) {
+  auto strUsedMask = [&stripMasks] (size_t key) {
+    uint64_t mask = 0;
+    for (auto const& m : stripMasks) {
+      if (m.second->mask(key))
+        mask |= m.first;
+    }
+    return mask;
+  };
+
   TransientTrackingRecHit::RecHitPointer ttrh = theTTRHBuilder.build(&hit);
   const auto hitId = hit.geographicalId();
   const int lay = tTopo.layer(hitId);
@@ -2833,6 +2911,8 @@ size_t TrackingNtuple::addStripMatchedHit(const SiStripMatchedRecHit2D& hit,
   glu_chargePerCM.push_back( siStripClusterTools::chargePerCM(hitId,hit.firstClusterRef().stripCluster()));
   glu_clustSizeMono.push_back(hit.monoHit().cluster()->amplitudes().size());
   glu_clustSizeStereo.push_back(hit.stereoHit().cluster()->amplitudes().size());
+  glu_usedMaskMono.push_back(strUsedMask(hit.monoHit().cluster().key()));
+  glu_usedMaskStereo.push_back(strUsedMask(hit.stereoHit().cluster().key()));
   LogTrace("TrackingNtuple") << "stripMatchedHit"
                              << " cluster0=" << hit.stereoHit().cluster().key()
                              << " cluster1=" << hit.monoHit().cluster().key()
@@ -2848,11 +2928,19 @@ void TrackingNtuple::fillStripMatchedHits(const edm::Event& iEvent,
                                           const TrackerTopology& tTopo,
                                           std::vector<std::pair<int, int> >& monoStereoClusterList
                                           ) {
+  std::vector<std::pair<uint64_t, StripMaskContainer const*> > stripMasks;
+  stripMasks.reserve(stripUseMaskTokens_.size());
+  for (const auto& itoken : stripUseMaskTokens_) {
+    edm::Handle<StripMaskContainer> aH;
+    iEvent.getByToken(itoken.second, aH);
+    stripMasks.emplace_back(1 << itoken.first, aH.product());
+  }
+
   edm::Handle<SiStripMatchedRecHit2DCollection> matchedHits;
   iEvent.getByToken(stripMatchedRecHitToken_, matchedHits);
   for (auto it = matchedHits->begin(); it!=matchedHits->end(); it++ ) {
     for (auto hit = it->begin(); hit!=it->end(); hit++ ) {
-      addStripMatchedHit(*hit, theTTRHBuilder, tTopo, monoStereoClusterList);
+      addStripMatchedHit(*hit, theTTRHBuilder, tTopo, stripMasks, monoStereoClusterList);
     }
   }
 }
@@ -2960,6 +3048,14 @@ void TrackingNtuple::fillSeeds(const edm::Event& iEvent,
       labelsForToken(seedStopInfoToken, labels2);
       
       throw cms::Exception("LogicError") << "Got " << seedTracks.size() << " seeds, but " << seedStopInfos.size() << " seed stopping infos for collections " << labels.module << ", " << labels2.module;
+    }
+
+    std::vector<std::pair<uint64_t, StripMaskContainer const*> > stripMasks;
+    stripMasks.reserve(stripUseMaskTokens_.size());
+    for (const auto& itoken : stripUseMaskTokens_) {
+      edm::Handle<StripMaskContainer> aH;
+      iEvent.getByToken(itoken.second, aH);
+      stripMasks.emplace_back(1 << itoken.first, aH.product());
     }
 
     // The associator interfaces really need to be fixed...
@@ -3159,7 +3255,7 @@ void TrackingNtuple::fillSeeds(const edm::Event& iEvent,
               // SiStripMatchedRecHit2DCollection, e.g. via muon
               // outside-in seeds (or anything taking hits from
               // MeasurementTrackerEvent). So let's add them here.
-              gluedIndex = addStripMatchedHit(*matchedHit, theTTRHBuilder, tTopo, monoStereoClusterList);
+              gluedIndex = addStripMatchedHit(*matchedHit, theTTRHBuilder, tTopo, stripMasks, monoStereoClusterList);
             }
 
             if(includeAllHits_) glu_seeIdx[gluedIndex].push_back(seedIndex);
@@ -3812,6 +3908,28 @@ void TrackingNtuple::fillDescriptions(edm::ConfigurationDescriptions& descriptio
     });
   desc.addUntracked<edm::InputTag>("tracks", edm::InputTag("generalTracks"));
   desc.addUntracked<std::vector<std::string> >("trackMVAs", std::vector<std::string>{{"generalTracks"}});
+
+  edm::ParameterSetDescription cMaskDesc;
+  cMaskDesc.addUntracked<unsigned int>("index");
+  cMaskDesc.addUntracked<edm::InputTag>("src");
+  std::vector<edm::ParameterSet> cMasks;
+  auto addMask = [&cMasks](reco::Track::TrackAlgorithm algo){
+    edm::ParameterSet ps;
+    ps.addUntrackedParameter<unsigned int>("index", static_cast<unsigned int>(algo));
+    ps.addUntrackedParameter<edm::InputTag>("src", {reco::Track::algoName(algo)+"Clusters"});
+    cMasks.push_back(ps);
+  };
+  addMask(reco::Track::detachedQuadStep);
+  addMask(reco::Track::highPtTripletStep);
+  addMask(reco::Track::detachedTripletStep);
+  addMask(reco::Track::lowPtQuadStep);
+  addMask(reco::Track::lowPtTripletStep);
+  addMask(reco::Track::mixedTripletStep);
+  addMask(reco::Track::pixelLessStep);
+  addMask(reco::Track::pixelPairStep);
+  addMask(reco::Track::tobTecStep);
+  desc.addVPSetUntracked("clusterMasks", cMaskDesc, cMasks);
+
   desc.addUntracked<edm::InputTag>("trackingParticles", edm::InputTag("mix", "MergedTrackTruth"));
   desc.addUntracked<bool>("trackingParticlesRef", false);
   desc.addUntracked<edm::InputTag>("clusterTPMap", edm::InputTag("tpClusterProducer"));
