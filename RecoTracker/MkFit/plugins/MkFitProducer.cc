@@ -8,7 +8,8 @@
 #include "DataFormats/SiPixelDetId/interface/PixelSubdetector.h"
 #include "DataFormats/SiStripDetId/interface/StripSubdetector.h"
 
-#include "RecoTracker/MkFit/interface/MkFitInputWrapper.h"
+#include "RecoTracker/MkFit/interface/MkFitHitWrapper.h"
+#include "RecoTracker/MkFit/interface/MkFitSeedWrapper.h"
 #include "RecoTracker/MkFit/interface/MkFitOutputWrapper.h"
 #include "RecoTracker/MkFit/interface/MkFitGeometry.h"
 #include "RecoTracker/Record/interface/TrackerRecoGeometryRecord.h"
@@ -38,7 +39,8 @@ public:
 private:
   void produce(edm::StreamID, edm::Event& iEvent, const edm::EventSetup& iSetup) const override;
 
-  edm::EDGetTokenT<MkFitInputWrapper> hitsSeedsToken_;
+  edm::EDGetTokenT<MkFitHitWrapper> hitToken_;
+  edm::EDGetTokenT<MkFitSeedWrapper> seedToken_;
   edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
   edm::EDPutTokenT<MkFitOutputWrapper> putToken_;
   std::function<double(mkfit::Event&, mkfit::MkBuilder&)> buildFunction_;
@@ -47,7 +49,8 @@ private:
 };
 
 MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
-    : hitsSeedsToken_{consumes<MkFitInputWrapper>(iConfig.getParameter<edm::InputTag>("hitsSeeds"))},
+    : hitToken_{consumes<MkFitHitWrapper>(iConfig.getParameter<edm::InputTag>("hits"))},
+      seedToken_{consumes<MkFitSeedWrapper>(iConfig.getParameter<edm::InputTag>("seeds"))},
       mkFitGeomToken_{esConsumes<MkFitGeometry, TrackerRecoGeometryRecord>()},
       putToken_{produces<MkFitOutputWrapper>()},
       backwardFitInCMSSW_{iConfig.getParameter<bool>("backwardFitInCMSSW")},
@@ -91,7 +94,8 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
 void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
 
-  desc.add("hitsSeeds", edm::InputTag("mkFitInputConverter"));
+  desc.add("hits", edm::InputTag("mkFitHitConverter"));
+  desc.add("seeds", edm::InputTag("mkFitSeedConverter"));
   desc.add<std::string>("buildingRoutine", "cloneEngine")
       ->setComment("Valid values are: 'bestHit', 'standard', 'cloneEngine', 'fullVector'");
   desc.add<std::string>("seedCleaning", "N2")->setComment("Valid values are: 'none', 'N2'");
@@ -111,7 +115,8 @@ namespace {
   std::once_flag geometryFlag;
 }
 void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::EventSetup& iSetup) const {
-  const auto& hitsSeeds = iEvent.get(hitsSeedsToken_);
+  const auto& hits = iEvent.get(hitToken_);
+  const auto& seeds = iEvent.get(seedToken_);
   // This producer does not strictly speaking need the MkFitGeometry,
   // but the ESProducer sets global variables (yes, that "feature"
   // should be removed), so getting the MkFitGeometry makes it
@@ -131,7 +136,7 @@ void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::Ev
   // But does the event ID really matter within mkFit?
   mkfit::Event ev(iEvent.id().event());
 
-  ev.setInputFromCMSSW(hitsSeeds.hits(), hitsSeeds.seeds());
+  ev.setInputFromCMSSW(hits.hits(), seeds.seeds());
 
   tbb::this_task_arena::isolate([&]() { buildFunction_(ev, streamCache(iID)->get()); });
 
