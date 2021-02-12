@@ -15,8 +15,13 @@
 #include "RecoTracker/Record/interface/TrackerRecoGeometryRecord.h"
 
 // mkFit includes
+// TODO: the need for this define MUST be removed
+// e.g. make it a build configure time choice instead of build time shoice
+#define USE_MATRIPLEX
+// TODO: this include causes "warning: ignoring #pragma omp simd" from Matriplex.h, can we try to hide the Matriplex from CMSSW?
+#include "mkFit/SteeringParams.h"
+
 #include "ConfigWrapper.h"
-#include "Event.h"
 #include "LayerNumberConverter.h"
 #include "mkFit/buildtestMPlex.h"
 #include "mkFit/MkBuilderWrapper.h"
@@ -44,7 +49,10 @@ private:
   edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
   edm::EDPutTokenT<MkFitOutputWrapper> putToken_;
   std::function<double(mkfit::Event&, mkfit::MkBuilder&)> buildFunction_;
+  int iterationNumber_;  // TODO: temporary solution
+  bool seedCleaning_;
   bool backwardFitInCMSSW_;
+  bool removeDuplicates_;
   bool mkFitSilent_;
 };
 
@@ -53,48 +61,39 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
       seedToken_{consumes<MkFitSeedWrapper>(iConfig.getParameter<edm::InputTag>("seeds"))},
       mkFitGeomToken_{esConsumes<MkFitGeometry, TrackerRecoGeometryRecord>()},
       putToken_{produces<MkFitOutputWrapper>()},
+      iterationNumber_{iConfig.getParameter<int>("iterationNumber")},
+      seedCleaning_{iConfig.getParameter<bool>("seedCleaning")},
       backwardFitInCMSSW_{iConfig.getParameter<bool>("backwardFitInCMSSW")},
+      removeDuplicates_{iConfig.getParameter<bool>("removeDuplicates")},
       mkFitSilent_{iConfig.getUntrackedParameter<bool>("mkFitSilent")} {
   const auto build = iConfig.getParameter<std::string>("buildingRoutine");
   if (build == "bestHit") {
-    buildFunction_ = mkfit::runBuildingTestPlexBestHit;
+    //buildFunction_ = mkfit::runBuildingTestPlexBestHit;
+    throw cms::Exception("Configuration") << "bestHit is temporarily disabled";
   } else if (build == "standard") {
-    buildFunction_ = mkfit::runBuildingTestPlexStandard;
+    //buildFunction_ = mkfit::runBuildingTestPlexStandard;
+    throw cms::Exception("Configuration") << "standard is temporarily disabled";
   } else if (build == "cloneEngine") {
-    buildFunction_ = mkfit::runBuildingTestPlexCloneEngine;
-  } else {
-    throw cms::Exception("Configuration") << "Invalid value for parameter 'buildingRoutine' " << build
-                                          << ", allowed are bestHit, standard, cloneEngine";
-  }
-
-  const auto seedClean = iConfig.getParameter<std::string>("seedCleaning");
-  auto seedCleanOpt = mkfit::ConfigWrapper::SeedCleaningOpts::noCleaning;
-  if (seedClean == "none") {
-    seedCleanOpt = mkfit::ConfigWrapper::SeedCleaningOpts::noCleaning;
-  } else if (seedClean == "N2") {
-    seedCleanOpt = mkfit::ConfigWrapper::SeedCleaningOpts::cleanSeedsN2;
+    //buildFunction_ = mkfit::runBuildingTestPlexCloneEngine;
   } else {
     throw cms::Exception("Configuration")
-        << "Invalida value for parameter 'seedCleaning' " << seedClean << ", allowed are none, N2";
+        << "Invalid value for parameter 'buildingRoutine' " << build << ", allowed are bestHit, standard, cloneEngine";
   }
-
-  auto backwardFitOpt =
-      backwardFitInCMSSW_ ? mkfit::ConfigWrapper::BackwardFit::noFit : mkfit::ConfigWrapper::BackwardFit::toFirstLayer;
 
   // TODO: what to do when we have multiple instances of MkFitProducer in a job?
   mkfit::MkBuilderWrapper::populate();
-  mkfit::ConfigWrapper::initializeForCMSSW(seedCleanOpt, backwardFitOpt, mkFitSilent_);
-  mkfit::ConfigWrapper::setRemoveDuplicates(iConfig.getParameter<bool>("removeDuplicates"));
+  mkfit::ConfigWrapper::initializeForCMSSW(mkFitSilent_);
 }
 
 void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
 
-  desc.add("hits", edm::InputTag("mkFitHitConverter"));
+  desc.add("hits", edm::InputTag("mkFitHits"));
   desc.add("seeds", edm::InputTag("mkFitSeedConverter"));
   desc.add<std::string>("buildingRoutine", "cloneEngine")
       ->setComment("Valid values are: 'bestHit', 'standard', 'cloneEngine'");
-  desc.add<std::string>("seedCleaning", "N2")->setComment("Valid values are: 'none', 'N2'");
+  desc.add<int>("iterationNumber", 0)->setComment("Iteration number (default: 0)");
+  desc.add("seedCleaning", true)->setComment("Clean seeds within mkFit");
   desc.add("removeDuplicates", true)->setComment("Run duplicate removal within mkFit");
   desc.add("backwardFitInCMSSW", false)
       ->setComment("Do backward fit (to innermost hit) in CMSSW (true) or mkFit (false)");
@@ -127,16 +126,23 @@ void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::Ev
     mkfit::ConfigWrapper::setNTotalLayers(nlayers);
   });
 
-  // CMSSW event ID (64-bit unsigned) does not fit in int
-  // In addition, unique ID requires also lumi and run
-  // But does the event ID really matter within mkFit?
-  mkfit::Event ev(iEvent.id().event());
+  // seeds need to be mutable because of the possible cleaning
+  auto seeds_mutable = seeds.seeds();
+  mkfit::TrackVec tracks;
 
-  ev.setInputFromCMSSW(hits.hits(), seeds.seeds());
+  tbb::this_task_arena::isolate([&]() {
+    mkfit::run_OneIteration(mkFitGeom.trackerInfo(),
+                            mkFitGeom.iterationsInfo()[iterationNumber_],
+                            hits.eventOfHits(),
+                            streamCache(iID)->get(),
+                            seeds_mutable,
+                            tracks,
+                            seedCleaning_,
+                            not backwardFitInCMSSW_,
+                            removeDuplicates_);
+  });
 
-  tbb::this_task_arena::isolate([&]() { buildFunction_(ev, streamCache(iID)->get()); });
-
-  iEvent.emplace(putToken_, std::move(ev.candidateTracks_), std::move(ev.fitTracks_));
+  iEvent.emplace(putToken_, std::move(tracks), not backwardFitInCMSSW_);
 }
 
 DEFINE_FWK_MODULE(MkFitProducer);
