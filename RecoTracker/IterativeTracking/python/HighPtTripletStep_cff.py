@@ -225,6 +225,7 @@ highPtTripletStepTrackCandidatesMkFitSeeds = mkFitSeedConverter_cfi.mkFitSeedCon
 highPtTripletStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
     seeds = 'highPtTripletStepTrackCandidatesMkFitSeeds',
     iterationNumber = 1,
+    clustersToSkip = 'highPtTripletStepClusters',
 )
 trackingMkFit.toReplaceWith(highPtTripletStepTrackCandidates, mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
     seeds = 'highPtTripletStepSeeds',
