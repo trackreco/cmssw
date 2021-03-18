@@ -8,10 +8,10 @@ def parseArguments():
                      VarParsing.varType.string,
                      "Sample: 10mu, ttbarnopu, ttbarpu35, ttbarpu50, ttbarpu70")
     options.register("mkfit",
-                     1,
+                     "all",
                      VarParsing.multiplicity.singleton,
-                     VarParsing.varType.int,
-                     "Run MkFit (1) or CMSSW (0) tracking")
+                     VarParsing.varType.string,
+                     "Run MkFit for all iterations ('all'), specific iteration(s) (e.g. 'InitialStep', can be comma separated list), or CKF ('') tracking")
     options.register("timing",
                      "",
                      VarParsing.multiplicity.singleton,
@@ -46,7 +46,7 @@ def parseArguments():
     return options
 
 def apply(process, options):
-    mkfit = (options.mkfit != 0)
+    mkfit = (options.mkfit != "")
 
 #    if mkfit and options.hltOnDemand != 0:
 #        raise Exception("hltOnDemand does not work with mkfit")
