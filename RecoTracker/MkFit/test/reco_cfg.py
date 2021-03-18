@@ -6,15 +6,19 @@
 import FWCore.ParameterSet.Config as cms
 
 from Configuration.Eras.Era_Run3_cff import Run3
-from Configuration.ProcessModifiers.trackingMkFit_cff import trackingMkFit
+import Configuration.ProcessModifiers.trackingMkFit_cff as trackingMkFit_cff
 
 import RecoTracker.MkFit.input as input
 options = input.parseArguments()
 
-if options.mkfit != 0:
-    process = cms.Process('RECO',Run3,trackingMkFit)
-else:
-    process = cms.Process('RECO',Run3)
+modifiers = []
+if options.mkfit != "":
+    iterations = options.mkfit.split(",")
+    if iterations[0] == "all":
+        modifiers = [trackingMkFit_cff.trackingMkFit]
+    else:
+        modifiers = [getattr(trackingMkFit_cff, "trackingMkFit"+it) for it in iterations]
+process = cms.Process('RECO',Run3,*modifiers)
 
 # import of standard configurations
 process.load('Configuration.StandardSequences.Services_cff')
@@ -105,6 +109,8 @@ process.reconstruction_step = cms.Path(process.reconstruction_trackingOnly)
 process.prevalidation_step = cms.Path(process.globalPrevalidationTrackingOnly)
 process.validation_step = cms.EndPath(process.globalValidationTrackingOnly)
 process.dqmoffline_step = cms.EndPath(process.DQMOfflineTracking)
+if options.timing != "":
+    process.dqmoffline_step = cms.EndPath()
 process.dqmofflineOnPAT_step = cms.EndPath(process.PostDQMOffline)
 process.DQMoutput_step = cms.EndPath(process.DQMoutput)
 
