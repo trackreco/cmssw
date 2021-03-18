@@ -68,7 +68,6 @@ process.options = cms.untracked.PSet(
     throwIfIllegalParameter = cms.untracked.bool(True),
     wantSummary = cms.untracked.bool(False)
 )
-#process.options.wantsummary = True
 
 input.apply(process, options)
 
