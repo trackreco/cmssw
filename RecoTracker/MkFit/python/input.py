@@ -13,10 +13,10 @@ def parseArguments():
                      VarParsing.varType.int,
                      "Run MkFit (1) or CMSSW (0) tracking")
     options.register("timing",
-                     0,
+                     "",
                      VarParsing.multiplicity.singleton,
-                     VarParsing.varType.int,
-                     "Run validation configuration (0) or a timing configuration (1)")
+                     VarParsing.varType.string,
+                     "Timing method to use: '', framework, FastTimerService")
 #    options.register("hltOnDemand",
 #                     0,
 #                     VarParsing.multiplicity.singleton,
@@ -46,7 +46,6 @@ def parseArguments():
     return options
 
 def apply(process, options):
-    timing = (options.timing != 0)
     mkfit = (options.mkfit != 0)
 
 #    if mkfit and options.hltOnDemand != 0:
@@ -80,5 +79,13 @@ def apply(process, options):
 
     if process.maxEvents.input.value() > 100 or process.maxEvents.input.value()  == -1:
         process.MessageLogger.cerr.FwkReport.reportEvery = 100
+
+    if options.timing == "framework":
+        process.options.wantSummary = True
+    elif options.timing == "FastTimerService":
+        process.FastTimerService.enableDQMbyPath = True
+    elif options.timing != "":
+        raise Exception("Incorrect value of timing={}, supported are '', framework, FastTimerService")
+
 
     return options
