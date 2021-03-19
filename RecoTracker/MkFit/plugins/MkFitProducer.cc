@@ -57,6 +57,7 @@ private:
   bool backwardFitInCMSSW_;
   bool removeDuplicates_;
   bool mkFitSilent_;
+  bool limitConcurrency_;
 };
 
 MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
@@ -70,7 +71,8 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
       seedCleaning_{iConfig.getParameter<bool>("seedCleaning")},
       backwardFitInCMSSW_{iConfig.getParameter<bool>("backwardFitInCMSSW")},
       removeDuplicates_{iConfig.getParameter<bool>("removeDuplicates")},
-      mkFitSilent_{iConfig.getUntrackedParameter<bool>("mkFitSilent")} {
+      mkFitSilent_{iConfig.getUntrackedParameter<bool>("mkFitSilent")},
+      limitConcurrency_{iConfig.getUntrackedParameter<bool>("limitConcurrency")} {
   const auto clustersToSkip = iConfig.getParameter<edm::InputTag>("clustersToSkip");
   if (not clustersToSkip.label().empty()) {
     pixelMaskToken_ = consumes(clustersToSkip);
@@ -110,6 +112,10 @@ void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& description
   desc.add("backwardFitInCMSSW", false)
       ->setComment("Do backward fit (to innermost hit) in CMSSW (true) or mkFit (false)");
   desc.addUntracked("mkFitSilent", true)->setComment("Allows to enables printouts from mkFit with 'False'");
+  desc.addUntracked("limitConcurrency", false)
+      ->setComment(
+          "Use tbb::task_arena to limit the internal concurrency to 1; useful only for timing studies when measuring "
+          "the module time");
 
   edm::ParameterSetDescription descCCC;
   descCCC.add<double>("value");
@@ -169,7 +175,7 @@ void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::Ev
   auto seeds_mutable = seeds.seeds();
   mkfit::TrackVec tracks;
 
-  tbb::this_task_arena::isolate([&]() {
+  auto lambda = [&]() {
     mkfit::run_OneIteration(mkFitGeom.trackerInfo(),
                             mkFitGeom.iterationsInfo()[iterationNumber_],
                             hits.eventOfHits(),
@@ -180,7 +186,14 @@ void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::Ev
                             seedCleaning_,
                             not backwardFitInCMSSW_,
                             removeDuplicates_);
-  });
+  };
+
+  if (limitConcurrency_) {
+    tbb::task_arena arena(1);
+    arena.execute(std::move(lambda));
+  } else {
+    tbb::this_task_arena::isolate(std::move(lambda));
+  }
 
   iEvent.emplace(putToken_, std::move(tracks), not backwardFitInCMSSW_);
 }
