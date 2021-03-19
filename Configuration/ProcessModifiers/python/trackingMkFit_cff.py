@@ -1,5 +1,6 @@
 import FWCore.ParameterSet.Config as cms
 
+from Configuration.ProcessModifiers.trackingMkFitCommon_cff import *
 from Configuration.ProcessModifiers.trackingMkFitInitialStep_cff import *
 from Configuration.ProcessModifiers.trackingMkFitLowPtQuadStep_cff import *
 from Configuration.ProcessModifiers.trackingMkFitHighPtTripletStep_cff import *
@@ -10,8 +11,9 @@ from Configuration.ProcessModifiers.trackingMkFitMixedTripletStep_cff import *
 from Configuration.ProcessModifiers.trackingMkFitPixelLessStep_cff import *
 from Configuration.ProcessModifiers.trackingMkFitTobTecStep_cff import *
 
-# This modifier sets replaces the default pattern recognition with mkFit (possibly in selected iterations only)
+# Use mkFit in all iterations
 trackingMkFit = cms.ModifierChain(
+    trackingMkFitCommon,
     trackingMkFitInitialStep,
     trackingMkFitLowPtQuadStep,
     trackingMkFitHighPtTripletStep,
