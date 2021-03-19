@@ -80,11 +80,19 @@ def apply(process, options):
     if process.maxEvents.input.value() > 100 or process.maxEvents.input.value()  == -1:
         process.MessageLogger.cerr.FwkReport.reportEvery = 100
 
-    if options.timing == "framework":
-        process.options.wantSummary = True
-    elif options.timing == "FastTimerService":
-        process.FastTimerService.enableDQMbyPath = True
-    elif options.timing != "":
+    if options.timing != "":
+        if options.timing == "framework":
+            process.options.wantSummary = True
+        elif options.timing == "FastTimerService":
+            process.FastTimerService.enableDQMbyPath = True
+        for it in ["initialStep", "lowPtQuadStep", "highPtTripletStep", "lowPtTripletStep",
+                   "detachedQuadStep", "detachedTripletStep", "mixedTripletStep",
+                   "pixelLessStep", "tobTecStep"]:
+            try:
+                getattr(process, it+"TrackCandidatesMkFit").limitConcurrency = True
+            except AttributeError:
+                pass
+    else:
         raise Exception("Incorrect value of timing={}, supported are '', framework, FastTimerService")
 
 
