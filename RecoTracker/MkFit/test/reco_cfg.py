@@ -18,6 +18,7 @@ if options.mkfit != "":
         modifiers = [trackingMkFit_cff.trackingMkFit]
     else:
         modifiers = [getattr(trackingMkFit_cff, "trackingMkFit"+it) for it in iterations]
+        modifiers.append(trackingMkFit_cff.trackingMkFitCommon)
 process = cms.Process('RECO',Run3,*modifiers)
 
 # import of standard configurations
