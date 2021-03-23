@@ -47,6 +47,11 @@ def parseArguments():
                      VarParsing.multiplicity.singleton,
                      VarParsing.varType.string,
                      "Produce trackingNtuple instead of DQM. Possible values are '', 'generalTracks', 'InitialStep' etc (default '' to disable)")
+    options.register("jsonPatch",
+                     "",
+                     VarParsing.multiplicity.singleton,
+                     VarParsing.varType.string,
+                     "Patch iteration config from given JSON file (default '' for not to patch)")
     options.parseArguments()
     return options
 
@@ -100,5 +105,7 @@ def apply(process, options):
     else:
         raise Exception("Incorrect value of timing={}, supported are '', framework, FastTimerService")
 
+    if options.jsonPatch != "":
+        process.mkFitGeometryESProducer.jsonForOverride = options.jsonPatch
 
     return options
