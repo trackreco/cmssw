@@ -42,6 +42,11 @@ def parseArguments():
                      VarParsing.multiplicity.singleton,
                      VarParsing.varType.int,
                      "Number of streams (or events in flight, default 1)")
+    options.register("trackingNtuple",
+                     "",
+                     VarParsing.multiplicity.singleton,
+                     VarParsing.varType.string,
+                     "Produce trackingNtuple instead of DQM. Possible values are '', 'generalTracks', 'InitialStep' etc (default '' to disable)")
     options.parseArguments()
     return options
 

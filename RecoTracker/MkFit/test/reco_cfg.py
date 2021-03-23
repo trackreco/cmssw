@@ -128,6 +128,22 @@ from SimGeneral.MixingModule.fullMixCustomize_cff import setCrossingFrameOn
 #call to customisation function setCrossingFrameOn imported from SimGeneral.MixingModule.fullMixCustomize_cff
 process = setCrossingFrameOn(process)
 
+from Validation.RecoTrack.customiseTrackingNtuple import customiseTrackingNtuple
+import RecoTracker.IterativeTracking.iterativeTkUtils as _utils
+if options.trackingNtuple != "":
+    process = customiseTrackingNtuple(process)
+
+    if options.trackingNtuple != "generalTracks":
+        prefix = options.trackingNtuple[0].lower()+options.trackingNtuple[1:]
+        process.trackingNtuple.tracks = prefix+"Tracks"
+
+        process.trackingNtuple.seedTracks = ["seedTracks"+prefix+"Seeds"]
+        process.trackingNtuple.trackCandidates = [prefix+"TrackCandidates"]
+
+        process.trackingNtuple.trackMVAs = _utils.getMVASelectors("_trackingPhase1")[prefix][1]
+
+        process.trackingNtuple.vertices = "firstStepPrimaryVertices"
+
 # End of customisation functions
 
 
