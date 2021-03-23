@@ -26,7 +26,7 @@ process.load('Configuration.StandardSequences.Services_cff')
 process.load('SimGeneral.HepPDTESSource.pythiapdt_cfi')
 process.load('FWCore.MessageService.MessageLogger_cfi')
 process.load('Configuration.EventContent.EventContent_cff')
-process.load('SimGeneral.MixingModule.mixNoPU_cfi')
+process.load('SimGeneral.MixingModule.mix_POISSON_average_cfi')
 process.load('Configuration.StandardSequences.GeometryRecoDB_cff')
 process.load('Configuration.StandardSequences.MagneticField_cff')
 process.load('Configuration.StandardSequences.RawToDigi_cff')
@@ -97,7 +97,8 @@ process.DQMoutput = cms.OutputModule("DQMRootOutputModule",
 # Additional output definition
 
 # Other statements
-process.mix.playback = True
+process.mix.playback = False
+process.mix.input.fileNames = []
 process.mix.digitizers = cms.PSet()
 for a in process.aliases: delattr(process, a)
 process.RandomNumberGeneratorService.restoreStateLabel=cms.untracked.string("randomEngineStateProducer")
@@ -127,6 +128,41 @@ from SimGeneral.MixingModule.fullMixCustomize_cff import setCrossingFrameOn
 
 #call to customisation function setCrossingFrameOn imported from SimGeneral.MixingModule.fullMixCustomize_cff
 process = setCrossingFrameOn(process)
+
+from Validation.RecoTrack.customiseTrackingNtuple import customiseTrackingNtuple
+import RecoTracker.IterativeTracking.iterativeTkUtils as _utils
+if options.trackingNtuple != "":
+    if "pu" in options.sample and not "nopu" in options.sample:
+        process.mix.playback = True
+        process.mix.bunchspace = cms.int32(25)
+        process.mix.minBunch = cms.int32(-1)
+        process.mix.maxBunch = cms.int32(0)
+        process.mix.digitizers = cms.PSet(process.theDigitizersValid)
+        process.mix.input.fileNames = cms.untracked.vstring([
+            process.source.fileNames[0].replace("step2_sorted.root", "minbias.root")
+        ])
+        if options.sample == "ttbarpu35":
+            process.mix.input.nbPileupEvents.averageNumber = cms.double(35.000000)
+        elif options.sample == "ttbarpu50":
+            process.mix.input.nbPileupEvents.averageNumber = cms.double(50.000000)
+        elif options.sample == "ttbarpu70":
+            process.mix.input.nbPileupEvents.averageNumber = cms.double(70.000000)
+        else:
+            raise Exception("Unknown value of sample={}".fromat(options.sample))
+
+
+    process = customiseTrackingNtuple(process)
+
+    if options.trackingNtuple != "generalTracks":
+        prefix = options.trackingNtuple[0].lower()+options.trackingNtuple[1:]
+        process.trackingNtuple.tracks = prefix+"Tracks"
+
+        process.trackingNtuple.seedTracks = ["seedTracks"+prefix+"Seeds"]
+        process.trackingNtuple.trackCandidates = [prefix+"TrackCandidates"]
+
+        process.trackingNtuple.trackMVAs = _utils.getMVASelectors("_trackingPhase1")[prefix][1]
+
+        process.trackingNtuple.vertices = "firstStepPrimaryVertices"
 
 # End of customisation functions
 
