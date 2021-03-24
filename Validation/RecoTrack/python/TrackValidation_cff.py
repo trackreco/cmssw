@@ -796,10 +796,11 @@ _taskForEachEra(_addSelectorsBySrc, modDict = globals(),
 
 # MTV instances
 trackValidatorStandalone = trackValidator.clone(
-    cores = "highPtJets"
+    cores = "highPtJets",
+    doResolutionPlotsForLabels = [],
 )
 trackValidatorTPPtLess09Standalone = trackValidatorTPPtLess09.clone(
-    cores = "highPtJets"
+    cores = "highPtJets",
 )
 for _eraName, _postfix, _era in _relevantEras:
     _setForEra(trackValidatorStandalone, _eraName, _era, label = trackValidator.label + locals()["_selectorsByAlgoMask"+_postfix] + locals()["_selectorsPt09Standalone"+_postfix])
@@ -824,16 +825,19 @@ trackValidatorAllTPEfficStandalone = trackValidatorAllTPEffic.clone(
 
 trackValidatorConversionStandalone = trackValidatorConversion.clone(
     label = [x for x in trackValidatorConversion.label if x != "convStepTracks"],
-    cores = "highPtJets"
+    cores = "highPtJets",
+    doResolutionPlotsForLabels = [],
 )
 
 trackValidatorBHadronStandalone = trackValidatorBHadron.clone(
     label = [x for x in trackValidatorStandalone.label if "Pt09" not in x],
-    cores = "highPtJets"
+    cores = "highPtJets",
+    doResolutionPlotsForLabels = [],
 )
 
 trackValidatorGsfTracksStandalone = trackValidatorGsfTracks.clone(
-    cores = "highPtJets"
+    cores = "highPtJets",
+    doResolutionPlotsForLabels = [],
 )
 
 # sequences
@@ -925,6 +929,13 @@ for _eraName, _postfix, _era in _relevantEras:
     _setForEra(trackValidatorSeedingPreSplittingTrackingOnly, _eraName, _era, label = locals()["_seedSelectorsPreSplitting"+_postfix])
 
 
+trackValidatorBuildingTrackingOnly = trackValidatorBuilding.clone(
+    doResolutionPlotsForLabels = []
+)
+trackValidatorBuildingPreSplittingTrackingOnly = trackValidatorBuildingPreSplitting.clone(
+    doResolutionPlotsForLabels = []
+)
+
 trackValidatorConversionTrackingOnly = trackValidatorConversion.clone(label = [x for x in trackValidatorConversion.label if x not in ["ckfInOutTracksFromConversions", "ckfOutInTracksFromConversions"]])
 
 trackValidatorBHadronTrackingOnly = trackValidatorBHadron.clone(label = [x for x in trackValidatorTrackingOnly.label if "Pt09" not in x])
@@ -946,8 +957,8 @@ trackValidatorsTrackingOnly.replace(trackValidatorFromPVAllTPStandalone,trackVal
 trackValidatorsTrackingOnly.replace(trackValidatorAllTPEfficStandalone,trackValidatorAllTPEfficTrackingOnly)
 trackValidatorsTrackingOnly += trackValidatorSeedingTrackingOnly
 trackValidatorsTrackingOnly += trackValidatorSeedingPreSplittingTrackingOnly
-trackValidatorsTrackingOnly += trackValidatorBuilding
-trackValidatorsTrackingOnly += trackValidatorBuildingPreSplitting
+trackValidatorsTrackingOnly += trackValidatorBuildingTrackingOnly
+trackValidatorsTrackingOnly += trackValidatorBuildingPreSplittingTrackingOnly
 trackValidatorsTrackingOnly.replace(trackValidatorConversionStandalone, trackValidatorConversionTrackingOnly)
 trackValidatorsTrackingOnly.remove(trackValidatorGsfTracksStandalone)
 trackValidatorsTrackingOnly.replace(trackValidatorBHadronStandalone, trackValidatorBHadronTrackingOnly)
