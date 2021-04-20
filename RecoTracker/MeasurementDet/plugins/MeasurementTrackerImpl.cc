@@ -93,7 +93,7 @@ MeasurementTrackerImpl::MeasurementTrackerImpl(const BadStripCutsDet& badStripCu
       thePxDetConditions(pixelCPE),
       thePhase2DetConditions(phase2OTCPE) {
   this->initialize(trackerTopology);
-  this->initializeStripStatus(badStripCuts, stripQuality, stripQualityFlags, stripQualityDebugFlags);
+  this->initializeStripStatus(badStripCuts, stripQuality, stripQualityFlags, stripQualityDebugFlags, trackerTopology);
   this->initializePixelStatus(pixelQuality, pixelCabling, pixelQualityFlags, pixelQualityDebugFlags);
 }
 
@@ -314,7 +314,8 @@ void MeasurementTrackerImpl::initStackDet(TkStackMeasurementDet& det) {
 void MeasurementTrackerImpl::initializeStripStatus(const BadStripCutsDet& badStripCuts,
                                                    const SiStripQuality* quality,
                                                    int qualityFlags,
-                                                   int qualityDebugFlags) {
+                                                   int qualityDebugFlags,
+						   const TrackerTopology* trackerTopology) {
   if (qualityFlags & BadStrips) {
     theStDetConditions.badStripCuts_[SiStripDetId::TIB - 3] = badStripCuts.tib;
     theStDetConditions.badStripCuts_[SiStripDetId::TOB - 3] = badStripCuts.tob;
@@ -332,6 +333,25 @@ void MeasurementTrackerImpl::initializeStripStatus(const BadStripCutsDet& badStr
       if (qualityFlags & BadModules) {
         bool isOn = quality->IsModuleUsable(detid);
         theStDetConditions.setActive(i, isOn);
+	if (!isOn){
+	  //Print out x, y, z, phi_span, detID, layer, and isStereo
+          DetId detid_(detid);
+	  std::cout << trackerTopology->isStereo(detid_) << ", ";
+	  std::cout << trackerTopology->layer(detid_) <<  ", ";
+	  std::cout <<detid_.subdetId() << ", ";
+
+	  const std::vector<TkStripMeasurementDet> &  stripDets = this->stripDets();
+          auto & mdet = stripDets[i];
+          auto & gd_  = mdet.specificGeomDet();
+          auto & surf = gd_.surface();
+	  //double z; //,y,z;
+          //x = surf.position().x();
+          //y = surf.position().y();
+          //z = surf.position().z();
+          double phi_span = abs(surf.phiSpan().first - surf.phiSpan().second);
+	  std::cout << phi_span << ", ";
+	}
+	std::cout << std::endl;
         tot++;
         on += (unsigned int)isOn;
         if (qualityDebugFlags & BadModules) {

@@ -142,8 +142,8 @@ protected:
   void initializeStripStatus(const BadStripCutsDet& badStripCuts,
                              const SiStripQuality* stripQuality,
                              int qualityFlags,
-                             int qualityDebugFlags);
-
+                             int qualityDebugFlags,
+			     const TrackerTopology* trackerTopology);
   void initializePixelStatus(const SiPixelQuality* stripQuality,
                              const SiPixelFedCabling* pixelCabling,
                              int qualityFlags,
