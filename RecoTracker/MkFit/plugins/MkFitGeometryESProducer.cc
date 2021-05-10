@@ -12,12 +12,8 @@
 
 // mkFit includes
 #include "ConfigWrapper.h"
-// TODO: the need for this define MUST be removed
-// e.g. make it a build configure time choice instead of build time shoice
-#define USE_MATRIPLEX
-// TODO: this include causes "warning: ignoring #pragma omp simd" from Matriplex.h, can we try to hide the Matriplex from CMSSW?
-#include "mkFit/SteeringParams.h"
 #include "TrackerInfo.h"
+#include "mkFit/IterationConfig.h"
 
 #include <atomic>
 

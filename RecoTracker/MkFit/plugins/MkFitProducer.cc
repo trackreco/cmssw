@@ -20,15 +20,10 @@
 #include "RecoTracker/Record/interface/TrackerRecoGeometryRecord.h"
 
 // mkFit includes
-// TODO: the need for this define MUST be removed
-// e.g. make it a build configure time choice instead of build time shoice
-#define USE_MATRIPLEX
-// TODO: this include causes "warning: ignoring #pragma omp simd" from Matriplex.h, can we try to hide the Matriplex from CMSSW?
-#include "mkFit/SteeringParams.h"
-
 #include "ConfigWrapper.h"
 #include "LayerNumberConverter.h"
 #include "mkFit/buildtestMPlex.h"
+#include "mkFit/IterationConfig.h"
 #include "mkFit/MkBuilderWrapper.h"
 
 // TBB includes
