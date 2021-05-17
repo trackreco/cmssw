@@ -29,11 +29,9 @@ private:
   edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> geomToken_;
   edm::ESGetToken<GeometricSearchTracker, TrackerRecoGeometryRecord> trackerToken_;
   edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> ttopoToken_;
-  std::string const jsonOverride_;
 };
 
-MkFitGeometryESProducer::MkFitGeometryESProducer(const edm::ParameterSet& iConfig)
-    : jsonOverride_{iConfig.getParameter<std::string>("jsonForOverride")} {
+MkFitGeometryESProducer::MkFitGeometryESProducer(const edm::ParameterSet& iConfig) {
   auto cc = setWhatProduced(this);
   geomToken_ = cc.consumes();
   trackerToken_ = cc.consumes();
@@ -42,8 +40,6 @@ MkFitGeometryESProducer::MkFitGeometryESProducer(const edm::ParameterSet& iConfi
 
 void MkFitGeometryESProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
-  desc.add<std::string>("jsonForOverride", "")
-      ->setComment("Path to a JSON file to override the default iteration parameters");
   descriptions.addWithDefaultLabel(desc);
 }
 
@@ -52,9 +48,6 @@ std::unique_ptr<MkFitGeometry> MkFitGeometryESProducer::produce(const TrackerRec
   auto iterationsInfo = std::make_unique<mkfit::IterationsInfo>();
   // TODO: absorb the functionality to CMSSW
   mkfit::TrackerInfo::ExecTrackerInfoCreatorPlugin("CMS-2017", *trackerInfo, *iterationsInfo);
-  if (not jsonOverride_.empty()) {
-    mkfit::ConfigJson_Patch_File(*iterationsInfo, jsonOverride_);
-  }
   return std::make_unique<MkFitGeometry>(iRecord.get(geomToken_),
                                          iRecord.get(trackerToken_),
                                          iRecord.get(ttopoToken_),

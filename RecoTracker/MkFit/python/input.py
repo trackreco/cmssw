@@ -47,11 +47,6 @@ def parseArguments():
                      VarParsing.multiplicity.singleton,
                      VarParsing.varType.string,
                      "Produce trackingNtuple instead of DQM. Possible values are '', 'generalTracks', 'InitialStep' etc (default '' to disable)")
-    options.register("jsonPatch",
-                     "",
-                     VarParsing.multiplicity.singleton,
-                     VarParsing.varType.string,
-                     "Patch iteration config from given JSON file (default '' for not to patch)")
     options.parseArguments()
     return options
 
@@ -104,8 +99,5 @@ def apply(process, options):
                 getattr(process, it+"TrackCandidatesMkFit").limitConcurrency = True
             except AttributeError:
                 pass
-
-    if options.jsonPatch != "":
-        process.mkFitGeometryESProducer.jsonForOverride = options.jsonPatch
 
     return options
