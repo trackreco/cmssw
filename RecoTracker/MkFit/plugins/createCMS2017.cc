@@ -8,7 +8,7 @@
 #include "mkFit/IterationConfig.h"
 #include "mkFit/HitStructures.h"
 
-#include "CMS-2017-HitSelectionWindows.h"
+#include "HitSelectionWindows2017.h"
 
 #include <functional>
 
@@ -16,9 +16,9 @@ using namespace mkfit;
 
 namespace
 {
-#include "CMS-2017.acc"
+#include "createCMS2017AutoGen.acc"
 
-  void SetupSteeringParams_Iter0(IterationConfig& ic)
+  void setupSteeringParamsIter0(IterationConfig& ic)
   {
     ic.m_region_order[0] = TrackerInfo::Reg_Transition_Pos;
     ic.m_region_order[1] = TrackerInfo::Reg_Transition_Neg;
@@ -92,7 +92,7 @@ namespace
     }
   }
 
-  void SetupIterationParams(IterationParams& ip, unsigned int it=0)
+  void setupIterationParams(IterationParams& ip, unsigned int it=0)
   {
     if (it == 0)
     {
@@ -187,9 +187,9 @@ namespace
  
   }
 
-  void fill_hit_selection_windows_params(IterationConfig &ic)
+  void fillHitSelectionWindowsParams(IterationConfig &ic)
   {
-    HitSelectionWindows hsw;
+    HitSelectionWindows2017 hsw;
     for (int l = 0; l < (int)ic.m_layer_configs.size(); ++l)
     {
       // dphi cut
@@ -303,7 +303,7 @@ namespace
   };
 
 
-  void Create_CMS_2017(TrackerInfo& ti, IterationsInfo& ii, bool verbose)
+  void createCMS2017(TrackerInfo& ti, IterationsInfo& ii, bool verbose)
   {
     Config::nTotalLayers     = 18 + 2 * 27;
 
@@ -324,82 +324,74 @@ namespace
     ii[0].set_iteration_index_and_track_algorithm(0, (int) TrackBase::TrackAlgorithm::initialStep);
     ii[0].set_num_regions_layers(5, 72);
 
-    Create_CMS_2017_AutoGen(ti, ii);
+    createCMS2017AutoGen(ti, ii);
 
-    SetupSteeringParams_Iter0(ii[0]);
-    SetupIterationParams(ii[0].m_params, 0);
+    setupSteeringParamsIter0(ii[0]);
+    setupIterationParams(ii[0].m_params, 0);
     ii[0].m_partition_seeds = PartitionSeeds0;
-    fill_hit_selection_windows_params(ii[0]);
+    fillHitSelectionWindowsParams(ii[0]);
 
     ii[1].Clone(ii[0]); //added extra iterations with some preliminary setup
-    SetupIterationParams(ii[1].m_params, 1);
+    setupIterationParams(ii[1].m_params, 1);
     ii[1].set_iteration_index_and_track_algorithm(1, (int) TrackBase::TrackAlgorithm::highPtTripletStep);
     ii[1].set_seed_cleaning_params(2.0, 0.018, 0.018, 0.018, 0.018, 0.018, 0.05, 0.018, 0.05); 
-    fill_hit_selection_windows_params(ii[1]);
+    fillHitSelectionWindowsParams(ii[1]);
 
     ii[2].Clone(ii[0]); 
-    SetupIterationParams(ii[2].m_params, 2);
+    setupIterationParams(ii[2].m_params, 2);
     ii[2].set_iteration_index_and_track_algorithm(2, (int) TrackBase::TrackAlgorithm::lowPtQuadStep);
     ii[2].set_seed_cleaning_params(0.5, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05);
-    fill_hit_selection_windows_params(ii[2]);
+    fillHitSelectionWindowsParams(ii[2]);
      
     ii[3].Clone(ii[0]);
-    SetupIterationParams(ii[3].m_params, 3);
+    setupIterationParams(ii[3].m_params, 3);
     ii[3].set_iteration_index_and_track_algorithm(3, (int) TrackBase::TrackAlgorithm::lowPtTripletStep);
     ii[3].set_seed_cleaning_params(0.5, 0.0, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05);
-    fill_hit_selection_windows_params(ii[3]);
+    fillHitSelectionWindowsParams(ii[3]);
     
     ii[4].Clone(ii[0]);
-    SetupIterationParams(ii[4].m_params, 4);
+    setupIterationParams(ii[4].m_params, 4);
     ii[4].set_iteration_index_and_track_algorithm(4, (int) TrackBase::TrackAlgorithm::detachedQuadStep);
     ii[4].set_seed_cleaning_params(2.0, 0.018, 0.018, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05);
-    fill_hit_selection_windows_params(ii[4]);
+    fillHitSelectionWindowsParams(ii[4]);
     
     ii[5].Clone(ii[0]);
-    SetupIterationParams(ii[5].m_params, 5);
+    setupIterationParams(ii[5].m_params, 5);
     ii[5].set_iteration_index_and_track_algorithm(5, (int) TrackBase::TrackAlgorithm::detachedTripletStep);
     ii[5].set_seed_cleaning_params(2.0, 0.018, 0.018, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05);
-    fill_hit_selection_windows_params(ii[5]);
+    fillHitSelectionWindowsParams(ii[5]);
 
     ii[6].Clone(ii[0]);
-    SetupIterationParams(ii[6].m_params, 6);
+    setupIterationParams(ii[6].m_params, 6);
     ii[6].set_iteration_index_and_track_algorithm(6, (int) TrackBase::TrackAlgorithm::mixedTripletStep);
     ii[6].set_seed_cleaning_params(2.0, 0.05, 0.05, 0.135, 0.135, 0.05, 0.05, 0.135, 0.135);
-    fill_hit_selection_windows_params(ii[6]);
+    fillHitSelectionWindowsParams(ii[6]);
 
     ii[7].Clone(ii[0]);
-    SetupIterationParams(ii[7].m_params, 7);
+    setupIterationParams(ii[7].m_params, 7);
     ii[7].set_iteration_index_and_track_algorithm(7, (int) TrackBase::TrackAlgorithm::pixelLessStep);
     ii[7].set_seed_cleaning_params(2.0, 0.135, 0.135, 0.135, 0.135, 0.135, 0.135, 0.135, 0.135);
     ii[7].set_qf_flags();
     ii[7].set_qf_params(4,0.19);
-    fill_hit_selection_windows_params(ii[7]);
+    fillHitSelectionWindowsParams(ii[7]);
 
     ii[8].Clone(ii[0]);
-    SetupIterationParams(ii[8].m_params, 8);
+    setupIterationParams(ii[8].m_params, 8);
     ii[8].set_iteration_index_and_track_algorithm(8, (int) TrackBase::TrackAlgorithm::tobTecStep);
     ii[8].set_seed_cleaning_params(2.0, 0.135, 0.135, 0.135, 0.135, 0.135, 0.135, 0.135, 0.135);    
     ii[8].set_qf_flags();
     ii[8].set_qf_params(4,0.25);
-    fill_hit_selection_windows_params(ii[8]);
+    fillHitSelectionWindowsParams(ii[8]);
 
     //for the latter 2 iter investing in maxCand & stop condition (for time) + QF and Dupl. cleaning (for quality)
     
     if (verbose)
     {
       printf("==========================================================================================\n");
-    }
-
-    printf("CMS-2017 -- Create_TrackerInfo finished\n");
-
-    if (verbose)
-    {
+      printf("CMS-2017 -- Create_TrackerInfo finished\n");
       printf("==========================================================================================\n");
       for (auto &i : ti.m_layers)  i.print_layer();
       printf("==========================================================================================\n");
     }
   }
 }
-
-
-void* TrackerInfoCrator_ptr = (void*) Create_CMS_2017;

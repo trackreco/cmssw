@@ -1,4 +1,4 @@
-void Create_CMS_2017_AutoGen(TrackerInfo &ti, IterationsInfo &ii)
+void createCMS2017AutoGen(TrackerInfo &ti, IterationsInfo &ii)
 {
   // PIXB
 
