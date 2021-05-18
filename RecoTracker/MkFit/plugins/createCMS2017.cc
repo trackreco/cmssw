@@ -275,7 +275,9 @@ namespace {
       part.m_sort_score[i] = 5.0f * (reg - 2) + eta;
     }
   }
+}  // namespace
 
+namespace mkfit {
   void createCMS2017(TrackerInfo &ti, IterationsInfo &ii, bool verbose) {
     Config::nTotalLayers = 18 + 2 * 27;
 
@@ -366,4 +368,4 @@ namespace {
       printf("==========================================================================================\n");
     }
   }
-}  // namespace
+}  // namespace mkfit
