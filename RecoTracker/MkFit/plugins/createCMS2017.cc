@@ -279,6 +279,7 @@ namespace {
 
 namespace mkfit {
   void createCMS2017(TrackerInfo &ti, IterationsInfo &ii, bool verbose) {
+    // TODO: these writes to global variables need to be removed
     Config::nTotalLayers = 18 + 2 * 27;
 
     Config::useCMSGeom = true;
