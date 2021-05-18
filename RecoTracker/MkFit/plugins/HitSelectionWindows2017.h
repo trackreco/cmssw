@@ -3,14 +3,14 @@
 
 namespace mkfit {
 
-struct HitSelectionWindows
+struct HitSelectionWindows2017
 {
 public:
   float m_dp_params[9][72][3];
   float m_dq_params[9][72][3];
   float m_c2_params[9][72][3];
 
-  HitSelectionWindows(){
+  HitSelectionWindows2017(){
     ////// Iteration 0 (initialStep, algo=4)
     m_dp_params[0][0][0]=0.0;
     m_dp_params[0][0][1]=0.0;
