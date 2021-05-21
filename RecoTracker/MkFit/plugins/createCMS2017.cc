@@ -8,7 +8,7 @@
 #include "mkFit/IterationConfig.h"
 #include "mkFit/HitStructures.h"
 
-#include "HitSelectionWindows2017.h"
+#include "HitSelectionWindowsPhase1.h"
 
 #include <functional>
 
@@ -173,7 +173,7 @@ namespace {
   }
 
   void fillHitSelectionWindowsParams(IterationConfig &ic) {
-    HitSelectionWindows2017 hsw;
+    HitSelectionWindowsPhase1 hsw;
     for (int l = 0; l < (int)ic.m_layer_configs.size(); ++l) {
       // dphi cut
       ic.m_layer_configs[l].c_dp_0 = hsw.m_dp_params[ic.m_iteration_index][l][0];
