@@ -1,15 +1,15 @@
-#ifndef HitSelectionWindows_h
-#define HitSelectionWindows_h
+#ifndef RecoTracker_MkFit_plugins_HitSelectionWindowsPhase1_h
+#define RecoTracker_MkFit_plugins_HitSelectionWindowsPhase1_h
 
 namespace mkfit {
 
-  struct HitSelectionWindows2017 {
+  struct HitSelectionWindowsPhase1 {
   public:
     float m_dp_params[9][72][3];
     float m_dq_params[9][72][3];
     float m_c2_params[9][72][3];
 
-    HitSelectionWindows2017() {
+    HitSelectionWindowsPhase1() {
       ////// Iteration 0 (initialStep, algo=4)
       m_dp_params[0][0][0] = 0.0;
       m_dp_params[0][0][1] = 0.0;
