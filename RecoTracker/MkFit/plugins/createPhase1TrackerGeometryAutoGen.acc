@@ -1,4 +1,4 @@
-void createCMS2017AutoGen(TrackerInfo &ti, IterationsInfo &ii) {
+void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti, IterationsInfo &ii) {
   // PIXB
 
   {
