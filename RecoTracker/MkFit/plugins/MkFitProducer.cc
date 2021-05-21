@@ -33,11 +33,6 @@
 #include <functional>
 #include <mutex>
 
-namespace {
-  // TODO: to be removed after the configuration does not require a global write
-  std::mutex configMutex;
-}  // namespace
-
 class MkFitProducer : public edm::global::EDProducer<edm::StreamCache<mkfit::MkBuilderWrapper> > {
 public:
   explicit MkFitProducer(edm::ParameterSet const& iConfig);
