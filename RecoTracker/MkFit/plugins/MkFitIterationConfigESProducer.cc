@@ -32,7 +32,8 @@ void MkFitIterationConfigESProducer::fillDescriptions(edm::ConfigurationDescript
   descriptions.addWithDefaultLabel(desc);
 }
 
-std::unique_ptr<mkfit::IterationConfig> MkFitIterationConfigESProducer::produce(const TrackerRecoGeometryRecord& iRecord) {
+std::unique_ptr<mkfit::IterationConfig> MkFitIterationConfigESProducer::produce(
+    const TrackerRecoGeometryRecord& iRecord) {
   return mkfit::ConfigJson_Load_File(iRecord.get(geomToken_).iterationsInfo(), configFile_);
 }
 
