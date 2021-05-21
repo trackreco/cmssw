@@ -1,5 +1,5 @@
 //-------------------
-// CMS 2017 geometry
+// Phase1 tracker geometry
 //-------------------
 
 #include "Config.h"
@@ -15,7 +15,7 @@
 using namespace mkfit;
 
 namespace {
-#include "createCMS2017AutoGen.acc"
+#include "createPhase1TrackerGeometryAutoGen.acc"
 
   void setupSteeringParamsIter0(IterationConfig &ic) {
     ic.m_region_order[0] = TrackerInfo::Reg_Transition_Pos;
@@ -278,7 +278,7 @@ namespace {
 }  // namespace
 
 namespace mkfit {
-  void createCMS2017(TrackerInfo &ti, IterationsInfo &ii, bool verbose) {
+  void createPhase1TrackerGeometry(TrackerInfo &ti, IterationsInfo &ii, bool verbose) {
     // TODO: these writes to global variables need to be removed
     Config::nTotalLayers = 18 + 2 * 27;
 
@@ -299,7 +299,7 @@ namespace mkfit {
     ii[0].set_iteration_index_and_track_algorithm(0, (int)TrackBase::TrackAlgorithm::initialStep);
     ii[0].set_num_regions_layers(5, 72);
 
-    createCMS2017AutoGen(ti, ii);
+    createPhase1TrackerGeometryAutoGen(ti, ii);
 
     setupSteeringParamsIter0(ii[0]);
     setupIterationParams(ii[0].m_params, 0);
@@ -362,7 +362,7 @@ namespace mkfit {
 
     if (verbose) {
       printf("==========================================================================================\n");
-      printf("CMS-2017 -- Create_TrackerInfo finished\n");
+      printf("Phase1 tracker -- Create_TrackerInfo finished\n");
       printf("==========================================================================================\n");
       for (auto &i : ti.m_layers)
         i.print_layer();
