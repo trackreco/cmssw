@@ -56,10 +56,10 @@ private:
                              const MkFitGeometry& mkFitGeom) const;
 
   float clusterCharge(const SiStripRecHit2D& hit, DetId hitId) const;
-  nullptr_t clusterCharge(const SiPixelRecHit& hit, DetId hitId) const;
+  std::nullptr_t clusterCharge(const SiPixelRecHit& hit, DetId hitId) const;
 
   bool passCCC(float charge) const;
-  bool passCCC(nullptr_t) const;  //pixel
+  bool passCCC(std::nullptr_t) const;  //pixel
 
   void setDetails(mkfit::Hit& mhit, const SiPixelCluster& cluster, const int shortId, nullptr_t) const;
   void setDetails(mkfit::Hit& mhit, const SiStripCluster& cluster, const int shortId, float charge) const;
@@ -151,13 +151,13 @@ void MkFitHitConverter::produce(edm::StreamID iID, edm::Event& iEvent, const edm
 float MkFitHitConverter::clusterCharge(const SiStripRecHit2D& hit, DetId hitId) const {
   return siStripClusterTools::chargePerCM(hitId, hit.firstClusterRef().stripCluster());
 }
-nullptr_t MkFitHitConverter::clusterCharge(const SiPixelRecHit& hit, DetId hitId) const { return nullptr; }
+std::nullptr_t MkFitHitConverter::clusterCharge(const SiPixelRecHit& hit, DetId hitId) const { return nullptr; }
 
 bool MkFitHitConverter::passCCC(float charge) const { return charge > minGoodStripCharge_; }
 
-bool MkFitHitConverter::passCCC(nullptr_t) const { return true; }
+bool MkFitHitConverter::passCCC(std::nullptr_t) const { return true; }
 
-void MkFitHitConverter::setDetails(mkfit::Hit& mhit, const SiPixelCluster& cluster, int shortId, nullptr_t) const {
+void MkFitHitConverter::setDetails(mkfit::Hit& mhit, const SiPixelCluster& cluster, int shortId, std::nullptr_t) const {
   mhit.setupAsPixel(shortId, cluster.sizeX(), cluster.sizeY());
 }
 
