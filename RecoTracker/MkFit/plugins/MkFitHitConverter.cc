@@ -61,7 +61,7 @@ private:
   bool passCCC(float charge) const;
   bool passCCC(std::nullptr_t) const;  //pixel
 
-  void setDetails(mkfit::Hit& mhit, const SiPixelCluster& cluster, const int shortId, nullptr_t) const;
+  void setDetails(mkfit::Hit& mhit, const SiPixelCluster& cluster, const int shortId, std::nullptr_t) const;
   void setDetails(mkfit::Hit& mhit, const SiStripCluster& cluster, const int shortId, float charge) const;
 
   using SVector3 = ROOT::Math::SVector<float, 3>;
