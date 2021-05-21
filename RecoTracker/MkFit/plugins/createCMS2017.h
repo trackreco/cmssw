@@ -6,6 +6,6 @@ namespace mkfit {
   class IterationsInfo;
 
   void createCMS2017(TrackerInfo &ti, IterationsInfo &ii, bool verbose);
-}
+}  // namespace mkfit
 
 #endif
