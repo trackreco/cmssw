@@ -127,20 +127,26 @@ void MkFitHitConverter::produce(edm::StreamID iID, edm::Event& iEvent, const edm
   std::vector<float> dummy;
   auto pixelClusterID =
       convert(iEvent.get(pixelRecHitToken_), hitWrapper.pixelHits(), clusterIndexToHit.pixelHits(), dummy);
-  auto stripRphiClusterID = convert(iEvent.get(stripRphiRecHitToken_),
-                                    hitWrapper.outerHits(),
-                                    clusterIndexToHit.outerHits(),
-                                    hitWrapper.stripClusterCharge());
-  auto stripStereoClusterID = convert(iEvent.get(stripStereoRecHitToken_),
-                                      hitWrapper.outerHits(),
-                                      clusterIndexToHit.outerHits(),
-                                      hitWrapper.stripClusterCharge());
-  if (stripRphiClusterID != stripStereoClusterID) {
-    throw cms::Exception("LogicError") << "Encountered different cluster ProductIDs for strip RPhi hits ("
-                                       << stripRphiClusterID << ") and stereo (" << stripStereoClusterID << ")";
+
+  edm::ProductID stripClusterID;
+  const auto& stripRphiHits = iEvent.get(stripRphiRecHitToken_);
+  const auto& stripStereoHits = iEvent.get(stripStereoRecHitToken_);
+  if (not stripRphiHits.empty()) {
+    stripClusterID =
+        convert(stripRphiHits, hitWrapper.outerHits(), clusterIndexToHit.outerHits(), hitWrapper.stripClusterCharge());
+  }
+  if (not stripStereoHits.empty()) {
+    auto stripStereoClusterID = convert(
+        stripStereoHits, hitWrapper.outerHits(), clusterIndexToHit.outerHits(), hitWrapper.stripClusterCharge());
+    if (stripRphiHits.empty()) {
+      stripClusterID = stripStereoClusterID;
+    } else if (stripClusterID != stripStereoClusterID) {
+      throw cms::Exception("LogicError") << "Encountered different cluster ProductIDs for strip RPhi hits ("
+                                         << stripClusterID << ") and stereo (" << stripStereoClusterID << ")";
+    }
   }
   hitWrapper.setPixelClustersID(pixelClusterID);
-  hitWrapper.setOuterClustersID(stripRphiClusterID);
+  hitWrapper.setOuterClustersID(stripClusterID);
 
   mkfit::StdSeq::Cmssw_LoadHits_End(hitWrapper.eventOfHits());
 
