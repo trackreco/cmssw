@@ -13,6 +13,7 @@
 #include "DataFormats/SiPixelDetId/interface/PixelSubdetector.h"
 #include "DataFormats/SiStripDetId/interface/StripSubdetector.h"
 
+#include "RecoTracker/MkFit/interface/MkFitEventOfHits.h"
 #include "RecoTracker/MkFit/interface/MkFitHitWrapper.h"
 #include "RecoTracker/MkFit/interface/MkFitSeedWrapper.h"
 #include "RecoTracker/MkFit/interface/MkFitOutputWrapper.h"
@@ -32,7 +33,7 @@
 // std includes
 #include <functional>
 
-class MkFitProducer : public edm::global::EDProducer<edm::StreamCache<mkfit::MkBuilderWrapper> > {
+class MkFitProducer : public edm::global::EDProducer<edm::StreamCache<mkfit::MkBuilderWrapper>> {
 public:
   explicit MkFitProducer(edm::ParameterSet const& iConfig);
   ~MkFitProducer() override = default;
@@ -44,10 +45,15 @@ public:
 private:
   void produce(edm::StreamID, edm::Event& iEvent, const edm::EventSetup& iSetup) const override;
 
-  edm::EDGetTokenT<MkFitHitWrapper> hitToken_;
+  void stripClusterChargeCut(const std::vector<float>& stripClusterCharge, std::vector<bool>& mask) const;
+
+  edm::EDGetTokenT<MkFitHitWrapper> pixelHitsToken_;
+  edm::EDGetTokenT<MkFitHitWrapper> stripHitsToken_;
+  edm::EDGetTokenT<std::vector<float>> stripClusterChargeToken_;
+  edm::EDGetTokenT<MkFitEventOfHits> eventOfHitsToken_;
   edm::EDGetTokenT<MkFitSeedWrapper> seedToken_;
-  edm::EDGetTokenT<edm::ContainerMask<edmNew::DetSetVector<SiPixelCluster> > > pixelMaskToken_;
-  edm::EDGetTokenT<edm::ContainerMask<edmNew::DetSetVector<SiStripCluster> > > stripMaskToken_;
+  edm::EDGetTokenT<edm::ContainerMask<edmNew::DetSetVector<SiPixelCluster>>> pixelMaskToken_;
+  edm::EDGetTokenT<edm::ContainerMask<edmNew::DetSetVector<SiStripCluster>>> stripMaskToken_;
   edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
   edm::ESGetToken<mkfit::IterationConfig, TrackerRecoGeometryRecord> mkFitIterConfigToken_;
   edm::EDPutTokenT<MkFitOutputWrapper> putToken_;
@@ -61,7 +67,10 @@ private:
 };
 
 MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
-    : hitToken_{consumes(iConfig.getParameter<edm::InputTag>("hits"))},
+    : pixelHitsToken_{consumes(iConfig.getParameter<edm::InputTag>("pixelHits"))},
+      stripHitsToken_{consumes(iConfig.getParameter<edm::InputTag>("stripHits"))},
+      stripClusterChargeToken_{consumes(iConfig.getParameter<edm::InputTag>("stripHits"))},
+      eventOfHitsToken_{consumes(iConfig.getParameter<edm::InputTag>("eventOfHits"))},
       seedToken_{consumes(iConfig.getParameter<edm::InputTag>("seeds"))},
       mkFitGeomToken_{esConsumes()},
       mkFitIterConfigToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("config"))},
@@ -101,7 +110,9 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
 void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
 
-  desc.add("hits", edm::InputTag("mkFitHits"));
+  desc.add("pixelHits", edm::InputTag("mkFitSiPixelHits"));
+  desc.add("stripHits", edm::InputTag("mkFitSiStripHits"));
+  desc.add("eventOfHits", edm::InputTag("mkFitEventOfHits"));
   desc.add("seeds", edm::InputTag("mkFitSeedConverter"));
   desc.add("clustersToSkip", edm::InputTag());
   desc.add<std::string>("buildingRoutine", "cloneEngine")
@@ -133,7 +144,9 @@ namespace {
   std::once_flag geometryFlag;
 }
 void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::EventSetup& iSetup) const {
-  const auto& hits = iEvent.get(hitToken_);
+  const auto& pixelHits = iEvent.get(pixelHitsToken_);
+  const auto& stripHits = iEvent.get(stripHitsToken_);
+  const auto& eventOfHits = iEvent.get(eventOfHitsToken_);
   const auto& seeds = iEvent.get(seedToken_);
   // This producer does not strictly speaking need the MkFitGeometry,
   // but the ESProducer sets global variables (yes, that "feature"
@@ -145,25 +158,25 @@ void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::Ev
 
   const std::vector<bool>* pixelMaskPtr = nullptr;
   std::vector<bool> pixelMask;
-  std::vector<bool> stripMask(hits.outerHits().size(), false);
+  std::vector<bool> stripMask(stripHits.hits().size(), false);
   if (not pixelMaskToken_.isUninitialized()) {
     const auto& pixelContainerMask = iEvent.get(pixelMaskToken_);
     pixelMask.resize(pixelContainerMask.size(), false);
-    if UNLIKELY (pixelContainerMask.refProd().id() != hits.pixelClustersID()) {
-      throw cms::Exception("LogicError") << "MkFitHitWrapper has pixel cluster ID " << hits.pixelClustersID()
+    if UNLIKELY (pixelContainerMask.refProd().id() != pixelHits.clustersID()) {
+      throw cms::Exception("LogicError") << "MkFitHitWrapper has pixel cluster ID " << pixelHits.clustersID()
                                          << " but pixel cluster mask has " << pixelContainerMask.refProd().id();
     }
     pixelContainerMask.copyMaskTo(pixelMask);
     pixelMaskPtr = &pixelMask;
 
     const auto& stripContainerMask = iEvent.get(stripMaskToken_);
-    if UNLIKELY (stripContainerMask.refProd().id() != hits.outerClustersID()) {
-      throw cms::Exception("LogicError") << "MkFitHitWrapper has strip cluster ID " << hits.outerClustersID()
+    if UNLIKELY (stripContainerMask.refProd().id() != stripHits.clustersID()) {
+      throw cms::Exception("LogicError") << "MkFitHitWrapper has strip cluster ID " << stripHits.clustersID()
                                          << " but strip cluster mask has " << stripContainerMask.refProd().id();
     }
     stripContainerMask.copyMaskTo(stripMask);
   } else {
-    hits.stripClusterChargeCut(minGoodStripCharge_, stripMask);
+    stripClusterChargeCut(iEvent.get(stripClusterChargeToken_), stripMask);
   }
 
   // Initialize the number of layers, has to be done exactly once in
@@ -180,7 +193,7 @@ void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::Ev
   auto lambda = [&]() {
     mkfit::run_OneIteration(mkFitGeom.trackerInfo(),
                             mkFitIterConfig,
-                            hits.eventOfHits(),
+                            eventOfHits.get(),
                             {pixelMaskPtr, &stripMask},
                             streamCache(iID)->get(),
                             seeds_mutable,
@@ -198,6 +211,17 @@ void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::Ev
   }
 
   iEvent.emplace(putToken_, std::move(tracks), not backwardFitInCMSSW_);
+}
+
+void MkFitProducer::stripClusterChargeCut(const std::vector<float>& stripClusterCharge, std::vector<bool>& mask) const {
+  if (mask.size() != stripClusterCharge.size()) {
+    throw cms::Exception("LogicError") << "Mask size (" << mask.size() << ") inconsistent with number of hits ("
+                                       << stripClusterCharge.size() << ")";
+  }
+  for (int i = 0, end = stripClusterCharge.size(); i < end; ++i) {
+    // mask == true means skip the cluster
+    mask[i] = mask[i] || (stripClusterCharge[i] <= minGoodStripCharge_);
+  }
 }
 
 DEFINE_FWK_MODULE(MkFitProducer);
