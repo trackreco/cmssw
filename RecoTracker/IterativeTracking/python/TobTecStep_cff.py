@@ -287,7 +287,7 @@ tobTecStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
 )
 trackingMkFitTobTecStep.toReplaceWith(tobTecStepTrackCandidates, mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
     seeds = 'tobTecStepSeeds',
-    mkfitSeeds = 'tobTecStepTrackCandidatesMkFitSeeds',
+    mkFitSeeds = 'tobTecStepTrackCandidatesMkFitSeeds',
     tracks = 'tobTecStepTrackCandidatesMkFit',
 ))
 

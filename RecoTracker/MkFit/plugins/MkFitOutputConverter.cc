@@ -29,7 +29,7 @@
 #include "RecoTracker/TransientTrackingRecHit/interface/TkTransientTrackingRecHitBuilder.h"
 #include "TrackingTools/MaterialEffects/src/PropagatorWithMaterial.cc"
 
-#include "RecoTracker/MkFit/interface/MkFitHitWrapper.h"
+#include "RecoTracker/MkFit/interface/MkFitEventOfHits.h"
 #include "RecoTracker/MkFit/interface/MkFitClusterIndexToHit.h"
 #include "RecoTracker/MkFit/interface/MkFitSeedWrapper.h"
 #include "RecoTracker/MkFit/interface/MkFitOutputWrapper.h"
@@ -67,7 +67,8 @@ private:
 
   TrackCandidateCollection convertCandidates(const MkFitOutputWrapper& mkFitOutput,
                                              const mkfit::EventOfHits& eventOfHits,
-                                             const MkFitClusterIndexToHit& clusterIndexToHit,
+                                             const MkFitClusterIndexToHit& pixelClusterIndexToHit,
+                                             const MkFitClusterIndexToHit& stripClusterIndexToHit,
                                              const edm::View<TrajectorySeed>& seeds,
                                              const MagneticField& mf,
                                              const Propagator& propagatorAlong,
@@ -89,8 +90,9 @@ private:
                                                                             const Propagator& propagatorAlong,
                                                                             const Propagator& propagatorOpposite) const;
 
-  edm::EDGetTokenT<MkFitHitWrapper> mkfitHitToken_;
-  edm::EDGetTokenT<MkFitClusterIndexToHit> clusterIndexToHitToken_;
+  edm::EDGetTokenT<MkFitEventOfHits> eventOfHitsToken_;
+  edm::EDGetTokenT<MkFitClusterIndexToHit> pixelClusterIndexToHitToken_;
+  edm::EDGetTokenT<MkFitClusterIndexToHit> stripClusterIndexToHitToken_;
   edm::EDGetTokenT<MkFitSeedWrapper> mkfitSeedToken_;
   edm::EDGetTokenT<MkFitOutputWrapper> tracksToken_;
   edm::EDGetTokenT<edm::View<TrajectorySeed>> seedToken_;
@@ -107,9 +109,10 @@ private:
 };
 
 MkFitOutputConverter::MkFitOutputConverter(edm::ParameterSet const& iConfig)
-    : mkfitHitToken_{consumes<MkFitHitWrapper>(iConfig.getParameter<edm::InputTag>("mkfitHits"))},
-      clusterIndexToHitToken_{consumes(iConfig.getParameter<edm::InputTag>("mkfitHits"))},
-      mkfitSeedToken_{consumes<MkFitSeedWrapper>(iConfig.getParameter<edm::InputTag>("mkfitSeeds"))},
+    : eventOfHitsToken_{consumes<MkFitEventOfHits>(iConfig.getParameter<edm::InputTag>("mkFitEventOfHits"))},
+      pixelClusterIndexToHitToken_{consumes(iConfig.getParameter<edm::InputTag>("mkFitPixelHits"))},
+      stripClusterIndexToHitToken_{consumes(iConfig.getParameter<edm::InputTag>("mkFitStripHits"))},
+      mkfitSeedToken_{consumes<MkFitSeedWrapper>(iConfig.getParameter<edm::InputTag>("mkFitSeeds"))},
       tracksToken_{consumes<MkFitOutputWrapper>(iConfig.getParameter<edm::InputTag>("tracks"))},
       seedToken_{consumes<edm::View<TrajectorySeed>>(iConfig.getParameter<edm::InputTag>("seeds"))},
       propagatorAlongToken_{
@@ -126,8 +129,10 @@ MkFitOutputConverter::MkFitOutputConverter(edm::ParameterSet const& iConfig)
 void MkFitOutputConverter::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
 
-  desc.add("mkfitHits", edm::InputTag{"mkFitHits"});
-  desc.add("mkfitSeeds", edm::InputTag{"mkFitSeedConverter"});
+  desc.add("mkFitEventOfHits", edm::InputTag{"mkFitEventOfHits"});
+  desc.add("mkFitPixelHits", edm::InputTag{"mkFitSiPixelHits"});
+  desc.add("mkFitStripHits", edm::InputTag{"mkFitSiStripHits"});
+  desc.add("mkFitSeeds", edm::InputTag{"mkFitSeedConverter"});
   desc.add("tracks", edm::InputTag{"mkFitProducer"});
   desc.add("seeds", edm::InputTag{"initialStepSeeds"});
   desc.add("ttrhBuilder", edm::ESInputTag{"", "WithTrackAngle"});
@@ -151,8 +156,9 @@ void MkFitOutputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const 
   // Convert mkfit presentation back to CMSSW
   iEvent.emplace(putTrackCandidateToken_,
                  convertCandidates(iEvent.get(tracksToken_),
-                                   iEvent.get(mkfitHitToken_).eventOfHits(),
-                                   iEvent.get(clusterIndexToHitToken_),
+                                   iEvent.get(eventOfHitsToken_).get(),
+                                   iEvent.get(pixelClusterIndexToHitToken_),
+                                   iEvent.get(stripClusterIndexToHitToken_),
                                    seeds,
                                    iSetup.getData(mfToken_),
                                    iSetup.getData(propagatorAlongToken_),
@@ -167,7 +173,8 @@ void MkFitOutputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const 
 
 TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutputWrapper& mkFitOutput,
                                                                  const mkfit::EventOfHits& eventOfHits,
-                                                                 const MkFitClusterIndexToHit& clusterIndexToHit,
+                                                                 const MkFitClusterIndexToHit& pixelClusterIndexToHit,
+                                                                 const MkFitClusterIndexToHit& stripClusterIndexToHit,
                                                                  const edm::View<TrajectorySeed>& seeds,
                                                                  const MagneticField& mf,
                                                                  const Propagator& propagatorAlong,
@@ -218,7 +225,7 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
         lastHitInvalid = true;
       } else {
         auto const isPixel = eventOfHits[hitOnTrack.layer].is_pix_lyr();
-        auto const& hits = isPixel ? clusterIndexToHit.pixelHits() : clusterIndexToHit.outerHits();
+        auto const& hits = isPixel ? pixelClusterIndexToHit.hits() : stripClusterIndexToHit.hits();
 
         auto const& thit = static_cast<BaseTrackerRecHit const&>(*hits[hitOnTrack.index]);
         if (thit.firstClusterRef().isPixel() || thit.detUnit()->type().isEndcap()) {
