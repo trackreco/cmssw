@@ -8,8 +8,6 @@
 #include "mkFit/IterationConfig.h"
 #include "mkFit/HitStructures.h"
 
-#include "HitSelectionWindowsPhase1.h"
-
 #include <functional>
 
 using namespace mkfit;
@@ -90,107 +88,7 @@ namespace {
     }
   }
 
-  void setupIterationParams(IterationParams &ip, unsigned int it = 0) {
-    if (it == 0) {
-      ip.nlayers_per_seed = 4;
-      ip.maxCandsPerSeed = 5;
-      ip.maxHolesPerCand = 4;
-      ip.maxConsecHoles = 1;
-      ip.chi2Cut = 30;
-      ip.chi2CutOverlap = 3.5;
-      ip.pTCutOverlap = 1;
-    } else if (it == 1)  // for triplet steps, nlayers_per_seed=3
-    {
-      ip.nlayers_per_seed = 3;
-      ip.maxCandsPerSeed = 5;
-      ip.maxHolesPerCand = 4;
-      ip.maxConsecHoles = 1;
-      ip.chi2Cut = 30;
-      ip.chi2CutOverlap = 3.5;
-      ip.pTCutOverlap = 1;
-    } else if (it == 2) {
-      ip.nlayers_per_seed = 4;
-      ip.maxCandsPerSeed = 5;
-      ip.maxHolesPerCand = 4;
-      ip.maxConsecHoles = 1;
-      ip.chi2Cut = 30;
-      ip.chi2CutOverlap = 3.5;
-      ip.pTCutOverlap = 1;
-    } else if (it == 3)  // for triplet steps, nlayers_per_seed=3
-    {
-      ip.nlayers_per_seed = 3;
-      ip.maxCandsPerSeed = 5;
-      ip.maxHolesPerCand = 4;
-      ip.maxConsecHoles = 1;
-      ip.chi2Cut = 30;
-      ip.chi2CutOverlap = 3.5;
-      ip.pTCutOverlap = 1;
-    } else if (it == 4) {
-      ip.nlayers_per_seed = 4;
-      ip.maxCandsPerSeed = 5;
-      ip.maxHolesPerCand = 4;
-      ip.maxConsecHoles = 1;
-      ip.chi2Cut = 30;
-      ip.chi2CutOverlap = 3.5;
-      ip.pTCutOverlap = 1;
-    } else if (it == 5)  // for triplet steps, nlayers_per_seed=3
-    {
-      ip.nlayers_per_seed = 3;
-      ip.maxCandsPerSeed = 5;
-      ip.maxHolesPerCand = 4;
-      ip.maxConsecHoles = 1;
-      ip.chi2Cut = 30;
-      ip.chi2CutOverlap = 3.5;
-      ip.pTCutOverlap = 1;
-    } else if (it == 6)  // for triplet steps, nlayers_per_seed=3; for mixeTripletSetp, also maxCandsPerSeed=2
-    {
-      ip.nlayers_per_seed = 3;
-      ip.maxCandsPerSeed = 2;
-      ip.maxHolesPerCand = 4;
-      ip.maxConsecHoles = 1;
-      ip.chi2Cut = 30;
-      ip.chi2CutOverlap = 3.5;
-      ip.pTCutOverlap = 1;
-    } else if (it == 7)  // for PixelLess step, maxCandsPerSeed=2 and maxHolesPerCand=maxConsecHoles=0
-    {
-      ip.nlayers_per_seed = 3;
-      ip.maxCandsPerSeed = 2;
-      ip.maxHolesPerCand = 0;
-      ip.maxConsecHoles = 0;
-      ip.chi2Cut = 30;
-      ip.chi2CutOverlap = 3.5;
-      ip.pTCutOverlap = 1;
-    } else if (it == 8)  // for TobTec step, maxCandsPerSeed=2 and maxHolesPerCand=maxConsecHoles=0
-    {
-      ip.nlayers_per_seed = 3;
-      ip.maxCandsPerSeed = 2;
-      ip.maxHolesPerCand = 0;
-      ip.maxConsecHoles = 0;
-      ip.chi2Cut = 30;
-      ip.chi2CutOverlap = 3.5;
-      ip.pTCutOverlap = 1;
-    }
-  }
-
-  void fillHitSelectionWindowsParams(IterationConfig &ic) {
-    HitSelectionWindowsPhase1 hsw;
-    for (int l = 0; l < (int)ic.m_layer_configs.size(); ++l) {
-      // dphi cut
-      ic.m_layer_configs[l].c_dp_0 = hsw.m_dp_params[ic.m_iteration_index][l][0];
-      ic.m_layer_configs[l].c_dp_1 = hsw.m_dp_params[ic.m_iteration_index][l][1];
-      ic.m_layer_configs[l].c_dp_2 = hsw.m_dp_params[ic.m_iteration_index][l][2];
-      // dq cut
-      ic.m_layer_configs[l].c_dq_0 = hsw.m_dq_params[ic.m_iteration_index][l][0];
-      ic.m_layer_configs[l].c_dq_1 = hsw.m_dq_params[ic.m_iteration_index][l][1];
-      ic.m_layer_configs[l].c_dq_2 = hsw.m_dq_params[ic.m_iteration_index][l][2];
-      // chi2 cut (for future optimization)
-      ic.m_layer_configs[l].c_c2_0 = hsw.m_c2_params[ic.m_iteration_index][l][0];
-      ic.m_layer_configs[l].c_c2_1 = hsw.m_c2_params[ic.m_iteration_index][l][1];
-      ic.m_layer_configs[l].c_c2_2 = hsw.m_c2_params[ic.m_iteration_index][l][2];
-    }
-  }
-
-  void PartitionSeeds0(const TrackerInfo &trk_info,
+  void partitionSeeds0(const TrackerInfo &trk_info,
                        const TrackVec &in_seeds,
                        const EventOfHits &eoh,
                        IterationSeedPartition &part) {
@@ -302,61 +200,31 @@ namespace mkfit {
     createPhase1TrackerGeometryAutoGen(ti, ii);
 
     setupSteeringParamsIter0(ii[0]);
-    setupIterationParams(ii[0].m_params, 0);
-    ii[0].m_partition_seeds = PartitionSeeds0;
-    fillHitSelectionWindowsParams(ii[0]);
+    ii[0].m_partition_seeds = partitionSeeds0;
 
-    ii[1].Clone(ii[0]);  //added extra iterations with some preliminary setup
-    setupIterationParams(ii[1].m_params, 1);
+    ii[1].Clone(ii[0]);
     ii[1].set_iteration_index_and_track_algorithm(1, (int)TrackBase::TrackAlgorithm::highPtTripletStep);
-    ii[1].set_seed_cleaning_params(2.0, 0.018, 0.018, 0.018, 0.018, 0.018, 0.05, 0.018, 0.05);
-    fillHitSelectionWindowsParams(ii[1]);
 
     ii[2].Clone(ii[0]);
-    setupIterationParams(ii[2].m_params, 2);
     ii[2].set_iteration_index_and_track_algorithm(2, (int)TrackBase::TrackAlgorithm::lowPtQuadStep);
-    ii[2].set_seed_cleaning_params(0.5, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05);
-    fillHitSelectionWindowsParams(ii[2]);
 
     ii[3].Clone(ii[0]);
-    setupIterationParams(ii[3].m_params, 3);
     ii[3].set_iteration_index_and_track_algorithm(3, (int)TrackBase::TrackAlgorithm::lowPtTripletStep);
-    ii[3].set_seed_cleaning_params(0.5, 0.0, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05);
-    fillHitSelectionWindowsParams(ii[3]);
 
     ii[4].Clone(ii[0]);
-    setupIterationParams(ii[4].m_params, 4);
     ii[4].set_iteration_index_and_track_algorithm(4, (int)TrackBase::TrackAlgorithm::detachedQuadStep);
-    ii[4].set_seed_cleaning_params(2.0, 0.018, 0.018, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05);
-    fillHitSelectionWindowsParams(ii[4]);
 
     ii[5].Clone(ii[0]);
-    setupIterationParams(ii[5].m_params, 5);
     ii[5].set_iteration_index_and_track_algorithm(5, (int)TrackBase::TrackAlgorithm::detachedTripletStep);
-    ii[5].set_seed_cleaning_params(2.0, 0.018, 0.018, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05);
-    fillHitSelectionWindowsParams(ii[5]);
 
     ii[6].Clone(ii[0]);
-    setupIterationParams(ii[6].m_params, 6);
     ii[6].set_iteration_index_and_track_algorithm(6, (int)TrackBase::TrackAlgorithm::mixedTripletStep);
-    ii[6].set_seed_cleaning_params(2.0, 0.05, 0.05, 0.135, 0.135, 0.05, 0.05, 0.135, 0.135);
-    fillHitSelectionWindowsParams(ii[6]);
 
     ii[7].Clone(ii[0]);
-    setupIterationParams(ii[7].m_params, 7);
     ii[7].set_iteration_index_and_track_algorithm(7, (int)TrackBase::TrackAlgorithm::pixelLessStep);
-    ii[7].set_seed_cleaning_params(2.0, 0.135, 0.135, 0.135, 0.135, 0.135, 0.135, 0.135, 0.135);
-    ii[7].set_qf_flags();
-    ii[7].set_qf_params(4, 0.19);
-    fillHitSelectionWindowsParams(ii[7]);
 
     ii[8].Clone(ii[0]);
-    setupIterationParams(ii[8].m_params, 8);
     ii[8].set_iteration_index_and_track_algorithm(8, (int)TrackBase::TrackAlgorithm::tobTecStep);
-    ii[8].set_seed_cleaning_params(2.0, 0.135, 0.135, 0.135, 0.135, 0.135, 0.135, 0.135, 0.135);
-    ii[8].set_qf_flags();
-    ii[8].set_qf_params(4, 0.25);
-    fillHitSelectionWindowsParams(ii[8]);
 
     //for the latter 2 iter investing in maxCand & stop condition (for time) + QF and Dupl. cleaning (for quality)
 
