@@ -31,7 +31,6 @@
 
 // std includes
 #include <functional>
-#include <mutex>
 
 class MkFitProducer : public edm::global::EDProducer<edm::StreamCache<mkfit::MkBuilderWrapper> > {
 public:
