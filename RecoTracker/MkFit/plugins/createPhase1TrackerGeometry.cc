@@ -24,66 +24,66 @@ namespace {
 
     {
       SteeringParams &sp = ic.m_steering_params[TrackerInfo::Reg_Endcap_Neg];
-      sp.reserve_plan(3 + 3 + 6 + 18);
+      sp.reserve_plan(3 + 3 + 6 + 18);  // BPix + FPix- + TID- + TEC-; BPix4 is out of acceptance
       sp.fill_plan(0, 1, false, true);  // bk-fit only
       sp.append_plan(2, true);          // pick-up only
       sp.append_plan(45, false);
       sp.append_plan(46, false);
       sp.append_plan(47, false);
-      sp.fill_plan(48, 53);  // TID,  6 layers
-      sp.fill_plan(54, 71);  // TEC, 18 layers
+      sp.fill_plan(48, 53);  // TID,  6 disks (3 mono + 3 stereo)
+      sp.fill_plan(54, 71);  // TEC, 18 disks (3 mono + 3 stereo)
       sp.finalize_plan();
     }
     {
       SteeringParams &sp = ic.m_steering_params[TrackerInfo::Reg_Transition_Neg];
-      sp.reserve_plan(3 + 4 + 6 + 6 + 8 + 18);
-      sp.fill_plan(0, 1, false, true);  // bk-fit only
+      sp.reserve_plan(4 + 3 + 6 + 6 + 8 + 18);  // BPix + FPix- + TIB + TID- + TOB + TEC-
+      sp.fill_plan(0, 1, false, true);          // bk-fit only
       sp.append_plan(2, true);
       sp.append_plan(3, false);
       sp.append_plan(45, false);
       sp.append_plan(46, false);
       sp.append_plan(47, false);
-      sp.fill_plan(4, 9);    // TIB,  6 layers
-      sp.fill_plan(48, 53);  // TID,  6 layers
-      sp.fill_plan(10, 17);  // TOB,  8 layers
-      sp.fill_plan(54, 71);  // TEC, 18 layers
+      sp.fill_plan(4, 9);    // TIB,  6 layers (4 mono + 2 stereo)
+      sp.fill_plan(48, 53);  // TID,  6 disks  (3 mono + 3 stereo)
+      sp.fill_plan(10, 17);  // TOB,  8 layers (6 mono + 2 stereo)
+      sp.fill_plan(54, 71);  // TEC, 18 disks  (9 mono + 9 stereo)
       sp.finalize_plan();
     }
     {
       SteeringParams &sp = ic.m_steering_params[TrackerInfo::Reg_Barrel];
-      sp.reserve_plan(3 + 1 + 6 + 8);
+      sp.reserve_plan(4 + 6 + 8);       // BPix + TIB + TOB
       sp.fill_plan(0, 1, false, true);  // bk-fit only
       sp.append_plan(2, true);          // pickup-only
       sp.append_plan(3, false);
-      sp.fill_plan(4, 9);    // TIB, 6 layers
-      sp.fill_plan(10, 17);  // TOB, 8 layers
+      sp.fill_plan(4, 9);    // TIB, 6 layers (4 mono + 2 stereo)
+      sp.fill_plan(10, 17);  // TOB, 8 layers (6 mono + 2 stereo)
       sp.finalize_plan();
     }
     {
       SteeringParams &sp = ic.m_steering_params[TrackerInfo::Reg_Transition_Pos];
-      sp.reserve_plan(3 + 4 + 6 + 6 + 8 + 18);
-      sp.fill_plan(0, 1, false, true);  // bk-fit only
-      sp.append_plan(2, true);          // pickup-only
+      sp.reserve_plan(4 + 3 + 6 + 6 + 8 + 18);  // BPix + FPix+ + TIB + TID+ + TOB + TEC+
+      sp.fill_plan(0, 1, false, true);          // bk-fit only
+      sp.append_plan(2, true);                  // pickup-only
       sp.append_plan(3, false);
       sp.append_plan(18, false);
       sp.append_plan(19, false);
       sp.append_plan(20, false);
-      sp.fill_plan(4, 9);    // TIB,  6 layers
-      sp.fill_plan(21, 26);  // TID,  6 layers
-      sp.fill_plan(10, 17);  // TOB,  8 layers
-      sp.fill_plan(27, 44);  // TEC, 18 layers
+      sp.fill_plan(4, 9);    // TIB,  6 layers (4 mono + 2 stereo)
+      sp.fill_plan(21, 26);  // TID,  6 disks  (3 mono + 3 stereo)
+      sp.fill_plan(10, 17);  // TOB,  8 layers (6 mono + 2 stereo)
+      sp.fill_plan(27, 44);  // TEC, 18 disks  (9 mono + 9 stereo)
       sp.finalize_plan();
     }
     {
       SteeringParams &sp = ic.m_steering_params[TrackerInfo::Reg_Endcap_Pos];
-      sp.reserve_plan(3 + 3 + 6 + 18);
+      sp.reserve_plan(3 + 3 + 6 + 18);  // BPix + FPix+ + TID+ + TEC+; BPix4 is out of acceptance
       sp.fill_plan(0, 1, false, true);  // bk-fit only
       sp.append_plan(2, true);          // pickup-only
       sp.append_plan(18, false);
       sp.append_plan(19, false);
       sp.append_plan(20, false);
-      sp.fill_plan(21, 26);  // TID,  6 layers
-      sp.fill_plan(27, 44);  // TEC, 18 layers
+      sp.fill_plan(21, 26);  // TID,  6 disks  (3 mono + 3 stereo)
+      sp.fill_plan(27, 44);  // TEC, 18 disks  (9 mono + 9 stereo)
       sp.finalize_plan();
     }
   }
