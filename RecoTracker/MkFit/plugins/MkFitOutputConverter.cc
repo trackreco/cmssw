@@ -90,22 +90,22 @@ private:
                                                                             const Propagator& propagatorAlong,
                                                                             const Propagator& propagatorOpposite) const;
 
-  edm::EDGetTokenT<MkFitEventOfHits> eventOfHitsToken_;
-  edm::EDGetTokenT<MkFitClusterIndexToHit> pixelClusterIndexToHitToken_;
-  edm::EDGetTokenT<MkFitClusterIndexToHit> stripClusterIndexToHitToken_;
-  edm::EDGetTokenT<MkFitSeedWrapper> mkfitSeedToken_;
-  edm::EDGetTokenT<MkFitOutputWrapper> tracksToken_;
-  edm::EDGetTokenT<edm::View<TrajectorySeed>> seedToken_;
-  edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatorAlongToken_;
-  edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatorOppositeToken_;
-  edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> mfToken_;
-  edm::ESGetToken<TransientTrackingRecHitBuilder, TransientRecHitRecord> ttrhBuilderToken_;
-  edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
-  edm::EDPutTokenT<TrackCandidateCollection> putTrackCandidateToken_;
-  edm::EDPutTokenT<std::vector<SeedStopInfo>> putSeedStopInfoToken_;
-  std::string ttrhBuilderName_;
-  std::string propagatorAlongName_;
-  std::string propagatorOppositeName_;
+  const edm::EDGetTokenT<MkFitEventOfHits> eventOfHitsToken_;
+  const edm::EDGetTokenT<MkFitClusterIndexToHit> pixelClusterIndexToHitToken_;
+  const edm::EDGetTokenT<MkFitClusterIndexToHit> stripClusterIndexToHitToken_;
+  const edm::EDGetTokenT<MkFitSeedWrapper> mkfitSeedToken_;
+  const edm::EDGetTokenT<MkFitOutputWrapper> tracksToken_;
+  const edm::EDGetTokenT<edm::View<TrajectorySeed>> seedToken_;
+  const edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatorAlongToken_;
+  const edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatorOppositeToken_;
+  const edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> mfToken_;
+  const edm::ESGetToken<TransientTrackingRecHitBuilder, TransientRecHitRecord> ttrhBuilderToken_;
+  const edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
+  const edm::EDPutTokenT<TrackCandidateCollection> putTrackCandidateToken_;
+  const edm::EDPutTokenT<std::vector<SeedStopInfo>> putSeedStopInfoToken_;
+  const std::string ttrhBuilderName_;
+  const std::string propagatorAlongName_;
+  const std::string propagatorOppositeName_;
 };
 
 MkFitOutputConverter::MkFitOutputConverter(edm::ParameterSet const& iConfig)

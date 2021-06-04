@@ -53,12 +53,12 @@ private:
   using SMatrixSym33 = ROOT::Math::SMatrix<float, 3, 3, ROOT::Math::MatRepSym<float, 3>>;
   using SMatrixSym66 = ROOT::Math::SMatrix<float, 6, 6, ROOT::Math::MatRepSym<float, 6>>;
 
-  edm::EDGetTokenT<edm::View<TrajectorySeed>> seedToken_;
-  edm::ESGetToken<TransientTrackingRecHitBuilder, TransientRecHitRecord> ttrhBuilderToken_;
-  edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> ttopoToken_;
-  edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
-  edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> mfToken_;
-  edm::EDPutTokenT<MkFitSeedWrapper> putToken_;
+  const edm::EDGetTokenT<edm::View<TrajectorySeed>> seedToken_;
+  const edm::ESGetToken<TransientTrackingRecHitBuilder, TransientRecHitRecord> ttrhBuilderToken_;
+  const edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> ttopoToken_;
+  const edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
+  const edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> mfToken_;
+  const edm::EDPutTokenT<MkFitSeedWrapper> putToken_;
 };
 
 MkFitSeedConverter::MkFitSeedConverter(edm::ParameterSet const& iConfig)
