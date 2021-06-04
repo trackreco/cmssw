@@ -228,6 +228,7 @@ namespace mkfit {
 
     //for the latter 2 iter investing in maxCand & stop condition (for time) + QF and Dupl. cleaning (for quality)
 
+    // TODO: replace with MessageLogger
     if (verbose) {
       printf("==========================================================================================\n");
       printf("Phase1 tracker -- Create_TrackerInfo finished\n");
