@@ -44,23 +44,23 @@ private:
 
   void stripClusterChargeCut(const std::vector<float>& stripClusterCharge, std::vector<bool>& mask) const;
 
-  edm::EDGetTokenT<MkFitHitWrapper> pixelHitsToken_;
-  edm::EDGetTokenT<MkFitHitWrapper> stripHitsToken_;
-  edm::EDGetTokenT<std::vector<float>> stripClusterChargeToken_;
-  edm::EDGetTokenT<MkFitEventOfHits> eventOfHitsToken_;
-  edm::EDGetTokenT<MkFitSeedWrapper> seedToken_;
+  const edm::EDGetTokenT<MkFitHitWrapper> pixelHitsToken_;
+  const edm::EDGetTokenT<MkFitHitWrapper> stripHitsToken_;
+  const edm::EDGetTokenT<std::vector<float>> stripClusterChargeToken_;
+  const edm::EDGetTokenT<MkFitEventOfHits> eventOfHitsToken_;
+  const edm::EDGetTokenT<MkFitSeedWrapper> seedToken_;
   edm::EDGetTokenT<edm::ContainerMask<edmNew::DetSetVector<SiPixelCluster>>> pixelMaskToken_;
   edm::EDGetTokenT<edm::ContainerMask<edmNew::DetSetVector<SiStripCluster>>> stripMaskToken_;
-  edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
-  edm::ESGetToken<mkfit::IterationConfig, TrackerRecoGeometryRecord> mkFitIterConfigToken_;
-  edm::EDPutTokenT<MkFitOutputWrapper> putToken_;
+  const edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
+  const edm::ESGetToken<mkfit::IterationConfig, TrackerRecoGeometryRecord> mkFitIterConfigToken_;
+  const edm::EDPutTokenT<MkFitOutputWrapper> putToken_;
   std::function<double(mkfit::Event&, mkfit::MkBuilder&)> buildFunction_;
   const float minGoodStripCharge_;
-  bool seedCleaning_;
-  bool backwardFitInCMSSW_;
-  bool removeDuplicates_;
-  bool mkFitSilent_;
-  bool limitConcurrency_;
+  const bool seedCleaning_;
+  const bool backwardFitInCMSSW_;
+  const bool removeDuplicates_;
+  const bool mkFitSilent_;
+  const bool limitConcurrency_;
 };
 
 MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
