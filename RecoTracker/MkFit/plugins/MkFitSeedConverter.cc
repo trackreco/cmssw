@@ -100,7 +100,7 @@ mkfit::TrackVec MkFitSeedConverter::convertSeeds(const edm::View<TrajectorySeed>
     return ttopo.side(detid) == static_cast<unsigned>(TrackerDetSide::PosEndcap);
   };
 
-  int index = 0;
+  int seed_index = 0;
   for (const auto& seed : seeds) {
     auto const& hitRange = seed.recHits();
     const auto lastRecHit = ttrhBuilder.build(&*(hitRange.end() - 1));
@@ -122,8 +122,8 @@ mkfit::TrackVec MkFitSeedConverter::convertSeeds(const edm::View<TrajectorySeed>
 
     mkfit::TrackState state(tsos.charge(), pos, mom, err);
     state.convertFromCartesianToCCS();
-    ret.emplace_back(state, 0, index, 0, nullptr);
-    LogTrace("MkFitSeedConverter") << "Inserted seed with index " << index;
+    ret.emplace_back(state, 0, seed_index, 0, nullptr);
+    LogTrace("MkFitSeedConverter") << "Inserted seed with index " << seed_index;
 
     // Add hits
     for (auto const& recHit : hitRange) {
@@ -138,7 +138,7 @@ mkfit::TrackVec MkFitSeedConverter::convertSeeds(const edm::View<TrajectorySeed>
                                      << " ilay " << ilay;
       ret.back().addHitIdx(clusterRef.index(), ilay, 0);  // per-hit chi2 is not known
     }
-    ++index;
+    ++seed_index;
   }
   return ret;
 }
