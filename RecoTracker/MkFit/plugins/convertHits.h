@@ -22,7 +22,7 @@
 
 namespace mkfit {
   template <typename Traits, typename HitCollection>
-  edm::ProductID convertHits(Traits&& traits,
+  edm::ProductID convertHits(const Traits& traits,
                              const HitCollection& hits,
                              mkfit::HitVec& mkFitHits,
                              std::vector<TrackingRecHit const*>& clusterIndexToHit,
@@ -41,7 +41,7 @@ namespace mkfit {
         auto const size = lastClusterRef.index();
         mkFitHits.resize(size);
         clusterIndexToHit.resize(size, nullptr);
-        if constexpr (traits.applyCCC()) {
+        if constexpr (Traits::applyCCC()) {
           clusterChargeVec.resize(size, -1.f);
         }
       }
@@ -82,13 +82,13 @@ namespace mkfit {
         if UNLIKELY (clusterIndex >= mkFitHits.size()) {
           mkFitHits.resize(clusterIndex + 1);
           clusterIndexToHit.resize(clusterIndex + 1, nullptr);
-          if constexpr (traits.applyCCC()) {
+          if constexpr (Traits::applyCCC()) {
             clusterChargeVec.resize(clusterIndex + 1, -1.f);
           }
         }
         mkFitHits[clusterIndex] = mkfit::Hit(pos, err);
         clusterIndexToHit[clusterIndex] = &hit;
-        if constexpr (traits.applyCCC()) {
+        if constexpr (Traits::applyCCC()) {
           clusterChargeVec[clusterIndex] = charge;
         }
 
