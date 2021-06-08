@@ -25,6 +25,10 @@
 #include "RecoTracker/MkFit/interface/MkFitGeometry.h"
 #include "RecoTracker/Record/interface/TrackerRecoGeometryRecord.h"
 
+#include "CalibFormats/SiStripObjects/interface/SiStripQuality.h"
+#include "CalibTracker/Records/interface/SiStripQualityRcd.h"
+#include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
+
 // ROOT
 #include "Math/SVector.h"
 #include "Math/SMatrix.h"
@@ -76,6 +80,8 @@ private:
   edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
   edm::EDPutTokenT<MkFitHitWrapper> wrapperPutToken_;
   edm::EDPutTokenT<MkFitClusterIndexToHit> clusterIndexPutToken_;
+  edm::ESGetToken<SiStripQuality, SiStripQualityRcd> qualityToken_;
+  edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> geomToken_;
   const float minGoodStripCharge_;
 };
 
@@ -91,6 +97,9 @@ MkFitHitConverter::MkFitHitConverter(edm::ParameterSet const& iConfig)
       mkFitGeomToken_{esConsumes<MkFitGeometry, TrackerRecoGeometryRecord>()},
       wrapperPutToken_{produces<MkFitHitWrapper>()},
       clusterIndexPutToken_{produces<MkFitClusterIndexToHit>()},
+      //qualityToken_{esConsumes<edm::Transition::BeginRun>()},
+      qualityToken_{esConsumes<edm::Transition::Event>()},
+      geomToken_{esConsumes<edm::Transition::Event>()},
       minGoodStripCharge_{static_cast<float>(
           iConfig.getParameter<edm::ParameterSet>("minGoodStripCharge").getParameter<double>("value"))} {}
 
@@ -117,6 +126,27 @@ void MkFitHitConverter::produce(edm::StreamID iID, edm::Event& iEvent, const edm
 
   MkFitHitWrapper hitWrapper{mkFitGeom.trackerInfo()};
   mkfit::StdSeq::Cmssw_LoadHits_Begin(hitWrapper.eventOfHits(), {&hitWrapper.pixelHits(), &hitWrapper.outerHits()});
+
+  std::vector<mkfit::DeadVec> deadvectors(mkFitGeom.layerNumberConverter().nLayers());
+  const auto& siStripQuality = iSetup.getData(qualityToken_);
+  const auto& trackerGeom = iSetup.getData(geomToken_);
+  const auto& badStrips = siStripQuality.getBadComponentList();
+  for (const auto& bs : badStrips) {
+    const auto& surf = trackerGeom.idToDet(DetId(bs.detid))->surface();
+    const DetId detid(bs.detid);
+    const auto subdet = detid.subdetId();
+    const auto layer = ttopo.layer(detid);
+    const auto isStereo = ttopo.isStereo(detid);
+    bool isBarrel = (ttopo.side(detid) == static_cast<unsigned>(TrackerDetSide::Barrel));
+    bool isPlusSide = (ttopo.side(detid) == static_cast<unsigned>(TrackerDetSide::PosEndcap));
+    const auto ilay = mkFitGeom.layerNumberConverter().convertLayerNumber(subdet, layer, false, isStereo, isPlusSide);
+    //dump content of deadmodules.h in standalone setup
+    // std::cout << "deadvectors["<<ilay<<"].push_back({"<<surf.phiSpan().first<<","<<surf.phiSpan().second<<","
+    // 		<<(isBarrel ? surf.zSpan().first : surf.rSpan().first)<<","<<(isBarrel ? surf.zSpan().second : surf.rSpan().second)<<"});"<<std::endl;
+    deadvectors[ilay].push_back({surf.phiSpan().first,surf.phiSpan().second,
+	  (isBarrel ? surf.zSpan().first : surf.rSpan().first),(isBarrel ? surf.zSpan().second : surf.rSpan().second)});
+  }
+  mkfit::StdSeq::LoadDeads(hitWrapper.eventOfHits(), deadvectors);
 
   MkFitClusterIndexToHit clusterIndexToHit;
 
