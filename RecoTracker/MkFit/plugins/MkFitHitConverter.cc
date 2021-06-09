@@ -97,9 +97,8 @@ MkFitHitConverter::MkFitHitConverter(edm::ParameterSet const& iConfig)
       mkFitGeomToken_{esConsumes<MkFitGeometry, TrackerRecoGeometryRecord>()},
       wrapperPutToken_{produces<MkFitHitWrapper>()},
       clusterIndexPutToken_{produces<MkFitClusterIndexToHit>()},
-      //qualityToken_{esConsumes<edm::Transition::BeginRun>()},
-      qualityToken_{esConsumes<edm::Transition::Event>()},
-      geomToken_{esConsumes<edm::Transition::Event>()},
+      qualityToken_{esConsumes()},
+      geomToken_{esConsumes()},
       minGoodStripCharge_{static_cast<float>(
           iConfig.getParameter<edm::ParameterSet>("minGoodStripCharge").getParameter<double>("value"))} {}
 
