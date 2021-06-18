@@ -80,12 +80,8 @@ void MkFitEventOfHitsProducer::produce(edm::StreamID iID, edm::Event& iEvent, co
   for (const auto& bs : badStrips) {
     const auto& surf = trackerGeom.idToDet(DetId(bs.detid))->surface();
     const DetId detid(bs.detid);
-    const auto subdet = detid.subdetId();
-    const auto layer = mkFitGeom.topology()->layer(detid);
-    const auto isStereo = mkFitGeom.topology()->isStereo(detid);
     bool isBarrel = (mkFitGeom.topology()->side(detid) == static_cast<unsigned>(TrackerDetSide::Barrel));
-    bool isPlusSide = (mkFitGeom.topology()->side(detid) == static_cast<unsigned>(TrackerDetSide::PosEndcap));
-    const auto ilay = mkFitGeom.layerNumberConverter().convertLayerNumber(subdet, layer, false, isStereo, isPlusSide);
+    const auto ilay = mkFitGeom.mkFitLayerNumber(detid);
     //dump content of deadmodules.h in standalone setup
     // std::cout << "deadvectors["<<ilay<<"].push_back({"<<surf.phiSpan().first<<","<<surf.phiSpan().second<<","
     // 		<<(isBarrel ? surf.zSpan().first : surf.rSpan().first)<<","<<(isBarrel ? surf.zSpan().second : surf.rSpan().second)<<"});"<<std::endl;
