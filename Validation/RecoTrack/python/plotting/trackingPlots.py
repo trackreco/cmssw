@@ -1456,7 +1456,7 @@ _iterations = [
                        "initialStepHitTripletsPreSplitting",
                        "initialStepHitQuadrupletsPreSplitting",
                        "initialStepSeedsPreSplitting"],
-              building=["initialStepTrackCandidatesPreSplitting"
+              building=["initialStepTrackCandidatesPreSplitting",
                         "initialStepTrackCandidatesMkFitSeedsPreSplitting",
                         "initialStepTrackCandidatesMkFitPreSplitting"],
               fit=["initialStepTracksPreSplitting"],
