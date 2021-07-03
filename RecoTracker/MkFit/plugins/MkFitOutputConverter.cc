@@ -291,7 +291,7 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
         CurvilinearTrajectoryError(cov));
     if (!fts.curvilinearError().posDef()) {
       edm::LogWarning("MkFitOutputConverter") << "Curvilinear error not pos-def\n"
-                                              << fts.curvilinearError().matrix();
+                                              << fts.curvilinearError().matrix() << "\ncandidate ignored";
       continue;
     }
 
