@@ -16,10 +16,15 @@
   "c_drmax_bl": 0.017999999225139618,
   "c_dzmax_bl": 0.017999999225139618,
   "c_drmax_el": 0.05000000074505806,
-  "c_dzmax_el": 0.017999999225139618
+  "c_dzmax_el": 0.017999999225139618,
+  "fracSharedHits": 0.5,
+  "drth_central": 0.029999999329447746,
+  "drth_obarrel": 0.05000000074505806,
+  "drth_forward": 0.07999999821186066
  },
  "m_requires_seed_hit_sorting": false,
  "m_require_quality_filter": false,
+ "m_require_dupclean_tight": true,
  "m_layer_configs": [
   {
    "m_select_min_dphi": 0.009999999776482582,

@@ -10,16 +10,21 @@
   "pTCutOverlap": 1.0,
   "c_ptthr_hpt": 0.5,
   "c_drmax_bh": 0.05000000074505806,
-  "c_dzmax_bh": 0.0,
+  "c_dzmax_bh": 0.05000000074505806,
   "c_drmax_eh": 0.05000000074505806,
   "c_dzmax_eh": 0.05000000074505806,
   "c_drmax_bl": 0.05000000074505806,
   "c_dzmax_bl": 0.05000000074505806,
   "c_drmax_el": 0.05000000074505806,
-  "c_dzmax_el": 0.05000000074505806
+  "c_dzmax_el": 0.05000000074505806,
+  "fracSharedHits": 0.33000001311302185,
+  "drth_central": 0.017999999225139618,
+  "drth_obarrel": 0.05000000074505806,
+  "drth_forward": 0.017999999225139618
  },
  "m_requires_seed_hit_sorting": false,
  "m_require_quality_filter": false,
+ "m_require_dupclean_tight": true,
  "m_layer_configs": [
   {
    "m_select_min_dphi": 0.009999999776482582,
