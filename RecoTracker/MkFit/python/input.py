@@ -92,8 +92,8 @@ def apply(process, options):
             process.FastTimerService.enableDQMbyPath = True
         else:
             raise Exception("Incorrect value of timing={}, supported are '', framework, FastTimerService".format(options.timing))
-        for it in ["initialStep", "lowPtQuadStep", "highPtTripletStep", "lowPtTripletStep",
-                   "detachedQuadStep", "detachedTripletStep", "mixedTripletStep",
+        for it in ["initialStepPreSplitting", "initialStep", "lowPtQuadStep", "highPtTripletStep", "lowPtTripletStep",
+                   "detachedQuadStep", "detachedTripletStep", "pixelPairStep", "mixedTripletStep",
                    "pixelLessStep", "tobTecStep"]:
             try:
                 getattr(process, it+"TrackCandidatesMkFit").limitConcurrency = True
