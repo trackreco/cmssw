@@ -4,7 +4,7 @@
   "nlayers_per_seed": 3,
   "maxCandsPerSeed": 2,
   "maxHolesPerCand": 4,
-  "maxConsecHoles": 1,
+  "maxConsecHoles": 2,
   "chi2Cut_min": 10.0,
   "chi2CutOverlap": 3.5,
   "pTCutOverlap": 1.0,
