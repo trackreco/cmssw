@@ -6,7 +6,7 @@ def parseArguments():
                      "10mu",
                      VarParsing.multiplicity.singleton,
                      VarParsing.varType.string,
-                     "Sample: 10mu, ttbarnopu, ttbarpu35, ttbarpu50, ttbarpu70")
+                     "Sample: 10mu, 10mulowpt, ttbarnopu, ttbarpu35, ttbarpu50, ttbarpu70")
     options.register("mkfit",
                      "all",
                      VarParsing.multiplicity.singleton,
@@ -64,6 +64,9 @@ def apply(process, options):
     if options.sample == "10mu":
         process.source.fileNames = [prefix+"/10muPt0p2to1000HS/"+fname]
         process.maxEvents.input = 1000
+    elif options.sample == "10mulowpt":
+        process.source.fileNames = [prefix+"/10muPt0p2to10HS/"+fname]
+        process.maxEvents.input = 1000
     elif options.sample == "ttbarnopu":
         process.source.fileNames = [prefix+"/11834.0_TTbar_14TeV+2021/AVE_0_BX01_25ns/"+fname]
         process.maxEvents.input = 100
@@ -77,7 +80,7 @@ def apply(process, options):
         process.source.fileNames = [prefix+"/11834.0_TTbar_14TeV+2021/AVE_70_BX01_25ns/"+fname]
         process.maxEvents.input = 10
     else:
-        raise Exception("Incorrect value of sample=%s, supported ones are 10mu, ttbarnopu, ttbarpu35, ttbarpu50, ttbarpu70" % options.sample)
+        raise Exception("Incorrect value of sample=%s, supported ones are 10mu, 10mulowpt, ttbarnopu, ttbarpu35, ttbarpu50, ttbarpu70" % options.sample)
 
     if options.maxEvents != 0:
         process.maxEvents.input = options.maxEvents
