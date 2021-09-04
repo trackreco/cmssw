@@ -64,15 +64,15 @@ MkFitEventOfHitsProducer::MkFitEventOfHitsProducer(edm::ParameterSet const& iCon
       putToken_{produces<MkFitEventOfHits>()},
       usePixelQualityDB_{iConfig.getParameter<bool>("usePixelQualityDB")},
       useStripStripQualityDB_{iConfig.getParameter<bool>("useStripStripQualityDB")} {
-        if (useStripStripQualityDB_ || usePixelQualityDB_)
-          geomToken_ = esConsumes();
-	if (usePixelQualityDB_) {
-	  pixelQualityToken_ = esConsumes();
-	}
-	if (useStripStripQualityDB_) {
-	  stripQualityToken_ = esConsumes();
-	}
-      }
+  if (useStripStripQualityDB_ || usePixelQualityDB_)
+    geomToken_ = esConsumes();
+  if (usePixelQualityDB_) {
+    pixelQualityToken_ = esConsumes();
+  }
+  if (useStripStripQualityDB_) {
+    stripQualityToken_ = esConsumes();
+  }
+}
 
 void MkFitEventOfHitsProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
@@ -112,7 +112,7 @@ void MkFitEventOfHitsProducer::produce(edm::StreamID iID, edm::Event& iEvent, co
       }
     }
 
-    if(useStripStripQualityDB_) {
+    if (useStripStripQualityDB_) {
       const auto& siStripQuality = iSetup.getData(stripQualityToken_);
       const auto& badStrips = siStripQuality.getBadComponentList();
       for (const auto& bs : badStrips) {
@@ -124,7 +124,7 @@ void MkFitEventOfHitsProducer::produce(edm::StreamID iID, edm::Event& iEvent, co
         const auto q2 = isBarrel ? surf.zSpan().second : surf.rSpan().second;
         if (bs.BadModule)
           deadvectors[ilay].push_back({surf.phiSpan().first, surf.phiSpan().second, q1, q2});
-        else { //assume that BadApvs are filled in sync with BadFibers
+        else {  //assume that BadApvs are filled in sync with BadFibers
           auto const& topo = dynamic_cast<const StripTopology&>(trackerGeom.idToDet(detid)->topology());
           int firstApv = -1;
           int lastApv = -1;
@@ -136,7 +136,8 @@ void MkFitEventOfHitsProducer::produce(edm::StreamID iID, edm::Event& iEvent, co
             float phi2 = lastPoint.phi();
             if (reco::deltaPhi(phi1, phi2) > 0)
               std::swap(phi1, phi2);
-            LogTrace("SiStripBadComponents")<<"insert bad range "<<first<<" to "<<last<<" "<<phi1<<" "<<phi2;
+            LogTrace("SiStripBadComponents")
+                << "insert bad range " << first << " to " << last << " " << phi1 << " " << phi2;
             dv.push_back({phi1, phi2, q1, q2});
           };
 
@@ -144,7 +145,7 @@ void MkFitEventOfHitsProducer::produce(edm::StreamID iID, edm::Event& iEvent, co
           for (int apv = 0; apv < nApvs; ++apv) {
             const bool isBad = bs.BadApvs & (1 << apv);
             if (isBad) {
-              LogTrace("SiStripBadComponents")<<"bad apv "<<apv<<" on "<<bs.detid;
+              LogTrace("SiStripBadComponents") << "bad apv " << apv << " on " << bs.detid;
               if (lastApv == -1) {
                 firstApv = apv;
                 lastApv = apv;
@@ -160,12 +161,12 @@ void MkFitEventOfHitsProducer::produce(edm::StreamID iID, edm::Event& iEvent, co
               lastApv = -1;
             }
           }
-        }//for (const auto& bs : badStrips)
+        }  //for (const auto& bs : badStrips)
       }
     }
 
     mkfit::StdSeq::LoadDeads(*eventOfHits, deadvectors);
-  }//if (usePixelQualityDB_ || useStripStripQualityDB_)
+  }  //if (usePixelQualityDB_ || useStripStripQualityDB_)
 
   fill(iEvent.get(pixelClusterIndexToHitToken_).hits(), *eventOfHits, mkFitGeom);
   fill(iEvent.get(stripClusterIndexToHitToken_).hits(), *eventOfHits, mkFitGeom);
