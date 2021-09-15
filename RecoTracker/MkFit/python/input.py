@@ -67,6 +67,9 @@ def apply(process, options):
     elif options.sample == "10mulowpt":
         process.source.fileNames = [prefix+"/10muPt0p2to10HS/"+fname]
         process.maxEvents.input = 1000
+    elif options.sample == "10muvlowpt":
+        process.source.fileNames = [prefix+"/10muPt0p2to1HS/"+fname]
+        process.maxEvents.input = 1000
     elif options.sample == "ttbarnopu":
         process.source.fileNames = [prefix+"/11834.0_TTbar_14TeV+2021/AVE_0_BX01_25ns/"+fname]
         process.maxEvents.input = 100
