@@ -320,7 +320,7 @@ upgradeWFs['trackingMkFit'].step2 = {
     '--customise': 'RecoTracker/MkFit/customizeHLTIter0ToMkFit.customizeHLTIter0ToMkFit'
 }
 upgradeWFs['trackingMkFit'].step3 = {
-    '--procModifiers': 'trackingMkFit'
+    '--procModifiers': 'trackingMkFitDev'
 }
 
 #DeepCore seeding for JetCore iteration workflow
