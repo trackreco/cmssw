@@ -15,110 +15,6 @@ using namespace mkfit;
 namespace {
 #include "createPhase1TrackerGeometryAutoGen.acc"
 
-  void setupSteeringParamsIter0(IterationConfig &ic) {
-    ic.m_region_order[0] = TrackerInfo::Reg_Transition_Pos;
-    ic.m_region_order[1] = TrackerInfo::Reg_Transition_Neg;
-    ic.m_region_order[2] = TrackerInfo::Reg_Endcap_Pos;
-    ic.m_region_order[3] = TrackerInfo::Reg_Endcap_Neg;
-    ic.m_region_order[4] = TrackerInfo::Reg_Barrel;
-
-    {
-      SteeringParams &sp = ic.m_steering_params[TrackerInfo::Reg_Endcap_Neg];
-      sp.reserve_plan(3 + 3 + 6 + 18);  // BPix + FPix- + TID- + TEC-; BPix4 is out of acceptance
-      sp.fill_plan(0, 1, false, true);  // bk-fit only
-      sp.append_plan(2, true);          // pick-up only
-      sp.append_plan(45, false);
-      sp.append_plan(46, false);
-      sp.append_plan(47, false);
-      sp.fill_plan(48, 53);  // TID,  6 disks (3 mono + 3 stereo)
-      sp.fill_plan(54, 71);  // TEC, 18 disks (3 mono + 3 stereo)
-      sp.set_iterator_limits(2, 0);
-    }
-    {
-      SteeringParams &sp = ic.m_steering_params[TrackerInfo::Reg_Transition_Neg];
-      sp.reserve_plan(4 + 3 + 6 + 6 + 8 + 18);  // BPix + FPix- + TIB + TID- + TOB + TEC-
-      sp.fill_plan(0, 1, false, true);          // bk-fit only
-      sp.append_plan(2, true);
-      sp.append_plan(3, false);
-      sp.append_plan(45, false);
-      sp.append_plan(46, false);
-      sp.append_plan(47, false);
-      sp.fill_plan(4, 9);    // TIB,  6 layers (4 mono + 2 stereo)
-      sp.fill_plan(48, 53);  // TID,  6 disks  (3 mono + 3 stereo)
-      sp.fill_plan(10, 17);  // TOB,  8 layers (6 mono + 2 stereo)
-      sp.fill_plan(54, 71);  // TEC, 18 disks  (9 mono + 9 stereo)
-      sp.set_iterator_limits(2, 0);
-    }
-    {
-      SteeringParams &sp = ic.m_steering_params[TrackerInfo::Reg_Barrel];
-      sp.reserve_plan(4 + 6 + 8);       // BPix + TIB + TOB
-      sp.fill_plan(0, 1, false, true);  // bk-fit only
-      sp.append_plan(2, true);          // pickup-only
-      sp.append_plan(3, false);
-      sp.fill_plan(4, 9);    // TIB, 6 layers (4 mono + 2 stereo)
-      sp.fill_plan(10, 17);  // TOB, 8 layers (6 mono + 2 stereo)
-      sp.set_iterator_limits(2, 0);
-    }
-    {
-      SteeringParams &sp = ic.m_steering_params[TrackerInfo::Reg_Transition_Pos];
-      sp.reserve_plan(4 + 3 + 6 + 6 + 8 + 18);  // BPix + FPix+ + TIB + TID+ + TOB + TEC+
-      sp.fill_plan(0, 1, false, true);          // bk-fit only
-      sp.append_plan(2, true);                  // pickup-only
-      sp.append_plan(3, false);
-      sp.append_plan(18, false);
-      sp.append_plan(19, false);
-      sp.append_plan(20, false);
-      sp.fill_plan(4, 9);    // TIB,  6 layers (4 mono + 2 stereo)
-      sp.fill_plan(21, 26);  // TID,  6 disks  (3 mono + 3 stereo)
-      sp.fill_plan(10, 17);  // TOB,  8 layers (6 mono + 2 stereo)
-      sp.fill_plan(27, 44);  // TEC, 18 disks  (9 mono + 9 stereo)
-      sp.set_iterator_limits(2, 0);
-    }
-    {
-      SteeringParams &sp = ic.m_steering_params[TrackerInfo::Reg_Endcap_Pos];
-      sp.reserve_plan(3 + 3 + 6 + 18);  // BPix + FPix+ + TID+ + TEC+; BPix4 is out of acceptance
-      sp.fill_plan(0, 1, false, true);  // bk-fit only
-      sp.append_plan(2, true);          // pickup-only
-      sp.append_plan(18, false);
-      sp.append_plan(19, false);
-      sp.append_plan(20, false);
-      sp.fill_plan(21, 26);  // TID,  6 disks  (3 mono + 3 stereo)
-      sp.fill_plan(27, 44);  // TEC, 18 disks  (9 mono + 9 stereo)
-      sp.set_iterator_limits(2, 0);
-    }
-  }
-
- void OverrideSteeringParams_Iter7(IterationConfig& ic)
-  {
-    ic.m_backward_search = true;
-    ic.m_backward_params = ic.m_params;
-    ic.m_backward_params.maxHolesPerCand = 2;
-    ic.m_backward_params.maxConsecHoles  = 2;
-    // Remove pixel layers from FwdSearch, add them to BkwSearch
-    auto &spv = ic.m_steering_params;
-    spv[TrackerInfo::Reg_Endcap_Neg]    .set_iterator_limits(8, 6, 19);
-    spv[TrackerInfo::Reg_Transition_Neg].set_iterator_limits(9, 7, 34);
-    spv[TrackerInfo::Reg_Barrel]        .set_iterator_limits(6, 4, 8);
-    spv[TrackerInfo::Reg_Transition_Pos].set_iterator_limits(9, 7, 34);
-    spv[TrackerInfo::Reg_Endcap_Pos]    .set_iterator_limits(8, 6, 19);
-  }
-
-  void OverrideSteeringParams_Iter8(IterationConfig& ic)
-  {
-    ic.m_backward_search = true;
-    ic.m_backward_params = ic.m_params;
-    ic.m_backward_params.maxHolesPerCand = 2;
-    ic.m_backward_params.maxConsecHoles  = 2;
-    // Remove pixel/tib/tid layers from FwdSearch, add them to BkwSearch/
-    auto &spv = ic.m_steering_params;
-    spv[TrackerInfo::Reg_Endcap_Neg]    .set_iterator_limits(12, 12, 24);
-    spv[TrackerInfo::Reg_Transition_Neg].set_iterator_limits(27, 19, 39);
-    spv[TrackerInfo::Reg_Barrel]        .set_iterator_limits(12, 10, 14);
-    spv[TrackerInfo::Reg_Transition_Pos].set_iterator_limits(27, 19, 39);
-    spv[TrackerInfo::Reg_Endcap_Pos]    .set_iterator_limits(12, 12, 24);
-  }
-
-
   void partitionSeeds0(const TrackerInfo &trk_info,
                        const TrackVec &in_seeds,
                        const EventOfHits &eoh,
@@ -223,44 +119,14 @@ namespace mkfit {
 
     ti.set_eta_regions(0.9, 1.7, 2.45, false);
     ti.create_layers(18, 27, 27);
+    createPhase1TrackerGeometryAutoGen(ti);
 
+    unsigned int algorithms[]={ 4,22,23,5,24,7,8,9,10,6 }; // 10 iterations
     ii.resize(10);
-    ii[0].set_iteration_index_and_track_algorithm(0, (int)TrackBase::TrackAlgorithm::initialStep);
-    ii[0].set_num_regions_layers(5, 72);
-
-    createPhase1TrackerGeometryAutoGen(ti, ii);
-
-    setupSteeringParamsIter0(ii[0]);
-    ii[0].m_partition_seeds = partitionSeeds0;
-
-    ii[1].Clone(ii[0]);
-    ii[1].set_iteration_index_and_track_algorithm(1, (int)TrackBase::TrackAlgorithm::highPtTripletStep);
-
-    ii[2].Clone(ii[0]);
-    ii[2].set_iteration_index_and_track_algorithm(2, (int)TrackBase::TrackAlgorithm::lowPtQuadStep);
-
-    ii[3].Clone(ii[0]);
-    ii[3].set_iteration_index_and_track_algorithm(3, (int)TrackBase::TrackAlgorithm::lowPtTripletStep);
-
-    ii[4].Clone(ii[0]);
-    ii[4].set_iteration_index_and_track_algorithm(4, (int)TrackBase::TrackAlgorithm::detachedQuadStep);
-
-    ii[5].Clone(ii[0]);
-    ii[5].set_iteration_index_and_track_algorithm(5, (int)TrackBase::TrackAlgorithm::detachedTripletStep);
-
-    ii[6].Clone(ii[0]);
-    ii[6].set_iteration_index_and_track_algorithm(6, (int)TrackBase::TrackAlgorithm::mixedTripletStep);
-
-    ii[7].Clone(ii[0]);
-    OverrideSteeringParams_Iter7(ii[7]);
-    ii[7].set_iteration_index_and_track_algorithm(7, (int)TrackBase::TrackAlgorithm::pixelLessStep);
-
-    ii[8].Clone(ii[0]);
-    OverrideSteeringParams_Iter8(ii[8]);
-    ii[8].set_iteration_index_and_track_algorithm(8, (int)TrackBase::TrackAlgorithm::tobTecStep);
-
-    ii[9].Clone(ii[0]);
-    ii[9].set_iteration_index_and_track_algorithm(9, (int)TrackBase::TrackAlgorithm::pixelPairStep);
+    for (int i = 0; i < 10; ++i) {
+      ii[i].m_track_algorithm = algorithms[i];   // Needed for matching in JSON file.
+      ii[i].m_partition_seeds = partitionSeeds0; // Needs to be setup here (silly as it is at the moment the same for all iters).
+    }
 
     //for iters [7] and [8]: investing in maxCand & stop condition (for time) + QF and Dupl. cleaning (for quality)
 
