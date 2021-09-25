@@ -1,5 +1,12 @@
 {
+ "m_iteration_index": 2,
  "m_track_algorithm": 23,
+ "m_requires_seed_hit_sorting": false,
+ "m_require_quality_filter": false,
+ "m_require_dupclean_tight": true,
+ "m_backward_search": false,
+ "m_backward_drop_seed_hits": false,
+ "m_backward_fit_min_hits": -1,
  "m_params": {
   "nlayers_per_seed": 4,
   "maxCandsPerSeed": 5,
@@ -44,10 +51,560 @@
   "drth_obarrel": 0.029999999329447746,
   "drth_forward": 0.05000000074505806
  },
- "m_requires_seed_hit_sorting": false,
- "m_require_quality_filter": false,
- "m_require_dupclean_tight": true,
- "m_backward_search": false,
+ "m_n_regions": 5,
+ "m_region_order": [
+  3,
+  1,
+  4,
+  0,
+  2
+ ],
+ "m_steering_params": [
+  {
+   "m_layer_plan": [
+    {
+     "m_layer": 0
+    },
+    {
+     "m_layer": 1
+    },
+    {
+     "m_layer": 2
+    },
+    {
+     "m_layer": 45
+    },
+    {
+     "m_layer": 46
+    },
+    {
+     "m_layer": 47
+    },
+    {
+     "m_layer": 48
+    },
+    {
+     "m_layer": 49
+    },
+    {
+     "m_layer": 50
+    },
+    {
+     "m_layer": 51
+    },
+    {
+     "m_layer": 52
+    },
+    {
+     "m_layer": 53
+    },
+    {
+     "m_layer": 54
+    },
+    {
+     "m_layer": 55
+    },
+    {
+     "m_layer": 56
+    },
+    {
+     "m_layer": 57
+    },
+    {
+     "m_layer": 58
+    },
+    {
+     "m_layer": 59
+    },
+    {
+     "m_layer": 60
+    },
+    {
+     "m_layer": 61
+    },
+    {
+     "m_layer": 62
+    },
+    {
+     "m_layer": 63
+    },
+    {
+     "m_layer": 64
+    },
+    {
+     "m_layer": 65
+    },
+    {
+     "m_layer": 66
+    },
+    {
+     "m_layer": 67
+    },
+    {
+     "m_layer": 68
+    },
+    {
+     "m_layer": 69
+    },
+    {
+     "m_layer": 70
+    },
+    {
+     "m_layer": 71
+    }
+   ],
+   "m_region": 0,
+   "m_fwd_search_pickup": 2,
+   "m_bkw_fit_last": 0,
+   "m_bkw_search_pickup": -1
+  },
+  {
+   "m_layer_plan": [
+    {
+     "m_layer": 0
+    },
+    {
+     "m_layer": 1
+    },
+    {
+     "m_layer": 2
+    },
+    {
+     "m_layer": 3
+    },
+    {
+     "m_layer": 45
+    },
+    {
+     "m_layer": 46
+    },
+    {
+     "m_layer": 47
+    },
+    {
+     "m_layer": 4
+    },
+    {
+     "m_layer": 5
+    },
+    {
+     "m_layer": 6
+    },
+    {
+     "m_layer": 7
+    },
+    {
+     "m_layer": 8
+    },
+    {
+     "m_layer": 9
+    },
+    {
+     "m_layer": 48
+    },
+    {
+     "m_layer": 49
+    },
+    {
+     "m_layer": 50
+    },
+    {
+     "m_layer": 51
+    },
+    {
+     "m_layer": 52
+    },
+    {
+     "m_layer": 53
+    },
+    {
+     "m_layer": 10
+    },
+    {
+     "m_layer": 11
+    },
+    {
+     "m_layer": 12
+    },
+    {
+     "m_layer": 13
+    },
+    {
+     "m_layer": 14
+    },
+    {
+     "m_layer": 15
+    },
+    {
+     "m_layer": 16
+    },
+    {
+     "m_layer": 17
+    },
+    {
+     "m_layer": 54
+    },
+    {
+     "m_layer": 55
+    },
+    {
+     "m_layer": 56
+    },
+    {
+     "m_layer": 57
+    },
+    {
+     "m_layer": 58
+    },
+    {
+     "m_layer": 59
+    },
+    {
+     "m_layer": 60
+    },
+    {
+     "m_layer": 61
+    },
+    {
+     "m_layer": 62
+    },
+    {
+     "m_layer": 63
+    },
+    {
+     "m_layer": 64
+    },
+    {
+     "m_layer": 65
+    },
+    {
+     "m_layer": 66
+    },
+    {
+     "m_layer": 67
+    },
+    {
+     "m_layer": 68
+    },
+    {
+     "m_layer": 69
+    },
+    {
+     "m_layer": 70
+    },
+    {
+     "m_layer": 71
+    }
+   ],
+   "m_region": 1,
+   "m_fwd_search_pickup": 2,
+   "m_bkw_fit_last": 0,
+   "m_bkw_search_pickup": -1
+  },
+  {
+   "m_layer_plan": [
+    {
+     "m_layer": 0
+    },
+    {
+     "m_layer": 1
+    },
+    {
+     "m_layer": 2
+    },
+    {
+     "m_layer": 3
+    },
+    {
+     "m_layer": 4
+    },
+    {
+     "m_layer": 5
+    },
+    {
+     "m_layer": 6
+    },
+    {
+     "m_layer": 7
+    },
+    {
+     "m_layer": 8
+    },
+    {
+     "m_layer": 9
+    },
+    {
+     "m_layer": 10
+    },
+    {
+     "m_layer": 11
+    },
+    {
+     "m_layer": 12
+    },
+    {
+     "m_layer": 13
+    },
+    {
+     "m_layer": 14
+    },
+    {
+     "m_layer": 15
+    },
+    {
+     "m_layer": 16
+    },
+    {
+     "m_layer": 17
+    }
+   ],
+   "m_region": 2,
+   "m_fwd_search_pickup": 2,
+   "m_bkw_fit_last": 0,
+   "m_bkw_search_pickup": -1
+  },
+  {
+   "m_layer_plan": [
+    {
+     "m_layer": 0
+    },
+    {
+     "m_layer": 1
+    },
+    {
+     "m_layer": 2
+    },
+    {
+     "m_layer": 3
+    },
+    {
+     "m_layer": 18
+    },
+    {
+     "m_layer": 19
+    },
+    {
+     "m_layer": 20
+    },
+    {
+     "m_layer": 4
+    },
+    {
+     "m_layer": 5
+    },
+    {
+     "m_layer": 6
+    },
+    {
+     "m_layer": 7
+    },
+    {
+     "m_layer": 8
+    },
+    {
+     "m_layer": 9
+    },
+    {
+     "m_layer": 21
+    },
+    {
+     "m_layer": 22
+    },
+    {
+     "m_layer": 23
+    },
+    {
+     "m_layer": 24
+    },
+    {
+     "m_layer": 25
+    },
+    {
+     "m_layer": 26
+    },
+    {
+     "m_layer": 10
+    },
+    {
+     "m_layer": 11
+    },
+    {
+     "m_layer": 12
+    },
+    {
+     "m_layer": 13
+    },
+    {
+     "m_layer": 14
+    },
+    {
+     "m_layer": 15
+    },
+    {
+     "m_layer": 16
+    },
+    {
+     "m_layer": 17
+    },
+    {
+     "m_layer": 27
+    },
+    {
+     "m_layer": 28
+    },
+    {
+     "m_layer": 29
+    },
+    {
+     "m_layer": 30
+    },
+    {
+     "m_layer": 31
+    },
+    {
+     "m_layer": 32
+    },
+    {
+     "m_layer": 33
+    },
+    {
+     "m_layer": 34
+    },
+    {
+     "m_layer": 35
+    },
+    {
+     "m_layer": 36
+    },
+    {
+     "m_layer": 37
+    },
+    {
+     "m_layer": 38
+    },
+    {
+     "m_layer": 39
+    },
+    {
+     "m_layer": 40
+    },
+    {
+     "m_layer": 41
+    },
+    {
+     "m_layer": 42
+    },
+    {
+     "m_layer": 43
+    },
+    {
+     "m_layer": 44
+    }
+   ],
+   "m_region": 3,
+   "m_fwd_search_pickup": 2,
+   "m_bkw_fit_last": 0,
+   "m_bkw_search_pickup": -1
+  },
+  {
+   "m_layer_plan": [
+    {
+     "m_layer": 0
+    },
+    {
+     "m_layer": 1
+    },
+    {
+     "m_layer": 2
+    },
+    {
+     "m_layer": 18
+    },
+    {
+     "m_layer": 19
+    },
+    {
+     "m_layer": 20
+    },
+    {
+     "m_layer": 21
+    },
+    {
+     "m_layer": 22
+    },
+    {
+     "m_layer": 23
+    },
+    {
+     "m_layer": 24
+    },
+    {
+     "m_layer": 25
+    },
+    {
+     "m_layer": 26
+    },
+    {
+     "m_layer": 27
+    },
+    {
+     "m_layer": 28
+    },
+    {
+     "m_layer": 29
+    },
+    {
+     "m_layer": 30
+    },
+    {
+     "m_layer": 31
+    },
+    {
+     "m_layer": 32
+    },
+    {
+     "m_layer": 33
+    },
+    {
+     "m_layer": 34
+    },
+    {
+     "m_layer": 35
+    },
+    {
+     "m_layer": 36
+    },
+    {
+     "m_layer": 37
+    },
+    {
+     "m_layer": 38
+    },
+    {
+     "m_layer": 39
+    },
+    {
+     "m_layer": 40
+    },
+    {
+     "m_layer": 41
+    },
+    {
+     "m_layer": 42
+    },
+    {
+     "m_layer": 43
+    },
+    {
+     "m_layer": 44
+    }
+   ],
+   "m_region": 4,
+   "m_fwd_search_pickup": 2,
+   "m_bkw_fit_last": 0,
+   "m_bkw_search_pickup": -1
+  }
+ ],
  "m_layer_configs": [
   {
    "m_select_min_dphi": 0.009999999776482582,
