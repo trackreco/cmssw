@@ -125,7 +125,7 @@ initialStepTrackCandidatesPreSplitting = RecoTracker.CkfPattern.CkfTrackCandidat
 )
 initialStepTrackCandidatesPreSplitting.MeasurementTrackerEvent = 'MeasurementTrackerEventPreSplitting'
 
-from Configuration.ProcessModifiers.trackingMkFitInitialStepPreSplitting_cff import trackingMkFitInitialStepPreSplitting
+from Configuration.Eras.Modifier_trackingMkFit_cff import trackingMkFit
 from RecoTracker.MkFit.mkFitGeometryESProducer_cfi import mkFitGeometryESProducer
 import RecoTracker.MkFit.mkFitSiPixelHitConverter_cfi as _mkFitSiPixelHitConverter_cfi
 import RecoTracker.MkFit.mkFitSiStripHitConverter_cfi as _mkFitSiStripHitConverter_cfi
@@ -155,7 +155,7 @@ initialStepTrackCandidatesMkFitPreSplitting = _mkFitProducer_cfi.mkFitProducer.c
     seeds = 'initialStepTrackCandidatesMkFitSeedsPreSplitting',
     config = ('', 'initialStepTrackCandidatesMkFitConfigPreSplitting'),
 )
-trackingMkFitInitialStepPreSplitting.toReplaceWith(initialStepTrackCandidatesPreSplitting, _mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
+trackingMkFit.toReplaceWith(initialStepTrackCandidatesPreSplitting, _mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
     mkFitPixelHits = 'mkFitSiPixelHitsPreSplitting',
     mkFitEventOfHits = 'mkFitEventOfHitsPreSplitting',
     seeds = 'initialStepSeedsPreSplitting',
@@ -237,9 +237,9 @@ from Configuration.ProcessModifiers.trackingMkFitCommon_cff import trackingMkFit
 _InitialStepPreSplittingTask_trackingMkFitCommon = InitialStepPreSplittingTask.copy()
 _InitialStepPreSplittingTask_trackingMkFitCommon.add(mkFitSiStripHits)
 trackingMkFitCommon.toReplaceWith(InitialStepPreSplittingTask, _InitialStepPreSplittingTask_trackingMkFitCommon)
-_InitialStepPreSplittingTask_trackingMkFit = InitialStepPreSplittingTask.copy()
+_InitialStepPreSplittingTask_trackingMkFit = _InitialStepPreSplittingTask_trackingMkFitCommon.copy()
 _InitialStepPreSplittingTask_trackingMkFit.add(mkFitSiPixelHitsPreSplitting, mkFitEventOfHitsPreSplitting, initialStepTrackCandidatesMkFitSeedsPreSplitting, initialStepTrackCandidatesMkFitPreSplitting, initialStepTrackCandidatesMkFitConfigPreSplitting)
-trackingMkFitInitialStepPreSplitting.toReplaceWith(InitialStepPreSplittingTask, _InitialStepPreSplittingTask_trackingMkFit)
+trackingMkFit.toReplaceWith(InitialStepPreSplittingTask, _InitialStepPreSplittingTask_trackingMkFit)
 
 
 # Although InitialStepPreSplitting is not really part of LowPU/Run1/Phase2PU140

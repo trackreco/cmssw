@@ -223,7 +223,7 @@ initialStepTrackCandidates = RecoTracker.CkfPattern.CkfTrackCandidates_cfi.ckfTr
     useHitsSplitting = True
 )
 
-from Configuration.ProcessModifiers.trackingMkFitInitialStep_cff import trackingMkFitInitialStep
+from Configuration.Eras.Modifier_trackingMkFit_cff import trackingMkFit
 from RecoTracker.MkFit.mkFitGeometryESProducer_cfi import mkFitGeometryESProducer
 import RecoTracker.MkFit.mkFitSiPixelHitConverter_cfi as mkFitSiPixelHitConverter_cfi
 import RecoTracker.MkFit.mkFitSiStripHitConverter_cfi as mkFitSiStripHitConverter_cfi
@@ -245,7 +245,7 @@ initialStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
     seeds = 'initialStepTrackCandidatesMkFitSeeds',
     config = ('', 'initialStepTrackCandidatesMkFitConfig'),
 )
-trackingMkFitInitialStep.toReplaceWith(initialStepTrackCandidates, mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
+trackingMkFit.toReplaceWith(initialStepTrackCandidates, mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
     seeds = 'initialStepSeeds',
     mkFitSeeds = 'initialStepTrackCandidatesMkFitSeeds',
     tracks = 'initialStepTrackCandidatesMkFit',
@@ -430,9 +430,9 @@ _InitialStepTask_trackingMkFitCommon = InitialStepTask.copy()
 _InitialStepTask_trackingMkFitCommon.add(mkFitSiPixelHits, mkFitEventOfHits, mkFitGeometryESProducer)
 trackingMkFitCommon.toReplaceWith(InitialStepTask, _InitialStepTask_trackingMkFitCommon)
 
-_InitialStepTask_trackingMkFit = InitialStepTask.copy()
+_InitialStepTask_trackingMkFit = _InitialStepTask_trackingMkFitCommon.copy()
 _InitialStepTask_trackingMkFit.add(initialStepTrackCandidatesMkFitSeeds, initialStepTrackCandidatesMkFit, initialStepTrackCandidatesMkFitConfig)
-trackingMkFitInitialStep.toReplaceWith(InitialStepTask, _InitialStepTask_trackingMkFit)
+trackingMkFit.toReplaceWith(InitialStepTask, _InitialStepTask_trackingMkFit)
 
 _InitialStepTask_LowPU = InitialStepTask.copyAndExclude([firstStepPrimaryVerticesUnsorted, initialStepTrackRefsForJets, caloJetsForTrkTask, firstStepPrimaryVertices, initialStepClassifier1, initialStepClassifier2, initialStepClassifier3])
 _InitialStepTask_LowPU.replace(initialStep, initialStepSelector)
