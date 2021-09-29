@@ -244,9 +244,6 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
       }
     }
 
-    // Can happen with backward-search + seed-region rebuilding.
-    if (recHits.empty()) continue;
-
     const auto lastHitId = recHits.back().geographicalId();
 
     // MkFit hits are *not* in the order of propagation, sort by 3D radius for now (as we don't have loopers)
