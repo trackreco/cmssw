@@ -24,10 +24,10 @@
   "c_dzmax_bl": 0.05000000074505806,
   "c_drmax_el": 0.05000000074505806,
   "c_dzmax_el": 0.05000000074505806,
-  "fracSharedHits": 0.25,
-  "drth_central": 0.05000000074505806,
-  "drth_obarrel": 0.05000000074505806,
-  "drth_forward": 0.05000000074505806
+  "fracSharedHits": 0.5899999737739563,
+  "drth_central": 0.009999999776482582,
+  "drth_obarrel": 0.009999999776482582,
+  "drth_forward": 0.10000000149011612
  },
  "m_backward_params": {
   "nlayers_per_seed": 3,
@@ -46,10 +46,10 @@
   "c_dzmax_bl": 0.05000000074505806,
   "c_drmax_el": 0.05000000074505806,
   "c_dzmax_el": 0.05000000074505806,
-  "fracSharedHits": 0.25,
-  "drth_central": 0.05000000074505806,
-  "drth_obarrel": 0.05000000074505806,
-  "drth_forward": 0.05000000074505806
+  "fracSharedHits": 0.5899999737739563,
+  "drth_central": 0.009999999776482582,
+  "drth_obarrel": 0.009999999776482582,
+  "drth_forward": 0.10000000149011612
  },
  "m_n_regions": 5,
  "m_region_order": [
