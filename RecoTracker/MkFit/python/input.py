@@ -6,7 +6,7 @@ def parseArguments():
                      "10mu",
                      VarParsing.multiplicity.singleton,
                      VarParsing.varType.string,
-                     "Sample: 10mu, 10mulowpt, ttbarnopu, ttbarpu35, ttbarpu50, ttbarpu70")
+                     "Sample: 10mu, 10mulowpt, 10muvlowpt, 10mucube50, ttbarnopu, ttbarpu35, ttbarpu50, ttbarpu70")
     options.register("mkfit",
                      "all",
                      VarParsing.multiplicity.singleton,
@@ -69,6 +69,9 @@ def apply(process, options):
         process.maxEvents.input = 1000
     elif options.sample == "10muvlowpt":
         process.source.fileNames = [prefix+"/10muPt0p2to1HS/"+fname]
+        process.maxEvents.input = 1000
+    elif options.sample == "10mucube50":
+        process.source.fileNames = [prefix+"/10muPt0p2to10cube50HS/"+fname]
         process.maxEvents.input = 1000
     elif options.sample == "ttbarnopu":
         process.source.fileNames = [prefix+"/11834.0_TTbar_14TeV+2021/AVE_0_BX01_25ns/"+fname]
