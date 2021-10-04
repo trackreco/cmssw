@@ -21,9 +21,9 @@ namespace {
                        IterationSeedPartition &part) {
     // Seeds are placed into eta regions and sorted on region + eta.
 
-    const int size = in_seeds.size();
+    const size_t size = in_seeds.size();
 
-    for (int i = 0; i < size; ++i) {
+    for (size_t i = 0; i < size; ++i) {
       const Track &S = in_seeds[i];
 
       const bool z_dir_pos = S.pz() > 0;
@@ -31,11 +31,14 @@ namespace {
       HitOnTrack hot = S.getLastHitOnTrack();
       // MIMI ACHTUNG -- here we assume seed hits have already been remapped.
       // This was true at that time :)
-      float eta = eoh[hot.layer].GetHit(hot.index).eta();
+      const float eta = eoh[hot.layer].GetHit(hot.index).eta();
       // float  eta = S.momEta();
 
       // Region to be defined by propagation / intersection tests
       TrackerInfo::EtaRegion reg;
+
+      // Max eta used for region sorting
+      constexpr float maxEta_regSort = 5.0;
 
       // Hardcoded for cms ... needs some lists of layers (hit/miss) for brl / ecp tests.
       // MM: Check lambda functions/std::function
@@ -56,7 +59,7 @@ namespace {
       // There are a lot of tracks that go through that crack.
 
       // XXXX trying a fix for low pT tracks that are in barrel after half circle
-      float maxR = S.maxReachRadius();
+      const float maxR = S.maxReachRadius();
       float z_at_maxr;
 
       bool can_reach_outer_brl = S.canReachRadius(outer_brl.m_rout);
@@ -97,7 +100,10 @@ namespace {
       }
 
       part.m_region[i] = reg;
-      part.m_sort_score[i] = 5.0f * (reg - 2) + eta;
+
+      // TrackerInfo::EtaRegion is enum from 0 to 5 (Reg_Endcap_Neg,Reg_Transition_Neg,Reg_Barrel,Reg_Transition_Pos,Reg_Endcap_Pos)
+      // Symmetrization around TrackerInfo::Reg_Barrel for sorting is required
+      part.m_sort_score[i] = maxEta_regSort * (reg - TrackerInfo::Reg_Barrel) + eta;
     }
   }
 }  // namespace
