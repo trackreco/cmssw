@@ -38,7 +38,7 @@ namespace {
       TrackerInfo::EtaRegion reg;
 
       // Max eta used for region sorting
-      constexpr float maxEta_regSort = 5.0;
+      constexpr float maxEta_regSort = 7.0;
 
       // Hardcoded for cms ... needs some lists of layers (hit/miss) for brl / ecp tests.
       // MM: Check lambda functions/std::function
