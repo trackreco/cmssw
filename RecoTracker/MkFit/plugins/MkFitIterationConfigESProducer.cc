@@ -14,10 +14,10 @@
 namespace {
   using namespace mkfit;
 
-  void partitionSeeds0(const TrackerInfo &trk_info,
-                       const TrackVec &in_seeds,
-                       const EventOfHits &eoh,
-                       IterationSeedPartition &part) {
+  [[maybe_unused]] void partitionSeeds0(const TrackerInfo &trk_info,
+                                        const TrackVec &in_seeds,
+                                        const EventOfHits &eoh,
+                                        IterationSeedPartition &part) {
     // Seeds are placed into eta regions and sorted on region + eta.
 
     const size_t size = in_seeds.size();
@@ -106,10 +106,10 @@ namespace {
     }
   }
 
-  void partitionSeeds1(const TrackerInfo &trk_info,
-                       const TrackVec &in_seeds,
-                       const EventOfHits &eoh,
-                       IterationSeedPartition &part) {
+  [[maybe_unused]] void partitionSeeds1(const TrackerInfo &trk_info,
+                                        const TrackVec &in_seeds,
+                                        const EventOfHits &eoh,
+                                        IterationSeedPartition &part) {
     // Seeds are placed into eta regions and sorted on region + eta.
 
     const LayerInfo &tib1 = trk_info.m_layers[4];
@@ -241,9 +241,6 @@ void MkFitIterationConfigESProducer::fillDescriptions(edm::ConfigurationDescript
 
 std::unique_ptr<mkfit::IterationConfig> MkFitIterationConfigESProducer::produce(
     const TrackerRecoGeometryRecord &iRecord) {
-  // Avoid unused variable warnings.
-  (void)partitionSeeds0;
-  (void)partitionSeeds1;
   auto it_conf = mkfit::ConfigJson_Load_File(configFile_);
   it_conf->m_partition_seeds = partitionSeeds1;
   return it_conf;
