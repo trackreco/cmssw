@@ -136,8 +136,10 @@ namespace {
     const float tecn_rin  = std::min(L[54].m_rin,  L[55].m_rin);
     const float tecn_rout = std::max(L[54].m_rout, L[55].m_rout);
 
-    const float tid_z_extra =  5.0f;
-    const float tec_z_extra = 10.0f;
+    // Bias towards more aggressive transition-region assignemnts.
+    // With current tunning it seems to make things a bit worse.
+    const float tid_z_extra = 0.0f; // 5.0f;
+    const float tec_z_extra = 0.0f; // 10.0f;
 
     const int size = in_seeds.size();
 
