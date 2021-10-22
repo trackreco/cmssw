@@ -113,7 +113,7 @@ mkfit::TrackVec MkFitSeedConverter::convertSeeds(const edm::View<TrajectorySeed>
     SVector3 mom(gmom.x(), gmom.y(), gmom.z());
 
     const auto& cov = tsos.curvilinearError().matrix();
-    SMatrixSym66 err; //fill a sub-matrix, mkfit::TrackState will convert internally
+    SMatrixSym66 err;  //fill a sub-matrix, mkfit::TrackState will convert internally
     for (int i = 0; i < 5; ++i) {
       for (int j = i; j < 5; ++j) {
         err.At(i, j) = cov[i][j];
@@ -130,8 +130,8 @@ mkfit::TrackVec MkFitSeedConverter::convertSeeds(const edm::View<TrajectorySeed>
       if (not trackerHitRTTI::isFromDet(recHit)) {
         throw cms::Exception("Assert") << "Encountered a seed with a hit which is not trackerHitRTTI::isFromDet()";
       }
-      auto &baseTrkRecHit = static_cast<const BaseTrackerRecHit&>(recHit);
-      if ( ! baseTrkRecHit.isMatched()) {
+      auto& baseTrkRecHit = static_cast<const BaseTrackerRecHit&>(recHit);
+      if (!baseTrkRecHit.isMatched()) {
         const auto& clusterRef = baseTrkRecHit.firstClusterRef();
         const auto detId = recHit.geographicalId();
         const auto ilay = mkFitGeom.layerNumberConverter().convertLayerNumber(
@@ -140,17 +140,16 @@ mkfit::TrackVec MkFitSeedConverter::convertSeeds(const edm::View<TrajectorySeed>
                                        << " ilay " << ilay;
         ret.back().addHitIdx(clusterRef.index(), ilay, 0);  // per-hit chi2 is not known
       } else {
-        auto &matched2D = dynamic_cast<const SiStripMatchedRecHit2D&>(recHit);
-        OmniClusterRef clRefs[2] = { matched2D.monoClusterRef(), matched2D.stereoClusterRef() };
-        DetId          detIds[2] = { matched2D.monoId(),         matched2D.stereoId() };
+        auto& matched2D = dynamic_cast<const SiStripMatchedRecHit2D&>(recHit);
+        const OmniClusterRef* const clRefs[2] = {&matched2D.monoClusterRef(), &matched2D.stereoClusterRef()};
+        const DetId detIds[2] = {matched2D.monoId(), matched2D.stereoId()};
         for (int ii = 0; ii < 2; ++ii) {
-          const auto& clusterRef = clRefs[ii];
           const auto& detId = detIds[ii];
           const auto ilay = mkFitGeom.layerNumberConverter().convertLayerNumber(
               detId.subdetId(), ttopo.layer(detId), false, ttopo.isStereo(detId), isPlusSide(detId));
-          LogTrace("MkFitSeedConverter") << " adding matched hit detid " << detId.rawId() << " index " << clusterRef.index()
-                                         << " ilay " << ilay;
-          ret.back().addHitIdx(clusterRef.index(), ilay, 0);  // per-hit chi2 is not known
+          LogTrace("MkFitSeedConverter") << " adding matched hit detid " << detId.rawId() << " index "
+                                         << clRefs[ii]->index() << " ilay " << ilay;
+          ret.back().addHitIdx(clRefs[ii]->index(), ilay, 0);  // per-hit chi2 is not known
         }
       }
     }
