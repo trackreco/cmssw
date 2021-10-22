@@ -11,7 +11,6 @@
 #include "mkFit/HitStructures.h"
 #include "mkFit/IterationConfig.h"
 
-
 namespace {
   using namespace mkfit;
 
@@ -127,41 +126,39 @@ namespace {
     // Merge first two layers to account for mono/stereo coverage.
     // TrackerInfo could hold joint limits for sub-detectors.
     const auto &L = trk_info.m_layers;
-    const float tidp_rin  = std::min(L[21].m_rin,  L[22].m_rin);
+    const float tidp_rin = std::min(L[21].m_rin, L[22].m_rin);
     const float tidp_rout = std::max(L[21].m_rout, L[22].m_rout);
-    const float tecp_rin  = std::min(L[27].m_rin,  L[28].m_rin);
+    const float tecp_rin = std::min(L[27].m_rin, L[28].m_rin);
     const float tecp_rout = std::max(L[27].m_rout, L[28].m_rout);
-    const float tidn_rin  = std::min(L[48].m_rin,  L[49].m_rin);
+    const float tidn_rin = std::min(L[48].m_rin, L[49].m_rin);
     const float tidn_rout = std::max(L[48].m_rout, L[49].m_rout);
-    const float tecn_rin  = std::min(L[54].m_rin,  L[55].m_rin);
+    const float tecn_rin = std::min(L[54].m_rin, L[55].m_rin);
     const float tecn_rout = std::max(L[54].m_rout, L[55].m_rout);
 
     // Bias towards more aggressive transition-region assignemnts.
     // With current tunning it seems to make things a bit worse.
-    const float tid_z_extra = 0.0f; // 5.0f;
-    const float tec_z_extra = 0.0f; // 10.0f;
+    const float tid_z_extra = 0.0f;  // 5.0f;
+    const float tec_z_extra = 0.0f;  // 10.0f;
 
     const int size = in_seeds.size();
 
-    auto barrel_pos_check = [](const Track &S, float maxR, float rin, float zmax)->bool {
+    auto barrel_pos_check = [](const Track &S, float maxR, float rin, float zmax) -> bool {
       bool inside = maxR > rin && S.zAtR(rin) < zmax;
       return inside;
     };
 
-    auto barrel_neg_check = [](const Track &S, float maxR, float rin, float zmin)->bool {
+    auto barrel_neg_check = [](const Track &S, float maxR, float rin, float zmin) -> bool {
       bool inside = maxR > rin && S.zAtR(rin) > zmin;
       return inside;
     };
 
-    auto endcap_pos_check = [](const Track &S, float maxR, float rout, float rin, float zmin)->bool {
-      bool inside = maxR > rout ?  S.zAtR(rout) > zmin :
-                   (maxR > rin  && S.zAtR(maxR) > zmin);
+    auto endcap_pos_check = [](const Track &S, float maxR, float rout, float rin, float zmin) -> bool {
+      bool inside = maxR > rout ? S.zAtR(rout) > zmin : (maxR > rin && S.zAtR(maxR) > zmin);
       return inside;
     };
 
-    auto endcap_neg_check = [](const Track &S, float maxR, float rout, float rin, float zmax)->bool {
-      bool inside = maxR > rout ?  S.zAtR(rout) < zmax :
-                   (maxR > rin  && S.zAtR(maxR) < zmax);
+    auto endcap_neg_check = [](const Track &S, float maxR, float rout, float rin, float zmax) -> bool {
+      bool inside = maxR > rout ? S.zAtR(rout) < zmax : (maxR > rin && S.zAtR(maxR) < zmax);
       return inside;
     };
 
@@ -175,11 +172,10 @@ namespace {
       // Region to be defined by propagation / intersection tests
       TrackerInfo::EtaRegion reg;
 
-      const bool  z_dir_pos = S.pz() > 0;
+      const bool z_dir_pos = S.pz() > 0;
       const float maxR = S.maxReachRadius();
 
-      if (z_dir_pos)
-      {
+      if (z_dir_pos) {
         bool in_tib = barrel_pos_check(S, maxR, tib1.m_rin, tib1.m_zmax);
         bool in_tob = barrel_pos_check(S, maxR, tob1.m_rin, tob1.m_zmax);
 
@@ -195,9 +191,7 @@ namespace {
             reg = TrackerInfo::Reg_Transition_Pos;
           }
         }
-      }
-      else
-      {
+      } else {
         bool in_tib = barrel_neg_check(S, maxR, tib1.m_rin, tib1.m_zmin);
         bool in_tob = barrel_neg_check(S, maxR, tob1.m_rin, tob1.m_zmin);
 
@@ -221,25 +215,24 @@ namespace {
   }
 }  // namespace
 
-
 class MkFitIterationConfigESProducer : public edm::ESProducer {
 public:
-  MkFitIterationConfigESProducer(const edm::ParameterSet& iConfig);
+  MkFitIterationConfigESProducer(const edm::ParameterSet &iConfig);
 
-  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
+  static void fillDescriptions(edm::ConfigurationDescriptions &descriptions);
 
-  std::unique_ptr<mkfit::IterationConfig> produce(const TrackerRecoGeometryRecord& iRecord);
+  std::unique_ptr<mkfit::IterationConfig> produce(const TrackerRecoGeometryRecord &iRecord);
 
 private:
   const edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> geomToken_;
   const std::string configFile_;
 };
 
-MkFitIterationConfigESProducer::MkFitIterationConfigESProducer(const edm::ParameterSet& iConfig)
+MkFitIterationConfigESProducer::MkFitIterationConfigESProducer(const edm::ParameterSet &iConfig)
     : geomToken_{setWhatProduced(this, iConfig.getParameter<std::string>("ComponentName")).consumes()},
       configFile_{iConfig.getParameter<edm::FileInPath>("config").fullPath()} {}
 
-void MkFitIterationConfigESProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+void MkFitIterationConfigESProducer::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<std::string>("ComponentName")->setComment("Product label");
   desc.add<edm::FileInPath>("config")->setComment("Path to the JSON file for the mkFit configuration parameters");
@@ -247,10 +240,10 @@ void MkFitIterationConfigESProducer::fillDescriptions(edm::ConfigurationDescript
 }
 
 std::unique_ptr<mkfit::IterationConfig> MkFitIterationConfigESProducer::produce(
-    const TrackerRecoGeometryRecord& iRecord) {
+    const TrackerRecoGeometryRecord &iRecord) {
   // Avoid unused variable warnings.
-  (void) partitionSeeds0;
-  (void) partitionSeeds1;
+  (void)partitionSeeds0;
+  (void)partitionSeeds1;
   auto it_conf = mkfit::ConfigJson_Load_File(configFile_);
   it_conf->m_partition_seeds = partitionSeeds1;
   return it_conf;
