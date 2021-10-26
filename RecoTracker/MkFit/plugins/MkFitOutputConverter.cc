@@ -289,7 +289,7 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
         CurvilinearTrajectoryError(cov));
     if (!fts.curvilinearError().posDef()) {
       edm::LogInfo("MkFitOutputConverter") << "Curvilinear error not pos-def\n"
-					   << fts.curvilinearError().matrix() << "\ncandidate ignored";
+                                           << fts.curvilinearError().matrix() << "\ncandidate ignored";
       continue;
     }
 
@@ -299,7 +299,7 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
             : backwardFit(fts, recHits, propagatorAlong, propagatorOpposite, hitCloner, lastHitInvalid, lastHitChanged);
     if (!tsosDet.first.isValid()) {
       edm::LogInfo("MkFitOutputConverter")
-	<< "Backward fit of candidate " << candIndex << " failed, ignoring the candidate";
+          << "Backward fit of candidate " << candIndex << " failed, ignoring the candidate";
       continue;
     }
 

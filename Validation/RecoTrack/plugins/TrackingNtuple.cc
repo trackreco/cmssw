@@ -1238,7 +1238,7 @@ private:
   std::vector<float> see_stateTrajGlbPx;
   std::vector<float> see_stateTrajGlbPy;
   std::vector<float> see_stateTrajGlbPz;
-  std::vector<std::vector<float> > see_stateCurvCov;
+  std::vector<std::vector<float>> see_stateCurvCov;
   std::vector<int> see_q;
   std::vector<unsigned int> see_nValid;
   std::vector<unsigned int> see_nPixel;
@@ -3205,7 +3205,7 @@ void TrackingNtuple::fillSeeds(const edm::Event& iEvent,
         std::vector<float> cov(15);
         auto covP = cov.begin();
         for (auto const val : stateCcov)
-          *(covP++) = val;//row-major
+          *(covP++) = val;  //row-major
         see_stateCurvCov.push_back(std::move(cov));
       }
 
