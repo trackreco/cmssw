@@ -25,7 +25,7 @@
   "c_drmax_el": 0.05000000074505806,
   "c_dzmax_el": 0.05000000074505806,
   "minHitsQF": 4,
-  "fracSharedHits": 0.5899999737739563,
+  "fracSharedHits": 0.23999999463558197,
   "drth_central": 0.009999999776482582,
   "drth_obarrel": 0.009999999776482582,
   "drth_forward": 0.10000000149011612
@@ -48,7 +48,7 @@
   "c_drmax_el": 0.05000000074505806,
   "c_dzmax_el": 0.05000000074505806,
   "minHitsQF": 4,
-  "fracSharedHits": 0.5899999737739563,
+  "fracSharedHits": 0.23999999463558197,
   "drth_central": 0.009999999776482582,
   "drth_obarrel": 0.009999999776482582,
   "drth_forward": 0.10000000149011612
