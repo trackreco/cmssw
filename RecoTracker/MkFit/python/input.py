@@ -74,7 +74,7 @@ def apply(process, options):
         process.source.fileNames = [prefix+"/10piPt0p2to1/"+fname]
         process.maxEvents.input = 1000
     elif options.sample == "10mucube50":
-        process.source.fileNames = [prefix+"/10muPt0p2to10cube50HS/"+fname]
+        process.source.fileNames = [prefix+"/10muSPt0p2to10cube50/"+fname]
         process.maxEvents.input = 1000
     elif options.sample == "ttbarnopu":
         process.source.fileNames = [prefix+"/11834.0_TTbar_14TeV+2021/AVE_0_BX01_25ns/"+fname]
