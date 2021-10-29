@@ -10,8 +10,8 @@
  "m_params": {
   "nlayers_per_seed": 3,
   "maxCandsPerSeed": 2,
-  "maxHolesPerCand": 1,
-  "maxConsecHoles": 2,
+  "maxHolesPerCand": 0,
+  "maxConsecHoles": 1,
   "chi2Cut_min": 10.0,
   "chi2CutOverlap": 3.5,
   "pTCutOverlap": 1.0,
@@ -25,7 +25,7 @@
   "c_drmax_el": 0.13500000536441803,
   "c_dzmax_el": 0.13500000536441803,
   "minHitsQF": 3,
-  "fracSharedHits": 0.30000001192092896,
+  "fracSharedHits": 0.14000000059604645,
   "drth_central": 0.0010000000474974513,
   "drth_obarrel": 0.0010000000474974513,
   "drth_forward": 0.0010000000474974513
@@ -48,7 +48,7 @@
   "c_drmax_el": 0.13500000536441803,
   "c_dzmax_el": 0.13500000536441803,
   "minHitsQF": 3,
-  "fracSharedHits": 0.30000001192092896,
+  "fracSharedHits": 0.14000000059604645,
   "drth_central": 0.0010000000474974513,
   "drth_obarrel": 0.0010000000474974513,
   "drth_forward": 0.0010000000474974513
