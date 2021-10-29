@@ -22,9 +22,9 @@ trackingMkFit = cms.ModifierChain(
     trackingMkFitHighPtTripletStep,
 #    trackingMkFitLowPtTripletStep,    # to be enabled later
     trackingMkFitDetachedQuadStep,
-#    trackingMkFitDetachedTripletStep, # to be enabled later
+    trackingMkFitDetachedTripletStep, # to be enabled later
 #    trackingMkFitPixelPairStep,       # to be enabled later
 #    trackingMkFitMixedTripletStep,    # to be enabled later
-#    trackingMkFitPixelLessStep,       # to be enabled later
+    trackingMkFitPixelLessStep,       # to be enabled later
 #    trackingMkFitTobTecStep,          # to be enabled later
 )

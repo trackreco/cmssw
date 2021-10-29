@@ -1203,13 +1203,6 @@ private:
   std::vector<float> see_stateTrajPx;
   std::vector<float> see_stateTrajPy;
   std::vector<float> see_stateTrajPz;
-  std::vector<float> see_stateTrajGlbX;
-  std::vector<float> see_stateTrajGlbY;
-  std::vector<float> see_stateTrajGlbZ;
-  std::vector<float> see_stateTrajGlbPx;
-  std::vector<float> see_stateTrajGlbPy;
-  std::vector<float> see_stateTrajGlbPz;
-  std::vector<std::vector<float>> see_stateCurvCov;
   std::vector<int> see_q;
   std::vector<unsigned int> see_nValid;
   std::vector<unsigned int> see_nPixel;
@@ -2906,26 +2899,6 @@ void TrackingNtuple::fillSeeds(const edm::Event& iEvent,
       see_stateTrajPx.push_back(mom.x());
       see_stateTrajPy.push_back(mom.y());
       see_stateTrajPz.push_back(mom.z());
-
-      ///the following is useful for analysis in global coords at seed hit surface
-      TransientTrackingRecHit::RecHitPointer lastRecHit = theTTRHBuilder.build(&*(seed.recHits().end() - 1));
-      TrajectoryStateOnSurface tsos =
-          trajectoryStateTransform::transientState(seed.startingState(), lastRecHit->surface(), &theMF);
-      auto const& stateGlobal = tsos.globalParameters();
-      see_stateTrajGlbX.push_back(stateGlobal.position().x());
-      see_stateTrajGlbY.push_back(stateGlobal.position().y());
-      see_stateTrajGlbZ.push_back(stateGlobal.position().z());
-      see_stateTrajGlbPx.push_back(stateGlobal.momentum().x());
-      see_stateTrajGlbPy.push_back(stateGlobal.momentum().y());
-      see_stateTrajGlbPz.push_back(stateGlobal.momentum().z());
-      if (addSeedCurvCov_) {
-        auto const& stateCcov = tsos.curvilinearError().matrix();
-        std::vector<float> cov(15);
-        auto covP = cov.begin();
-        for (auto const val : stateCcov)
-          *(covP++) = val;  //row-major
-        see_stateCurvCov.push_back(std::move(cov));
-      }
 
       see_trkIdx.push_back(-1);  // to be set correctly in fillTracks
       if (includeTrackingParticles_) {
