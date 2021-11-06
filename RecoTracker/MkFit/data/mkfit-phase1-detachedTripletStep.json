@@ -4,9 +4,9 @@
  "m_requires_seed_hit_sorting": false,
  "m_requires_quality_filter": true,
  "m_requires_dupclean_tight": true,
- "m_backward_search": false,
+ "m_backward_search": true,
  "m_backward_drop_seed_hits": false,
- "m_backward_fit_min_hits": -1,
+ "m_backward_fit_min_hits": 99,
  "m_params": {
   "nlayers_per_seed": 3,
   "maxCandsPerSeed": 5,
@@ -158,7 +158,7 @@
    "m_region": 0,
    "m_fwd_search_pickup": 2,
    "m_bkw_fit_last": 0,
-   "m_bkw_search_pickup": -1
+   "m_bkw_search_pickup": 3
   },
   {
    "m_layer_plan": [
@@ -301,7 +301,7 @@
    "m_region": 1,
    "m_fwd_search_pickup": 2,
    "m_bkw_fit_last": 0,
-   "m_bkw_search_pickup": -1
+   "m_bkw_search_pickup": 4
   },
   {
    "m_layer_plan": [
@@ -363,7 +363,7 @@
    "m_region": 2,
    "m_fwd_search_pickup": 2,
    "m_bkw_fit_last": 0,
-   "m_bkw_search_pickup": -1
+   "m_bkw_search_pickup": 2
   },
   {
    "m_layer_plan": [
@@ -506,7 +506,7 @@
    "m_region": 3,
    "m_fwd_search_pickup": 2,
    "m_bkw_fit_last": 0,
-   "m_bkw_search_pickup": -1
+   "m_bkw_search_pickup": 4
   },
   {
    "m_layer_plan": [
@@ -604,7 +604,7 @@
    "m_region": 4,
    "m_fwd_search_pickup": 2,
    "m_bkw_fit_last": 0,
-   "m_bkw_search_pickup": -1
+   "m_bkw_search_pickup": 3
   }
  ],
  "m_layer_configs": [
