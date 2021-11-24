@@ -37,10 +37,10 @@ namespace {
       const LayerInfo &outer_brl = trk_info.outer_barrel_layer();
 
       // Define first (mkFit) layer IDs for each strip subdetector.
-      const int tib1_id = 4;
-      const int tob1_id = 10;
-      const int tecp1_id = 27;
-      const int tecn1_id = 54;
+      constexpr int tib1_id = 4;
+      constexpr int tob1_id = 10;
+      constexpr int tecp1_id = 27;
+      constexpr int tecn1_id = 54;
 
       const LayerInfo &tib1 = trk_info.m_layers[tib1_id];
       const LayerInfo &tob1 = trk_info.m_layers[tob1_id];
@@ -94,12 +94,12 @@ namespace {
                                         const EventOfHits &eoh,
                                         IterationSeedPartition &part) {
     // Define first (mkFit) layer IDs for each strip subdetector.
-    const int tib1_id = 4;
-    const int tob1_id = 10;
-    const int tidp1_id = 21;
-    const int tidn1_id = 48;
-    const int tecp1_id = 27;
-    const int tecn1_id = 54;
+    constexpr int tib1_id = 4;
+    constexpr int tob1_id = 10;
+    constexpr int tidp1_id = 21;
+    constexpr int tidn1_id = 48;
+    constexpr int tecp1_id = 27;
+    constexpr int tecn1_id = 54;
 
     const LayerInfo &tib1 = trk_info.m_layers[tib1_id];
     const LayerInfo &tob1 = trk_info.m_layers[tob1_id];
