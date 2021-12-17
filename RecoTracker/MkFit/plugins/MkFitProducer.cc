@@ -18,11 +18,11 @@
 #include "RecoTracker/Record/interface/TrackerRecoGeometryRecord.h"
 
 // mkFit includes
-#include "ConfigWrapper.h"
-#include "LayerNumberConverter.h"
-#include "mkFit/buildtestMPlex.h"
-#include "mkFit/IterationConfig.h"
-#include "mkFit/MkBuilderWrapper.h"
+#include "RecoTracker/MkFitCore/interface/ConfigWrapper.h"
+#include "RecoTracker/MkFitCMS/interface/LayerNumberConverter.h"
+#include "RecoTracker/MkFitCMS/interface/buildtestMPlex.h"
+#include "RecoTracker/MkFitCore/interface/IterationConfig.h"
+#include "RecoTracker/MkFitCore/interface/MkBuilderWrapper.h"
 
 // TBB includes
 #include "tbb/task_arena.h"
@@ -54,7 +54,7 @@ private:
   const edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
   const edm::ESGetToken<mkfit::IterationConfig, TrackerRecoGeometryRecord> mkFitIterConfigToken_;
   const edm::EDPutTokenT<MkFitOutputWrapper> putToken_;
-  std::function<double(mkfit::Event&, mkfit::MkBuilder&)> buildFunction_;
+  // std::function<double(mkfit::Event&, mkfit::MkBuilder&)> buildFunction_;
   const float minGoodStripCharge_;
   const bool seedCleaning_;
   const bool backwardFitInCMSSW_;

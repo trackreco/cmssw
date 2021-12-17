@@ -25,9 +25,9 @@
 #include "RecoTracker/Record/interface/TrackerRecoGeometryRecord.h"
 
 // mkFit includes
-#include "mkFit/HitStructures.h"
-#include "mkFit/MkStdSeqs.h"
-#include "LayerNumberConverter.h"
+#include "RecoTracker/MkFitCore/interface/HitStructures.h"
+#include "RecoTracker/MkFitCMS/interface/MkStdSeqs.h"
+#include "RecoTracker/MkFitCMS/interface/LayerNumberConverter.h"
 
 class MkFitEventOfHitsProducer : public edm::global::EDProducer<> {
 public:

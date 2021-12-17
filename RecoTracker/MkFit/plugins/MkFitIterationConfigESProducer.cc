@@ -6,10 +6,10 @@
 #include "RecoTracker/MkFit/interface/MkFitGeometry.h"
 
 // mkFit includes
-#include "Track.h"
-#include "TrackerInfo.h"
-#include "mkFit/HitStructures.h"
-#include "mkFit/IterationConfig.h"
+#include "RecoTracker/MkFitCore/interface/Track.h"
+#include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
+#include "RecoTracker/MkFitCore/interface/HitStructures.h"
+#include "RecoTracker/MkFitCore/interface/IterationConfig.h"
 
 namespace {
   using namespace mkfit;

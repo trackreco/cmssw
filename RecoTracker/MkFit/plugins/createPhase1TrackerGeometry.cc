@@ -2,9 +2,8 @@
 // Phase1 tracker geometry
 //-------------------
 
-#include "Config.h"
-#include "Debug.h"
-#include "TrackerInfo.h"
+#include "RecoTracker/MkFitCore/interface/Config.h"
+#include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 
 #include <functional>
 
