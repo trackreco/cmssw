@@ -51,10 +51,10 @@ To do:
 
 // Snatch from Opcode.h in Gled::Var1
 
-#include "Ice/IceRevisitedRadix.h"
+#include "IceRevisitedRadix.h"
 
-#include "Ice/IceFPU.h"
-#include "Ice/IceMemoryMacros.h"
+#include "IceFPU.h"
+#include "IceMemoryMacros.h"
 
 //------------------------------------------------------------------------------
 
