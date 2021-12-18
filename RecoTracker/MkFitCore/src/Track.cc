@@ -675,7 +675,7 @@ namespace mkfit {
 
     // get min chi2
     float minchi2 = -1e6;
-    if (cands.size() > 0) {
+    if (!cands.empty()) {
       std::sort(cands.begin(), cands.end(), sortIDsByChi2);  // in case we just want to stop at the first dPhi match
       minchi2 = cands.front().second;
     }
@@ -800,7 +800,7 @@ namespace mkfit {
     int cmsswTrackID = -1;
 
     // protect against no matches!
-    if (labelMatchVec.size() > 0) {
+    if (!labelMatchVec.empty()) {
       // sort by best matched: most hits matched , then ratio of matches (i.e. which cmssw track is shorter)
       std::sort(labelMatchVec.begin(), labelMatchVec.end(), [&](const int label1, const int label2) {
         if (labelMatchMap[label1] == labelMatchMap[label2]) {

@@ -368,14 +368,14 @@ namespace Matriplex {
 
   template <typename T, idx_t D, idx_t N>
   struct CramerInverter {
-    static void Invert(MPlex<T, D, D, N>& A, double* determ = 0) {
+    static void Invert(MPlex<T, D, D, N>& A, double* determ = nullptr) {
       throw std::runtime_error("general cramer inversion not supported");
     }
   };
 
   template <typename T, idx_t N>
   struct CramerInverter<T, 2, N> {
-    static void Invert(MPlex<T, 2, 2, N>& A, double* determ = 0) {
+    static void Invert(MPlex<T, 2, 2, N>& A, double* determ = nullptr) {
       typedef T TT;
 
       T* a = A.fArray;
@@ -401,7 +401,7 @@ namespace Matriplex {
 
   template <typename T, idx_t N>
   struct CramerInverter<T, 3, N> {
-    static void Invert(MPlex<T, 3, 3, N>& A, double* determ = 0) {
+    static void Invert(MPlex<T, 3, 3, N>& A, double* determ = nullptr) {
       typedef T TT;
 
       T* a = A.fArray;
@@ -440,7 +440,7 @@ namespace Matriplex {
   };
 
   template <typename T, idx_t D, idx_t N>
-  void InvertCramer(MPlex<T, D, D, N>& A, double* determ = 0) {
+  void InvertCramer(MPlex<T, D, D, N>& A, double* determ = nullptr) {
     // We don't do general Inverts.
 
     CramerInverter<T, D, N>::Invert(A, determ);

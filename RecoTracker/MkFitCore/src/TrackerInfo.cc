@@ -107,7 +107,7 @@ namespace mkfit {
 #include <cstdlib>
 
   namespace {
-    const char *search_path[] = {"", "../Geoms/", "Geoms/", "../", 0};
+    const char *search_path[] = {"", "../Geoms/", "Geoms/", "../", nullptr};
   }
 
   void TrackerInfo::ExecTrackerInfoCreatorPlugin(const std::string &base,
