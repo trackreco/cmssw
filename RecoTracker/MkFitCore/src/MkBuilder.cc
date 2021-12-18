@@ -56,7 +56,7 @@ namespace mkfit {
 namespace {
   using namespace mkfit;
   auto retcand = [](CandCloner *cloner) { g_exe_ctx.m_cloners.ReturnToPool(cloner); };
-  auto retfitr = [](MkFitter *mkfttr) { g_exe_ctx.m_fitters.ReturnToPool(mkfttr); };
+  [[maybe_unused]] auto retfitr = [](MkFitter *mkfttr) { g_exe_ctx.m_fitters.ReturnToPool(mkfttr); };
   auto retfndr = [](MkFinder *mkfndr) { g_exe_ctx.m_finders.ReturnToPool(mkfndr); };
 
   // Range of indices processed within one iteration of a TBB parallel_for.
@@ -1745,7 +1745,7 @@ void MkBuilder::PrepareSeeds()
 
           // now fill out the output candidates
           for (int is = 0; is < n_seeds; ++is) {
-            if (tmp_cands[is].size() > 0) {
+            if (!tmp_cands[is].empty()) {
               eoccs[start_seed + is].clear();
 
               // Put good candidates into eoccs, process -2 candidates.
