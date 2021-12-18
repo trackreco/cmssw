@@ -21,7 +21,7 @@ namespace mkfit {
     IterationMaskIfcCmssw(const TrackerInfo &ti, const std::vector<const std::vector<bool> *> &maskvec)
         : m_trk_info(ti), m_mask_vector(maskvec) {}
 
-    const std::vector<bool> *get_mask_for_layer(int layer) const {
+    const std::vector<bool> *get_mask_for_layer(int layer) const override {
       return m_trk_info.m_layers[layer].is_pix_lyr() ? m_mask_vector[0] : m_mask_vector[1];
     }
   };

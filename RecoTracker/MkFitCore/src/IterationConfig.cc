@@ -363,7 +363,7 @@ namespace mkfit {
 
   namespace {
     // Open file for writing, throw exception on failure.
-    void open_ofstream(std::ofstream &ofs, const std::string &fname, const char *pfx = 0) {
+    void open_ofstream(std::ofstream &ofs, const std::string &fname, const char *pfx = nullptr) {
       ofs.open(fname, std::ofstream::trunc);
       if (!ofs) {
         char m[2048];
@@ -373,7 +373,7 @@ namespace mkfit {
     }
 
     // Open file for reading, throw exception on failure.
-    void open_ifstream(std::ifstream &ifs, const std::string &fname, const char *pfx = 0) {
+    void open_ifstream(std::ifstream &ifs, const std::string &fname, const char *pfx = nullptr) {
       ifs.open(fname);
       if (!ifs) {
         char m[2048];

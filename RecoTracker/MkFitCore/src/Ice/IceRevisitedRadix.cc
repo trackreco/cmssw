@@ -186,7 +186,7 @@ To do:
  *	Constructor.
  */
 //----------------------------------------------------------------------
-RadixSort::RadixSort() : mCurrentSize(0), mRanks(0), mRanks2(0), mTotalCalls(0), mNbHits(0) {
+RadixSort::RadixSort() : mCurrentSize(0), mRanks(nullptr), mRanks2(nullptr), mTotalCalls(0), mNbHits(0) {
 #ifndef RADIX_LOCAL_RAM
   // Allocate input-independent ram
   mHistogram = new udword[256 * 4];
@@ -219,7 +219,7 @@ RadixSort::~RadixSort() {
 //----------------------------------------------------------------------
 udword* RadixSort::RelinquishRanks() {
   udword* ranks = mRanks;
-  mRanks = 0;
+  mRanks = nullptr;
   DELETEARRAY(mRanks2);
   mCurrentSize = 0;
   return ranks;
