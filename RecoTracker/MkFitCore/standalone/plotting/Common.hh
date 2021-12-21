@@ -1,3 +1,4 @@
+// clang-format off
 #ifndef _Common_
 #define _Common_
 

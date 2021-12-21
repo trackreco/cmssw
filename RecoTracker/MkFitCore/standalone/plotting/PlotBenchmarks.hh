@@ -1,3 +1,4 @@
+// clang-format off
 #ifndef _PlotBenchmarks_
 #define _PlotBenchmarks_
 

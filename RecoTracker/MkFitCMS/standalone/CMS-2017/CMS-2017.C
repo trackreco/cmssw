@@ -1,3 +1,4 @@
+// clang-format off
 // To be used in compiled mode
 
 #include "../Geoms/CMS-2017.cc"

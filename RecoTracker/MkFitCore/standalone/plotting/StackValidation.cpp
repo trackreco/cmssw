@@ -1,3 +1,4 @@
+// clang-format off
 #include "StackValidation.hh"
 
 StackValidation::StackValidation(const TString & label, const TString & extra, const Bool_t cmsswComp, const TString & suite)

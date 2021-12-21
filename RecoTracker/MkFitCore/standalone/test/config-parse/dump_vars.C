@@ -1,3 +1,4 @@
+// clang-format off
 #include "TClass.h"
 
 #include <string>

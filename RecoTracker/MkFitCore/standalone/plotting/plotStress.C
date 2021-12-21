@@ -1,3 +1,4 @@
+// clang-format off
 #include "TString.h"
 #include "TColor.h"
 #include "TStyle.h"
