@@ -1,3 +1,4 @@
+// clang-format off
 /*
   Sibling layers are needed for seeding from MC tracks.
   As we do not do seeding we also do not fill them here.

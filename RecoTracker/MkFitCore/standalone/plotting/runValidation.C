@@ -1,3 +1,4 @@
+// clang-format off
 #include "plotting/PlotValidation.cpp+"
 
 void runValidation(const TString & test = "", const Bool_t cmsswComp = false, const int algo = 0, const Bool_t mvInput = true, const Bool_t rmSuffix = true,

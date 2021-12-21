@@ -1,3 +1,4 @@
+// clang-format off
 #ifndef _PlotValidation_
 #define _PlotValidation_
 

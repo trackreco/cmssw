@@ -1,3 +1,4 @@
+// clang-format off
 #include "PlotMEIFBenchmarks.hh"
 
 PlotMEIFBenchmarks::PlotMEIFBenchmarks(const TString & arch, const TString & sample, const TString &  build)

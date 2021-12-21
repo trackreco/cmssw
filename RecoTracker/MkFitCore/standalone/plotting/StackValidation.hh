@@ -1,3 +1,4 @@
+// clang-format off
 #ifndef _StackValidation_
 #define _StackValidation_
 

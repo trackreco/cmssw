@@ -1,3 +1,4 @@
+// clang-format off
 // To be included after SelectHitRange / Indices().
 
 #define MKFP(_V_) mkfp->_V_.ConstAt(mi,0,0)

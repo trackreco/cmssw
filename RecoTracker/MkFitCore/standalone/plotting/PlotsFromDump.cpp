@@ -1,3 +1,4 @@
+// clang-format off
 #include "PlotsFromDump.hh"
 
 PlotsFromDump::PlotsFromDump(const TString & sample, const TString & build, const TString & suite, const int useARCH) 

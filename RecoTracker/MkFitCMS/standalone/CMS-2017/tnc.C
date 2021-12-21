@@ -1,3 +1,4 @@
+// clang-format off
 #define tnc_cxx
 #include "tnc.h"
 #include <TH2.h>
