@@ -53,7 +53,6 @@ To do:
 
 #include "IceRevisitedRadix.h"
 
-#include "IceFPU.h"
 #include "IceMemoryMacros.h"
 
 //------------------------------------------------------------------------------
