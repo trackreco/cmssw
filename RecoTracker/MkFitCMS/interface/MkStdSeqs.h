@@ -8,13 +8,11 @@
 
 namespace mkfit {
 
-  // CCCC class Event;
   class EventOfHits;
   class IterationConfig;
   class TrackerInfo;
 
   namespace StdSeq {
-    // CCCC void LoadHitsAndBeamSpot(Event &ev, EventOfHits &eoh);
 
     void LoadDeads(EventOfHits &eoh, const std::vector<DeadVec> &deadvectors);
 
@@ -30,7 +28,6 @@ namespace mkfit {
 
     void find_duplicates(TrackVec &tracks);
     void remove_duplicates(TrackVec &tracks);
-    // CCCC void handle_duplicates(Event *m_event);
 
     void find_duplicates_sharedhits(TrackVec &tracks, const float fraction);
     void find_duplicates_sharedhits_pixelseed(TrackVec &tracks,

@@ -2,36 +2,25 @@ include ${SADIR}/Makefile.config
 
 CPPFLAGS := -I. -I${SRCDIR} -I${SADIR}/dusty-chest -I${SADIR}/dusty-chest/from-root ${CPPFLAGS}
 
-CORE_DIR := ${SRCDIR}/RecoTracker/MkFitCore
+CMS_DIR := ${SRCDIR}/RecoTracker/MkFitCMS
 
-LIB_CORE := ../libMicCore.so
+LIB_CMS := ../libMicCMS.so
+MAIN    := ../mkFit
 
-TGTS := ${LIB_CORE}
+TGTS := ${LIB_CORE} ${MAIN}
 
 .PHONY: all clean distclean
 
 all: ${TGTS}
 
-SRCS := $(wildcard ${CORE_DIR}/src/*.cc) $(wildcard ${CORE_DIR}/src/Ice/*.cc) $(wildcard ${SADIR}/*.cc)
+SRCS := $(wildcard ${CMS_DIR}/src/*.cc) $(wildcard ${SACMS}/*.cc)
 SRCB := $(notdir ${SRCS})
 DEPS := $(SRCB:.cc=.d)
 OBJS := $(SRCB:.cc=.o)
 
-vpath %.cc ${CORE_DIR}/src ${CORE_DIR}/src/Ice ${SADIR}
+CMS_OBJS := $(filter-out mkFit.o, ${OBJS})
 
-AUTO_TGTS :=
-
-# Begin Matriplex
-
-auto-matriplex:
-###	${MAKE} -f ${CORE_DIR}/src/Matriplex auto && touch $@
-	touch $@
-
-AUTO_TGTS += auto-matriplex
-
-${DEPS}: auto-matriplex
-
-# End Matriplex
+vpath %.cc ${CMS_DIR}/src ${SACMS}
 
 ifeq ($(filter clean-local clean distclean, ${MAKECMDGOALS}),)
 include ${DEPS}
@@ -45,14 +34,15 @@ clean-local:
 clean: clean-local
 
 distclean: clean-local
-	-rm -f ${AUTO_TGTS}
 	-rm -f *.optrpt
 	-rm -rf lib
-###	cd Matriplex && ${MAKE} distclean
 
-${LIB_CORE}: ${OBJS}
+${LIB_CMS}: ${CMS_OBJS}
 	@mkdir -p $(@D)
-	${CXX} ${CXXFLAGS} ${VEC_HOST} ${OBJS} -shared -o $@ ${LDFLAGS_HOST} ${LDFLAGS}
+	${CXX} ${CXXFLAGS} ${VEC_HOST} ${CMS_OBJS} -shared -o $@ ${LDFLAGS_HOST} ${LDFLAGS}
+
+${MAIN}: ${LIB_CMS} mkFit.o
+	${CXX} ${CXXFLAGS} ${VEC_HOST} ${LDFLAGS} mkFit.o -o $@ ${LDFLAGS_HOST} -ltbb -L.. -lMicCore -lMicCMS -Wl,-rpath,..,-rpath,.
 
 ${OBJS}: %.o: %.cc %.d
 	${CXX} ${CPPFLAGS} ${CXXFLAGS} ${VEC_HOST} -c -o $@ $<

@@ -140,32 +140,6 @@ namespace mkfit {
     const TrackVec &ref_tracks() const { return m_tracks; }
     TrackVec &ref_tracks_nc() { return m_tracks; }
 
-    // void create_seeds_from_sim_tracks();
-    // void find_seeds();
-    // void fit_seeds();
-
-    // --------
-
-    /* CCCC
-  void quality_val();
-  void quality_reset();
-  void quality_process(Track& tkcand, const int itrack, std::map<int,int> & cmsswLabelToPos);
-  void quality_print();
-  void track_print(const Track &t, const char* pref);
-
-  void quality_store_tracks(TrackVec & tracks);
-
-  void root_val_dumb_cmssw();
-  void root_val();
-
-  void prep_recotracks();
-  void prep_simtracks();
-  void prep_cmsswtracks();
-  void prep_reftracks(TrackVec& tracks, TrackExtraVec& extras, const bool realigntracks);
-  void prep_tracks(TrackVec& tracks, TrackExtraVec& extras, const bool realigntracks); // sort hits by layer, init track extras, align track labels if true
-  void score_tracks(TrackVec& tracks); // if track score not already assigned
-  */
-
     // --------
 
     void find_tracks_load_seeds_BH(const TrackVec &in_seeds);  // for FindTracksBestHit
@@ -197,8 +171,6 @@ namespace mkfit {
 
     // --------
     static void seed_post_cleaning(TrackVec &tv);
-
-    // CCCC void PrepareSeeds();
 
     void FindTracksBestHit(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
     void FindTracksStandard(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);

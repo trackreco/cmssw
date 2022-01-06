@@ -1,5 +1,6 @@
 #ifndef RecoTracker_MkFitCore_src_Pool_h
 #define RecoTracker_MkFitCore_src_Pool_h
+#include <mm_malloc.h>
 #include <functional>
 
 #include "tbb/concurrent_queue.h"
