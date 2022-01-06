@@ -1,6 +1,6 @@
 include ${SADIR}/Makefile.config
 
-CPPEXTRA := ${USER_CPPFLAGS} ${DEFS} -I${SRCDIR}
+CPPEXTRA := ${USER_CPPFLAGS} ${DEFS} -I${SRCDIR} -I${SADIR}/dusty-chest -I${SADIR}/dusty-chest/from-root
 LDEXTRA  := ${USER_LDFLAGS}
 
 CPPFLAGS := ${CPPEXTRA} ${CPPFLAGS}
@@ -11,7 +11,7 @@ CPPFLAGS_NO_ROOT := ${CPPEXTRA} ${CPPFLAGS_NO_ROOT}
 
 .PHONY: all clean distclean echo
 
-SRCS := $(wildcard ${SADIR}/Geoms/*.cc)
+SRCS := ${SACMS}/Geoms/CMS-2017.cc
 SRCB := $(notdir ${SRCS})
 DEPS := $(SRCB:.cc=.d)
 OBJS := $(SRCB:.cc=.o)
@@ -19,7 +19,7 @@ OBJS := $(SRCB:.cc=.o)
 TGTS := $(basename ${OBJS})
 TGTS := $(addprefix ../, $(addsuffix .so, ${TGTS}))
 
-vpath %.cc ${SADIR}/Geoms
+vpath %.cc ${SACMS}/Geoms
 
 all: ${TGTS}
 

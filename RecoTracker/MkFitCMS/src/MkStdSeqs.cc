@@ -1,7 +1,5 @@
 #include "RecoTracker/MkFitCMS/interface/MkStdSeqs.h"
 
-// CCCC #include "Event.h"
-
 #include "RecoTracker/MkFitCore/interface/HitStructures.h"
 #include "RecoTracker/MkFitCore/interface/IterationConfig.h"
 
@@ -16,24 +14,6 @@ namespace mkfit {
     //=========================================================================
     // Hit processing
     //=========================================================================
-
-    /* CCCC
-void LoadHitsAndBeamSpot(Event &ev, EventOfHits &eoh)
-{
-    eoh.Reset();
-
-    // fill vector of hits in each layer
-    // XXXXMT: Does it really makes sense to multi-thread this?
-    tbb::parallel_for(tbb::blocked_range<int>(0, ev.layerHits_.size()),
-                        [&](const tbb::blocked_range<int> &layers) {
-                            for (int ilay = layers.begin(); ilay < layers.end(); ++ilay)
-                            {
-                                eoh.SuckInHits(ilay, ev.layerHits_[ilay]);
-                            }
-                        });
-    eoh.SetBeamSpot(ev.beamSpot_);
-}
-*/
 
     void LoadDeads(EventOfHits &eoh, const std::vector<DeadVec> &deadvectors) {
       for (size_t il = 0; il < deadvectors.size(); il++) {
@@ -418,26 +398,6 @@ void LoadHitsAndBeamSpot(Event &ev, EventOfHits &eoh)
                    tracks.end());
     }
 
-    /* CCCC
-void handle_duplicates(Event *m_event)
-{
-  // Mark tracks as duplicates; if within CMSSW, remove duplicate tracks from fit or candidate track collection
-  if (Config::removeDuplicates)
-  {
-    if (Config::quality_val || Config::sim_val || Config::cmssw_val)
-    {
-      find_duplicates(m_event->candidateTracks_);
-      if (Config::backwardFit) find_duplicates(m_event->fitTracks_);
-    }
-    // For the MEIF benchmarks and the stress tests, no validation flags are set so we will enter this block
-    else
-    {
-      // Only care about the candidate tracks here; no need to run the duplicate removal on both candidate and fit tracks
-      find_duplicates(m_event->candidateTracks_);
-    }
-  }
-}
-*/
 
     //=========================================================================
     // SHARED HITS DUPLICATE CLEANING
@@ -622,43 +582,6 @@ void handle_duplicates(Event *m_event)
       }
 #endif
     }
-
-    //=========================================================================
-    // Random stuff
-    //=========================================================================
-
-    /* CCCC
-
-void dump_simtracks(Event *m_event)
-{
-  // Ripped out of MkBuilder::begin_event, ifdefed under DEBUG
-
-  std::vector<Track>& simtracks = m_event->simTracks_;
-
-  for (int itrack = 0; itrack < (int) simtracks.size(); ++itrack)
-  {
-    // bool debug = true;
-    Track track = simtracks[itrack];
-    // if (track.label() != itrack) {
-    //   dprintf("Bad label for simtrack %d -- %d\n", itrack, track.label());
-    // }
-
-    dprint("MX - simtrack with nHits=" << track.nFoundHits() << " chi2=" << track.chi2()
-           << " pT=" << track.pT() <<" phi="<< track.momPhi() <<" eta=" << track.momEta());
-  }
-
-  for (int itrack = 0; itrack < (int) simtracks.size(); ++itrack)
-  {
-    for (int ihit = 0; ihit < simtracks[itrack].nFoundHits(); ++ihit)
-    {
-      dprint("track #" << itrack << " hit #" << ihit
-             << " hit pos=" << simtracks[itrack].hitsVector(m_event->layerHits_)[ihit].position()
-             << " phi=" << simtracks[itrack].hitsVector(m_event->layerHits_)[ihit].phi());
-    }
-  }
-}
-
-*/
 
   }  // namespace StdSeq
 }  // namespace mkfit

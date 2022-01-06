@@ -1,23 +1,24 @@
-#include "Matriplex/MatriplexCommon.h"
+#include "RecoTracker/MkFitCore/src/Matriplex/MatriplexCommon.h"
 
-#include "fittestMPlex.h"
-#include "buildtestMPlex.h"
+// CCCC #include "fittestMPlex.h"
+#include "RecoTracker/MkFitCMS/standalone/buildtestMPlex.h"
 
-#include "HitStructures.h"
-#include "MkBuilder.h"
-#include "MkFitter.h"
-#include "MkStdSeqs.h"
+#include "RecoTracker/MkFitCore/interface/HitStructures.h"
+#include "RecoTracker/MkFitCore/interface/MkBuilder.h"
+#include "RecoTracker/MkFitCore/src/MkFitter.h"
+#include "RecoTracker/MkFitCMS/interface/MkStdSeqs.h"
+#include "RecoTracker/MkFitCMS/standalone/MkStandaloneSeqs.h"
 
-#include "Config.h"
+#include "RecoTracker/MkFitCore/interface/Config.h"
 
 #include <limits>
 #include <list>
 #include <sstream>
 #include <memory>
 
-#include "Event.h"
+#include "RecoTracker/MkFitCore/standalone/Event.h"
 
-#include "MaterialEffects.h"
+#include "RecoTracker/MkFitCore/src/MaterialEffects.h"
 
 #ifndef NO_ROOT
 #include "Validation.h"
@@ -25,7 +26,7 @@
 
 #include <cstdlib>
 //#define DEBUG
-#include "Debug.h"
+#include "RecoTracker/MkFitCore/src/Debug.h"
 
 #include "tbb/task_arena.h"
 #include "tbb/parallel_for.h"
@@ -359,7 +360,7 @@ void test_standard() {
             StdSeq::LoadHitsAndBeamSpot(ev, eoh);
 
             std::vector<DeadVec> deadvectors(ev.layerHits_.size());
-#include "deadmodules.h"
+#include "RecoTracker/MkFitCMS/standalone/deadmodules.h"
             if (Config::useDeadModules) {
               StdSeq::LoadDeads(eoh, deadvectors);
             }
