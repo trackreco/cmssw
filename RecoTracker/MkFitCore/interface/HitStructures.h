@@ -146,14 +146,14 @@ namespace mkfit {
   protected:
 #ifdef COPY_SORTED_HITS
     void alloc_hits(int size) {
-      m_hits = (Hit*)_mm_malloc(sizeof(Hit) * size, 64);
+      m_hits = (Hit*)std::aligned_alloc(64, sizeof(Hit) * size);
       m_capacity = size;
       for (int ihit = 0; ihit < m_capacity; ihit++) {
         m_hits[ihit] = Hit();
       }
     }
 
-    void free_hits() { _mm_free(m_hits); }
+    void free_hits() { std::free(m_hits); }
 #endif
 
     void setup_bins(float qmin, float qmax, float dq);

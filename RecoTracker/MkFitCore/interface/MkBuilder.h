@@ -71,8 +71,6 @@ namespace mkfit {
     // State for Std / CloneEngine
     EventOfCombCandidates m_event_of_comb_cands;
 
-    int m_cnt = 0, m_cnt1 = 0, m_cnt2 = 0, m_cnt_8 = 0, m_cnt1_8 = 0, m_cnt2_8 = 0, m_cnt_nomc = 0;
-
     // Per-region seed information
     IntVec m_seedEtaSeparators;
     IntVec m_seedMinLastLayer;

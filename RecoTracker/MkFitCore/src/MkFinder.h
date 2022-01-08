@@ -8,7 +8,7 @@
 #include "RecoTracker/MkFitCore/interface/HitStructures.h"
 
 // Define to get printouts about track and hit chi2.
-// See also MkBuilder::BackwardFit() and MkBuilder::quality_store_tracks().
+// See also MkBuilder::BackwardFit().
 
 //#define DEBUG_BACKWARD_FIT_BH
 //#define DEBUG_BACKWARD_FIT
