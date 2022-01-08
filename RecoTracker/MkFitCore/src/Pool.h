@@ -1,6 +1,6 @@
 #ifndef RecoTracker_MkFitCore_src_Pool_h
 #define RecoTracker_MkFitCore_src_Pool_h
-#include <mm_malloc.h>
+
 #include <functional>
 
 #include "tbb/concurrent_queue.h"
@@ -12,10 +12,10 @@ namespace mkfit {
     typedef std::function<TT *()> CFoo_t;
     typedef std::function<void(TT *)> DFoo_t;
 
-    CFoo_t m_create_foo = []() { return new (_mm_malloc(sizeof(TT), 64)) TT; };
+    CFoo_t m_create_foo = []() { return new (std::aligned_alloc(64, sizeof(TT))) TT; };
     DFoo_t m_destroy_foo = [](TT *x) {
       x->~TT();
-      _mm_free(x);
+      std::free(x);
     };
 
     tbb::concurrent_queue<TT *> m_stack;
@@ -32,7 +32,7 @@ namespace mkfit {
     Pool(CFoo_t cf, DFoo_t df) : m_create_foo(cf), m_destroy_foo(df) {}
 
     ~Pool() {
-      TT *x;
+      TT *x = nullptr;
       while (m_stack.try_pop(x)) {
         m_destroy_foo(x);
       }
@@ -42,7 +42,7 @@ namespace mkfit {
     void SetDFoo(DFoo_t df) { m_destroy_foo = df; }
 
     TT *GetFromPool() {
-      TT *x;
+      TT *x = nullptr;
       if (m_stack.try_pop(x)) {
         return x;
       } else {

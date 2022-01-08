@@ -82,7 +82,7 @@ public:
     }
 
     // Mallocator wraps malloc().
-    void* const pv = _mm_malloc(n * sizeof(T), Alignment);
+    void* const pv = std::aligned_alloc(Alignment, n * sizeof(T));
 
     // Allocators should throw std::bad_alloc in the case of memory allocation failure.
     if (pv == NULL) {
@@ -92,7 +92,7 @@ public:
     return static_cast<T*>(pv);
   }
 
-  void deallocate(T* const p, const std::size_t n) const { _mm_free(p); }
+  void deallocate(T* const p, const std::size_t n) const { std::free(p); }
 
   // The following will be the same for all allocators that ignore hints.
   template <typename U>

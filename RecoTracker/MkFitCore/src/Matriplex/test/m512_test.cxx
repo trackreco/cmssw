@@ -15,8 +15,8 @@ __m512 all_ones = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
 
 int main()
 {
-  float *p = (float*) _mm_malloc(NN*sizeof(float), 64);
-  float *q = (float*) _mm_malloc(NN*sizeof(float), 64);
+  float *p = (float*) std::aligned_alloc(64, NN*sizeof(float));
+  float *q = (float*) std::aligned_alloc(64, NN*sizeof(float));
 
   for (int i = 0; i < NN; ++i)
   {
@@ -37,8 +37,8 @@ int main()
     printf("%2d %4.0f %4.0f %4.0f\n", i, p[i], p[i+16], q[i]);
   }
 
-  _mm_free(p);
-  _mm_free(q);
+  std::free(p);
+  std::free(q);
 
   return 0;
 }

@@ -1,7 +1,8 @@
+#include "RecoTracker/MkFitCMS/standalone/buildtestMPlex.h"
 #include "RecoTracker/MkFitCore/src/Matrix.h"
 #include "RecoTracker/MkFitCore/interface/MkBuilder.h"
 #include "RecoTracker/MkFitCMS/interface/MkStdSeqs.h"
-#include "RecoTracker/MkFitCMS/standalone/buildtestMPlex.h"
+#include "RecoTracker/MkFitCMS/standalone/MkStandaloneSeqs.h"
 
 #include "tbb/parallel_for.h"
 
@@ -92,12 +93,10 @@ namespace mkfit {
 
     builder.begin_event(&job, &ev, __func__);
 
-    // CCCC
-    /*
     if (Config::sim_val_for_cmssw) {
-      builder.root_val_dumb_cmssw();
+      StdSeq::root_val_dumb_cmssw(&ev);
     }
-    */
+
     builder.end_event();
   }
 
@@ -163,7 +162,7 @@ namespace mkfit {
     if (Config::quality_val || Config::sim_val || Config::cmssw_val) {
       //Mark tracks as duplicates; if within CMSSW, remove duplicate tracks before backward fit
       if (Config::removeDuplicates) {
-        // CCCC StdSeq::find_duplicates(ev.candidateTracks_);
+        StdSeq::find_duplicates(ev.candidateTracks_);
       }
     }
 
@@ -173,14 +172,13 @@ namespace mkfit {
       ev.fitTracks_ = builder.ref_tracks();
     }
 
-    // CCCC
-    /*
     if (Config::quality_val) {
-      builder.quality_val();
+      StdSeq::Quality qval;
+      qval.quality_val(&ev);
     } else if (Config::sim_val || Config::cmssw_val) {
-      builder.root_val();
+      StdSeq::root_val(&ev);
     }
-    */
+
     builder.end_event();
 
     // ev.print_tracks(ev.candidateTracks_, true);
@@ -245,7 +243,7 @@ namespace mkfit {
     check_nan_n_silly_candidates(ev);
 
     // first store candidate tracks
-    // CCCC builder.quality_store_tracks(ev.candidateTracks_);
+    builder.export_best_comb_cands(ev.candidateTracks_);
 
     // now do backwards fit... do we want to time this section?
     if (Config::backwardFit) {
@@ -258,17 +256,14 @@ namespace mkfit {
       check_nan_n_silly_bkfit(ev);
     }
 
-    // CCCC StdSeq::handle_duplicates(&ev);
+    StdSeq::handle_duplicates(&ev);
 
-    // validation section
-    // CCCC
-    /*
     if (Config::quality_val) {
-      builder.quality_val();
+      StdSeq::Quality qval;
+      qval.quality_val(&ev);
     } else if (Config::sim_val || Config::cmssw_val) {
-      builder.root_val();
+      StdSeq::root_val(&ev);
     }
-    */
 
     builder.end_event();
 
@@ -334,7 +329,7 @@ namespace mkfit {
     check_nan_n_silly_candidates(ev);
 
     // first store candidate tracks - needed for BH backward fit and root_validation
-    // CCCC builder.quality_store_tracks(ev.candidateTracks_);
+    builder.export_best_comb_cands(ev.candidateTracks_);
 
     // now do backwards fit... do we want to time this section?
     if (Config::backwardFit) {
@@ -350,17 +345,15 @@ namespace mkfit {
       check_nan_n_silly_bkfit(ev);
     }
 
-    // CCCC StdSeq::handle_duplicates(&ev);
+    StdSeq::handle_duplicates(&ev);
 
     // validation section
-    // CCCC
-    /*
     if (Config::quality_val) {
-      builder.quality_val();
+      StdSeq::Quality qval;
+      qval.quality_val(&ev);
     } else if (Config::sim_val || Config::cmssw_val) {
-      builder.root_val();
+      StdSeq::root_val(&ev);
     }
-    */
 
     builder.end_event();
 
@@ -539,14 +532,11 @@ namespace mkfit {
     MkJob job({Config::TrkInfo, Config::ItrInfo[0], eoh});
     builder.begin_event(&job, &ev, __func__);
 
-    // CCCC
-    /*
     if (validation_on) {
-      builder.prep_simtracks();
+      StdSeq::prep_simtracks(&ev);
       //swap for the cleaned seeds
       ev.seedTracks_.swap(seeds_used);
     }
-    */
 
     check_nan_n_silly_candidates(ev);
 
@@ -554,14 +544,12 @@ namespace mkfit {
       check_nan_n_silly_bkfit(ev);
 
     // validation section
-    // CCCC
-    /*
     if (Config::quality_val) {
-      builder.quality_val();
+      StdSeq::Quality qval;
+      qval.quality_val(&ev);
     } else if (Config::sim_val || Config::cmssw_val) {
-      builder.root_val();
+      StdSeq::root_val(&ev);
     }
-    */
 
     // ev.print_tracks(ev.candidateTracks_, true);
 
