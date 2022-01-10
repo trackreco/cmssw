@@ -1,6 +1,6 @@
 include ${SADIR}/Makefile.config
 
-CPPFLAGS := -I. -I${SRCDIR} -I${SADIR}/dusty-chest -I${SADIR}/dusty-chest/from-root ${CPPFLAGS}
+CPPFLAGS := -I. -I${SRCDIR} -I../mkFit-external ${CPPFLAGS}
 
 CORE_DIR := ${SRCDIR}/RecoTracker/MkFitCore
 

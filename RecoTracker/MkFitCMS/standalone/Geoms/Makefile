@@ -1,6 +1,6 @@
 include ${SADIR}/Makefile.config
 
-CPPEXTRA := ${USER_CPPFLAGS} ${DEFS} -I${SRCDIR} -I${SADIR}/dusty-chest -I${SADIR}/dusty-chest/from-root
+CPPEXTRA := ${USER_CPPFLAGS} ${DEFS} -I${SRCDIR} -I../mkFit-external
 LDEXTRA  := ${USER_LDFLAGS}
 
 CPPFLAGS := ${CPPEXTRA} ${CPPFLAGS}
