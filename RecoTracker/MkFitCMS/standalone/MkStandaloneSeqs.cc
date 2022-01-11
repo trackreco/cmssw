@@ -402,7 +402,6 @@ namespace mkfit {
 
 }  // namespace mkfit
 
-
 //==============================
 // Carryover from MkBuilder.cc
 //==============================
