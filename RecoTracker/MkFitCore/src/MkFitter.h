@@ -79,13 +79,6 @@ namespace mkfit {
 
     void ConformalFitTracks(bool fitting, int beg, int end);
 
-    /* CCCC
-  void FitTracks(const int N_proc, const Event * ev, const PropagationFlags pflags);
-  void FitTracksSteered(const bool is_barrel[], const int N_proc, const Event * ev, const PropagationFlags pflags);
-
-  void CollectFitValidation(const int hi, const int N_proc, const Event * ev) const;
-  */
-
     void OutputTracks(std::vector<Track>& tracks, int beg, int end, int iCP) const;
 
     void OutputFittedTracks(std::vector<Track>& tracks, int beg, int end) const {
