@@ -2,7 +2,7 @@
 #include "RecoTracker/MkFitCore/interface/MkBuilder.h"
 #include "RecoTracker/MkFitCMS/interface/MkStdSeqs.h"
 
-#include "tbb/parallel_for.h"
+#include "oneapi/tbb/parallel_for.h"
 
 #include <memory>
 

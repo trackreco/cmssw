@@ -25,7 +25,7 @@
 #include "RecoTracker/MkFitCore/interface/MkBuilderWrapper.h"
 
 // TBB includes
-#include "tbb/task_arena.h"
+#include "oneapi/tbb/task_arena.h"
 
 // std includes
 #include <functional>

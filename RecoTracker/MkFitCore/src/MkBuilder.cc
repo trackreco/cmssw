@@ -15,8 +15,8 @@
 //#define DEBUG
 #include "Debug.h"
 
-#include "tbb/parallel_for.h"
-#include "tbb/parallel_for_each.h"
+#include "oneapi/tbb/parallel_for.h"
+#include "oneapi/tbb/parallel_for_each.h"
 
 // Set this to select a single track for deep debugging:
 //#define SELECT_SEED_LABEL -494
