@@ -1,56 +1,53 @@
 #ifndef RecoTracker_MkFitCore_src_Pool_h
 #define RecoTracker_MkFitCore_src_Pool_h
 
-#include <functional>
-
 #include "oneapi/tbb/concurrent_queue.h"
 
 namespace mkfit {
 
+  /**
+   * Pool for helper objects. All functions are thread safe.
+   */
   template <typename TT>
-  struct Pool {
-    typedef std::function<TT *()> CFoo_t;
-    typedef std::function<void(TT *)> DFoo_t;
-
-    CFoo_t m_create_foo = []() { return new (std::aligned_alloc(64, sizeof(TT))) TT; };
-    DFoo_t m_destroy_foo = [](TT *x) {
-      x->~TT();
-      std::free(x);
-    };
-
-    tbb::concurrent_queue<TT *> m_stack;
-
-    size_t size() { return m_stack.unsafe_size(); }
-
-    void populate(int threads = Config::numThreadsFinder) {
-      for (int i = 0; i < threads; ++i) {
-        m_stack.push(m_create_foo());
-      }
-    }
-
-    Pool() {}
-    Pool(CFoo_t cf, DFoo_t df) : m_create_foo(cf), m_destroy_foo(df) {}
+  class Pool {
+  public:
+    Pool() = default;
 
     ~Pool() {
       TT *x = nullptr;
       while (m_stack.try_pop(x)) {
-        m_destroy_foo(x);
+        destroy(x);
       }
     }
 
-    void SetCFoo(CFoo_t cf) { m_create_foo = cf; }
-    void SetDFoo(DFoo_t df) { m_destroy_foo = df; }
+    size_t size() const { return m_stack.unsafe_size(); }
 
-    TT *GetFromPool() {
+    void populate(int threads = Config::numThreadsFinder) {
+      for (int i = 0; i < threads; ++i) {
+        m_stack.push(create());
+      }
+    }
+
+    auto makeOrGet() {
       TT *x = nullptr;
-      if (m_stack.try_pop(x)) {
-        return x;
-      } else {
-        return m_create_foo();
+      if (not m_stack.try_pop(x)) {
+        x = create();
       }
+      auto deleter = [this](TT *ptr) { this->addBack(ptr); };
+      return std::unique_ptr<TT, decltype(deleter)>(x, std::move(deleter));
     }
 
-    void ReturnToPool(TT *x) { m_stack.push(x); }
+  private:
+    TT *create() { return new (std::aligned_alloc(64, sizeof(TT))) TT; };
+
+    void destroy(TT *x) {
+      x->~TT();
+      std::free(x);
+    };
+
+    void addBack(TT *x) { m_stack.push(x); }
+
+    tbb::concurrent_queue<TT *> m_stack;
   };
 
 }  // end namespace mkfit

@@ -48,15 +48,8 @@ namespace mkfit {
 
 //------------------------------------------------------------------------------
 
-#define CLONER(_n_) std::unique_ptr<CandCloner, decltype(retcand)> _n_(g_exe_ctx.m_cloners.GetFromPool(), retcand)
-#define FITTER(_n_) std::unique_ptr<MkFitter, decltype(retfitr)> _n_(g_exe_ctx.m_fitters.GetFromPool(), retfitr)
-#define FINDER(_n_) std::unique_ptr<MkFinder, decltype(retfndr)> _n_(g_exe_ctx.m_finders.GetFromPool(), retfndr)
-
 namespace {
   using namespace mkfit;
-  auto retcand = [](CandCloner *cloner) { g_exe_ctx.m_cloners.ReturnToPool(cloner); };
-  [[maybe_unused]] auto retfitr = [](MkFitter *mkfttr) { g_exe_ctx.m_fitters.ReturnToPool(mkfttr); };
-  auto retfndr = [](MkFinder *mkfndr) { g_exe_ctx.m_finders.ReturnToPool(mkfndr); };
 
   // Range of indices processed within one iteration of a TBB parallel_for.
   struct RangeOfSeedIndices {
@@ -474,7 +467,7 @@ namespace mkfit {
       const RegionOfSeedIndices rosi(m_seedEtaSeparators, region);
 
       tbb::parallel_for(rosi.tbb_blk_rng_vec(), [&](const tbb::blocked_range<int> &blk_rng) {
-        FINDER(mkfndr);
+        auto mkfndr = g_exe_ctx.m_finders.makeOrGet();
 
         RangeOfSeedIndices rng = rosi.seed_rng(blk_rng);
 
@@ -762,7 +755,7 @@ namespace mkfit {
 
       // loop over seeds
       tbb::parallel_for(rosi.tbb_blk_rng_std(adaptiveSPT), [&](const tbb::blocked_range<int> &seeds) {
-        FINDER(mkfndr);
+        auto mkfndr = g_exe_ctx.m_finders.makeOrGet();
 
         const int start_seed = seeds.begin();
         const int end_seed = seeds.end();
@@ -952,8 +945,8 @@ namespace mkfit {
       dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.m_size << " region " << region);
 
       tbb::parallel_for(rosi.tbb_blk_rng_std(adaptiveSPT), [&](const tbb::blocked_range<int> &seeds) {
-        CLONER(cloner);
-        FINDER(mkfndr);
+        auto cloner = g_exe_ctx.m_cloners.makeOrGet();
+        auto mkfndr = g_exe_ctx.m_finders.makeOrGet();
 
         cloner->Setup(m_job->params());
 
@@ -1167,7 +1160,7 @@ namespace mkfit {
       const RegionOfSeedIndices rosi(m_seedEtaSeparators, region);
 
       tbb::parallel_for(rosi.tbb_blk_rng_vec(), [&](const tbb::blocked_range<int> &blk_rng) {
-        FINDER(mkfndr);
+        auto mkfndr = g_exe_ctx.m_finders.makeOrGet();
 
         RangeOfSeedIndices rng = rosi.seed_rng(blk_rng);
 
@@ -1274,7 +1267,7 @@ namespace mkfit {
       dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.m_size << " region " << region);
 
       tbb::parallel_for(rosi.tbb_blk_rng_std(adaptiveSPT), [&](const tbb::blocked_range<int> &cands) {
-        FINDER(mkfndr);
+        auto mkfndr = g_exe_ctx.m_finders.makeOrGet();
 
         fit_cands(mkfndr.get(), cands.begin(), cands.end(), region);
       });
