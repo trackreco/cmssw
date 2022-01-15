@@ -29,7 +29,6 @@ namespace mkfit {
       eoh.Reset();
 
       for (auto &&l : eoh.m_layers_of_hits) {
-        // This slightly sux.
         l.BeginRegistrationOfHits(*orig_hitvectors[l.is_pix_lyr() ? 0 : 1]);
       }
     }
@@ -55,8 +54,8 @@ namespace mkfit {
     void Cmssw_Map_TrackHitIndices(const EventOfHits &eoh, TrackVec &seeds) {
       for (auto &&track : seeds) {
         for (int i = 0; i < track.nTotalHits(); ++i) {
-          int hitidx = track.getHitIdx(i);
-          int hitlyr = track.getHitLyr(i);
+          const int hitidx = track.getHitIdx(i);
+          const int hitlyr = track.getHitLyr(i);
           if (hitidx >= 0) {
             const auto &loh = eoh.m_layers_of_hits[hitlyr];
             track.setHitIdx(i, loh.GetHitIndexFromOriginal(hitidx));
@@ -68,8 +67,8 @@ namespace mkfit {
     void Cmssw_ReMap_TrackHitIndices(const EventOfHits &eoh, TrackVec &out_tracks) {
       for (auto &&track : out_tracks) {
         for (int i = 0; i < track.nTotalHits(); ++i) {
-          int hitidx = track.getHitIdx(i);
-          int hitlyr = track.getHitLyr(i);
+          const int hitidx = track.getHitIdx(i);
+          const int hitlyr = track.getHitLyr(i);
           if (hitidx >= 0) {
             const auto &loh = eoh.m_layers_of_hits[hitlyr];
             track.setHitIdx(i, loh.GetOriginalHitIndex(hitidx));
@@ -159,31 +158,27 @@ namespace mkfit {
 
         const float oldPhi1 = oldPhi[ts];
         const float pos2_first = pos2[ts];
-        const float Eta1 = eta[ts];
-        const float Pt1 = pt[ts];
+        const float eta1 = eta[ts];
+        const float pt1 = pt[ts];
         const float invptq_first = invptq[ts];
 
         // To study some more details -- need EventOfHits for this
         int n_ovlp_hits_added = 0;
-        // int  n_ovlp_hits_same_module = 0;
-        // int  n_ovlp_hits_shared = 0;
-        // int  n_ovlp_tracks = 0;
 
-        //#pragma simd /* Vectorization via simd had issues with icc */
         for (int tss = ts + 1; tss < ns; tss++) {
-          const float Pt2 = pt[tss];
+          const float pt2 = pt[tss];
 
           ////// Always require charge consistency. If different charge is assigned, do not remove seed-track
           if (charge[tss] != charge[ts])
             continue;
 
-          const float thisDPt = std::abs(Pt2 - Pt1);
+          const float thisDPt = std::abs(pt2 - pt1);
           ////// Require pT consistency between seeds. If dpT is large, do not remove seed-track.
-          if (thisDPt > dpt_common * (Pt1))
+          if (thisDPt > dpt_common * (pt1))
             continue;
 
-          const float Eta2 = eta[tss];
-          const float deta2 = std::pow(Eta1 - Eta2, 2);
+          const float eta2 = eta[tss];
+          const float deta2 = std::pow(eta1 - eta2, 2);
 
           const float oldPhi2 = oldPhi[tss];
 
@@ -207,8 +202,8 @@ namespace mkfit {
           ////// Reject tracks within dR-dz elliptical window.
           ////// Adaptive thresholds, based on observation that duplicates are more abundant at large pseudo-rapidity and low track pT
           bool overlapping = false;
-          if (std::abs(Eta1) < etamax_brl) {
-            if (Pt1 > ptmin_hpt) {
+          if (std::abs(eta1) < etamax_brl) {
+            if (pt1 > ptmin_hpt) {
               if (dz2 * dzmax2_inv_bh + dr2 * drmax2_inv_bh < 1.0f)
                 overlapping = true;
             } else {
@@ -216,7 +211,7 @@ namespace mkfit {
                 overlapping = true;
             }
           } else {
-            if (Pt1 > ptmin_hpt) {
+            if (pt1 > ptmin_hpt) {
               if (dz2 * dzmax2_inv_eh + dr2 * drmax2_inv_eh < 1.0f)
                 overlapping = true;
             } else {
@@ -237,7 +232,7 @@ namespace mkfit {
               i1 = tss;
             }
             // Add hits from tk2 to the seed we are keeping.
-            // NOTE: We only have 3 bits in Track::Status for number of seed hits.
+            // NOTE: We only have 4 bits in Track::Status for number of seed hits.
             //       There is a check at entry and after adding of a new hit.
             Track &tk = seeds[i1];
             if (merge_hits && tk.nTotalHits() < 15) {
@@ -309,7 +304,7 @@ namespace mkfit {
     void find_duplicates(TrackVec &tracks) {
       const auto ntracks = tracks.size();
       float eta1, phi1, pt1, deta, dphi, dr2;
-      //float ch1;
+
       if (ntracks == 0) {
         return;
       }
@@ -321,7 +316,6 @@ namespace mkfit {
           continue;
         eta1 = track.momEta();
         phi1 = track.momPhi();
-        //ch1  = track.charge();
         pt1 = track.pT();
         for (auto jtrack = itrack + 1; jtrack < ntracks; jtrack++) {
           auto &track2 = tracks[jtrack];
@@ -329,8 +323,6 @@ namespace mkfit {
             continue;
           if (track.algoint() != track2.algoint())
             continue;
-
-          //if (ch1 != track2.charge()) continue;
 
           deta = std::abs(track2.momEta() - eta1);
           if (deta > Config::maxdEta)
@@ -340,7 +332,7 @@ namespace mkfit {
           if (dphi > Config::maxdPhi)
             continue;
 
-          float maxdR = Config::maxdR;  // maxdR = 0.0025
+          float maxdR = Config::maxdR;
           float maxdRSquared = maxdR * maxdR;
           if (std::abs(eta1) > 2.5f)
             maxdRSquared *= 16.0f;
@@ -364,14 +356,14 @@ namespace mkfit {
               if (Config::useHitsForDuplicates) {
                 float numHitsShared = 0;
                 for (int ihit2 = 0; ihit2 < track2.nTotalHits(); ihit2++) {
-                  int hitidx2 = track2.getHitIdx(ihit2);
-                  int hitlyr2 = track2.getHitLyr(ihit2);
+                  const int hitidx2 = track2.getHitIdx(ihit2);
+                  const int hitlyr2 = track2.getHitLyr(ihit2);
                   if (hitidx2 >= 0) {
-                    auto it = std::find_if(track.BeginHitsOnTrack(),
-                                           track.EndHitsOnTrack(),
-                                           [&hitidx2, &hitlyr2](const HitOnTrack &element) {
-                                             return (element.index == hitidx2 && element.layer == hitlyr2);
-                                           });
+                    auto const it = std::find_if(track.BeginHitsOnTrack(),
+                                                 track.EndHitsOnTrack(),
+                                                 [&hitidx2, &hitlyr2](const HitOnTrack &element) {
+                                                   return (element.index == hitidx2 && element.layer == hitlyr2);
+                                                 });
                     if (it != track.EndHitsOnTrack())
                       numHitsShared++;
                   }
@@ -432,13 +424,13 @@ namespace mkfit {
           for (int i = 0; i < trk.nTotalHits(); ++i) {
             if (trk.getHitIdx(i) < 0)
               continue;
-            int a = trk.getHitLyr(i);
-            int b = trk.getHitIdx(i);
+            const int a = trk.getHitLyr(i);
+            const int b = trk.getHitIdx(i);
             for (int j = 0; j < track2.nTotalHits(); ++j) {
               if (track2.getHitIdx(j) < 0)
                 continue;
-              int c = track2.getHitLyr(j);
-              int d = track2.getHitIdx(j);
+              const int c = track2.getHitLyr(j);
+              const int d = track2.getHitIdx(j);
               if (a == c && b == d)
                 sharedCount += 1;
               if (a == c && b == d && j == 0 && i == 0)
@@ -517,13 +509,13 @@ namespace mkfit {
           for (int i = 0; i < trk.nTotalHits(); ++i) {
             if (trk.getHitIdx(i) < 0)
               continue;
-            int a = trk.getHitLyr(i);
-            int b = trk.getHitIdx(i);
+            const int a = trk.getHitLyr(i);
+            const int b = trk.getHitIdx(i);
             for (int j = 0; j < track2.nTotalHits(); ++j) {
               if (track2.getHitIdx(j) < 0)
                 continue;
-              int c = track2.getHitLyr(j);
-              int d = track2.getHitIdx(j);
+              const int c = track2.getHitLyr(j);
+              const int d = track2.getHitIdx(j);
 
               //this is to count once shared matched hits (may be done more properly...)
               if (a == c && b == d)
