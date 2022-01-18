@@ -444,7 +444,7 @@ void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std
   //==============================================================================
 
   void CombCandidate::ImportSeed(const Track &seed, int region) {
-    emplace_back(TrackCand(seed, this));
+    m_trk_cands.emplace_back(TrackCand(seed, this));
 
     m_state = CombCandidate::Dormant;
     m_pickup_layer = seed.getLastHitLyr();
@@ -453,7 +453,7 @@ void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std
     m_seed_label = seed.label();
 #endif
 
-    TrackCand &cand = back();
+    TrackCand &cand = m_trk_cands.back();
     cand.setNSeedHits(seed.nTotalHits());
     cand.setEtaRegion(region);
 
@@ -472,34 +472,34 @@ void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std
 
     if (!empty()) {
       if (update_score) {
-        for (auto &c : *this)
+        for (auto &c : m_trk_cands)
           c.setScore(getScoreCand(c));
         if (best_short)
           best_short->setScore(getScoreCand(*best_short));
       }
       if (sort_cands) {
-        std::sort(begin(), end(), sortByScoreTrackCand);
+        std::sort(m_trk_cands.begin(), m_trk_cands.end(), sortByScoreTrackCand);
       }
 
-      if (best_short && best_short->score() > back().score()) {
-        auto ci = begin();
+      if (best_short && best_short->score() > m_trk_cands.back().score()) {
+        auto ci = m_trk_cands.begin();
         while (ci->score() > best_short->score())
           ++ci;
 
-        if ((int)size() >= params.maxCandsPerSeed)
-          pop_back();
+        if ((int)m_trk_cands.size() >= params.maxCandsPerSeed)
+          m_trk_cands.pop_back();
 
         // To print out what has been replaced -- remove when done with short track handling.
         // if (ci == finalcands.begin()) {
         //   printf("FindTracksStd -- Replacing best cand (%f) with short one (%f) in final sorting\n",
-        //          front().score(), best_short->score());
+        //          m_trk_cands.front().score(), best_short->score());
         // }
 
-        insert(ci, *best_short);
+        m_trk_cands.insert(ci, *best_short);
       }
 
     } else if (best_short) {
-      push_back(*best_short);
+      m_trk_cands.push_back(*best_short);
     }
 
     if (best_short)
@@ -526,9 +526,9 @@ void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std
   after the rebuild has already happened: https://github.com/cms-sw/cmssw/blob/master/RecoTracker/CkfPattern/src/CkfTrackCandidateMakerBase.cc#L313
   */
 
-    assert(!empty());
-    resize(1);
-    TrackCand &tc = (*this)[0];
+    assert(!m_trk_cands.empty());
+    m_trk_cands.resize(1);
+    TrackCand &tc = m_trk_cands[0];
 
     // Do NOT remove any seed hits if fewer than backward_fit_min_hits hits are available.
     if (remove_seed_hits && tc.nFoundHits() <= backward_fit_min_hits) {
@@ -606,7 +606,7 @@ void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std
     //
     // m_state and m_pickup_layer are also set.
 
-    TrackCand &tc = (*this)[0];
+    TrackCand &tc = m_trk_cands[0];
 
     // Could compatify m_hots, removing all not used by element 0.
     // Not trivial, as I have to start from back to get to the front
@@ -627,7 +627,7 @@ void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std
     // MergeCandsAndBestShortOne() has already been called (from MkBuilder::FindXxx()).
     // We have to fixup the best candidate.
 
-    TrackCand &tc = (*this)[0];
+    TrackCand &tc = m_trk_cands[0];
 
     int curr_idx = tc.lastCcIndex();
     if (curr_idx != 0) {

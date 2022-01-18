@@ -534,14 +534,17 @@ namespace mkfit {
     return getScoreCalc(nfoundhits, ntailmisshits, noverlaphits, nmisshits, chi2, pt, inFindCandidates);
   }
 
-  // This inheritance sucks but not doing it will require more changes.
 
-  class CombCandidate : public std::vector<TrackCand, CcAlloc<TrackCand>> {
+  // CombCandidate -- a set of candidates from a given seed.
+
+  class CombCandidate {
   public:
+    using trk_cand_vec_type = std::vector<TrackCand, CcAlloc<TrackCand>>;
     using allocator_type = CcAlloc<TrackCand>;
 
     enum SeedState_e { Dormant = 0, Finding, Finished };
 
+    trk_cand_vec_type m_trk_cands;
     TrackCand m_best_short_cand;
     SeedState_e m_state : 8;
     int m_pickup_layer : 16;
@@ -557,11 +560,11 @@ namespace mkfit {
     std::vector<HoTNode> m_hots;
 
     CombCandidate(const allocator_type& alloc)
-        : std::vector<TrackCand, CcAlloc<TrackCand>>(alloc), m_state(Dormant), m_pickup_layer(-1) {}
+        : m_trk_cands(alloc), m_state(Dormant), m_pickup_layer(-1) {}
 
     // Required by std::uninitialized_fill_n when declaring vector<CombCandidate> in EventOfCombCandidates
     CombCandidate(const CombCandidate& o)
-        : std::vector<TrackCand, CcAlloc<TrackCand>>(o),
+        : m_trk_cands(o.m_trk_cands),
           m_state(o.m_state),
           m_pickup_layer(o.m_pickup_layer),
           m_lastHitIdx_before_bkwsearch(o.m_lastHitIdx_before_bkwsearch),
@@ -577,7 +580,7 @@ namespace mkfit {
 
     // Required for std::swap().
     CombCandidate(CombCandidate&& o)
-        : std::vector<TrackCand, CcAlloc<TrackCand>>(std::move(o)),
+        : m_trk_cands(std::move(o.m_trk_cands)),
           m_best_short_cand(std::move(o.m_best_short_cand)),
           m_state(o.m_state),
           m_pickup_layer(o.m_pickup_layer),
@@ -602,7 +605,7 @@ namespace mkfit {
     // Probably would be better (clearer) if there was a special function that does
     // the swap in here or in EoCCs.
     CombCandidate& operator=(CombCandidate&& o) {
-      std::vector<TrackCand, CcAlloc<TrackCand>>::operator=(std::move(o));
+      m_trk_cands = (std::move(o.m_trk_cands));
       m_best_short_cand = std::move(o.m_best_short_cand);
       m_state = o.m_state;
       m_pickup_layer = o.m_pickup_layer;
@@ -616,16 +619,27 @@ namespace mkfit {
       m_hots_size = o.m_hots_size;
       m_hots = std::move(o.m_hots);
 
-      for (auto& tc : *this)
+      for (auto& tc : m_trk_cands)
         tc.setCombCandidate(this);
 
       return *this;
     }
 
+    // std::vector-like interface to access m_trk_cands
+    bool empty() const { return m_trk_cands.empty(); }
+    trk_cand_vec_type::size_type size() const { return m_trk_cands.size(); }
+    void resize(trk_cand_vec_type::size_type count) { m_trk_cands.resize(count); }
+    TrackCand& operator[](int i) { return m_trk_cands[i]; }
+    const TrackCand& operator[](int i) const { return m_trk_cands[i]; }
+    TrackCand& front() { return m_trk_cands.front(); }
+    const TrackCand& front() const { return m_trk_cands.front(); }
+    trk_cand_vec_type::reference emplace_back(TrackCand &tc) { return m_trk_cands.emplace_back(tc); }
+    void clear() { m_trk_cands.clear(); }
+
     void Reset(int max_cands_per_seed, int expected_num_hots) {
-      std::vector<TrackCand, CcAlloc<TrackCand>> tmp(get_allocator());
-      swap(tmp);
-      reserve(max_cands_per_seed);  // we *must* never exceed this
+      std::vector<TrackCand, CcAlloc<TrackCand>> tmp(m_trk_cands.get_allocator());
+      m_trk_cands.swap(tmp);
+      m_trk_cands.reserve(max_cands_per_seed);  // we *must* never exceed this
 
       m_best_short_cand.setScore(getScoreWorstPossible());
 
