@@ -12,7 +12,7 @@ namespace mkfit {
 
     extern TrackerInfo TrkInfo;
     extern IterationsInfo ItrInfo;
-  
+
     // default file version
     constexpr int FileVersion = 1;
 
@@ -23,7 +23,6 @@ namespace mkfit {
     extern bool loopOverFile;
     // XXXXMT: nTracks should be thrown out ... SMatrix and Event allocate some arrays on this
     // which can be wrong for real data or in multi-event environment
-
 
     // the following are only used in SMatrix version
     constexpr float nSigma = 3.;

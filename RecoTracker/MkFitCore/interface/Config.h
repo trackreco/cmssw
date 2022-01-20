@@ -85,12 +85,6 @@ namespace mkfit {
     constexpr int nMaxTrkHits = 64;  // Used for array sizes in MkFitter/Finder, max hits in toy MC
     constexpr int nAvgSimHits = 32;  // Used for reserve() calls for sim hits/states
 
-    constexpr float fRadialSpacing = 4.;
-    constexpr float fRadialExtent = 0.01;
-    constexpr float fInnerSensorSize = 5.0;  // approximate sensor size in cm
-    constexpr float fOuterSensorSize = Config::fInnerSensorSize * 2.;
-    constexpr float fEtaDet = 1;  // default: 1; cmssw tests: 2, 2.5
-
     constexpr float cmsDeltaRad = 2.5;  //fixme! using constant 2.5 cm, to be taken from layer properties
 
     // config for material effects in cmssw

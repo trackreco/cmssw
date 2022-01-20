@@ -377,15 +377,6 @@ namespace mkfit {
     configtree_->Branch("Nevents", &Nevents_);
 
     configtree_->Branch("nLayers", &nLayers_);
-    configtree_->Branch("fRadialSpacing", &fRadialSpacing_);
-    configtree_->Branch("fRadialExtent", &fRadialExtent_);
-    configtree_->Branch("fInnerSensorSize", &fInnerSensorSize_);
-    configtree_->Branch("fOuterSensorSize", &fOuterSensorSize_);
-    configtree_->Branch("fEtaDet", &fEtaDet_);
-
-    configtree_->Branch("nPhiPart", &nPhiPart_);
-    configtree_->Branch("fPhiFactor", &fPhiFactor_);
-    configtree_->Branch("nEtaPart", &nEtaPart_);
 
     configtree_->Branch("nlayers_per_seed", &nlayers_per_seed_);
     configtree_->Branch("maxCand", &maxCand_);
@@ -2351,15 +2342,6 @@ namespace mkfit {
     Nevents_ = Config::nEvents;
 
     nLayers_ = Config::nLayers;
-    fRadialSpacing_ = Config::fRadialSpacing;
-    fRadialExtent_ = Config::fRadialExtent;
-    fInnerSensorSize_ = Config::fInnerSensorSize;
-    fOuterSensorSize_ = Config::fOuterSensorSize;
-    fEtaDet_ = Config::fEtaDet;
-
-    nPhiPart_ = Config::nPhiPart;
-    fPhiFactor_ = Config::fPhiFactor;
-    nEtaPart_ = Config::nEtaPart;
 
     nlayers_per_seed_ = Config::ItrInfo[0].m_params.nlayers_per_seed;
     maxCand_ = Config::ItrInfo[0].m_params.maxCandsPerSeed;
