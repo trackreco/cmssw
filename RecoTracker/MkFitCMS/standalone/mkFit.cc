@@ -21,7 +21,7 @@
 #include "RecoTracker/MkFitCore/src/MaterialEffects.h"
 
 #ifndef NO_ROOT
-#include "Validation.h"
+#include "RecoTracker/MkFitCore/standalone/Validation.h"
 #endif
 
 #include <cstdlib>
