@@ -232,10 +232,10 @@ namespace mkfit {
               i1 = tss;
             }
             // Add hits from tk2 to the seed we are keeping.
-            // NOTE: We only have 4 bits in Track::Status for number of seed hits.
+            // NOTE: We have a limit in Track::Status for the number of seed hits.
             //       There is a check at entry and after adding of a new hit.
             Track &tk = seeds[i1];
-            if (merge_hits && tk.nTotalHits() < 15) {
+            if (merge_hits && tk.nTotalHits() < Track::Status::kMaxSeedHits) {
               const Track &tk2 = seeds[i2];
               //We are not actually fitting to the extra hits; use chi2 of 0
               float fakeChi2 = 0.0;
@@ -254,7 +254,7 @@ namespace mkfit {
                   if (unique) {
                     tk.addHitIdx(tk2.getHitIdx(j), tk2.getHitLyr(j), fakeChi2);
                     ++n_ovlp_hits_added;
-                    if (tk.nTotalHits() >= 15)
+                    if (tk.nTotalHits() >= Track::Status::kMaxSeedHits)
                       break;
                   }
                 }

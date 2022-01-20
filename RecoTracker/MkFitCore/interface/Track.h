@@ -227,6 +227,8 @@ namespace mkfit {
     // ------------------------------------------------------------------------
 
     struct Status {
+      static constexpr int kNSeedHitBits = 4;
+      static constexpr int kMaxSeedHits = (1 << kNSeedHitBits) - 1;
       union {
         struct {
           // Set to true for short, low-pt CMS tracks. They do not generate mc seeds and
@@ -253,7 +255,7 @@ namespace mkfit {
           int n_overlaps : 8;
 
           // Number of seed hits at import time
-          unsigned int n_seed_hits : 4;
+          unsigned int n_seed_hits : kNSeedHitBits;
 
           // mkFit tracking region TrackerInfo::EtaRegion, determined by seed partition function
           unsigned int eta_region : 3;
@@ -267,6 +269,7 @@ namespace mkfit {
 
       Status() : _raw_(0) {}
     };
+    static_assert(sizeof(Status) == sizeof(int));
 
     Status getStatus() const { return status_; }
     // Needed for MkFi**r copy in / out
