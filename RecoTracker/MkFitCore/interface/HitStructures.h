@@ -534,7 +534,6 @@ namespace mkfit {
     return getScoreCalc(nfoundhits, ntailmisshits, noverlaphits, nmisshits, chi2, pt, inFindCandidates);
   }
 
-
   // CombCandidate -- a set of candidates from a given seed.
 
   class CombCandidate {
@@ -559,8 +558,7 @@ namespace mkfit {
     int m_hots_size = 0;
     std::vector<HoTNode> m_hots;
 
-    CombCandidate(const allocator_type& alloc)
-        : m_trk_cands(alloc), m_state(Dormant), m_pickup_layer(-1) {}
+    CombCandidate(const allocator_type& alloc) : m_trk_cands(alloc), m_state(Dormant), m_pickup_layer(-1) {}
 
     // Required by std::uninitialized_fill_n when declaring vector<CombCandidate> in EventOfCombCandidates
     CombCandidate(const CombCandidate& o)
@@ -633,7 +631,7 @@ namespace mkfit {
     const TrackCand& operator[](int i) const { return m_trk_cands[i]; }
     TrackCand& front() { return m_trk_cands.front(); }
     const TrackCand& front() const { return m_trk_cands.front(); }
-    trk_cand_vec_type::reference emplace_back(TrackCand &tc) { return m_trk_cands.emplace_back(tc); }
+    trk_cand_vec_type::reference emplace_back(TrackCand& tc) { return m_trk_cands.emplace_back(tc); }
     void clear() { m_trk_cands.clear(); }
 
     void Reset(int max_cands_per_seed, int expected_num_hots) {
