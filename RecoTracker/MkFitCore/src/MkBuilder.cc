@@ -1,5 +1,6 @@
 #include <memory>
 #include <limits>
+#include <algorithm>
 
 #include "RecoTracker/MkFitCore/interface/MkBuilder.h"
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
@@ -749,8 +750,8 @@ namespace mkfit {
       const RegionOfSeedIndices rosi(m_seedEtaSeparators, region);
 
       // adaptive seeds per task based on the total estimated amount of work to divide among all threads
-      const int adaptiveSPT =
-          clamp(Config::numThreadsEvents * eoccs.m_size / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
+      const int adaptiveSPT = std::clamp(
+          Config::numThreadsEvents * eoccs.m_size / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
       dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.m_size << " region " << region);
 
       // loop over seeds
@@ -940,8 +941,8 @@ namespace mkfit {
       const RegionOfSeedIndices rosi(m_seedEtaSeparators, region);
 
       // adaptive seeds per task based on the total estimated amount of work to divide among all threads
-      const int adaptiveSPT =
-          clamp(Config::numThreadsEvents * eoccs.m_size / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
+      const int adaptiveSPT = std::clamp(
+          Config::numThreadsEvents * eoccs.m_size / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
       dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.m_size << " region " << region);
 
       tbb::parallel_for(rosi.tbb_blk_rng_std(adaptiveSPT), [&](const tbb::blocked_range<int> &seeds) {
@@ -1262,8 +1263,8 @@ namespace mkfit {
       const RegionOfSeedIndices rosi(m_seedEtaSeparators, region);
 
       // adaptive seeds per task based on the total estimated amount of work to divide among all threads
-      const int adaptiveSPT =
-          clamp(Config::numThreadsEvents * eoccs.m_size / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
+      const int adaptiveSPT = std::clamp(
+          Config::numThreadsEvents * eoccs.m_size / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
       dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.m_size << " region " << region);
 
       tbb::parallel_for(rosi.tbb_blk_rng_std(adaptiveSPT), [&](const tbb::blocked_range<int> &cands) {

@@ -20,6 +20,8 @@
 #include "Event.h"
 #endif
 
+#include <algorithm>
+
 namespace mkfit {
 
   void MkFinder::Setup(const IterationParams &ip, const IterationLayerConfig &ilc, const std::vector<bool> *ihm) {
@@ -235,8 +237,8 @@ namespace mkfit {
                                 float max_dq,
                                 float min_dphi,
                                 float max_dphi) {
-      dphi = clamp(std::abs(dphi), min_dphi, max_dphi);
-      dq = clamp(dq, min_dq, max_dq);
+      dphi = std::clamp(std::abs(dphi), min_dphi, max_dphi);
+      dq = std::clamp(dq, min_dq, max_dq);
       //
       qv[itrack] = q;
       phiv[itrack] = phi;

@@ -4,22 +4,6 @@
 #include "RecoTracker/MkFitCore/interface/Config.h"
 #include "RecoTracker/MkFitCore/interface/MatrixSTypes.h"
 
-// This should go elsewhere, eventually.
-
-#ifdef __cpp_lib_clamp
-using std::clamp;
-#else
-template <class T, class Compare>
-inline constexpr const T clamp(const T v, const T lo, const T hi, Compare comp) {
-  return comp(v, lo) ? lo : comp(hi, v) ? hi : v;
-}
-
-template <class T>
-inline constexpr const T clamp(const T v, const T lo, const T hi) {
-  return clamp(v, lo, hi, std::less<T>());
-}
-#endif
-
 #include <sys/time.h>
 
 namespace mkfit {
