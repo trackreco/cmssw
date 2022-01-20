@@ -1,6 +1,9 @@
 #ifndef RecoTracker_MkFitCore_standalone_Validation_h
 #define RecoTracker_MkFitCore_standalone_Validation_h
+
 #include "RecoTracker/MkFitCore/interface/Track.h"
+#include "RecoTracker/MkFitCore/standalone/ConfigStandalone.h"
+#include "RecoTracker/MkFitCore/standalone/TrackExtra.h"
 
 namespace mkfit {
 

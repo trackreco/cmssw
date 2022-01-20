@@ -28,15 +28,5 @@ namespace mkfit {
     return (tseconds);
   }
 
-  //------------------------------------------------------------------------------
-
-  class TrackerInfo;
-  class IterationsInfo;
-
-  namespace Config
-  {
-    extern TrackerInfo TrkInfo;
-    extern IterationsInfo ItrInfo;
-  } // end namespace Config
 }  // end namespace mkfit
 #endif

@@ -1,4 +1,5 @@
 #include "RecoTracker/MkFitCMS/standalone/buildtestMPlex.h"
+#include "RecoTracker/MkFitCore/standalone/ConfigStandalone.h"
 #include "RecoTracker/MkFitCore/src/Matrix.h"
 #include "RecoTracker/MkFitCore/interface/MkBuilder.h"
 #include "RecoTracker/MkFitCMS/interface/MkStdSeqs.h"
@@ -9,11 +10,6 @@
 #include <memory>
 
 namespace mkfit {
-
-  namespace Config {
-    TrackerInfo TrkInfo;
-    IterationsInfo ItrInfo;
-  }
 
   inline bool sortByHitsChi2(const std::pair<Track, TrackState> &cand1, const std::pair<Track, TrackState> &cand2) {
     if (cand1.first.nFoundHits() == cand2.first.nFoundHits())

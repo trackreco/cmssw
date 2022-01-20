@@ -1,6 +1,7 @@
 #include "TTreeValidation.h"
 #include "Event.h"
 #include "RecoTracker/MkFitCore/interface/Config.h"
+#include "RecoTracker/MkFitCore/standalone/ConfigStandalone.h"
 #include "RecoTracker/MkFitCore/interface/IterationConfig.h"
 
 #ifndef NO_ROOT

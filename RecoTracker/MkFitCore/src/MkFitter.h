@@ -3,13 +3,7 @@
 
 #include "MkBase.h"
 
-// CCCC #include "Event.h"
-
 #include "RecoTracker/MkFitCore/interface/HitStructures.h"
-
-//#define DEBUG 1
-
-//#define USE_BOHS
 
 namespace mkfit {
 
@@ -76,8 +70,6 @@ namespace mkfit {
 
     void InputTracksForFit(const std::vector<Track>& tracks, int beg, int end);
     void FitTracksWithInterSlurp(const std::vector<HitVec>& layersohits, int N_proc);
-
-    void ConformalFitTracks(bool fitting, int beg, int end);
 
     void OutputTracks(std::vector<Track>& tracks, int beg, int end, int iCP) const;
 

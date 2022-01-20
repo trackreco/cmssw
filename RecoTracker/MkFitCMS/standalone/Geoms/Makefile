@@ -37,9 +37,10 @@ include ${DEPS}
 endif
 
 clean:
-	rm -f *.so *.o *.om *.d *.optrpt
+	-rm -f *.so *.o *.om *.d *.optrpt
 
 distclean: clean
+	-rm -f ${TGTS}
 
 echo:
 	@echo SRCS = ${SRCS}

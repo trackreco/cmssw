@@ -28,38 +28,6 @@ namespace mkfit {
     return phi >= Config::PI ? phi - Config::TwoPI : (phi < -Config::PI ? phi + Config::TwoPI : phi);
   }
 
-  // moved from config to here
-  inline int getEtaBin(float eta) {
-    if (std::isfinite(eta) == 0)
-      return -1;
-
-    //first and last bin have extra width
-    if (eta < (Config::lEtaBin - Config::fEtaDet))
-      return 0;
-    if (eta > (Config::fEtaDet - Config::lEtaBin))
-      return Config::nEtaBin - 1;
-
-    //now we can treat all bins as if they had same size
-    return int((eta + Config::fEtaDet - Config::lEtaBin / 2.0f) / Config::lEtaBin);
-  }
-
-  inline int getEtaBinExtendedEdge(float eta) {
-    if (std::isfinite(eta) == 0)
-      return -1;
-    //in this case we are out of bounds
-    if (std::abs(eta) > Config::fEtaDet + Config::lEtaPart)
-      return -1;
-
-    //first and last bin have extra width
-    if (eta < (Config::lEtaBin - Config::fEtaDet))
-      return 0;
-    if (eta > (Config::fEtaDet - Config::lEtaBin))
-      return Config::nEtaBin - 1;
-
-    //now we can treat all bins as if they had same size
-    return int((eta + Config::fEtaDet - Config::lEtaBin / 2.0f) / Config::lEtaBin);
-  }
-
   inline float getRad2(float x, float y) { return x * x + y * y; }
 
   inline float getInvRad2(float x, float y) { return 1.0f / (x * x + y * y); }

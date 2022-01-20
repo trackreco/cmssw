@@ -7,7 +7,7 @@ CMS_DIR := ${SRCDIR}/RecoTracker/MkFitCMS
 LIB_CMS := ../libMicCMS.so
 MAIN    := ../mkFit
 
-TGTS := ${LIB_CORE} ${MAIN}
+TGTS := ${LIB_CMS} ${MAIN}
 
 .PHONY: all clean distclean
 
@@ -35,7 +35,7 @@ clean: clean-local
 
 distclean: clean-local
 	-rm -f *.optrpt
-	-rm -rf lib
+	-rm -f ${TGTS}
 
 ${LIB_CMS}: ${CMS_OBJS}
 	@mkdir -p $(@D)

@@ -47,7 +47,7 @@ clean: clean-local
 distclean: clean-local
 	-rm -f ${AUTO_TGTS}
 	-rm -f *.optrpt
-	-rm -rf lib
+	-rm -f ${LIB_CORE}
 ###	cd Matriplex && ${MAKE} distclean
 
 ${LIB_CORE}: ${OBJS}

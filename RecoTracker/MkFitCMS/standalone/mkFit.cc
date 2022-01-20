@@ -10,11 +10,7 @@
 #include "RecoTracker/MkFitCMS/standalone/MkStandaloneSeqs.h"
 
 #include "RecoTracker/MkFitCore/interface/Config.h"
-
-#include <limits>
-#include <list>
-#include <sstream>
-#include <memory>
+#include "RecoTracker/MkFitCore/standalone/ConfigStandalone.h"
 
 #include "RecoTracker/MkFitCore/standalone/Event.h"
 
@@ -24,7 +20,6 @@
 #include "RecoTracker/MkFitCore/standalone/Validation.h"
 #endif
 
-#include <cstdlib>
 //#define DEBUG
 #include "RecoTracker/MkFitCore/src/Debug.h"
 
@@ -34,6 +29,12 @@
 #if defined(USE_VTUNE_PAUSE)
 #include "ittnotify.h"
 #endif
+
+#include <cstdlib>
+#include <limits>
+#include <list>
+#include <sstream>
+#include <memory>
 
 using namespace mkfit;
 

@@ -1,7 +1,7 @@
-#ifndef RecoTracker_MkFitCore_src_ConformalUtilsMPlex_h
-#define RecoTracker_MkFitCore_src_ConformalUtilsMPlex_h
+#ifndef RecoTracker_MkFitCore_standalone_ConformalUtilsMPlex_h
+#define RecoTracker_MkFitCore_standalone_ConformalUtilsMPlex_h
 
-#include "Matrix.h"
+#include "RecoTracker/MkFitCore/src/Matrix.h"
 
 namespace mkfit {
 
