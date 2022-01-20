@@ -10,6 +10,11 @@
 
 namespace mkfit {
 
+  namespace Config {
+    TrackerInfo TrkInfo;
+    IterationsInfo ItrInfo;
+  }
+
   inline bool sortByHitsChi2(const std::pair<Track, TrackState> &cand1, const std::pair<Track, TrackState> &cand2) {
     if (cand1.first.nFoundHits() == cand2.first.nFoundHits())
       return cand1.first.chi2() < cand2.first.chi2();

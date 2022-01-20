@@ -6,8 +6,6 @@
 namespace mkfit {
 
   namespace Config {
-    TrackerInfo TrkInfo;
-    IterationsInfo ItrInfo;
 
     int nTracks = 10000;
     int nEvents = 20;

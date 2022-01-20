@@ -32,8 +32,6 @@ namespace mkfit {
   inline int getEtaBin(float eta) {
     if (std::isfinite(eta) == 0)
       return -1;
-    //in this case we are out of bounds
-    //if (fabs(eta)>Config::fEtaDet) return -1;//remove this line, just return first or last bin
 
     //first and last bin have extra width
     if (eta < (Config::lEtaBin - Config::fEtaDet))
@@ -181,8 +179,6 @@ namespace mkfit {
 
     Hit(const SVector3& position, const SMatrixSym33& error, int mcHitID = -1)
         : state_(position, error), mcHitID_(mcHitID) {}
-
-    ~Hit() {}
 
     const SVector3& position() const { return state_.parameters(); }
     const SVector3& parameters() const { return state_.parameters(); }

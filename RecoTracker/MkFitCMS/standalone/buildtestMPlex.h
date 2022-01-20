@@ -5,6 +5,8 @@
 #include "RecoTracker/MkFitCore/interface/HitStructures.h"
 #include "RecoTracker/MkFitCore/standalone/Event.h"
 
+#include <sys/time.h>
+
 namespace mkfit {
 
   class IterationConfig;
@@ -18,5 +20,23 @@ namespace mkfit {
 
   std::vector<double> runBtpCe_MultiIter(Event& ev, const EventOfHits& eoh, MkBuilder& builder, int n);
 
+  inline double dtime() {
+    double tseconds = 0.0;
+    struct timeval mytime;
+    gettimeofday(&mytime, (struct timezone*)nullptr);
+    tseconds = (double)(mytime.tv_sec + mytime.tv_usec * 1.0e-6);
+    return (tseconds);
+  }
+
+  //------------------------------------------------------------------------------
+
+  class TrackerInfo;
+  class IterationsInfo;
+
+  namespace Config
+  {
+    extern TrackerInfo TrkInfo;
+    extern IterationsInfo ItrInfo;
+  } // end namespace Config
 }  // end namespace mkfit
 #endif

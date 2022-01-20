@@ -4,17 +4,7 @@
 #include "RecoTracker/MkFitCore/interface/Config.h"
 #include "RecoTracker/MkFitCore/interface/MatrixSTypes.h"
 
-#include <sys/time.h>
-
 namespace mkfit {
-
-  inline double dtime() {
-    double tseconds = 0.0;
-    struct timeval mytime;
-    gettimeofday(&mytime, (struct timezone*)nullptr);
-    tseconds = (double)(mytime.tv_sec + mytime.tv_usec * 1.0e-6);
-    return (tseconds);
-  }
 
   inline float hipo(float x, float y) { return std::sqrt(x * x + y * y); }
 
@@ -72,16 +62,6 @@ namespace mkfit {
 
   typedef Matriplex::Matriplex<bool, 1, 1, NN> MPlexQB;
 
-}  // end namespace mkfit
-
-//==============================================================================
-
-#include <random>
-
-namespace mkfit {
-  extern std::default_random_engine g_gen;
-  extern std::normal_distribution<float> g_gaus;
-  extern std::uniform_real_distribution<float> g_unif;
 }  // end namespace mkfit
 
 #endif

@@ -9,11 +9,6 @@
 
 namespace mkfit {
 
-  // Cram this in here for now ...
-  class TrackerInfo;
-  class IterationsInfo;
-  //------------------------------------------------------------------------------
-
   enum PropagationFlagsEnum {
     PF_none = 0,
 
@@ -59,9 +54,6 @@ namespace mkfit {
   //------------------------------------------------------------------------------
 
   namespace Config {
-    extern TrackerInfo TrkInfo;
-    extern IterationsInfo ItrInfo;
-
     // default file version
     constexpr int FileVersion = 1;
 
@@ -419,10 +411,6 @@ namespace mkfit {
 #else
 #define MPT_SIZE 8
 #endif
-#endif
-
-#ifndef THREAD_BINDING
-#define THREAD_BINDING spread
 #endif
 
   };  // namespace Config
