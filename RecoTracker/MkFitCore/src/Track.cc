@@ -421,4 +421,4 @@ namespace mkfit {
     print(s);
   }
 
-} // end namespace mkfit
+}  // end namespace mkfit

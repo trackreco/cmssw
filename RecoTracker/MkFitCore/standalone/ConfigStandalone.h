@@ -152,7 +152,7 @@ namespace mkfit {
 
     void RecalculateDependentConstants();
 
-  } // end namespace Config
+  }  // end namespace Config
 
 }  // end namespace mkfit
 

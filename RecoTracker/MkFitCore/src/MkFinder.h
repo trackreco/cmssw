@@ -79,12 +79,12 @@ namespace mkfit {
     // One could really access the original TrackCand for all of those, especially the ones that
     // are STD only. This then requires access back to that TrackCand memory.
     // So maybe one should just have flags for CopyIn methods (or several versions). Yay, etc.
-    MPlexQI NMissingHits;         // sub: NHits, sort of, STD only
-    MPlexQI NOverlapHits;         // add: num of overlaps registered in HitOnTrack, STD only
-    MPlexQI NInsideMinusOneHits;  // sub: before we copied all hit idcs and had a loop counting them only
-    MPlexQI NTailMinusOneHits;    // sub: before we copied all hit idcs and had a loop counting them only
-    MPlexQI LastHitCcIndex;       // add: index of last hit in CombCand hit tree, STD only
-    TrackBase::Status TrkStatus[NN]; // STD only, status bits
+    MPlexQI NMissingHits;             // sub: NHits, sort of, STD only
+    MPlexQI NOverlapHits;             // add: num of overlaps registered in HitOnTrack, STD only
+    MPlexQI NInsideMinusOneHits;      // sub: before we copied all hit idcs and had a loop counting them only
+    MPlexQI NTailMinusOneHits;        // sub: before we copied all hit idcs and had a loop counting them only
+    MPlexQI LastHitCcIndex;           // add: index of last hit in CombCand hit tree, STD only
+    TrackBase::Status TrkStatus[NN];  // STD only, status bits
     HitOnTrack LastHoT[NN];
     CombCandidate *CombCand[NN];
     // const TrackCand *TrkCand[NN]; // hmmh, could get all data through this guy ... but scattered

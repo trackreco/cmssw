@@ -7,7 +7,6 @@ namespace mkfit {
 
   namespace Config {
 
-
     int nTotalLayers = -1;
 
     std::string geomPlugin = "CylCowWLids";

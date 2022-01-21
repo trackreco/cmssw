@@ -263,11 +263,11 @@ namespace mkfit {
       unsigned int _free_bits_ : 4;
 
       Status()
-          : not_findable(0),
-            stopped(0),
+          : not_findable(false),
+            stopped(false),
             prod_type(0),
             align_was_seed_type(0),
-            duplicate(0),
+            duplicate(false),
             algorithm(0),
             n_overlaps(0),
             n_seed_hits(0),

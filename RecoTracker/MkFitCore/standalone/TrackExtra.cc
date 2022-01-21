@@ -510,4 +510,4 @@ namespace mkfit {
                                           : 0.f);
   }
 
-}
+}  // namespace mkfit

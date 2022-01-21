@@ -91,6 +91,6 @@ namespace mkfit {
   typedef std::unordered_map<int, TrackState> TkIDToTSMap;
   typedef std::unordered_map<int, TSLayerPairVec> TkIDToTSLayerPairVecMap;
 
-}
+}  // namespace mkfit
 
 #endif
