@@ -193,17 +193,12 @@ namespace mkfit {
     int mcTrackID(const MCHitInfoVec& globalMCHitInfo) const { return globalMCHitInfo[mcHitID_].mcTrackID(); }
 
     struct PackedData {
-      union {
-        struct {
-          unsigned int detid_in_layer : 12;
-          unsigned int charge_pcm : 8;  // MIMI see set/get funcs: is this Run2 specific ???
-          unsigned int span_rows : 3;
-          unsigned int span_cols : 3;
-        };
-        unsigned int _raw_;
-      };
+      unsigned int detid_in_layer : 12;
+      unsigned int charge_pcm : 8;  // MIMI see set/get funcs: is this Run2 specific ???
+      unsigned int span_rows : 3;
+      unsigned int span_cols : 3;
 
-      PackedData() : _raw_(0) {}
+      PackedData() : detid_in_layer(0), charge_pcm(0), span_rows(0), span_cols(0) {}
 
       void set_charge_pcm(int cpcm) {
         if (cpcm < 1620)

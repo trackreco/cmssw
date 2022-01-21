@@ -84,7 +84,7 @@ namespace mkfit {
     MPlexQI NInsideMinusOneHits;  // sub: before we copied all hit idcs and had a loop counting them only
     MPlexQI NTailMinusOneHits;    // sub: before we copied all hit idcs and had a loop counting them only
     MPlexQI LastHitCcIndex;       // add: index of last hit in CombCand hit tree, STD only
-    MPlexQUI TrkStatus;           // STD only, status bits
+    TrackBase::Status TrkStatus[NN]; // STD only, status bits
     HitOnTrack LastHoT[NN];
     CombCandidate *CombCand[NN];
     // const TrackCand *TrkCand[NN]; // hmmh, could get all data through this guy ... but scattered
@@ -279,7 +279,7 @@ namespace mkfit {
 
       LastHoT[mslot] = trk.getLastHitOnTrack();
       CombCand[mslot] = trk.combCandidate();
-      TrkStatus[mslot] = trk.getRawStatus();
+      TrkStatus[mslot] = trk.getStatus();
     }
 
     void copy_out(TrackCand &trk, const int mslot, const int tslot) const {
@@ -299,7 +299,7 @@ namespace mkfit {
       trk.setNTailMinusOneHits(NTailMinusOneHits(mslot, 0, 0));
 
       trk.setCombCandidate(CombCand[mslot]);
-      trk.setRawStatus(TrkStatus(mslot, 0, 0));
+      trk.setStatus(TrkStatus[mslot]);
     }
 
     void add_hit(const int mslot, int index, int layer) {

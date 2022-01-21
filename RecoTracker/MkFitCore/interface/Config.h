@@ -11,24 +11,18 @@ namespace mkfit {
 
   enum PropagationFlagsEnum {
     PF_none = 0,
-
     PF_use_param_b_field = 0x1,
     PF_apply_material = 0x2
   };
 
   struct PropagationFlags {
-    union {
-      struct {
-        bool use_param_b_field : 1;
-        bool apply_material : 1;
-        // Could add: bool use_trig_approx  -- now Config::useTrigApprox = true
-        // Could add: int  n_iter : 8       -- now Config::Niter = 5
-      };
+    bool use_param_b_field : 1;
+    bool apply_material : 1;
+    // Could add: bool use_trig_approx       -- now Config::useTrigApprox = true
+    // Could add: int  n_prop_to_r_iters : 8 -- now Config::Niter = 5
 
-      unsigned int _raw_;
-    };
-
-    PropagationFlags() : _raw_(0) {}
+    PropagationFlags()
+        : use_param_b_field(false), apply_material(false) {}
 
     PropagationFlags(int pfe)
         : use_param_b_field(pfe & PF_use_param_b_field), apply_material(pfe & PF_apply_material) {}

@@ -142,15 +142,10 @@ namespace mkfit {
 
     // Pair of axis bin indices.
     struct B_pair {
-      union {
-        struct {
-          typename A1::index_t bin1 : A1::c_M;
-          typename A2::index_t bin2 : A2::c_M;
-        };
-        unsigned int raw;
-      };
+      typename A1::index_t bin1 : A1::c_M;
+      typename A2::index_t bin2 : A2::c_M;
 
-      B_pair() : raw(0) {}
+      B_pair() : bin1(0), bin2(0) {}
       B_pair(typename A1::index_t i1, typename A2::index_t i2) : bin1(i1), bin2(i2) {}
     };
 

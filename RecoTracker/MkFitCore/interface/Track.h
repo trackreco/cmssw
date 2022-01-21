@@ -229,54 +229,55 @@ namespace mkfit {
     struct Status {
       static constexpr int kNSeedHitBits = 4;
       static constexpr int kMaxSeedHits = (1 << kNSeedHitBits) - 1;
-      union {
-        struct {
-          // Set to true for short, low-pt CMS tracks. They do not generate mc seeds and
-          // do not enter the efficiency denominator.
-          bool not_findable : 1;
 
-          // Set to true when number of holes would exceed an external limit, Config::maxHolesPerCand.
-          // XXXXMT Not used yet, -2 last hit idx is still used! Need to add it to MkFi**r classes.
-          // Problem is that I have to carry bits in/out of the MkFinder, too.
-          bool stopped : 1;
+      // Set to true for short, low-pt CMS tracks. They do not generate mc seeds and
+      // do not enter the efficiency denominator.
+      bool not_findable : 1;
 
-          // Production type (most useful for sim tracks): 0, 1, 2, 3 for unset, signal, in-time PU, oot PU
-          unsigned int prod_type : 2;
+      // Set to true when number of holes would exceed an external limit, Config::maxHolesPerCand.
+      // XXXXMT Not used yet, -2 last hit idx is still used! Need to add it to MkFi**r classes.
+      // Problem is that I have to carry bits in/out of the MkFinder, too.
+      bool stopped : 1;
 
-          unsigned int align_was_seed_type : 2;
+      // Production type (most useful for sim tracks): 0, 1, 2, 3 for unset, signal, in-time PU, oot PU
+      unsigned int prod_type : 2;
 
-          // Whether or not the track matched to another track and had the lower cand score
-          bool duplicate : 1;
+      unsigned int align_was_seed_type : 2;
 
-          // Tracking iteration/algorithm
-          unsigned int algorithm : 6;
+      // Whether or not the track matched to another track and had the lower cand score
+      bool duplicate : 1;
 
-          // Temporary store number of overlaps for Track here
-          int n_overlaps : 8;
+      // Tracking iteration/algorithm
+      unsigned int algorithm : 6;
 
-          // Number of seed hits at import time
-          unsigned int n_seed_hits : kNSeedHitBits;
+      // Temporary store number of overlaps for Track here
+      int n_overlaps : 8;
 
-          // mkFit tracking region TrackerInfo::EtaRegion, determined by seed partition function
-          unsigned int eta_region : 3;
+      // Number of seed hits at import time
+      unsigned int n_seed_hits : kNSeedHitBits;
 
-          // The remaining bits.
-          unsigned int _free_bits_ : 4;
-        };
+      // mkFit tracking region TrackerInfo::EtaRegion, determined by seed partition function
+      unsigned int eta_region : 3;
 
-        unsigned int _raw_;
-      };
+      // The remaining bits.
+      unsigned int _free_bits_ : 4;
 
-      Status() : _raw_(0) {}
+      Status()
+          : not_findable(0),
+            stopped(0),
+            prod_type(0),
+            align_was_seed_type(0),
+            duplicate(0),
+            algorithm(0),
+            n_overlaps(0),
+            n_seed_hits(0),
+            eta_region(0),
+            _free_bits_(0) {}
     };
     static_assert(sizeof(Status) == sizeof(int));
 
     Status getStatus() const { return status_; }
-    // Needed for MkFi**r copy in / out
-    // Status& refStatus() { return  status_; }
-    // Status* ptrStatus() { return &status_; }
-    unsigned int getRawStatus() const { return status_._raw_; }
-    void setRawStatus(unsigned int rs) { status_._raw_ = rs; }
+    void setStatus(Status s) { status_ = s; }
 
     bool isFindable() const { return !status_.not_findable; }
     bool isNotFindable() const { return status_.not_findable; }
