@@ -106,6 +106,8 @@ namespace mkfit {
         return -1;
       }
     }
+
+  private:
     TkLayout lo_;
   };
 
