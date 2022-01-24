@@ -28,10 +28,10 @@ namespace mkfit {
     m_phi_bin_deads.resize(m_nq);
   }
 
-  void LayerOfHits::SetupLayer(const LayerInfo &li) {
+  void LayerOfHits::setupLayer(const LayerInfo &li) {
     // Note, LayerInfo::m_q_bin ==>  > 0 - bin width, < 0 - number of bins
 
-    assert(m_layer_info == nullptr && "SetupLayer() already called.");
+    assert(m_layer_info == nullptr && "setupLayer() already called.");
 
     m_layer_info = &li;
 
@@ -57,7 +57,7 @@ void detect_q_min_max(const HitVec &hitv)
     if (h.q() < m_qmin) m_qmin = h.q();
     if (h.q() > m_qmax) m_qmax = h.q();
   }
-  printf("LoH::SuckInHits qmin=%f, qmax=%f", m_qmin, m_qmax);
+  printf("LoH::suckInHits qmin=%f, qmax=%f", m_qmin, m_qmax);
   float nmin = std::floor(m_qmin / dq);
   float nmax = std::ceil (m_qmax / dq);
   m_qmin = dq * nmin;
@@ -69,8 +69,8 @@ void detect_q_min_max(const HitVec &hitv)
 }
 */
 
-  void LayerOfHits::SuckInHits(const HitVec &hitv) {
-    assert(m_nq > 0 && "SetupLayer() was not called.");
+  void LayerOfHits::suckInHits(const HitVec &hitv) {
+    assert(m_nq > 0 && "setupLayer() was not called.");
 
     const int size = hitv.size();
 
@@ -95,7 +95,7 @@ void detect_q_min_max(const HitVec &hitv)
 
       HitInfo hi = {h.phi(), m_is_barrel ? h.z() : h.r()};
 
-      m_qphifines[i] = GetPhiBinFine(hi.phi) + (GetQBinChecked(hi.q) << 16);
+      m_qphifines[i] = phiBinFine(hi.phi) + (qBinChecked(hi.q) << 16);
 
       if (Config::usePhiQArrays) {
         m_hit_infos[i] = hi;
@@ -170,16 +170,16 @@ void detect_q_min_max(const HitVec &hitv)
 
   //==============================================================================
 
-  void LayerOfHits::SuckInDeads(const DeadVec &deadv) {
-    assert(m_nq > 0 && "SetupLayer() was not called.");
+  void LayerOfHits::suckInDeads(const DeadVec &deadv) {
+    assert(m_nq > 0 && "setupLayer() was not called.");
 
     empty_q_bins_dead(0, m_nq);
 
     for (const auto &d : deadv) {
-      int q_bin_1 = GetQBinChecked(d.q1);
-      int q_bin_2 = GetQBinChecked(d.q2) + 1;
-      int phi_bin_1 = GetPhiBin(d.phi1);
-      int phi_bin_2 = GetPhiBin(d.phi2) + 1;
+      int q_bin_1 = qBinChecked(d.q1);
+      int q_bin_2 = qBinChecked(d.q2) + 1;
+      int phi_bin_1 = phiBin(d.phi1);
+      int phi_bin_2 = phiBin(d.phi2) + 1;
       for (int q_bin = q_bin_1; q_bin < q_bin_2; q_bin++) {
         if (phi_bin_1 > phi_bin_2) {
           for (int pb = phi_bin_1; pb < Config::m_nphi; pb++) {
@@ -197,8 +197,8 @@ void detect_q_min_max(const HitVec &hitv)
     }
   }
 
-  void LayerOfHits::BeginRegistrationOfHits(const HitVec &hitv) {
-    assert(m_nq > 0 && "SetupLayer() was not called.");
+  void LayerOfHits::beginRegistrationOfHits(const HitVec &hitv) {
+    assert(m_nq > 0 && "setupLayer() was not called.");
 
     m_ext_hits = &hitv;
 
@@ -209,7 +209,7 @@ void detect_q_min_max(const HitVec &hitv)
     m_max_ext_idx = std::numeric_limits<int>::min();
   }
 
-  void LayerOfHits::RegisterHit(int idx) {
+  void LayerOfHits::registerHit(int idx) {
     const Hit &h = (*m_ext_hits)[idx];
 
     m_ext_idcs.push_back(idx);
@@ -218,14 +218,14 @@ void detect_q_min_max(const HitVec &hitv)
 
     HitInfo hi = {h.phi(), m_is_barrel ? h.z() : h.r()};
 
-    m_qphifines.push_back(GetPhiBinFine(hi.phi) + (GetQBinChecked(hi.q) << 16));
+    m_qphifines.push_back(phiBinFine(hi.phi) + (qBinChecked(hi.q) << 16));
 
     if (Config::usePhiQArrays) {
       m_hit_infos.emplace_back(hi);
     }
   }
 
-  void LayerOfHits::EndRegistrationOfHits(bool build_original_to_internal_map) {
+  void LayerOfHits::endRegistrationOfHits(bool build_original_to_internal_map) {
     const int size = m_ext_idcs.size();
     if (size == 0)
       return;
@@ -297,7 +297,7 @@ void detect_q_min_max(const HitVec &hitv)
         //    Hmmh, this could be index < -256, or something like that.
 
         printf(
-            "LayerOfHits::EndRegistrationOfHits() original_to_internal index map vector is largish: size=%d, "
+            "LayerOfHits::endRegistrationOfHits() original_to_internal index map vector is largish: size=%d, "
             "map_vector_size=%d\n",
             size,
             m_max_ext_idx - m_min_ext_idx + 1);
@@ -315,14 +315,14 @@ void detect_q_min_max(const HitVec &hitv)
   //==============================================================================
 
   /*
-void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std::vector<int>& idcs, bool isForSeeding, bool dump)
+void LayerOfHits::selectHitIndices(float q, float phi, float dq, float dphi, std::vector<int>& idcs, bool isForSeeding, bool dump)
 {
   // Sanitizes q, dq and dphi. phi is expected to be in -pi, pi.
 
   // Make sure how phi bins work beyond -pi, +pi.
   // for (float p = -8; p <= 8; p += 0.05)
   // {
-  //   int pb = GetPhiBin(p);
+  //   int pb = phiBin(p);
   //   printf("%5.2f %4d %4d\n", p, pb, pb & m_phi_mask);
   // }
 
@@ -333,10 +333,10 @@ void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std
     dphi = std::min(std::abs(dphi), max_dphi());
   }
 
-  int qb1 = GetQBinChecked(q - dq);
-  int qb2 = GetQBinChecked(q + dq) + 1;
-  int pb1 = GetPhiBin(phi - dphi);
-  int pb2 = GetPhiBin(phi + dphi) + 1;
+  int qb1 = qBinChecked(q - dq);
+  int qb2 = qBinChecked(q + dq) + 1;
+  int pb1 = phiBin(phi - dphi);
+  int pb2 = phiBin(phi + dphi) + 1;
 
   // int extra = 2;
   // qb1 -= 2; if (qb < 0) qb = 0;
@@ -383,7 +383,7 @@ void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std
 }
 */
 
-  void LayerOfHits::PrintBins() {
+  void LayerOfHits::printBins() {
     for (int qb = 0; qb < m_nq; ++qb) {
       printf("%c bin %d\n", is_barrel() ? 'Z' : 'R', qb);
       for (int pb = 0; pb < Config::m_nphi; ++pb) {
@@ -404,7 +404,7 @@ void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std
   EventOfHits::EventOfHits(const TrackerInfo &trk_inf)
       : m_layers_of_hits(trk_inf.m_layers.size()), m_n_layers(trk_inf.m_layers.size()) {
     for (auto &li : trk_inf.m_layers) {
-      m_layers_of_hits[li.m_layer_id].SetupLayer(li);
+      m_layers_of_hits[li.m_layer_id].setupLayer(li);
     }
   }
 
@@ -443,7 +443,7 @@ void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std
   // CombCandidate
   //==============================================================================
 
-  void CombCandidate::ImportSeed(const Track &seed, int region) {
+  void CombCandidate::importSeed(const Track &seed, int region) {
     m_trk_cands.emplace_back(TrackCand(seed, this));
 
     m_state = CombCandidate::Dormant;
@@ -459,7 +459,7 @@ void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std
 
     // printf("Importing pt=%f eta=%f, lastCcIndex=%d\n", cand.pT(), cand.momEta(), cand.lastCcIndex());
 
-    for (const HitOnTrack *hp = seed.BeginHitsOnTrack(); hp != seed.EndHitsOnTrack(); ++hp) {
+    for (const HitOnTrack *hp = seed.beginHitsOnTrack(); hp != seed.endHitsOnTrack(); ++hp) {
       // printf(" hit idx=%d lyr=%d\n", hp->index, hp->layer);
       cand.addHitIdx(hp->index, hp->layer, 0.0f);
     }
@@ -467,7 +467,7 @@ void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std
     cand.setScore(getScoreCand(cand));
   }
 
-  void CombCandidate::MergeCandsAndBestShortOne(const IterationParams &params, bool update_score, bool sort_cands) {
+  void CombCandidate::mergeCandsAndBestShortOne(const IterationParams &params, bool update_score, bool sort_cands) {
     TrackCand *best_short = m_best_short_cand.combCandidate() ? &m_best_short_cand : nullptr;
 
     if (!empty()) {
@@ -508,9 +508,9 @@ void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std
     // assert(capacity() == (size_t)Config::maxCandsPerSeed);
   }
 
-  void CombCandidate::CompactifyHitStorageForBestCand(bool remove_seed_hits, int backward_fit_min_hits) {
-    // The best candidate is assumed to be in position 0 (after MergeCandsAndBestShortOne
-    // MergeCandsAndBestShortOne has been called).
+  void CombCandidate::compactifyHitStorageForBestCand(bool remove_seed_hits, int backward_fit_min_hits) {
+    // The best candidate is assumed to be in position 0 (after mergeCandsAndBestShortOne
+    // mergeCandsAndBestShortOne has been called).
     // Other cands are dropped, their hits are dropped as well.
     // Seed hits are dropped if remove_seed_hits is true.
 
@@ -598,8 +598,8 @@ void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std
     }
   }
 
-  void CombCandidate::BeginBkwSearch() {
-    // Assumes CompactifyHitStorageForBestCand() has already been called.
+  void CombCandidate::beginBkwSearch() {
+    // Assumes compactifyHitStorageForBestCand() has already been called.
     //
     // This is to be called before backward-search to start with a single
     // input candidate for backward combinatorial search.
@@ -623,8 +623,8 @@ void LayerOfHits::SelectHitIndices(float q, float phi, float dq, float dphi, std
     tc.setNTailMinusOneHits(0);
   }
 
-  void CombCandidate::EndBkwSearch() {
-    // MergeCandsAndBestShortOne() has already been called (from MkBuilder::FindXxx()).
+  void CombCandidate::endBkwSearch() {
+    // mergeCandsAndBestShortOne() has already been called (from MkBuilder::FindXxx()).
     // We have to fixup the best candidate.
 
     TrackCand &tc = m_trk_cands[0];

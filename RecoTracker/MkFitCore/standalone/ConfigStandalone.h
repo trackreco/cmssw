@@ -150,7 +150,7 @@ namespace mkfit {
 
     // ================================================================
 
-    void RecalculateDependentConstants();
+    void recalculateDependentConstants();
 
   }  // end namespace Config
 

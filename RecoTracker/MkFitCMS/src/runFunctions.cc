@@ -59,7 +59,7 @@ namespace mkfit {
 
     builder.find_tracks_load_seeds(seeds);
 
-    builder.FindTracksCloneEngine();
+    builder.findTracksCloneEngine();
 
     if (itconf.m_requires_quality_filter && itconf.m_track_algorithm != 7) {
       if (itconf.m_track_algorithm == 6) {
@@ -75,15 +75,15 @@ namespace mkfit {
 
     if (do_backward_fit) {
       if (itconf.m_backward_search) {
-        builder.CompactifyHitStorageForBestCand(itconf.m_backward_drop_seed_hits, itconf.m_backward_fit_min_hits);
+        builder.compactifyHitStorageForBestCand(itconf.m_backward_drop_seed_hits, itconf.m_backward_fit_min_hits);
       }
 
-      builder.BackwardFit();
+      builder.backwardFit();
 
       if (itconf.m_backward_search) {
-        builder.BeginBkwSearch();
-        builder.FindTracksCloneEngine(SteeringParams::IT_BkwSearch);
-        builder.EndBkwSearch();
+        builder.beginBkwSearch();
+        builder.findTracksCloneEngine(SteeringParams::IT_BkwSearch);
+        builder.endBkwSearch();
       }
 
       if (itconf.m_requires_quality_filter && (itconf.m_track_algorithm == 7 || itconf.m_track_algorithm == 9)) {

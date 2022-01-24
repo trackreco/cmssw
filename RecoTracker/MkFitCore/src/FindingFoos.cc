@@ -4,10 +4,10 @@
 
 namespace {
   using namespace mkfit;
-  const FindingFoos s_fndfoos_brl(kalmanPropagateAndComputeChi2, kalmanPropagateAndUpdate, &MkBase::PropagateTracksToR);
+  const FindingFoos s_fndfoos_brl(kalmanPropagateAndComputeChi2, kalmanPropagateAndUpdate, &MkBase::propagateTracksToR);
   const FindingFoos s_fndfoos_ec(kalmanPropagateAndComputeChi2Endcap,
                                  kalmanPropagateAndUpdateEndcap,
-                                 &MkBase::PropagateTracksToZ);
+                                 &MkBase::propagateTracksToZ);
 }  // namespace
 
 namespace mkfit {

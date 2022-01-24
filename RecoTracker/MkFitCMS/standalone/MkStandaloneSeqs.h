@@ -16,7 +16,7 @@ namespace mkfit {
 
   namespace StdSeq {
 
-    void LoadHitsAndBeamSpot(Event &ev, EventOfHits &eoh);
+    void loadHitsAndBeamSpot(Event &ev, EventOfHits &eoh);
 
     void handle_duplicates(Event *event);
 

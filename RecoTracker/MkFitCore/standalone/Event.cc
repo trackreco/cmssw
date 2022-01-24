@@ -30,7 +30,7 @@ namespace mkfit {
     validation_.resetValidationMaps();  // need to reset maps for every event.
   }
 
-  void Event::Reset(int evtID) {
+  void Event::reset(int evtID) {
     evtID_ = evtID;
 
     for (auto &&l : layerHits_) {
@@ -57,7 +57,7 @@ namespace mkfit {
     validation_.resetValidationMaps();  // need to reset maps for every event.
   }
 
-  void Event::Validate() {
+  void Event::validate() {
     // special map needed for sim_val_for_cmssw + set the track scores
     if (Config::sim_val_for_cmssw) {
       validation_.makeRecoTkToSeedTkMapsDumbCMSSW(*this);
@@ -88,7 +88,7 @@ namespace mkfit {
     }
   }
 
-  void Event::PrintStats(const TrackVec &trks, TrackExtraVec &trkextras) {
+  void Event::printStats(const TrackVec &trks, TrackExtraVec &trkextras) {
     int miss(0), found(0), fp_10(0), fp_20(0), hit8(0), h8_10(0), h8_20(0);
 
     for (auto &&trk : trks) {
@@ -127,7 +127,7 @@ namespace mkfit {
 
     evsize += write_tracks(fp, simTracks_);
 
-    if (data_file.HasSimTrackStates()) {
+    if (data_file.hasSimTrackStates()) {
       int nts = simTrackStates_.size();
       fwrite(&nts, sizeof(int), 1, fp);
       fwrite(&simTrackStates_[0], sizeof(TrackState), nts, fp);
@@ -144,7 +144,7 @@ namespace mkfit {
       evsize += sizeof(int) + nh * sizeof(Hit);
     }
 
-    if (data_file.HasHitIterMasks()) {
+    if (data_file.hasHitIterMasks()) {
       //sizes are the same as in layerHits_
       for (int il = 0; il < nl; ++il) {
         int nh = layerHitMasks_[il].size();
@@ -159,15 +159,15 @@ namespace mkfit {
     fwrite(&simHitsInfo_[0], sizeof(MCHitInfo), nm, fp);
     evsize += sizeof(int) + nm * sizeof(MCHitInfo);
 
-    if (data_file.HasSeeds()) {
+    if (data_file.hasSeeds()) {
       evsize += write_tracks(fp, seedTracks_);
     }
 
-    if (data_file.HasCmsswTracks()) {
+    if (data_file.hasCmsswTracks()) {
       evsize += write_tracks(fp, cmsswTracks_);
     }
 
-    if (data_file.HasBeamSpot()) {
+    if (data_file.hasBeamSpot()) {
       fwrite(&beamSpot_, sizeof(BeamSpot), 1, fp);
       evsize += sizeof(BeamSpot);
     }
@@ -207,12 +207,12 @@ namespace mkfit {
   void Event::read_in(DataFile &data_file, FILE *in_fp) {
     FILE *fp = in_fp ? in_fp : data_file.f_fp;
 
-    data_file.AdvancePosToNextEvent(fp);
+    data_file.advancePosToNextEvent(fp);
 
     int nt = read_tracks(fp, simTracks_);
     Config::nTracks = nt;
 
-    if (data_file.HasSimTrackStates()) {
+    if (data_file.hasSimTrackStates()) {
       int nts;
       fread(&nts, sizeof(int), 1, fp);
       simTrackStates_.resize(nts);
@@ -231,7 +231,7 @@ namespace mkfit {
       fread(&layerHits_[il][0], sizeof(Hit), nh, fp);
     }
 
-    if (data_file.HasHitIterMasks()) {
+    if (data_file.hasHitIterMasks()) {
       for (int il = 0; il < nl; ++il) {
         int nh = layerHits_[il].size();
         fread(&layerHitMasks_[il][0], sizeof(uint64_t), nh, fp);
@@ -243,7 +243,7 @@ namespace mkfit {
     simHitsInfo_.resize(nm);
     fread(&simHitsInfo_[0], sizeof(MCHitInfo), nm, fp);
 
-    if (data_file.HasSeeds()) {
+    if (data_file.hasSeeds()) {
       int ns = read_tracks(fp, seedTracks_, Config::seedInput != cmsswSeeds);
       (void)ns;
 
@@ -282,7 +282,7 @@ namespace mkfit {
     }
 
     int nert = -99999;
-    if (data_file.HasCmsswTracks()) {
+    if (data_file.hasCmsswTracks()) {
       nert = read_tracks(fp, cmsswTracks_, !Config::readCmsswTracks);
       (void)nert;
     }
@@ -389,7 +389,7 @@ namespace mkfit {
     }
 #endif
 
-    if (data_file.HasBeamSpot()) {
+    if (data_file.hasBeamSpot()) {
       fread(&beamSpot_, sizeof(BeamSpot), 1, fp);
     }
 
@@ -416,7 +416,7 @@ namespace mkfit {
     fwrite(tracks.data(), sizeof(Track), n_tracks, fp);
 
     for (int i = 0; i < n_tracks; ++i) {
-      fwrite(tracks[i].BeginHitsOnTrack(), sizeof(HitOnTrack), tracks[i].nTotalHits(), fp);
+      fwrite(tracks[i].beginHitsOnTrack(), sizeof(HitOnTrack), tracks[i].nTotalHits(), fp);
       data_size += tracks[i].nTotalHits() * sizeof(HitOnTrack);
     }
 
@@ -444,7 +444,7 @@ namespace mkfit {
 
       for (int i = 0; i < n_tracks; ++i) {
         tracks[i].resizeHitsForInput();
-        fread(tracks[i].BeginHitsOnTrack_nc(), sizeof(HitOnTrack), tracks[i].nTotalHits(), fp);
+        fread(tracks[i].beginHitsOnTrack_nc(), sizeof(HitOnTrack), tracks[i].nTotalHits(), fp);
       }
     }
 
@@ -849,7 +849,7 @@ namespace mkfit {
   // DataFile
   //==============================================================================
 
-  int DataFile::OpenRead(const std::string &fname, bool set_n_layers) {
+  int DataFile::openRead(const std::string &fname, bool set_n_layers) {
     constexpr int min_ver = 4;
     constexpr int max_ver = 6;
 
@@ -917,12 +917,12 @@ namespace mkfit {
       printf("\n");
     }
 
-    if (Config::seedInput == cmsswSeeds && !HasSeeds()) {
+    if (Config::seedInput == cmsswSeeds && !hasSeeds()) {
       fprintf(stderr, "Reading of CmsswSeeds requested but data not available on file.\n");
       exit(1);
     }
 
-    if (Config::readCmsswTracks && !HasCmsswTracks()) {
+    if (Config::readCmsswTracks && !hasCmsswTracks()) {
       fprintf(stderr, "Reading of CmsswTracks requested but data not available on file.\n");
       exit(1);
     }
@@ -930,7 +930,7 @@ namespace mkfit {
     return f_header.f_n_events;
   }
 
-  void DataFile::OpenWrite(const std::string &fname, int nev, int extra_sections) {
+  void DataFile::openWrite(const std::string &fname, int nev, int extra_sections) {
     f_fp = fopen(fname.c_str(), "w");
 
     f_header.f_n_events = nev;
@@ -940,7 +940,7 @@ namespace mkfit {
     fwrite(&f_header, sizeof(DataFileHeader), 1, f_fp);
   }
 
-  int DataFile::AdvancePosToNextEvent(FILE *fp) {
+  int DataFile::advancePosToNextEvent(FILE *fp) {
     int evsize;
 
     std::lock_guard<std::mutex> readlock(f_next_ev_mutex);
@@ -961,7 +961,7 @@ namespace mkfit {
     return evsize;
   }
 
-  void DataFile::SkipNEvents(int n_to_skip) {
+  void DataFile::skipNEvents(int n_to_skip) {
     int evsize;
 
     std::lock_guard<std::mutex> readlock(f_next_ev_mutex);
@@ -973,7 +973,7 @@ namespace mkfit {
     }
   }
 
-  void DataFile::Close() {
+  void DataFile::close() {
     fclose(f_fp);
     f_fp = 0;
     f_header = DataFileHeader();
@@ -985,7 +985,7 @@ namespace mkfit {
       f_header.f_n_events = n_written;
       fwrite(&f_header, sizeof(DataFileHeader), 1, f_fp);
     }
-    Close();
+    close();
   }
 
 }  // end namespace mkfit

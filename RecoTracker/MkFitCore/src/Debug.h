@@ -78,8 +78,10 @@ namespace {
   bool debug = false;  // default, can be overridden locally
   std::mutex debug_mutex;
 
-  struct foo_doo_debug_unused {
-    void foo() { debug = true; }
+  struct debug_guard {
+    bool m_prev_debug;
+    debug_guard(bool state=true) m_prev_debug(debug) { debug = state; }
+    ~debug_guard() { debug = m_prev_debug; }
   };
 }  // namespace
 

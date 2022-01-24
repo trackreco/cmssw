@@ -231,7 +231,7 @@ namespace {
         for (int j = 0; j < 6; ++j) {
           C(n, i, j) = 0.;
           for (int k = 0; k < 6; ++k)
-            C(n, i, j) += A.ConstAt(n, i, k) * B.ConstAt(n, k, j);
+            C(n, i, j) += A.constAt(n, i, k) * B.constAt(n, k, j);
         }
       }
     }
@@ -245,7 +245,7 @@ namespace {
         for (int j = 0; j < 6; ++j) {
           C(n, i, j) = 0.;
           for (int k = 0; k < 6; ++k)
-            C(n, i, j) += A.ConstAt(n, i, k) * B.ConstAt(n, k, j);
+            C(n, i, j) += A.constAt(n, i, k) * B.constAt(n, k, j);
         }
       }
     }
@@ -259,7 +259,7 @@ namespace {
         for (int j = 0; j < 6; ++j) {
           C(n, i, j) = 0.;
           for (int k = 0; k < 6; ++k)
-            C(n, i, j) += B.ConstAt(n, i, k) * A.ConstAt(n, j, k);
+            C(n, i, j) += B.constAt(n, i, k) * A.constAt(n, j, k);
         }
       }
     }
@@ -273,7 +273,7 @@ namespace {
         for (int j = 0; j < 6; ++j) {
           C(n, i, j) = 0.;
           for (int k = 0; k < 6; ++k)
-            C(n, i, j) += B.ConstAt(n, i, k) * A.ConstAt(n, j, k);
+            C(n, i, j) += B.constAt(n, i, k) * A.constAt(n, j, k);
         }
       }
     }
@@ -291,7 +291,7 @@ namespace mkfit {
                                        MPlexLV& outPar,
                                        MPlexLL& errorProp,
                                        const int N_proc) {
-    errorProp.SetVal(0.f);
+    errorProp.setVal(0.f);
     MPlexLL errorPropTmp(0.f);   //initialize to zero
     MPlexLL errorPropSwap(0.f);  //initialize to zero
 
@@ -305,18 +305,18 @@ namespace mkfit {
       errorProp(n, 4, 4) = 1.f;
       errorProp(n, 5, 5) = 1.f;
 
-      const float k = inChg.ConstAt(n, 0, 0) * 100.f / (-Config::sol * Config::Bfield);
-      const float r = msRad.ConstAt(n, 0, 0);
-      float r0 = hipo(inPar.ConstAt(n, 0, 0), inPar.ConstAt(n, 1, 0));
+      const float k = inChg.constAt(n, 0, 0) * 100.f / (-Config::sol * Config::Bfield);
+      const float r = msRad.constAt(n, 0, 0);
+      float r0 = hipo(inPar.constAt(n, 0, 0), inPar.constAt(n, 1, 0));
 
       if (std::abs(r - r0) < 0.0001f) {
         dprint_np(n, "distance less than 1mum, skip");
         continue;
       }
 
-      const float ipt = inPar.ConstAt(n, 3, 0);
-      const float phiin = inPar.ConstAt(n, 4, 0);
-      const float theta = inPar.ConstAt(n, 5, 0);
+      const float ipt = inPar.constAt(n, 3, 0);
+      const float phiin = inPar.constAt(n, 4, 0);
+      const float theta = inPar.constAt(n, 5, 0);
 
       //set those that are 1. before iterations
       errorPropTmp(n, 2, 2) = 1.f;
@@ -337,9 +337,9 @@ namespace mkfit {
                       << "attempt propagation from r=" << r0 << " to r=" << r << std::endl
                       << "x=" << outPar.At(n, 0, 0) << " y=" << outPar.At(n, 1, 0) << " z=" << outPar.At(n, 2, 0)
                       << " px=" << std::cos(phiin) / ipt << " py=" << std::sin(phiin) / ipt
-                      << " pz=" << 1.f / (ipt * tan(theta)) << " q=" << inChg.ConstAt(n, 0, 0) << std::endl);
+                      << " pz=" << 1.f / (ipt * tan(theta)) << " q=" << inChg.constAt(n, 0, 0) << std::endl);
 
-        r0 = hipo(outPar.ConstAt(n, 0, 0), outPar.ConstAt(n, 1, 0));
+        r0 = hipo(outPar.constAt(n, 0, 0), outPar.constAt(n, 1, 0));
         const float ialpha = (r - r0) * ipt / k;
         //alpha+=ialpha;
 
@@ -357,8 +357,8 @@ namespace mkfit {
         const float dady = -outPar.At(n, 1, 0) * ipt / (k * r0);
         const float dadipt = (r - r0) / k;
 
-        outPar.At(n, 0, 0) = outPar.ConstAt(n, 0, 0) + 2.f * k * sinah * (pxin * cosah - pyin * sinah);
-        outPar.At(n, 1, 0) = outPar.ConstAt(n, 1, 0) + 2.f * k * sinah * (pyin * cosah + pxin * sinah);
+        outPar.At(n, 0, 0) = outPar.constAt(n, 0, 0) + 2.f * k * sinah * (pxin * cosah - pyin * sinah);
+        outPar.At(n, 1, 0) = outPar.constAt(n, 1, 0) + 2.f * k * sinah * (pyin * cosah + pxin * sinah);
         const float pxinold = pxin;  //copy before overwriting
         pxin = pxin * cosa - pyin * sina;
         pyin = pyin * cosa + pxinold * sina;
@@ -368,9 +368,9 @@ namespace mkfit {
         cosP = std::cos(outPar.At(n, 4, 0));
         sinP = std::sin(outPar.At(n, 4, 0));
 
-        outPar.At(n, 2, 0) = outPar.ConstAt(n, 2, 0) + k * ialpha * cosT / (ipt * sinT);
+        outPar.At(n, 2, 0) = outPar.constAt(n, 2, 0) + k * ialpha * cosT / (ipt * sinT);
         outPar.At(n, 3, 0) = ipt;
-        outPar.At(n, 4, 0) = outPar.ConstAt(n, 4, 0) + ialpha;
+        outPar.At(n, 4, 0) = outPar.constAt(n, 4, 0) + ialpha;
         outPar.At(n, 5, 0) = theta;
 
         errorPropTmp(n, 0, 0) = 1.f + k * (cosP * dadx * cosa - sinP * dadx * sina) / ipt;
@@ -475,8 +475,8 @@ namespace mkfit {
                                 MPlexQI& outFailFlag,
                                 const int N_proc,
                                 const PropagationFlags pflags) {
-    errorProp.SetVal(0.f);
-    outFailFlag.SetVal(0.f);
+    errorProp.setVal(0.f);
+    outFailFlag.setVal(0.f);
 
     helixAtRFromIterativeCCS_impl(inPar, inChg, msRad, outPar, errorProp, outFailFlag, 0, NN, N_proc, pflags);
   }
@@ -532,7 +532,7 @@ namespace mkfit {
       MPlexQF propSign;
 #pragma omp simd
       for (int n = 0; n < N_proc; ++n) {
-        if (failFlag(n, 0, 0) || (noMatEffPtr && noMatEffPtr->ConstAt(n, 0, 0))) {
+        if (failFlag(n, 0, 0) || (noMatEffPtr && noMatEffPtr->constAt(n, 0, 0))) {
           hitsRl(n, 0, 0) = 0.f;
           hitsXi(n, 0, 0) = 0.f;
         } else {
@@ -581,8 +581,8 @@ namespace mkfit {
     // - if we pass fail outwards, we might *not* need to also reset botched output.
     for (int i = 0; i < N_proc; ++i) {
       if (failFlag(i, 0, 0)) {
-        outPar.CopySlot(i, inPar);
-        outErr.CopySlot(i, inErr);
+        outPar.copySlot(i, inPar);
+        outErr.copySlot(i, inErr);
       }
     }
   }
@@ -613,7 +613,7 @@ namespace mkfit {
         dprintf("inErr %d\n", kk);
         for (int i = 0; i < 6; ++i) {
           for (int j = 0; j < 6; ++j)
-            dprintf("%8f ", inErr.ConstAt(kk, i, j));
+            dprintf("%8f ", inErr.constAt(kk, i, j));
           printf("\n");
         }
         dprintf("\n");
@@ -635,7 +635,7 @@ namespace mkfit {
       MPlexQF propSign;
 #pragma omp simd
       for (int n = 0; n < N_proc; ++n) {
-        if (noMatEffPtr && noMatEffPtr->ConstAt(n, 0, 0)) {
+        if (noMatEffPtr && noMatEffPtr->constAt(n, 0, 0)) {
           hitsRl(n, 0, 0) = 0.f;
           hitsXi(n, 0, 0) = 0.f;
         } else {
@@ -648,8 +648,8 @@ namespace mkfit {
                                 ? getXiVal(zbin, rbin)
                                 : 0.f;  // protect against crazy propagations
         }
-        const float zout = msZ.ConstAt(n, 0, 0);
-        const float zin = inPar.ConstAt(n, 2, 0);
+        const float zout = msZ.constAt(n, 0, 0);
+        const float zin = inPar.constAt(n, 2, 0);
         propSign(n, 0, 0) = (std::abs(zout) > std::abs(zin) ? 1. : -1.);
       }
       applyMaterialEffects(hitsRl, hitsXi, propSign, outErr, outPar, N_proc, false);
@@ -679,11 +679,11 @@ namespace mkfit {
        for (int i = 0; i < 6; ++i) {
            dprintf("%8f ", outPar.At(kk,i,0)); printf("\n");
        } dprintf("\n");
-       if (std::abs(outPar.At(kk,2,0) - msZ.ConstAt(kk, 0, 0)) > 0.0001) {
-         float pt = 1.0f / inPar.ConstAt(kk,3,0);
-	 dprint_np(kk, "DID NOT GET TO Z, dZ=" << std::abs(outPar.At(kk,2,0) - msZ.ConstAt(kk, 0, 0))
-		   << " z=" << msZ.ConstAt(kk, 0, 0) << " zin=" << inPar.ConstAt(kk,2,0) << " zout=" << outPar.At(kk,2,0) << std::endl
-		   << "pt=" << pt << " pz=" << pt/std::tan(inPar.ConstAt(kk,5,0)));
+       if (std::abs(outPar.At(kk,2,0) - msZ.constAt(kk, 0, 0)) > 0.0001) {
+         float pt = 1.0f / inPar.constAt(kk,3,0);
+	 dprint_np(kk, "DID NOT GET TO Z, dZ=" << std::abs(outPar.At(kk,2,0) - msZ.constAt(kk, 0, 0))
+		   << " z=" << msZ.constAt(kk, 0, 0) << " zin=" << inPar.constAt(kk,2,0) << " zout=" << outPar.At(kk,2,0) << std::endl
+		   << "pt=" << pt << " pz=" << pt/std::tan(inPar.constAt(kk,5,0)));
        }
      }
    }
@@ -698,7 +698,7 @@ namespace mkfit {
                 MPlexLL& errorProp,
                 const int N_proc,
                 const PropagationFlags pflags) {
-    errorProp.SetVal(0.f);
+    errorProp.setVal(0.f);
 
 #pragma omp simd
     for (int n = 0; n < NN; ++n) {
@@ -709,29 +709,29 @@ namespace mkfit {
       errorProp(n, 4, 4) = 1.f;
       errorProp(n, 5, 5) = 1.f;
 
-      const float zout = msZ.ConstAt(n, 0, 0);
+      const float zout = msZ.constAt(n, 0, 0);
 
-      const float zin = inPar.ConstAt(n, 2, 0);
-      const float ipt = inPar.ConstAt(n, 3, 0);
-      const float phiin = inPar.ConstAt(n, 4, 0);
-      const float theta = inPar.ConstAt(n, 5, 0);
+      const float zin = inPar.constAt(n, 2, 0);
+      const float ipt = inPar.constAt(n, 3, 0);
+      const float phiin = inPar.constAt(n, 4, 0);
+      const float theta = inPar.constAt(n, 5, 0);
 
       const float k =
-          inChg.ConstAt(n, 0, 0) * 100.f /
+          inChg.constAt(n, 0, 0) * 100.f /
           (-Config::sol * (pflags.use_param_b_field
-                               ? Config::BfieldFromZR(zin, hipo(inPar.ConstAt(n, 0, 0), inPar.ConstAt(n, 1, 0)))
+                               ? Config::bFieldFromZR(zin, hipo(inPar.constAt(n, 0, 0), inPar.constAt(n, 1, 0)))
                                : Config::Bfield));
       const float kinv = 1.f / k;
 
       dprint_np(n,
                 std::endl
                     << "input parameters"
-                    << " inPar.ConstAt(n, 0, 0)=" << std::setprecision(9) << inPar.ConstAt(n, 0, 0)
-                    << " inPar.ConstAt(n, 1, 0)=" << std::setprecision(9) << inPar.ConstAt(n, 1, 0)
-                    << " inPar.ConstAt(n, 2, 0)=" << std::setprecision(9) << inPar.ConstAt(n, 2, 0)
-                    << " inPar.ConstAt(n, 3, 0)=" << std::setprecision(9) << inPar.ConstAt(n, 3, 0)
-                    << " inPar.ConstAt(n, 4, 0)=" << std::setprecision(9) << inPar.ConstAt(n, 4, 0)
-                    << " inPar.ConstAt(n, 5, 0)=" << std::setprecision(9) << inPar.ConstAt(n, 5, 0));
+                    << " inPar.constAt(n, 0, 0)=" << std::setprecision(9) << inPar.constAt(n, 0, 0)
+                    << " inPar.constAt(n, 1, 0)=" << std::setprecision(9) << inPar.constAt(n, 1, 0)
+                    << " inPar.constAt(n, 2, 0)=" << std::setprecision(9) << inPar.constAt(n, 2, 0)
+                    << " inPar.constAt(n, 3, 0)=" << std::setprecision(9) << inPar.constAt(n, 3, 0)
+                    << " inPar.constAt(n, 4, 0)=" << std::setprecision(9) << inPar.constAt(n, 4, 0)
+                    << " inPar.constAt(n, 5, 0)=" << std::setprecision(9) << inPar.constAt(n, 5, 0));
 
       const float pt = 1.f / ipt;
 
@@ -865,11 +865,11 @@ namespace mkfit {
                             const bool isBarrel) {
 #pragma omp simd
     for (int n = 0; n < NN; ++n) {
-      float radL = hitsRl.ConstAt(n, 0, 0);
+      float radL = hitsRl.constAt(n, 0, 0);
       if (radL < 1e-13f)
         continue;  //ugly, please fixme
-      const float theta = outPar.ConstAt(n, 5, 0);
-      const float pt = 1.f / outPar.ConstAt(n, 3, 0);  //fixme, make sure it is positive?
+      const float theta = outPar.constAt(n, 5, 0);
+      const float pt = 1.f / outPar.constAt(n, 3, 0);  //fixme, make sure it is positive?
       const float p = pt / std::sin(theta);
       const float p2 = p * p;
       constexpr float mpi = 0.140;       // m=140 MeV, pion
@@ -905,12 +905,12 @@ namespace mkfit {
       const float deltahalf = std::log(28.816e-9f * std::sqrt(2.33f * 0.498f) / I) + std::log(beta * gamma) - 0.5f;
       const float dEdx =
           beta < 1.f
-              ? (2.f * (hitsXi.ConstAt(n, 0, 0) * invCos *
+              ? (2.f * (hitsXi.constAt(n, 0, 0) * invCos *
                         (0.5f * std::log(2.f * me * beta2 * gamma2 * wmax / (I * I)) - beta2 - deltahalf) / beta2))
               : 0.f;  //protect against infs and nans
       // dEdx = dEdx*2.;//xi in cmssw is defined with an extra factor 0.5 with respect to formula 27.1 in pdg
-      //std::cout << "dEdx=" << dEdx << " delta=" << deltahalf << " wmax=" << wmax << " Xi=" << hitsXi.ConstAt(n,0,0) << std::endl;
-      const float dP = propSign.ConstAt(n, 0, 0) * dEdx / beta;
+      //std::cout << "dEdx=" << dEdx << " delta=" << deltahalf << " wmax=" << wmax << " Xi=" << hitsXi.constAt(n,0,0) << std::endl;
+      const float dP = propSign.constAt(n, 0, 0) * dEdx / beta;
       outPar.At(n, 3, 0) = p / (std::max(p + dP, 0.001f) * pt);  //stay above 1MeV
       //assume 100% uncertainty
       outErr.At(n, 3, 3) += dP * dP / (p2 * pt * pt);

@@ -36,52 +36,52 @@ namespace mkfit {
     MkFitter() : Nhits(0) {}
 
     // Copy-in timing tests.
-    MPlexLS& GetErr0() { return Err[0]; }
-    MPlexLV& GetPar0() { return Par[0]; }
+    MPlexLS& refErr0() { return Err[0]; }
+    MPlexLV& refPar0() { return Par[0]; }
 
-    void CheckAlignment();
+    void checkAlignment();
 
-    void PrintPt(int idx);
+    void printPt(int idx);
 
-    void SetNhits(int newnhits) { Nhits = std::min(newnhits, Config::nMaxTrkHits - 1); }
+    void setNhits(int newnhits) { Nhits = std::min(newnhits, Config::nMaxTrkHits - 1); }
 
     int countValidHits(int itrack, int end_hit) const;
     int countInvalidHits(int itrack, int end_hit) const;
     int countValidHits(int itrack) const { return countValidHits(itrack, Nhits); }
     int countInvalidHits(int itrack) const { return countInvalidHits(itrack, Nhits); }
 
-    void InputTracksAndHits(const std::vector<Track>& tracks, const std::vector<HitVec>& layerHits, int beg, int end);
-    void InputTracksAndHits(const std::vector<Track>& tracks,
+    void inputTracksAndHits(const std::vector<Track>& tracks, const std::vector<HitVec>& layerHits, int beg, int end);
+    void inputTracksAndHits(const std::vector<Track>& tracks,
                             const std::vector<LayerOfHits>& layerHits,
                             int beg,
                             int end);
-    void SlurpInTracksAndHits(const std::vector<Track>& tracks, const std::vector<HitVec>& layerHits, int beg, int end);
-    void InputTracksAndHitIdx(const std::vector<Track>& tracks, int beg, int end, bool inputProp);
-    void InputTracksAndHitIdx(const std::vector<std::vector<Track> >& tracks,
+    void slurpInTracksAndHits(const std::vector<Track>& tracks, const std::vector<HitVec>& layerHits, int beg, int end);
+    void inputTracksAndHitIdx(const std::vector<Track>& tracks, int beg, int end, bool inputProp);
+    void inputTracksAndHitIdx(const std::vector<std::vector<Track> >& tracks,
                               const std::vector<std::pair<int, int> >& idxs,
                               int beg,
                               int end,
                               bool inputProp);
-    void InputSeedsTracksAndHits(const std::vector<Track>& seeds,
+    void inputSeedsTracksAndHits(const std::vector<Track>& seeds,
                                  const std::vector<Track>& tracks,
                                  const std::vector<HitVec>& layerHits,
                                  int beg,
                                  int end);
 
-    void InputTracksForFit(const std::vector<Track>& tracks, int beg, int end);
-    void FitTracksWithInterSlurp(const std::vector<HitVec>& layersohits, int N_proc);
+    void inputTracksForFit(const std::vector<Track>& tracks, int beg, int end);
+    void fitTracksWithInterSlurp(const std::vector<HitVec>& layersohits, int N_proc);
 
-    void OutputTracks(std::vector<Track>& tracks, int beg, int end, int iCP) const;
+    void outputTracks(std::vector<Track>& tracks, int beg, int end, int iCP) const;
 
-    void OutputFittedTracks(std::vector<Track>& tracks, int beg, int end) const {
-      return OutputTracks(tracks, beg, end, iC);
+    void outputFittedTracks(std::vector<Track>& tracks, int beg, int end) const {
+      return outputTracks(tracks, beg, end, iC);
     }
 
-    void OutputPropagatedTracks(std::vector<Track>& tracks, int beg, int end) const {
-      return OutputTracks(tracks, beg, end, iP);
+    void outputPropagatedTracks(std::vector<Track>& tracks, int beg, int end) const {
+      return outputTracks(tracks, beg, end, iP);
     }
 
-    void OutputFittedTracksAndHitIdx(std::vector<Track>& tracks, int beg, int end, bool outputProp) const;
+    void outputFittedTracksAndHitIdx(std::vector<Track>& tracks, int beg, int end, bool outputProp) const;
   };
 
 }  // end namespace mkfit

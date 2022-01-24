@@ -27,7 +27,7 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
 
     float r0 = hipo(inPar(n, 0, 0), inPar(n, 1, 0));
     const float k = inChg(n, 0, 0) * 100.f /
-                    (-Config::sol * (pf.use_param_b_field ? Config::BfieldFromZR(inPar(n, 2, 0), r0) : Config::Bfield));
+                    (-Config::sol * (pf.use_param_b_field ? Config::bFieldFromZR(inPar(n, 2, 0), r0) : Config::Bfield));
     const float r = msRad(n, 0, 0);
 
     // if (std::abs(r-r0)<0.0001f) {

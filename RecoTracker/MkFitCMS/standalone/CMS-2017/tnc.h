@@ -5,8 +5,8 @@
 // found on file: trackingNtuple.root
 //////////////////////////////////////////////////////////
 
-#ifndef RecoTracker_MkFitCMS_standalone_CMS - 2017_tnc_h
-#define RecoTracker_MkFitCMS_standalone_CMS -2017_tnc_h
+#ifndef RecoTracker_MkFitCMS_standalone_CMS_2017_tnc_h
+#define RecoTracker_MkFitCMS_standalone_CMS_2017_tnc_h
 
 #include <TROOT.h>
 #include <TChain.h>
@@ -15,11 +15,6 @@
 #include "TEvePointSet.h"
 
 // Header file for the classes stored in the TTree if any.
-#include "vector"
-#include "vector"
-#include "vector"
-#include "vector"
-#include "vector"
 #include "vector"
 
 #include "tncdefs.h"

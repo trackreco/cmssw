@@ -95,7 +95,7 @@ inline void MoveMemory(void* dest, const void* src, udword size) { memmove(dest,
   }  //!< Deletes an array.
 #define SAFE_RELEASE(x) \
   if (x) {              \
-    (x)->Release();     \
+    (x)->release();     \
     (x) = 0;            \
   }  //!< Safe D3D-style release
 #define SAFE_DESTRUCT(x) \

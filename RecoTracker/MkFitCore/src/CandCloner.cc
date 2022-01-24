@@ -14,18 +14,18 @@ namespace {
 
 namespace mkfit {
 
-  void CandCloner::Setup(const IterationParams &ip) {
+  void CandCloner::setup(const IterationParams &ip) {
     mp_iteration_params = &ip;
     for (int iseed = 0; iseed < s_max_seed_range; ++iseed) {
       t_cands_for_next_lay[iseed].reserve(mp_iteration_params->maxCandsPerSeed);
     }
   }
 
-  void CandCloner::Release() { mp_iteration_params = nullptr; }
+  void CandCloner::release() { mp_iteration_params = nullptr; }
 
   //==============================================================================
 
-  void CandCloner::ProcessSeedRange(int is_beg, int is_end) {
+  void CandCloner::processSeedRange(int is_beg, int is_end) {
     // Process new hits for a range of seeds.
 
     // bool debug = true;

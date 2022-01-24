@@ -44,32 +44,6 @@ namespace mkfit {
   };
 
   //==============================================================================
-  // ReducedTrack
-  //==============================================================================
-
-  struct ReducedTrack  // used for cmssw reco track validation
-  {
-  public:
-    ReducedTrack() {}
-    ReducedTrack(const int label, const int seedID, const SVector2& params, const float phi, const HitLayerMap& hitmap)
-        : label_(label), seedID_(seedID), parameters_(params), phi_(phi), hitLayerMap_(hitmap) {}
-    ~ReducedTrack() {}
-
-    int label() const { return label_; }
-    int seedID() const { return seedID_; }
-    const SVector2& parameters() const { return parameters_; }
-    float momPhi() const { return phi_; }
-    const HitLayerMap& hitLayerMap() const { return hitLayerMap_; }
-
-    int label_;
-    int seedID_;
-    SVector2 parameters_;
-    float phi_;
-    HitLayerMap hitLayerMap_;
-  };
-  typedef std::vector<ReducedTrack> RedTrackVec;
-
-  //==============================================================================
   // TrackState
   //==============================================================================
 
@@ -527,10 +501,10 @@ namespace mkfit {
     }
 
     const HitOnTrack* getHitsOnTrackArray() const { return hitsOnTrk_.data(); }
-    const HitOnTrack* BeginHitsOnTrack() const { return hitsOnTrk_.data(); }
-    const HitOnTrack* EndHitsOnTrack() const { return hitsOnTrk_.data() + (lastHitIdx_ + 1); }
+    const HitOnTrack* beginHitsOnTrack() const { return hitsOnTrk_.data(); }
+    const HitOnTrack* endHitsOnTrack() const { return hitsOnTrk_.data() + (lastHitIdx_ + 1); }
 
-    HitOnTrack* BeginHitsOnTrack_nc() { return hitsOnTrk_.data(); }
+    HitOnTrack* beginHitsOnTrack_nc() { return hitsOnTrk_.data(); }
 
     void setHitIdx(int posHitIdx, int newIdx) { hitsOnTrk_[posHitIdx].index = newIdx; }
 

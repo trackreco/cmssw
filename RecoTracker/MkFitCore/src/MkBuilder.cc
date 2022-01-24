@@ -203,7 +203,7 @@ namespace mkfit {
   void MkBuilder::release_memory() {
     TrackVec tmp;
     m_tracks.swap(tmp);
-    m_event_of_comb_cands.ReleaseMemory();
+    m_event_of_comb_cands.releaseMemory();
   }
 
   void MkBuilder::import_seeds(const TrackVec &in_seeds, std::function<insert_seed_foo> insert_seed) {
@@ -270,7 +270,7 @@ namespace mkfit {
     }
 
     // MT-OPTIMIZE-MEM: Allocate mem, assign to CombCands as per region.
-    // Reset() that is called in find_tracks_load_seeds() should be called here with additional
+    // reset() that is called in find_tracks_load_seeds() should be called here with additional
     // information from this seed partition and max expected num-of hits in given iteration / region.
     // Or, at least estimated from N_max_cands and N_layers in given eta-region.
 
@@ -309,7 +309,7 @@ namespace mkfit {
       m_seedEtaSeparators[reg] -= n_removed;
     }
 
-    eoccs.ResizeAfterFiltering(n_removed);
+    eoccs.resizeAfterFiltering(n_removed);
 
     // printf ("MkBuilder::filter_comb_cands n_removed = %d, eoccsm_size=%d\n", n_removed, eoccs.m_size);
 
@@ -446,7 +446,7 @@ namespace mkfit {
     dcall(print_seeds(m_tracks));
   }
 
-  void MkBuilder::FindTracksBestHit(SteeringParams::IterationType_e iteration_dir) {
+  void MkBuilder::findTracksBestHit(SteeringParams::IterationType_e iteration_dir) {
     // bool debug = true;
 
     TrackVec &cands = m_tracks;
@@ -500,7 +500,7 @@ namespace mkfit {
 
           int curr_layer = layer_plan_it.layer();
 
-          mkfndr->Stopped.SetVal(0);
+          mkfndr->Stopped.setVal(0);
 
           // Loop over layers, starting from after the seed.
           // Consider inverting loop order and make layer outer, need to
@@ -508,7 +508,7 @@ namespace mkfit {
           while (++layer_plan_it) {
             prev_layer = curr_layer;
             curr_layer = layer_plan_it.layer();
-            mkfndr->Setup(m_job->m_iter_config.m_params,
+            mkfndr->setup(m_job->m_iter_config.m_params,
                           m_job->m_iter_config.m_layer_configs[curr_layer],
                           m_job->get_mask_for_layer(curr_layer));
 
@@ -528,7 +528,7 @@ namespace mkfit {
               if (curr_tridx > prev_tridx) {
                 dprintf("added %d seeds, started with %d\n", curr_tridx - prev_tridx, prev_tridx);
 
-                mkfndr->InputTracksAndHitIdx(cands, trk_idcs, prev_tridx, curr_tridx, false, prev_tridx);
+                mkfndr->inputTracksAndHitIdx(cands, trk_idcs, prev_tridx, curr_tridx, false, prev_tridx);
               }
             }
 
@@ -542,17 +542,17 @@ namespace mkfit {
 
             dcall(post_prop_print(curr_layer, mkfndr.get()));
 
-            mkfndr->SelectHitIndices(layer_of_hits, curr_tridx);
+            mkfndr->selectHitIndices(layer_of_hits, curr_tridx);
 
             // Stop low-pT tracks that can not reach the current barrel layer.
             if (layer_info.is_barrel()) {
               const float r_min_sqr = layer_info.m_rin * layer_info.m_rin;
               for (int i = 0; i < curr_tridx; ++i) {
                 if (!mkfndr->Stopped[i]) {
-                  if (mkfndr->RadiusSqr(i, MkBase::iP) < r_min_sqr) {
+                  if (mkfndr->radiusSqr(i, MkBase::iP) < r_min_sqr) {
                     if (region == TrackerInfo::Reg_Barrel) {
                       mkfndr->Stopped[i] = 1;
-                      mkfndr->OutputTrackAndHitIdx(cands[rng.m_beg + i], i, false);
+                      mkfndr->outputTrackAndHitIdx(cands[rng.m_beg + i], i, false);
                     }
                     mkfndr->XWsrResult[i].m_wsr = WSR_Outside;
                     mkfndr->XHitSize[i] = 0;
@@ -567,19 +567,19 @@ namespace mkfit {
             // make candidates with best hit
             dprint("make new candidates");
 
-            mkfndr->AddBestHit(layer_of_hits, curr_tridx, fnd_foos);
+            mkfndr->addBestHit(layer_of_hits, curr_tridx, fnd_foos);
 
             // Stop tracks that have reached N_max_holes.
             for (int i = 0; i < curr_tridx; ++i) {
-              if (!mkfndr->Stopped[i] && mkfndr->BestHitLastHoT(i).index == -2) {
+              if (!mkfndr->Stopped[i] && mkfndr->bestHitLastHoT(i).index == -2) {
                 mkfndr->Stopped[i] = 1;
-                mkfndr->OutputTrackAndHitIdx(cands[rng.m_beg + i], i, false);
+                mkfndr->outputTrackAndHitIdx(cands[rng.m_beg + i], i, false);
               }
             }
 
           }  // end of layer loop
 
-          mkfndr->OutputNonStoppedTracksAndHitIdx(cands, trk_idcs, 0, curr_tridx, false);
+          mkfndr->outputNonStoppedTracksAndHitIdx(cands, trk_idcs, 0, curr_tridx, false);
 
           ++rng;
         }  // end of loop over candidates in a tbb chunk
@@ -597,9 +597,9 @@ namespace mkfit {
     // m_tracks can be used for BkFit.
     m_tracks.clear();
 
-    m_event_of_comb_cands.Reset((int)in_seeds.size(), m_job->max_max_cands());
+    m_event_of_comb_cands.reset((int)in_seeds.size(), m_job->max_max_cands());
 
-    import_seeds(in_seeds, [&](const Track &seed, int region) { m_event_of_comb_cands.InsertSeed(seed, region); });
+    import_seeds(in_seeds, [&](const Track &seed, int region) { m_event_of_comb_cands.insertSeed(seed, region); });
   }
 
   int MkBuilder::find_tracks_unroll_candidates(std::vector<std::pair<int, int>> &seed_cand_vec,
@@ -732,7 +732,7 @@ namespace mkfit {
   // FindTracksCombinatorial: Standard TBB
   //------------------------------------------------------------------------------
 
-  void MkBuilder::FindTracksStandard(SteeringParams::IterationType_e iteration_dir) {
+  void MkBuilder::findTracksStandard(SteeringParams::IterationType_e iteration_dir) {
     // debug = true;
 
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
@@ -793,7 +793,7 @@ namespace mkfit {
         while (++layer_plan_it) {
           prev_layer = curr_layer;
           curr_layer = layer_plan_it.layer();
-          mkfndr->Setup(
+          mkfndr->setup(
               iter_params, m_job->m_iter_config.m_layer_configs[curr_layer], m_job->get_mask_for_layer(curr_layer));
 
           dprintf("\n* Processing layer %d\n", curr_layer);
@@ -822,7 +822,7 @@ namespace mkfit {
                    << eoccs.m_candidates[seed_cand_idx[itrack].first][seed_cand_idx[itrack].second].label());
 
             //fixme find a way to deal only with the candidates needed in this thread
-            mkfndr->InputTracksAndHitIdx(eoccs.m_candidates, seed_cand_idx, itrack, end, false);
+            mkfndr->inputTracksAndHitIdx(eoccs.m_candidates, seed_cand_idx, itrack, end, false);
 
             //propagate to layer
             dcall(pre_prop_print(curr_layer, mkfndr.get()));
@@ -833,7 +833,7 @@ namespace mkfit {
             dcall(post_prop_print(curr_layer, mkfndr.get()));
 
             dprint("now get hit range");
-            mkfndr->SelectHitIndices(layer_of_hits, end - itrack);
+            mkfndr->selectHitIndices(layer_of_hits, end - itrack);
 
             find_tracks_handle_missed_layers(
                 mkfndr.get(), layer_info, tmp_cands, seed_cand_idx, region, start_seed, itrack, end);
@@ -843,7 +843,7 @@ namespace mkfit {
             //}
 
             dprint("make new candidates");
-            mkfndr->FindCandidates(layer_of_hits, tmp_cands, start_seed, end - itrack, fnd_foos);
+            mkfndr->findCandidates(layer_of_hits, tmp_cands, start_seed, end - itrack, fnd_foos);
 
           }  //end of vectorized loop
 
@@ -871,7 +871,7 @@ namespace mkfit {
                   CombCandidate &ccand = eoccs[start_seed + is];
 
                   HitMatch *hm = ccand[tc.originIndex()].findOverlap(
-                      tc.getLastHitIdx(), layer_of_hits.GetHit(tc.getLastHitIdx()).detIDinLayer());
+                      tc.getLastHitIdx(), layer_of_hits.refHit(tc.getLastHitIdx()).detIDinLayer());
 
                   if (hm) {
                     tc.addHitIdx(hm->m_hit_idx, curr_layer, hm->m_chi2);
@@ -887,12 +887,12 @@ namespace mkfit {
                     //   first = false;
                     // }
 
-                    // const Hit       &h    = layer_of_hits.GetHit(tc.getLastHitIdx());
+                    // const Hit       &h    = layer_of_hits.refHit(tc.getLastHitIdx());
                     // const MCHitInfo &mchi = m_event->simHitsInfo_[h.mcHitID()];
                     // // label/I:can_idx/I:layer/I:pt/F:eta/F:phi/F:chi2_orig/F:chi2/F:chi2_extra/F:module/I:module_extra/I
                     // printf("ZZZ_EXTRA %d %d %d %f %f %f %f %f %u %u %d\n",
                     //        tc.label(), tc.originIndex(), curr_layer, tc.pT(), tc.posEta(), tc.posPhi(),
-                    //        tc.chi2(), hm->m_chi2, layer_of_hits.GetHit(tc.getLastHitIdx()).detIDinLayer(), hm->m_module_id, mchi.mcTrackID());
+                    //        tc.chi2(), hm->m_chi2, layer_of_hits.refHit(tc.getLastHitIdx()).detIDinLayer(), hm->m_module_id, mchi.mcTrackID());
                   }
                 }
 
@@ -915,7 +915,7 @@ namespace mkfit {
 
         // final sorting
         for (int iseed = start_seed; iseed < end_seed; ++iseed) {
-          eoccs[iseed].MergeCandsAndBestShortOne(m_job->params(), true, true);
+          eoccs[iseed].mergeCandsAndBestShortOne(m_job->params(), true, true);
         }
       });  // end parallel-for over chunk of seeds within region
     });    // end of parallel-for-each over eta regions
@@ -927,7 +927,7 @@ namespace mkfit {
   // FindTracksCombinatorial: CloneEngine TBB
   //------------------------------------------------------------------------------
 
-  void MkBuilder::FindTracksCloneEngine(SteeringParams::IterationType_e iteration_dir) {
+  void MkBuilder::findTracksCloneEngine(SteeringParams::IterationType_e iteration_dir) {
     // debug = true;
 
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
@@ -949,12 +949,12 @@ namespace mkfit {
         auto cloner = g_exe_ctx.m_cloners.makeOrGet();
         auto mkfndr = g_exe_ctx.m_finders.makeOrGet();
 
-        cloner->Setup(m_job->params());
+        cloner->setup(m_job->params());
 
         // loop over layers
         find_tracks_in_layers(*cloner, mkfndr.get(), iteration_dir, seeds.begin(), seeds.end(), region);
 
-        cloner->Release();
+        cloner->release();
       });
     });
 
@@ -1015,7 +1015,7 @@ namespace mkfit {
     while (++layer_plan_it) {
       prev_layer = curr_layer;
       curr_layer = layer_plan_it.layer();
-      mkfndr->Setup(
+      mkfndr->setup(
           iter_params, m_job->m_iter_config.m_layer_configs[curr_layer], m_job->get_mask_for_layer(curr_layer));
 
       const bool pickup_only = layer_plan_it.is_pickup_only();
@@ -1062,7 +1062,7 @@ namespace mkfit {
         dprintf("\n");
 #endif
 
-        mkfndr->InputTracksAndHitIdx(eoccs.m_candidates, seed_cand_idx, itrack, end, false);
+        mkfndr->inputTracksAndHitIdx(eoccs.m_candidates, seed_cand_idx, itrack, end, false);
 
 #ifdef DEBUG
         for (int i = itrack; i < end; ++i)
@@ -1079,7 +1079,7 @@ namespace mkfit {
         mkfndr->m_event = m_event;
 #endif
 
-        mkfndr->SelectHitIndices(layer_of_hits, end - itrack);
+        mkfndr->selectHitIndices(layer_of_hits, end - itrack);
 
         find_tracks_handle_missed_layers(
             mkfndr, layer_info, extra_cands, seed_cand_idx, region, start_seed, itrack, end);
@@ -1090,14 +1090,14 @@ namespace mkfit {
 
         // copy_out the propagated track params, errors only.
         // Do not, keep cands at last valid hit until actual update,
-        // this requires change to propagation flags used in MkFinder::UpdateWithLastHit()
+        // this requires change to propagation flags used in MkFinder::updateWithLastHit()
         // from intra-layer to inter-layer.
-        // mkfndr->CopyOutParErr(eoccs.m_candidates, end - itrack, true);
+        // mkfndr->copyOutParErr(eoccs.m_candidates, end - itrack, true);
 
         dprint("make new candidates");
         cloner.begin_iteration();
 
-        mkfndr->FindCandidatesCloneEngine(layer_of_hits, cloner, start_seed, end - itrack, fnd_foos);
+        mkfndr->findCandidatesCloneEngine(layer_of_hits, cloner, start_seed, end - itrack, fnd_foos);
 
         cloner.end_iteration();
       }  //end of vectorized loop
@@ -1112,12 +1112,12 @@ namespace mkfit {
       for (int itrack = 0; itrack < theEndUpdater; itrack += NN) {
         const int end = std::min(itrack + NN, theEndUpdater);
 
-        mkfndr->InputTracksAndHitIdx(eoccs.m_candidates, seed_cand_update_idx, itrack, end, true);
+        mkfndr->inputTracksAndHitIdx(eoccs.m_candidates, seed_cand_update_idx, itrack, end, true);
 
-        mkfndr->UpdateWithLastHit(layer_of_hits, end - itrack, fnd_foos);
+        mkfndr->updateWithLastHit(layer_of_hits, end - itrack, fnd_foos);
 
         // copy_out the updated track params, errors only (hit-idcs and chi2 already set)
-        mkfndr->CopyOutParErr(eoccs.m_candidates, end - itrack, false);
+        mkfndr->copyOutParErr(eoccs.m_candidates, end - itrack, false);
       }
 
       // Check if cands are sorted, as expected.
@@ -1143,7 +1143,7 @@ namespace mkfit {
 
     // final sorting
     for (int iseed = start_seed; iseed < end_seed; ++iseed) {
-      eoccs[iseed].MergeCandsAndBestShortOne(m_job->params(), true, true);
+      eoccs[iseed].mergeCandsAndBestShortOne(m_job->params(), true, true);
     }
   }
 
@@ -1156,7 +1156,7 @@ namespace mkfit {
   // One could also re-calculate / adjust m_seedEtaSeparators, during export iself, probably.
   // Or use separate seed / track vectors for every region -- which would be prettier.
 
-  void MkBuilder::BackwardFitBH() {
+  void MkBuilder::backwardFitBH() {
     tbb::parallel_for_each(m_job->regions_begin(), m_job->regions_end(), [&](int region) {
       const RegionOfSeedIndices rosi(m_seedEtaSeparators, region);
 
@@ -1193,14 +1193,14 @@ namespace mkfit {
 #endif
 
       // input candidate tracks
-      mkfndr->BkFitInputTracks(m_tracks, icand, end);
+      mkfndr->bkFitInputTracks(m_tracks, icand, end);
 
       // perform fit back to first layer on track
-      mkfndr->BkFitFitTracksBH(m_job->m_event_of_hits, st_par, end - icand, chi_debug);
+      mkfndr->bkFitFitTracksBH(m_job->m_event_of_hits, st_par, end - icand, chi_debug);
 
       // now move one last time to PCA
       if (Config::includePCA) {
-        mkfndr->BkFitPropTracksToPCA(end - icand);
+        mkfndr->bkFitPropTracksToPCA(end - icand);
       }
 
 #ifdef DEBUG_BACKWARD_FIT_BH
@@ -1244,7 +1244,7 @@ namespace mkfit {
 #endif
 
       // copy out full set of info at last propagated position
-      mkfndr->BkFitOutputTracks(m_tracks, icand, end, Config::includePCA);
+      mkfndr->bkFitOutputTracks(m_tracks, icand, end, Config::includePCA);
 
       // printf("Post Final fit for %d - %d\n", icand, end);
       // for (int i = icand; i < end; ++i) { const Track &t = eoccs[i][0];
@@ -1256,7 +1256,7 @@ namespace mkfit {
 
   //------------------------------------------------------------------------------
 
-  void MkBuilder::BackwardFit() {
+  void MkBuilder::backwardFit() {
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
 
     tbb::parallel_for_each(m_job->regions_begin(), m_job->regions_end(), [&](int region) {
@@ -1288,7 +1288,7 @@ namespace mkfit {
       // Would actually prefer to do memory allocator for HoTNode storage.
       // This has been "fixed" by copying Cands back into original container, not swapping the contents
       // with vectors created in another thread (and thus not in the same memory pool, apparently), see
-      // CandCloner::ProcessSeedRange(). Standard building does not have this problem.
+      // CandCloner::processSeedRange(). Standard building does not have this problem.
       /*
     step = NN;
     {
@@ -1331,17 +1331,17 @@ namespace mkfit {
 #endif
 
       // input tracks
-      mkfndr->BkFitInputTracks(eoccs, icand, end);
+      mkfndr->bkFitInputTracks(eoccs, icand, end);
 
       // fit tracks back to first layer
-      mkfndr->BkFitFitTracks(m_job->m_event_of_hits, st_par, end - icand, chi_debug);
+      mkfndr->bkFitFitTracks(m_job->m_event_of_hits, st_par, end - icand, chi_debug);
 
       // now move one last time to PCA
       if (Config::includePCA) {
-        mkfndr->BkFitPropTracksToPCA(end - icand);
+        mkfndr->bkFitPropTracksToPCA(end - icand);
       }
 
-      mkfndr->BkFitOutputTracks(eoccs, icand, end, Config::includePCA);
+      mkfndr->bkFitOutputTracks(eoccs, icand, end, Config::includePCA);
 
       // printf("Post Final fit for %d - %d\n", icand, end);
       // for (int i = icand; i < end; ++i) { const Track &t = eoccs[i][0];

@@ -40,23 +40,23 @@ namespace Matriplex {
     T fArray[kTotSize] __attribute__((aligned(64)));
 
     MatriplexSym() {}
-    MatriplexSym(T v) { SetVal(v); }
+    MatriplexSym(T v) { setVal(v); }
 
-    idx_t PlexSize() const { return N; }
+    idx_t plexSize() const { return N; }
 
-    void SetVal(T v) {
+    void setVal(T v) {
       for (idx_t i = 0; i < kTotSize; ++i) {
         fArray[i] = v;
       }
     }
 
-    void Add(const MatriplexSym& v) {
+    void add(const MatriplexSym& v) {
       for (idx_t i = 0; i < kTotSize; ++i) {
         fArray[i] += v.fArray[i];
       }
     }
 
-    void Scale(T scale) {
+    void scale(T scale) {
       for (idx_t i = 0; i < kTotSize; ++i) {
         fArray[i] *= scale;
       }
@@ -65,40 +65,40 @@ namespace Matriplex {
     T operator[](idx_t xx) const { return fArray[xx]; }
     T& operator[](idx_t xx) { return fArray[xx]; }
 
-    const idx_t* Offsets() const { return gSymOffsets[D]; }
-    idx_t Off(idx_t i) const { return gSymOffsets[D][i]; }
+    const idx_t* offsets() const { return gSymOffsets[D]; }
+    idx_t off(idx_t i) const { return gSymOffsets[D][i]; }
 
-    const T& ConstAt(idx_t n, idx_t i, idx_t j) const { return fArray[Off(i * D + j) * N + n]; }
+    const T& constAt(idx_t n, idx_t i, idx_t j) const { return fArray[off(i * D + j) * N + n]; }
 
-    T& At(idx_t n, idx_t i, idx_t j) { return fArray[Off(i * D + j) * N + n]; }
+    T& At(idx_t n, idx_t i, idx_t j) { return fArray[off(i * D + j) * N + n]; }
 
     T& operator()(idx_t n, idx_t i, idx_t j) { return At(n, i, j); }
-    const T& operator()(idx_t n, idx_t i, idx_t j) const { return ConstAt(n, i, j); }
+    const T& operator()(idx_t n, idx_t i, idx_t j) const { return constAt(n, i, j); }
 
     MatriplexSym& operator=(const MatriplexSym& m) {
       memcpy(fArray, m.fArray, sizeof(T) * kTotSize);
       return *this;
     }
 
-    void CopySlot(idx_t n, const MatriplexSym& m) {
+    void copySlot(idx_t n, const MatriplexSym& m) {
       for (idx_t i = n; i < kTotSize; i += N) {
         fArray[i] = m.fArray[i];
       }
     }
 
-    void CopyIn(idx_t n, const T* arr) {
+    void copyIn(idx_t n, const T* arr) {
       for (idx_t i = n; i < kTotSize; i += N) {
         fArray[i] = *(arr++);
       }
     }
 
-    void CopyIn(idx_t n, const MatriplexSym& m, idx_t in) {
+    void copyIn(idx_t n, const MatriplexSym& m, idx_t in) {
       for (idx_t i = n; i < kTotSize; i += N, in += N) {
         fArray[i] = m[in];
       }
     }
 
-    void Copy(idx_t n, idx_t in) {
+    void copy(idx_t n, idx_t in) {
       for (idx_t i = n; i < kTotSize; i += N, in += N) {
         fArray[i] = fArray[in];
       }
@@ -107,7 +107,7 @@ namespace Matriplex {
 #if defined(AVX512_INTRINSICS)
 
     template <typename U>
-    void SlurpIn(const T* arr, __m512i& vi, const U&, const int N_proc = N) {
+    void slurpIn(const T* arr, __m512i& vi, const U&, const int N_proc = N) {
       //_mm512_prefetch_i32gather_ps(vi, arr, 1, _MM_HINT_T0);
 
       const __m512 src = {0};
@@ -122,8 +122,8 @@ namespace Matriplex {
     }
 
     /*
-   // Experimental methods, SlurpIn() seems to be at least as fast.
-   // See comments in mkFit/MkFitter.cc MkFitter::AddBestHit().
+   // Experimental methods, slurpIn() seems to be at least as fast.
+   // See comments in mkFit/MkFitter.cc MkFitter::addBestHit().
 
    void ChewIn(const char *arr, int off, int vi[N], const char *tmp,  __m512i& ui)
    {
@@ -166,7 +166,7 @@ namespace Matriplex {
 #elif defined(AVX2_INTRINSICS)
 
     template <typename U>
-    void SlurpIn(const T* arr, __m256i& vi, const U&, const int N_proc = N) {
+    void slurpIn(const T* arr, __m256i& vi, const U&, const int N_proc = N) {
       const __m256 src = {0};
 
       __m256i k = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
@@ -184,7 +184,7 @@ namespace Matriplex {
 
 #else
 
-    void SlurpIn(const T* arr, int vi[N], const int N_proc = N) {
+    void slurpIn(const T* arr, int vi[N], const int N_proc = N) {
       // Separate N_proc == N case (gains about 7% in fit test).
       if (N_proc == N) {
         for (int i = 0; i < kSize; ++i) {
@@ -203,13 +203,13 @@ namespace Matriplex {
 
 #endif
 
-    void CopyOut(idx_t n, T* arr) const {
+    void copyOut(idx_t n, T* arr) const {
       for (idx_t i = n; i < kTotSize; i += N) {
         *(arr++) = fArray[i];
       }
     }
 
-    void SetDiagonal3x3(idx_t n, T d) {
+    void setDiagonal3x3(idx_t n, T d) {
       T* p = fArray + n;
 
       p[0 * N] = d;
@@ -220,7 +220,7 @@ namespace Matriplex {
       p[5 * N] = d;
     }
 
-    MatriplexSym& Subtract(const MatriplexSym& a, const MatriplexSym& b) {
+    MatriplexSym& subtract(const MatriplexSym& a, const MatriplexSym& b) {
       // Does *this = a - b;
 
 #pragma omp simd
@@ -235,7 +235,7 @@ namespace Matriplex {
     // Super crazy shit for Kalman fit that should probably go elsewhere
     // ==================================================================
 
-    void AddNoiseIntoUpperLeft3x3(T noise) {
+    void addNoiseIntoUpperLeft3x3(T noise) {
       // XXXXX Review, cannonize
       // XXX icc bitch says: loop was not vectorized: cannot vectorize empty simd loop
 
@@ -250,7 +250,7 @@ namespace Matriplex {
       }
     }
 
-    void InvertUpperLeft3x3() {
+    void invertUpperLeft3x3() {
       typedef T TT;
 
       T* a = fArray;
@@ -288,14 +288,14 @@ namespace Matriplex {
 
   template <typename T, idx_t D, idx_t N>
   struct SymMultiplyCls {
-    static void Multiply(const MPlexSym<T, D, N>& A, const MPlexSym<T, D, N>& B, MPlex<T, D, D, N>& C) {
+    static void multiply(const MPlexSym<T, D, N>& A, const MPlexSym<T, D, N>& B, MPlex<T, D, D, N>& C) {
       throw std::runtime_error("general symmetric multiplication not supported");
     }
   };
 
   template <typename T, idx_t N>
   struct SymMultiplyCls<T, 3, N> {
-    static void Multiply(const MPlexSym<T, 3, N>& A, const MPlexSym<T, 3, N>& B, MPlex<T, 3, 3, N>& C) {
+    static void multiply(const MPlexSym<T, 3, N>& A, const MPlexSym<T, 3, N>& B, MPlex<T, 3, 3, N>& C) {
       const T* a = A.fArray;
       ASSUME_ALIGNED(a, 64);
       const T* b = B.fArray;
@@ -322,7 +322,7 @@ namespace Matriplex {
 
   template <typename T, idx_t N>
   struct SymMultiplyCls<T, 6, N> {
-    static void Multiply(const MPlexSym<float, 6, N>& A, const MPlexSym<float, 6, N>& B, MPlex<float, 6, 6, N>& C) {
+    static void multiply(const MPlexSym<float, 6, N>& A, const MPlexSym<float, 6, N>& B, MPlex<float, 6, 6, N>& C) {
       const T* a = A.fArray;
       ASSUME_ALIGNED(a, 64);
       const T* b = B.fArray;
@@ -348,8 +348,8 @@ namespace Matriplex {
   };
 
   template <typename T, idx_t D, idx_t N>
-  void Multiply(const MPlexSym<T, D, N>& A, const MPlexSym<T, D, N>& B, MPlex<T, D, D, N>& C) {
-    SymMultiplyCls<T, D, N>::Multiply(A, B, C);
+  void multiply(const MPlexSym<T, D, N>& A, const MPlexSym<T, D, N>& B, MPlex<T, D, D, N>& C) {
+    SymMultiplyCls<T, D, N>::multiply(A, B, C);
   }
 
   //==============================================================================
@@ -358,12 +358,12 @@ namespace Matriplex {
 
   template <typename T, idx_t D, idx_t N>
   struct CramerInverterSym {
-    static void Invert(MPlexSym<T, D, N>& A) { throw std::runtime_error("general cramer inversion not supported"); }
+    static void invert(MPlexSym<T, D, N>& A) { throw std::runtime_error("general cramer inversion not supported"); }
   };
 
   template <typename T, idx_t N>
   struct CramerInverterSym<T, 2, N> {
-    static void Invert(MPlexSym<T, 2, N>& A) {
+    static void invert(MPlexSym<T, 2, N>& A) {
       typedef T TT;
 
       T* a = A.fArray;
@@ -385,7 +385,7 @@ namespace Matriplex {
 
   template <typename T, idx_t N>
   struct CramerInverterSym<T, 3, N> {
-    static void Invert(MPlexSym<T, 3, N>& A) {
+    static void invert(MPlexSym<T, 3, N>& A) {
       typedef T TT;
 
       T* a = A.fArray;
@@ -415,8 +415,8 @@ namespace Matriplex {
   };
 
   template <typename T, idx_t D, idx_t N>
-  void InvertCramerSym(MPlexSym<T, D, N>& A) {
-    CramerInverterSym<T, D, N>::Invert(A);
+  void invertCramerSym(MPlexSym<T, D, N>& A) {
+    CramerInverterSym<T, D, N>::invert(A);
   }
 
   //==============================================================================
@@ -425,12 +425,12 @@ namespace Matriplex {
 
   template <typename T, idx_t D, idx_t N>
   struct CholeskyInverterSym {
-    static void Invert(MPlexSym<T, D, N>& A) { throw std::runtime_error("general cholesky inversion not supported"); }
+    static void invert(MPlexSym<T, D, N>& A) { throw std::runtime_error("general cholesky inversion not supported"); }
   };
 
   template <typename T, idx_t N>
   struct CholeskyInverterSym<T, 3, N> {
-    static void Invert(MPlexSym<T, 3, N>& A) {
+    static void invert(MPlexSym<T, 3, N>& A) {
       typedef T TT;
 
       T* a = A.fArray;
@@ -466,8 +466,8 @@ namespace Matriplex {
   };
 
   template <typename T, idx_t D, idx_t N>
-  void InvertCholeskySym(MPlexSym<T, D, N>& A) {
-    CholeskyInverterSym<T, D, N>::Invert(A);
+  void invertCholeskySym(MPlexSym<T, D, N>& A) {
+    CholeskyInverterSym<T, D, N>::invert(A);
   }
 
   //==============================================================================

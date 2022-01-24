@@ -214,7 +214,7 @@ namespace mkfit {
 
     // ================================================================
 
-    inline float BfieldFromZR(const float z, const float r) {
+    inline float bFieldFromZR(const float z, const float r) {
       return (Config::mag_b0 * z * z + Config::mag_b1 * z + Config::mag_c1) * (Config::mag_a * r * r + 1.f);
     }
 

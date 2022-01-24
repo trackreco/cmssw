@@ -490,7 +490,7 @@ int main(int argc, char* argv[]) {
 
   if (maxevt < 0)
     maxevt = totentries;
-  data_file.OpenWrite(outputFileName, std::min(maxevt, totentries), outOptions);
+  data_file.openWrite(outputFileName, std::min(maxevt, totentries), outOptions);
 
   Event EE(0);
 
@@ -499,7 +499,7 @@ int main(int argc, char* argv[]) {
   // gDebug = 8;
 
   for (long long i = 0; savedEvents < maxevt && i < totentries && i < maxevt; ++i) {
-    EE.Reset(i);
+    EE.reset(i);
 
     cout << "process entry i=" << i << " out of " << totentries << ", saved so far " << savedEvents
          << ", with max=" << maxevt << endl;

@@ -10,7 +10,7 @@
 
 namespace mkfit {
 
-  void MkFitter::CheckAlignment() {
+  void MkFitter::checkAlignment() {
     printf("MkFitter alignment check:\n");
     Matriplex::align_check("  Err[0]   =", &Err[0].fArray[0]);
     Matriplex::align_check("  Err[1]   =", &Err[1].fArray[0]);
@@ -20,7 +20,7 @@ namespace mkfit {
     Matriplex::align_check("  msPar[0] =", &msPar[0].fArray[0]);
   }
 
-  void MkFitter::PrintPt(int idx) {
+  void MkFitter::printPt(int idx) {
     for (int i = 0; i < NN; ++i) {
       printf("%5.2f  ", std::hypot(Par[idx].At(i, 3, 0), Par[idx].At(i, 4, 0)));
     }
@@ -47,7 +47,7 @@ namespace mkfit {
 
   //==============================================================================
 
-  void MkFitter::InputTracksAndHits(const std::vector<Track>& tracks,
+  void MkFitter::inputTracksAndHits(const std::vector<Track>& tracks,
                                     const std::vector<HitVec>& layerHits,
                                     int beg,
                                     int end) {
@@ -61,8 +61,8 @@ namespace mkfit {
     for (int i = beg; i < end; ++i, ++itrack) {
       const Track& trk = tracks[i];
 
-      Err[iC].CopyIn(itrack, trk.errors().Array());
-      Par[iC].CopyIn(itrack, trk.parameters().Array());
+      Err[iC].copyIn(itrack, trk.errors().Array());
+      Par[iC].copyIn(itrack, trk.parameters().Array());
 
       Chg(itrack, 0, 0) = trk.charge();
       Chi2(itrack, 0, 0) = trk.chi2();
@@ -77,13 +77,13 @@ namespace mkfit {
           continue;
 
         const Hit& hit = layerHits[hi][hidx];
-        msErr[hi].CopyIn(itrack, hit.errArray());
-        msPar[hi].CopyIn(itrack, hit.posArray());
+        msErr[hi].copyIn(itrack, hit.errArray());
+        msPar[hi].copyIn(itrack, hit.posArray());
       }
     }
   }
 
-  void MkFitter::InputTracksAndHits(const std::vector<Track>& tracks,
+  void MkFitter::inputTracksAndHits(const std::vector<Track>& tracks,
                                     const std::vector<LayerOfHits>& layerHits,
                                     int beg,
                                     int end) {
@@ -100,8 +100,8 @@ namespace mkfit {
 
       Label(itrack, 0, 0) = trk.label();
 
-      Err[iC].CopyIn(itrack, trk.errors().Array());
-      Par[iC].CopyIn(itrack, trk.parameters().Array());
+      Err[iC].copyIn(itrack, trk.errors().Array());
+      Par[iC].copyIn(itrack, trk.parameters().Array());
 
       Chg(itrack, 0, 0) = trk.charge();
       Chi2(itrack, 0, 0) = trk.chi2();
@@ -110,17 +110,17 @@ namespace mkfit {
       for (int hi = 0; hi < Nhits; ++hi) {
         const int hidx = trk.getHitIdx(hi);
         const int hlyr = trk.getHitLyr(hi);
-        const Hit& hit = layerHits[hlyr].GetHit(hidx);
+        const Hit& hit = layerHits[hlyr].refHit(hidx);
 
-        msErr[hi].CopyIn(itrack, hit.errArray());
-        msPar[hi].CopyIn(itrack, hit.posArray());
+        msErr[hi].copyIn(itrack, hit.errArray());
+        msPar[hi].copyIn(itrack, hit.posArray());
 
         HoTArr[hi](itrack, 0, 0) = trk.getHitOnTrack(hi);
       }
     }
   }
 
-  void MkFitter::SlurpInTracksAndHits(const std::vector<Track>& tracks,
+  void MkFitter::slurpInTracksAndHits(const std::vector<Track>& tracks,
                                       const std::vector<HitVec>& layerHits,
                                       int beg,
                                       int end) {
@@ -137,13 +137,13 @@ namespace mkfit {
 
       Label(itrack, 0, 0) = trk.label();
 
-      mtp.AddInput(trk);
+      mtp.addInput(trk);
 
       Chg(itrack, 0, 0) = trk.charge();
       Chi2(itrack, 0, 0) = trk.chi2();
     }
 
-    mtp.Pack(Err[iC], Par[iC]);
+    mtp.pack(Err[iC], Par[iC]);
 
     // CopyIn seems fast enough, but indirections are quite slow.
     for (int hi = 0; hi < Nhits; ++hi) {
@@ -155,14 +155,14 @@ namespace mkfit {
 
         HoTArr[hi](i - beg, 0, 0) = tracks[i].getHitOnTrack(hi);
 
-        mhp.AddInput(hit);
+        mhp.addInput(hit);
       }
 
-      mhp.Pack(msErr[hi], msPar[hi]);
+      mhp.pack(msErr[hi], msPar[hi]);
     }
   }
 
-  void MkFitter::InputTracksAndHitIdx(const std::vector<Track>& tracks, int beg, int end, bool inputProp) {
+  void MkFitter::inputTracksAndHitIdx(const std::vector<Track>& tracks, int beg, int end, bool inputProp) {
     // Assign track parameters to initial state and copy hit values in.
 
     // This might not be true for the last chunk!
@@ -174,8 +174,8 @@ namespace mkfit {
     for (int i = beg; i < end; ++i, ++itrack) {
       const Track& trk = tracks[i];
 
-      Err[iI].CopyIn(itrack, trk.errors().Array());
-      Par[iI].CopyIn(itrack, trk.parameters().Array());
+      Err[iI].copyIn(itrack, trk.errors().Array());
+      Par[iI].copyIn(itrack, trk.parameters().Array());
 
       Chg(itrack, 0, 0) = trk.charge();
       Chi2(itrack, 0, 0) = trk.chi2();
@@ -187,7 +187,7 @@ namespace mkfit {
     }
   }
 
-  void MkFitter::InputTracksAndHitIdx(const std::vector<std::vector<Track> >& tracks,
+  void MkFitter::inputTracksAndHitIdx(const std::vector<std::vector<Track> >& tracks,
                                       const std::vector<std::pair<int, int> >& idxs,
                                       int beg,
                                       int end,
@@ -207,8 +207,8 @@ namespace mkfit {
       SeedIdx(itrack, 0, 0) = idxs[i].first;
       CandIdx(itrack, 0, 0) = idxs[i].second;
 
-      Err[iI].CopyIn(itrack, trk.errors().Array());
-      Par[iI].CopyIn(itrack, trk.parameters().Array());
+      Err[iI].copyIn(itrack, trk.errors().Array());
+      Par[iI].copyIn(itrack, trk.parameters().Array());
 
       Chg(itrack, 0, 0) = trk.charge();
       Chi2(itrack, 0, 0) = trk.chi2();
@@ -219,7 +219,7 @@ namespace mkfit {
     }
   }
 
-  void MkFitter::InputSeedsTracksAndHits(const std::vector<Track>& seeds,
+  void MkFitter::inputSeedsTracksAndHits(const std::vector<Track>& seeds,
                                          const std::vector<Track>& tracks,
                                          const std::vector<HitVec>& layerHits,
                                          int beg,
@@ -239,8 +239,8 @@ namespace mkfit {
       if (see.label() < 0)
         continue;
 
-      Err[iC].CopyIn(itrack, see.errors().Array());
-      Par[iC].CopyIn(itrack, see.parameters().Array());
+      Err[iC].copyIn(itrack, see.errors().Array());
+      Par[iC].copyIn(itrack, see.parameters().Array());
 
       Chg(itrack, 0, 0) = see.charge();
       Chi2(itrack, 0, 0) = see.chi2();
@@ -256,8 +256,8 @@ namespace mkfit {
           continue;  //fixme, check if this is harmless
 
         const Hit& hit = layerHits[hi][hidx];
-        msErr[hi].CopyIn(itrack, hit.errArray());
-        msPar[hi].CopyIn(itrack, hit.posArray());
+        msErr[hi].copyIn(itrack, hit.errArray());
+        msPar[hi].copyIn(itrack, hit.posArray());
       }
     }
   }
@@ -266,7 +266,7 @@ namespace mkfit {
   // Fitting with interleaved hit loading
   //------------------------------------------------------------------------------
 
-  void MkFitter::InputTracksForFit(const std::vector<Track>& tracks, int beg, int end) {
+  void MkFitter::inputTracksForFit(const std::vector<Track>& tracks, int beg, int end) {
     // Loads track parameters and hit indices.
 
     // XXXXMT4K has Config::nLayers: How many hits do we read in?
@@ -288,18 +288,18 @@ namespace mkfit {
       Chi2(itrack, 0, 0) = trk.chi2();
       Label(itrack, 0, 0) = trk.label();
 
-      mtp.AddInput(trk);
+      mtp.addInput(trk);
 
-      mhotp.AddInput(*trk.getHitsOnTrackArray());
+      mhotp.addInput(*trk.getHitsOnTrackArray());
     }
 
-    mtp.Pack(Err[iC], Par[iC]);
+    mtp.pack(Err[iC], Par[iC]);
     for (int ll = 0; ll < Config::nLayers; ++ll) {
-      mhotp.Pack(HoTArr[ll], ll);
+      mhotp.pack(HoTArr[ll], ll);
     }
   }
 
-  void MkFitter::FitTracksWithInterSlurp(const std::vector<HitVec>& layersohits, const int N_proc) {
+  void MkFitter::fitTracksWithInterSlurp(const std::vector<HitVec>& layersohits, const int N_proc) {
     // XXXX This has potential issues hits coming from different layers!
     // Expected to only work reliably with barrel (consecutive layers from 0 -> Nhits)
     // and with hits present on every layer for every track.
@@ -322,15 +322,15 @@ namespace mkfit {
         // Say, hidx = 0 ... grr ... but then we don't know it is missing.
 
         if (hidx < 0 || hlyr < 0) {
-          mhp.AddNullInput();
+          mhp.addNullInput();
         } else {
-          mhp.AddInput(layersohits[hlyr][hidx]);
+          mhp.addInput(layersohits[hlyr][hidx]);
         }
       }
 
-      mhp.Pack(msErr[0], msPar[0]);
+      mhp.pack(msErr[0], msPar[0]);
 
-      PropagateTracksToHitR(msPar[0], N_proc, Config::forward_fit_pflags);
+      propagateTracksToHitR(msPar[0], N_proc, Config::forward_fit_pflags);
 
       kalmanUpdate(Err[iP], Par[iP], msErr[0], msPar[0], Err[iC], Par[iC], N_proc);
     }
@@ -340,14 +340,14 @@ namespace mkfit {
   // Fitting functions
   //==============================================================================
 
-  void MkFitter::OutputTracks(std::vector<Track>& tracks, int beg, int end, int iCP) const {
+  void MkFitter::outputTracks(std::vector<Track>& tracks, int beg, int end, int iCP) const {
     // Copies last track parameters (updated) into Track objects.
     // The tracks vector should be resized to allow direct copying.
 
     int itrack = 0;
     for (int i = beg; i < end; ++i, ++itrack) {
-      Err[iCP].CopyOut(itrack, tracks[i].errors_nc().Array());
-      Par[iCP].CopyOut(itrack, tracks[i].parameters_nc().Array());
+      Err[iCP].copyOut(itrack, tracks[i].errors_nc().Array());
+      Par[iCP].copyOut(itrack, tracks[i].parameters_nc().Array());
 
       tracks[i].setCharge(Chg(itrack, 0, 0));
 
@@ -357,7 +357,7 @@ namespace mkfit {
     }
   }
 
-  void MkFitter::OutputFittedTracksAndHitIdx(std::vector<Track>& tracks, int beg, int end, bool outputProp) const {
+  void MkFitter::outputFittedTracksAndHitIdx(std::vector<Track>& tracks, int beg, int end, bool outputProp) const {
     // Copies last track parameters (updated) into Track objects and up to Nhits.
     // The tracks vector should be resized to allow direct copying.
 
@@ -365,8 +365,8 @@ namespace mkfit {
 
     int itrack = 0;
     for (int i = beg; i < end; ++i, ++itrack) {
-      Err[iO].CopyOut(itrack, tracks[i].errors_nc().Array());
-      Par[iO].CopyOut(itrack, tracks[i].parameters_nc().Array());
+      Err[iO].copyOut(itrack, tracks[i].errors_nc().Array());
+      Par[iO].copyOut(itrack, tracks[i].parameters_nc().Array());
 
       tracks[i].setCharge(Chg(itrack, 0, 0));
       tracks[i].setChi2(Chi2(itrack, 0, 0));

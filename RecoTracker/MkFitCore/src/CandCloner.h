@@ -17,11 +17,11 @@ namespace mkfit {
 
   class CandCloner {
   public:
-    // Maximum number of seeds processed in one call to ProcessSeedRange()
+    // Maximum number of seeds processed in one call to processSeedRange()
     static const int s_max_seed_range = MPT_SIZE;
 
   private:
-    // Temporaries in ProcessSeedRange(), resized/reserved  in constructor.
+    // Temporaries in processSeedRange(), resized/reserved  in constructor.
 
     // Size of this one is s_max_seed_range
     std::vector<std::vector<TrackCand>> t_cands_for_next_lay;
@@ -29,8 +29,8 @@ namespace mkfit {
   public:
     CandCloner() { t_cands_for_next_lay.resize(s_max_seed_range); }
 
-    void Setup(const IterationParams &ip);
-    void Release();
+    void setup(const IterationParams &ip);
+    void release();
 
     ~CandCloner() {}
 
@@ -90,13 +90,13 @@ namespace mkfit {
 
       if (proc_n >= s_max_seed_range) {
         // Round to multiple of s_max_seed_range.
-        DoWork((m_idx_max / s_max_seed_range) * s_max_seed_range);
+        doWork((m_idx_max / s_max_seed_range) * s_max_seed_range);
       }
     }
 
     void end_layer() {
       if (m_n_seeds > m_idx_max_prev) {
-        DoWork(m_n_seeds);
+        doWork(m_n_seeds);
       }
 
       for (int i = 0; i < m_n_seeds; ++i) {
@@ -120,7 +120,7 @@ namespace mkfit {
 #endif
     }
 
-    void DoWork(int idx) {
+    void doWork(int idx) {
       // printf("CandCloner::DoWork assigning work from seed %d to %d\n", m_idx_max_prev, idx);
 
       int beg = m_idx_max_prev;
@@ -133,7 +133,7 @@ namespace mkfit {
 
         // printf("CandCloner::DoWork processing %4d -> %4d\n", beg, end);
 
-        ProcessSeedRange(beg, end);
+        processSeedRange(beg, end);
 
         beg = end;
       }
@@ -143,7 +143,7 @@ namespace mkfit {
 
     // ----------------------------------------------------------------
 
-    void ProcessSeedRange(int is_beg, int is_end);
+    void processSeedRange(int is_beg, int is_end);
 
     // ----------------------------------------------------------------
 

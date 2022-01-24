@@ -200,51 +200,51 @@ namespace mkfit {
       operator delete[](m_hit_ranks);
     }
 
-    void SetupLayer(const LayerInfo& li);
+    void setupLayer(const LayerInfo& li);
 
-    void Reset() {}
+    void reset() {}
 
-    float NormalizeQ(float q) const { return std::clamp(q, m_qmin, m_qmax); }
+    float normalizeQ(float q) const { return std::clamp(q, m_qmin, m_qmax); }
 
-    int GetQBin(float q) const { return (q - m_qmin) * m_fq; }
+    int qBin(float q) const { return (q - m_qmin) * m_fq; }
 
-    int GetQBinChecked(float q) const { return std::clamp(GetQBin(q), 0, m_nq - 1); }
+    int qBinChecked(float q) const { return std::clamp(qBin(q), 0, m_nq - 1); }
 
     // if you don't pass phi in (-pi, +pi), mask away the upper bits using m_phi_mask or use the Checked version.
-    int GetPhiBinFine(float phi) const { return std::floor(m_fphi_fine * (phi + Config::PI)); }
-    int GetPhiBin(float phi) const { return GetPhiBinFine(phi) >> m_phi_bits_shift; }
+    int phiBinFine(float phi) const { return std::floor(m_fphi_fine * (phi + Config::PI)); }
+    int phiBin(float phi) const { return phiBinFine(phi) >> m_phi_bits_shift; }
 
-    int GetPhiBinChecked(float phi) const { return GetPhiBin(phi) & m_phi_mask; }
+    int phiBinChecked(float phi) const { return phiBin(phi) & m_phi_mask; }
 
-    const vecPhiBinInfo_t& GetVecPhiBinInfo(float q) const { return m_phi_bin_infos[GetQBin(q)]; }
+    const vecPhiBinInfo_t& vecPhiBinInfo(float q) const { return m_phi_bin_infos[qBin(q)]; }
 
     // Get in all hits from given hit-vec
-    void SuckInHits(const HitVec& hitv);
+    void suckInHits(const HitVec& hitv);
 
     // Get in all hits from given dead-vec
-    void SuckInDeads(const DeadVec& deadv);
+    void suckInDeads(const DeadVec& deadv);
 
     // Use external hit-vec and only use hits that are passed to me.
-    void BeginRegistrationOfHits(const HitVec& hitv);
-    void RegisterHit(int idx);
-    void EndRegistrationOfHits(bool build_original_to_internal_map);
+    void beginRegistrationOfHits(const HitVec& hitv);
+    void registerHit(int idx);
+    void endRegistrationOfHits(bool build_original_to_internal_map);
 
     // Use this to map original indices to sorted internal ones. m_ext_idcs needs to be initialized.
-    int GetHitIndexFromOriginal(int i) const { return m_ext_idcs[i - m_min_ext_idx]; }
+    int getHitIndexFromOriginal(int i) const { return m_ext_idcs[i - m_min_ext_idx]; }
     // Use this to remap internal hit index to external one.
-    int GetOriginalHitIndex(int i) const { return m_hit_ranks[i]; }
+    int getOriginalHitIndex(int i) const { return m_hit_ranks[i]; }
 
 #ifdef COPY_SORTED_HITS
-    const Hit& GetHit(int i) const { return m_hits[i]; }
-    const Hit* GetHitArray() const { return m_hits; }
+    const Hit& refHit(int i) const { return m_hits[i]; }
+    const Hit* hitArray() const { return m_hits; }
 #else
-    const Hit& GetHit(int i) const { return (*m_ext_hits)[i]; }
-    const Hit* GetHitArray() const { return m_ext_hits->data(); }
+    const Hit& refHit(int i) const { return (*m_ext_hits)[i]; }
+    const Hit* hitArray() const { return m_ext_hits->data(); }
 #endif
 
-    // void  SelectHitIndices(float q, float phi, float dq, float dphi, std::vector<int>& idcs, bool isForSeeding=false, bool dump=false);
+    // void  selectHitIndices(float q, float phi, float dq, float dphi, std::vector<int>& idcs, bool isForSeeding=false, bool dump=false);
 
-    void PrintBins();
+    void printBins();
   };
 
   //==============================================================================
@@ -258,26 +258,26 @@ namespace mkfit {
   public:
     EventOfHits(const TrackerInfo& trk_inf);
 
-    void Reset() {
+    void reset() {
       for (auto& i : m_layers_of_hits) {
-        i.Reset();
+        i.reset();
       }
     }
 
-    void SuckInHits(int layer, const HitVec& hitv) {
-      m_layers_of_hits[layer].SuckInHits(hitv);
+    void suckInHits(int layer, const HitVec& hitv) {
+      m_layers_of_hits[layer].suckInHits(hitv);
       /*
     int   nh  = hitv.size();
     auto &loh = m_layers_of_hits[layer];
-    loh.BeginRegistrationOfHits(hitv);
-    for (int i = 0; i < nh; ++i) loh.RegisterHit(i);
-    loh.EndRegistrationOfHits();
+    loh.beginRegistrationOfHits(hitv);
+    for (int i = 0; i < nh; ++i) loh.registerHit(i);
+    loh.endRegistrationOfHits();
     */
     }
 
-    void SuckInDeads(int layer, const DeadVec& deadv) { m_layers_of_hits[layer].SuckInDeads(deadv); }
+    void suckInDeads(int layer, const DeadVec& deadv) { m_layers_of_hits[layer].suckInDeads(deadv); }
 
-    void SetBeamSpot(const BeamSpot& bs) { m_beam_spot = bs; }
+    void setBeamSpot(const BeamSpot& bs) { m_beam_spot = bs; }
 
     LayerOfHits& operator[](int i) { return m_layers_of_hits[i]; }
     const LayerOfHits& operator[](int i) const { return m_layers_of_hits[i]; }
@@ -591,7 +591,7 @@ namespace mkfit {
 #endif
           m_hots_size(o.m_hots_size),
           m_hots(std::move(o.m_hots)) {
-      // This is not needed as we do EOCC::Reset() after EOCCS::resize which
+      // This is not needed as we do EOCC::reset() after EOCCS::resize which
       // calls Reset here and all CombCands get cleared.
       // However, if at some point we start using this for other purposes this needs
       // to be called as well.
@@ -634,14 +634,14 @@ namespace mkfit {
     trk_cand_vec_type::reference emplace_back(TrackCand& tc) { return m_trk_cands.emplace_back(tc); }
     void clear() { m_trk_cands.clear(); }
 
-    void Reset(int max_cands_per_seed, int expected_num_hots) {
+    void reset(int max_cands_per_seed, int expected_num_hots) {
       std::vector<TrackCand, CcAlloc<TrackCand>> tmp(m_trk_cands.get_allocator());
       m_trk_cands.swap(tmp);
       m_trk_cands.reserve(max_cands_per_seed);  // we *must* never exceed this
 
       m_best_short_cand.setScore(getScoreWorstPossible());
 
-      // state and pickup_layer set in ImportSeed.
+      // state and pickup_layer set in importSeed.
 
       // expected_num_hots is different for CloneEngine and Std, especially as long as we
       // instantiate all candidates before purging them.
@@ -652,18 +652,18 @@ namespace mkfit {
       m_hots.clear();
     }
 
-    void ImportSeed(const Track& seed, int region);
+    void importSeed(const Track& seed, int region);
 
-    int AddHit(const HitOnTrack& hot, float chi2, int prev_idx) {
+    int addHit(const HitOnTrack& hot, float chi2, int prev_idx) {
       m_hots.push_back({hot, chi2, prev_idx});
       return m_hots_size++;
     }
 
-    void MergeCandsAndBestShortOne(const IterationParams& params, bool update_score, bool sort_cands);
+    void mergeCandsAndBestShortOne(const IterationParams& params, bool update_score, bool sort_cands);
 
-    void CompactifyHitStorageForBestCand(bool remove_seed_hits, int backward_fit_min_hits);
-    void BeginBkwSearch();
-    void EndBkwSearch();
+    void compactifyHitStorageForBestCand(bool remove_seed_hits, int backward_fit_min_hits);
+    void beginBkwSearch();
+    void endBkwSearch();
   };
 
   //==============================================================================
@@ -793,7 +793,7 @@ namespace mkfit {
   //------------------------------------------------------------------------------
 
   inline void TrackCand::addHitIdx(int hitIdx, int hitLyr, float chi2) {
-    lastHitIdx_ = m_comb_candidate->AddHit({hitIdx, hitLyr}, chi2, lastHitIdx_);
+    lastHitIdx_ = m_comb_candidate->addHit({hitIdx, hitLyr}, chi2, lastHitIdx_);
 
     if (hitIdx >= 0 || hitIdx == -9) {
       ++nFoundHits_;
@@ -823,7 +823,7 @@ namespace mkfit {
   public:
     EventOfCombCandidates(int size = 0) : m_cc_pool(), m_candidates(), m_capacity(0), m_size(0) {}
 
-    void ReleaseMemory() {
+    void releaseMemory() {
       {  // Get all the destructors called before nuking CcPool.
         std::vector<CombCandidate> tmp;
         m_candidates.swap(tmp);
@@ -833,7 +833,7 @@ namespace mkfit {
       m_cc_pool.release();
     }
 
-    void Reset(int new_capacity, int max_cands_per_seed, int expected_num_hots = 128) {
+    void reset(int new_capacity, int max_cands_per_seed, int expected_num_hots = 128) {
       m_cc_pool.reset(new_capacity * max_cands_per_seed);
       if (new_capacity > m_capacity) {
         CcAlloc<TrackCand> alloc(&m_cc_pool);
@@ -842,16 +842,16 @@ namespace mkfit {
         m_capacity = new_capacity;
       }
       for (int s = 0; s < new_capacity; ++s) {
-        m_candidates[s].Reset(max_cands_per_seed, expected_num_hots);
+        m_candidates[s].reset(max_cands_per_seed, expected_num_hots);
       }
       for (int s = new_capacity; s < m_capacity; ++s) {
-        m_candidates[s].Reset(0, 0);
+        m_candidates[s].reset(0, 0);
       }
 
       m_size = 0;
     }
 
-    void ResizeAfterFiltering(int n_removed) {
+    void resizeAfterFiltering(int n_removed) {
       assert(n_removed <= m_size);
       m_size -= n_removed;
     }
@@ -859,26 +859,26 @@ namespace mkfit {
     const CombCandidate& operator[](int i) const { return m_candidates[i]; }
     CombCandidate& operator[](int i) { return m_candidates[i]; }
 
-    void InsertSeed(const Track& seed, int region) {
+    void insertSeed(const Track& seed, int region) {
       assert(m_size < m_capacity);
 
-      m_candidates[m_size].ImportSeed(seed, region);
+      m_candidates[m_size].importSeed(seed, region);
 
       ++m_size;
     }
 
-    void CompactifyHitStorageForBestCand(bool remove_seed_hits, int backward_fit_min_hits) {
+    void compactifyHitStorageForBestCand(bool remove_seed_hits, int backward_fit_min_hits) {
       for (int i = 0; i < m_size; ++i)
-        m_candidates[i].CompactifyHitStorageForBestCand(remove_seed_hits, backward_fit_min_hits);
+        m_candidates[i].compactifyHitStorageForBestCand(remove_seed_hits, backward_fit_min_hits);
     }
 
-    void BeginBkwSearch() {
+    void beginBkwSearch() {
       for (int i = 0; i < m_size; ++i)
-        m_candidates[i].BeginBkwSearch();
+        m_candidates[i].beginBkwSearch();
     }
-    void EndBkwSearch() {
+    void endBkwSearch() {
       for (int i = 0; i < m_size; ++i)
-        m_candidates[i].EndBkwSearch();
+        m_candidates[i].endBkwSearch();
     }
   };
 

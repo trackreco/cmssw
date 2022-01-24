@@ -64,7 +64,7 @@ namespace mkfit {
 
     // ================================================================
 
-    void RecalculateDependentConstants() {}
+    void recalculateDependentConstants() {}
 
   }  // namespace Config
 

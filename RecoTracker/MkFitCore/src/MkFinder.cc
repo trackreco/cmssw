@@ -24,13 +24,13 @@
 
 namespace mkfit {
 
-  void MkFinder::Setup(const IterationParams &ip, const IterationLayerConfig &ilc, const std::vector<bool> *ihm) {
+  void MkFinder::setup(const IterationParams &ip, const IterationLayerConfig &ilc, const std::vector<bool> *ihm) {
     m_iteration_params = &ip;
     m_iteration_layer_config = &ilc;
     m_iteration_hit_mask = ihm;
   }
 
-  void MkFinder::Release() {
+  void MkFinder::release() {
     m_iteration_params = nullptr;
     m_iteration_layer_config = nullptr;
     m_iteration_hit_mask = nullptr;
@@ -40,7 +40,7 @@ namespace mkfit {
   // Input / Output TracksAndHitIdx
   //==============================================================================
 
-  void MkFinder::InputTracksAndHitIdx(const std::vector<Track> &tracks, int beg, int end, bool inputProp) {
+  void MkFinder::inputTracksAndHitIdx(const std::vector<Track> &tracks, int beg, int end, bool inputProp) {
     // Assign track parameters to initial state and copy hit values in.
 
     // This might not be true for the last chunk!
@@ -53,7 +53,7 @@ namespace mkfit {
     }
   }
 
-  void MkFinder::InputTracksAndHitIdx(
+  void MkFinder::inputTracksAndHitIdx(
       const std::vector<Track> &tracks, const std::vector<int> &idxs, int beg, int end, bool inputProp, int mp_offset) {
     // Assign track parameters to initial state and copy hit values in.
 
@@ -67,7 +67,7 @@ namespace mkfit {
     }
   }
 
-  void MkFinder::InputTracksAndHitIdx(const std::vector<CombCandidate> &tracks,
+  void MkFinder::inputTracksAndHitIdx(const std::vector<CombCandidate> &tracks,
                                       const std::vector<std::pair<int, int>> &idxs,
                                       int beg,
                                       int end,
@@ -94,7 +94,7 @@ namespace mkfit {
     }
   }
 
-  void MkFinder::InputTracksAndHitIdx(const std::vector<CombCandidate> &tracks,
+  void MkFinder::inputTracksAndHitIdx(const std::vector<CombCandidate> &tracks,
                                       const std::vector<std::pair<int, IdxChi2List>> &idxs,
                                       int beg,
                                       int end,
@@ -121,7 +121,7 @@ namespace mkfit {
     }
   }
 
-  void MkFinder::OutputTracksAndHitIdx(std::vector<Track> &tracks, int beg, int end, bool outputProp) const {
+  void MkFinder::outputTracksAndHitIdx(std::vector<Track> &tracks, int beg, int end, bool outputProp) const {
     // Copies requested track parameters into Track objects.
     // The tracks vector should be resized to allow direct copying.
 
@@ -132,7 +132,7 @@ namespace mkfit {
     }
   }
 
-  void MkFinder::OutputTracksAndHitIdx(
+  void MkFinder::outputTracksAndHitIdx(
       std::vector<Track> &tracks, const std::vector<int> &idxs, int beg, int end, bool outputProp) const {
     // Copies requested track parameters into Track objects.
     // The tracks vector should be resized to allow direct copying.
@@ -209,7 +209,7 @@ namespace mkfit {
   // SelectHitIndices
   //==============================================================================
 
-  void MkFinder::SelectHitIndices(const LayerOfHits &layer_of_hits, const int N_proc) {
+  void MkFinder::selectHitIndices(const LayerOfHits &layer_of_hits, const int N_proc) {
     // bool debug = true;
 
     const LayerOfHits &L = layer_of_hits;
@@ -245,16 +245,16 @@ namespace mkfit {
       dphiv[itrack] = dphi;
       dqv[itrack] = dq;
       //
-      qbv[itrack] = L.GetQBinChecked(q);
-      qb1v[itrack] = L.GetQBinChecked(q - dq);
-      qb2v[itrack] = L.GetQBinChecked(q + dq) + 1;
-      pb1v[itrack] = L.GetPhiBin(phi - dphi);
-      pb2v[itrack] = L.GetPhiBin(phi + dphi) + 1;
+      qbv[itrack] = L.qBinChecked(q);
+      qb1v[itrack] = L.qBinChecked(q - dq);
+      qb2v[itrack] = L.qBinChecked(q + dq) + 1;
+      pb1v[itrack] = L.phiBin(phi - dphi);
+      pb2v[itrack] = L.phiBin(phi + dphi) + 1;
     };
 
     const auto calcdphi2 = [&](int itrack, float dphidx, float dphidy) {
-      return dphidx * dphidx * Err[iI].ConstAt(itrack, 0, 0) + dphidy * dphidy * Err[iI].ConstAt(itrack, 1, 1) +
-             2 * dphidx * dphidy * Err[iI].ConstAt(itrack, 0, 1);
+      return dphidx * dphidx * Err[iI].constAt(itrack, 0, 0) + dphidy * dphidy * Err[iI].constAt(itrack, 1, 1) +
+             2 * dphidx * dphidy * Err[iI].constAt(itrack, 0, 1);
     };
 
     const auto calcdphi = [&](float dphi2, float min_dphi) {
@@ -282,8 +282,8 @@ namespace mkfit {
         const float theta = std::fabs(Par[iI].At(itrack, 5, 0) - Config::PIOver2);
         getHitSelDynamicWindows(invpt, theta, min_dq, max_dq, min_dphi, max_dphi);
 
-        const float x = Par[iI].ConstAt(itrack, 0, 0);
-        const float y = Par[iI].ConstAt(itrack, 1, 0);
+        const float x = Par[iI].constAt(itrack, 0, 0);
+        const float y = Par[iI].constAt(itrack, 1, 0);
         const float r2 = x * x + y * y;
         const float dphidx = -y / r2, dphidy = x / r2;
         const float dphi2 = calcdphi2(itrack, dphidx, dphidy);
@@ -294,10 +294,10 @@ namespace mkfit {
         const float phi = getPhi(x, y);
         float dphi = calcdphi(dphi2, min_dphi);
 
-        const float z = Par[iI].ConstAt(itrack, 2, 0);
-        const float dz = std::abs(nSigmaZ * std::sqrt(Err[iI].ConstAt(itrack, 2, 2)));
+        const float z = Par[iI].constAt(itrack, 2, 0);
+        const float dz = std::abs(nSigmaZ * std::sqrt(Err[iI].constAt(itrack, 2, 2)));
         const float edgeCorr =
-            std::abs(0.5f * (L.m_layer_info->m_rout - L.m_layer_info->m_rin) / std::tan(Par[iI].ConstAt(itrack, 5, 0)));
+            std::abs(0.5f * (L.m_layer_info->m_rout - L.m_layer_info->m_rin) / std::tan(Par[iI].constAt(itrack, 5, 0)));
         // XXX-NUM-ERR above, Err(2,2) gets negative!
 
         ////// Disable correction
@@ -310,7 +310,7 @@ namespace mkfit {
         //  const float deltaR = Config::cmsDeltaRad;
         //  const float r  = std::sqrt(r2);
         //  //here alpha is the difference between posPhi and momPhi
-        //  const float alpha = phi - Par[iP].ConstAt(itrack, 4, 0);
+        //  const float alpha = phi - Par[iP].constAt(itrack, 4, 0);
         //  float cosA, sinA;
         //  if (Config::useTrigApprox) {
         //    sincos4(alpha, sinA, cosA);
@@ -343,8 +343,8 @@ namespace mkfit {
         const float theta = std::fabs(Par[iI].At(itrack, 5, 0) - Config::PIOver2);
         getHitSelDynamicWindows(invpt, theta, min_dq, max_dq, min_dphi, max_dphi);
 
-        const float x = Par[iI].ConstAt(itrack, 0, 0);
-        const float y = Par[iI].ConstAt(itrack, 1, 0);
+        const float x = Par[iI].constAt(itrack, 0, 0);
+        const float y = Par[iI].constAt(itrack, 1, 0);
         const float r2 = x * x + y * y;
         const float dphidx = -y / r2, dphidy = x / r2;
         const float dphi2 = calcdphi2(itrack, dphidx, dphidy);
@@ -357,11 +357,11 @@ namespace mkfit {
 
         const float r = std::sqrt(r2);
         const float dr =
-            nSigmaR * std::sqrt(std::abs(x * x * Err[iI].ConstAt(itrack, 0, 0) + y * y * Err[iI].ConstAt(itrack, 1, 1) +
-                                         2 * x * y * Err[iI].ConstAt(itrack, 0, 1)) /
+            nSigmaR * std::sqrt(std::abs(x * x * Err[iI].constAt(itrack, 0, 0) + y * y * Err[iI].constAt(itrack, 1, 1) +
+                                         2 * x * y * Err[iI].constAt(itrack, 0, 1)) /
                                 r2);
         const float edgeCorr = std::abs(0.5f * (L.m_layer_info->m_zmax - L.m_layer_info->m_zmin) *
-                                        std::tan(Par[iI].ConstAt(itrack, 5, 0)));
+                                        std::tan(Par[iI].constAt(itrack, 5, 0)));
 
         ////// Disable correction
         //if (Config::useCMSGeom) // should be Config::finding_requires_propagation_to_hit_pos
@@ -371,11 +371,11 @@ namespace mkfit {
         //  //XXXXMT4GC should we also increase dr?
         //  //XXXXMT4GC can we just take half of layer dz?
         //  const float deltaZ = 5;
-        //  float cosT = std::cos(Par[iI].ConstAt(itrack, 5, 0));
-        //  float sinT = std::sin(Par[iI].ConstAt(itrack, 5, 0));
+        //  float cosT = std::cos(Par[iI].constAt(itrack, 5, 0));
+        //  float sinT = std::sin(Par[iI].constAt(itrack, 5, 0));
         //  //here alpha is the helix angular path corresponding to deltaZ
-        //  const float k = Chg.ConstAt(itrack, 0, 0) * 100.f / (-Config::sol*Config::Bfield);
-        //  const float alpha  = deltaZ*sinT*Par[iI].ConstAt(itrack, 3, 0)/(cosT*k);
+        //  const float k = Chg.constAt(itrack, 0, 0) * 100.f / (-Config::sol*Config::Bfield);
+        //  const float alpha  = deltaZ*sinT*Par[iI].constAt(itrack, 3, 0)/(cosT*k);
         //  dphi += std::abs(alpha);
         //}
 
@@ -468,7 +468,7 @@ namespace mkfit {
           for (uint16_t hi = L.m_phi_bin_infos[qi][pb].first; hi < L.m_phi_bin_infos[qi][pb].second; ++hi) {
             // MT: Access into m_hit_zs and m_hit_phis is 1% run-time each.
 
-            int hi_orig = L.GetOriginalHitIndex(hi);
+            int hi_orig = L.getOriginalHitIndex(hi);
 
             if (m_iteration_hit_mask && (*m_iteration_hit_mask)[hi_orig]) {
               // printf("Yay, denying masked hit on layer %d, hi %d, orig idx %d\n",
@@ -485,7 +485,7 @@ namespace mkfit {
 
 #ifdef DUMPHITWINDOW
               {
-                const MCHitInfo &mchinfo = m_event->simHitsInfo_[L.GetHit(hi).mcHitID()];
+                const MCHitInfo &mchinfo = m_event->simHitsInfo_[L.refHit(hi).mcHitID()];
                 int mchid = mchinfo.mcTrackID();
                 int st_isfindable = 0;
                 int st_label = -999999;
@@ -511,9 +511,9 @@ namespace mkfit {
                   st_z = simtrack.z();
                 }
 
-                const Hit &thishit = L.GetHit(hi);
-                msErr.CopyIn(itrack, thishit.errArray());
-                msPar.CopyIn(itrack, thishit.posArray());
+                const Hit &thishit = L.refHit(hi);
+                msErr.copyIn(itrack, thishit.errArray());
+                msPar.copyIn(itrack, thishit.posArray());
 
                 MPlexQF thisOutChi2;
                 MPlexLV tmpPropPar;
@@ -634,7 +634,7 @@ namespace mkfit {
                       m_event->evtID(),
                       L.layer_id(),
                       L.is_barrel(),
-                      L.GetOriginalHitIndex(hi),
+                      L.getOriginalHitIndex(hi),
                       itrack,
                       CandIdx(itrack, 0, 0),
                       Label(itrack, 0, 0),
@@ -732,10 +732,10 @@ namespace mkfit {
   // AddBestHit - Best Hit Track Finding
   //==============================================================================
 
-  void MkFinder::AddBestHit(const LayerOfHits &layer_of_hits, const int N_proc, const FindingFoos &fnd_foos) {
+  void MkFinder::addBestHit(const LayerOfHits &layer_of_hits, const int N_proc, const FindingFoos &fnd_foos) {
     // debug = true;
 
-    MatriplexHitPacker mhp(*layer_of_hits.GetHitArray());
+    MatriplexHitPacker mhp(*layer_of_hits.hitArray());
 
     float minChi2[NN];
     int bestHit[NN];
@@ -761,16 +761,16 @@ namespace mkfit {
     for (int hit_cnt = 0; hit_cnt < maxSize; ++hit_cnt) {
       //fixme what if size is zero???
 
-      mhp.Reset();
+      mhp.reset();
 
 #pragma omp simd
       for (int itrack = 0; itrack < N_proc; ++itrack) {
         if (hit_cnt < XHitSize[itrack]) {
-          mhp.AddInputAt(itrack, layer_of_hits.GetHit(XHitArr.At(itrack, hit_cnt, 0)));
+          mhp.addInputAt(itrack, layer_of_hits.refHit(XHitArr.At(itrack, hit_cnt, 0)));
         }
       }
 
-      mhp.Pack(msErr, msPar);
+      mhp.pack(msErr, msPar);
 
       //now compute the chi2 of track state vs hit
       MPlexQF outChi2;
@@ -796,7 +796,7 @@ namespace mkfit {
     for (int itrack = 0; itrack < N_proc; ++itrack) {
       if (XWsrResult[itrack].m_wsr == WSR_Outside) {
         // Why am I doing this?
-        msErr.SetDiagonal3x3(itrack, 666);
+        msErr.setDiagonal3x3(itrack, 666);
         msPar(itrack, 0, 0) = Par[iP](itrack, 0, 0);
         msPar(itrack, 1, 0) = Par[iP](itrack, 1, 0);
         msPar(itrack, 2, 0) = Par[iP](itrack, 2, 0);
@@ -812,16 +812,16 @@ namespace mkfit {
 
       //fixme decide what to do in case no hit found
       if (bestHit[itrack] >= 0) {
-        const Hit &hit = layer_of_hits.GetHit(bestHit[itrack]);
+        const Hit &hit = layer_of_hits.refHit(bestHit[itrack]);
         const float chi2 = minChi2[itrack];
 
         dprint("ADD BEST HIT FOR TRACK #"
                << itrack << std::endl
-               << "prop x=" << Par[iP].ConstAt(itrack, 0, 0) << " y=" << Par[iP].ConstAt(itrack, 1, 0) << std::endl
+               << "prop x=" << Par[iP].constAt(itrack, 0, 0) << " y=" << Par[iP].constAt(itrack, 1, 0) << std::endl
                << "copy in hit #" << bestHit[itrack] << " x=" << hit.position()[0] << " y=" << hit.position()[1]);
 
-        msErr.CopyIn(itrack, hit.errArray());
-        msPar.CopyIn(itrack, hit.posArray());
+        msErr.copyIn(itrack, hit.errArray());
+        msPar.copyIn(itrack, hit.posArray());
         Chi2(itrack, 0, 0) += chi2;
 
         add_hit(itrack, bestHit[itrack], layer_of_hits.layer_id());
@@ -838,7 +838,7 @@ namespace mkfit {
         dprint("ADD FAKE HIT FOR TRACK #" << itrack << " withinBounds=" << (fake_hit_idx != -3)
                                           << " r=" << std::hypot(Par[iP](itrack, 0, 0), Par[iP](itrack, 1, 0)));
 
-        msErr.SetDiagonal3x3(itrack, 666);
+        msErr.setDiagonal3x3(itrack, 666);
         msPar(itrack, 0, 0) = Par[iP](itrack, 0, 0);
         msPar(itrack, 1, 0) = Par[iP](itrack, 1, 0);
         msPar(itrack, 2, 0) = Par[iP](itrack, 2, 0);
@@ -865,22 +865,22 @@ namespace mkfit {
       int itrack, bool isBarrel, const MPlexLS &pErr, const MPlexLV &pPar, const MPlexHS &msErr, const MPlexHV &msPar) {
     //check module compatibility via long strip side = L/sqrt(12)
     if (isBarrel) {  //check z direction only
-      const float res = std::abs(msPar.ConstAt(itrack, 2, 0) - pPar.ConstAt(itrack, 2, 0));
-      const float hitHL = sqrt(msErr.ConstAt(itrack, 2, 2) * 3.f);  //half-length
-      const float qErr = sqrt(pErr.ConstAt(itrack, 2, 2));
+      const float res = std::abs(msPar.constAt(itrack, 2, 0) - pPar.constAt(itrack, 2, 0));
+      const float hitHL = sqrt(msErr.constAt(itrack, 2, 2) * 3.f);  //half-length
+      const float qErr = sqrt(pErr.constAt(itrack, 2, 2));
       dprint("qCompat " << hitHL << " + " << 3.f * qErr << " vs " << res);
       return hitHL + std::max(3.f * qErr, 0.5f) > res;
     } else {  //project on xy, assuming the strip Length >> Width
-      const float res[2]{msPar.ConstAt(itrack, 0, 0) - pPar.ConstAt(itrack, 0, 0),
-                         msPar.ConstAt(itrack, 1, 0) - pPar.ConstAt(itrack, 1, 0)};
-      const float hitT2 = msErr.ConstAt(itrack, 0, 0) + msErr.ConstAt(itrack, 1, 1);
+      const float res[2]{msPar.constAt(itrack, 0, 0) - pPar.constAt(itrack, 0, 0),
+                         msPar.constAt(itrack, 1, 0) - pPar.constAt(itrack, 1, 0)};
+      const float hitT2 = msErr.constAt(itrack, 0, 0) + msErr.constAt(itrack, 1, 1);
       const float hitT2inv = 1.f / hitT2;
-      const float proj[3] = {msErr.ConstAt(itrack, 0, 0) * hitT2inv,
-                             msErr.ConstAt(itrack, 0, 1) * hitT2inv,
-                             msErr.ConstAt(itrack, 1, 1) * hitT2inv};
+      const float proj[3] = {msErr.constAt(itrack, 0, 0) * hitT2inv,
+                             msErr.constAt(itrack, 0, 1) * hitT2inv,
+                             msErr.constAt(itrack, 1, 1) * hitT2inv};
       const float qErr =
-          sqrt(std::abs(pErr.ConstAt(itrack, 0, 0) * proj[0] + 2.f * pErr.ConstAt(itrack, 0, 1) * proj[1] +
-                        pErr.ConstAt(itrack, 1, 1) * proj[2]));  //take abs to avoid non-pos-def cases
+          sqrt(std::abs(pErr.constAt(itrack, 0, 0) * proj[0] + 2.f * pErr.constAt(itrack, 0, 1) * proj[1] +
+                        pErr.constAt(itrack, 1, 1) * proj[2]));  //take abs to avoid non-pos-def cases
       const float resProj =
           sqrt(res[0] * proj[0] * res[0] + 2.f * res[1] * proj[1] * res[0] + res[1] * proj[2] * res[1]);
       dprint("qCompat " << sqrt(hitT2 * 3.f) << " + " << 3.f * qErr << " vs " << resProj);
@@ -901,23 +901,23 @@ namespace mkfit {
 
     float qSF;
     if (isBarrel) {  //project in x,y, assuming zero-error direction is in this plane
-      const float hitT2 = msErr.ConstAt(itrack, 0, 0) + msErr.ConstAt(itrack, 1, 1);
+      const float hitT2 = msErr.constAt(itrack, 0, 0) + msErr.constAt(itrack, 1, 1);
       const float hitT2inv = 1.f / hitT2;
-      const float proj[3] = {msErr.ConstAt(itrack, 0, 0) * hitT2inv,
-                             msErr.ConstAt(itrack, 0, 1) * hitT2inv,
-                             msErr.ConstAt(itrack, 1, 1) * hitT2inv};
+      const float proj[3] = {msErr.constAt(itrack, 0, 0) * hitT2inv,
+                             msErr.constAt(itrack, 0, 1) * hitT2inv,
+                             msErr.constAt(itrack, 1, 1) * hitT2inv};
       const bool detXY_OK =
           std::abs(proj[0] * proj[2] - proj[1] * proj[1]) < 0.1f;  //check that zero-direction is close
-      const float cosP = cos(pPar.ConstAt(itrack, 4, 0));
-      const float sinP = sin(pPar.ConstAt(itrack, 4, 0));
-      const float sinT = std::abs(sin(pPar.ConstAt(itrack, 5, 0)));
+      const float cosP = cos(pPar.constAt(itrack, 4, 0));
+      const float sinP = sin(pPar.constAt(itrack, 4, 0));
+      const float sinT = std::abs(sin(pPar.constAt(itrack, 5, 0)));
       //qSF = sqrt[(px,py)*(1-proj)*(px,py)]/p = sinT*sqrt[(cosP,sinP)*(1-proj)*(cosP,sinP)].
       qSF = detXY_OK ? sinT * std::sqrt(std::abs(1.f + cosP * cosP * proj[0] + sinP * sinP * proj[2] -
                                                  2.f * cosP * sinP * proj[1]))
                      : 1.f;
     } else {  //project on z
       // p_zLocal/p = p_z/p = cosT
-      qSF = std::abs(cos(pPar.ConstAt(itrack, 5, 0)));
+      qSF = std::abs(cos(pPar.constAt(itrack, 5, 0)));
     }
 
     const float qCorr = pcm * qSF;
@@ -929,14 +929,14 @@ namespace mkfit {
   // FindCandidates - Standard Track Finding
   //==============================================================================
 
-  void MkFinder::FindCandidates(const LayerOfHits &layer_of_hits,
+  void MkFinder::findCandidates(const LayerOfHits &layer_of_hits,
                                 std::vector<std::vector<TrackCand>> &tmp_candidates,
                                 const int offset,
                                 const int N_proc,
                                 const FindingFoos &fnd_foos) {
     // bool debug = true;
 
-    MatriplexHitPacker mhp(*layer_of_hits.GetHitArray());
+    MatriplexHitPacker mhp(*layer_of_hits.hitArray());
 
     int maxSize = 0;
 
@@ -953,20 +953,20 @@ namespace mkfit {
     int nHitsAdded[NN]{};
 
     for (int hit_cnt = 0; hit_cnt < maxSize; ++hit_cnt) {
-      mhp.Reset();
+      mhp.reset();
 
       int charge_pcm[NN];
 
 #pragma omp simd
       for (int itrack = 0; itrack < N_proc; ++itrack) {
         if (hit_cnt < XHitSize[itrack]) {
-          const auto &hit = layer_of_hits.GetHit(XHitArr.At(itrack, hit_cnt, 0));
-          mhp.AddInputAt(itrack, hit);
+          const auto &hit = layer_of_hits.refHit(XHitArr.At(itrack, hit_cnt, 0));
+          mhp.addInputAt(itrack, hit);
           charge_pcm[itrack] = hit.chargePerCM();
         }
       }
 
-      mhp.Pack(msErr, msPar);
+      mhp.pack(msErr, msPar);
 
       //now compute the chi2 of track state vs hit
       MPlexQF outChi2;
@@ -1011,12 +1011,12 @@ namespace mkfit {
             Err[iP], Par[iP], tmpChg, msErr, msPar, Err[iC], Par[iC], N_proc, Config::finding_intra_layer_pflags);
 
         dprint("update parameters" << std::endl
-                                   << "propagated track parameters x=" << Par[iP].ConstAt(0, 0, 0)
-                                   << " y=" << Par[iP].ConstAt(0, 1, 0) << std::endl
-                                   << "               hit position x=" << msPar.ConstAt(0, 0, 0)
-                                   << " y=" << msPar.ConstAt(0, 1, 0) << std::endl
-                                   << "   updated track parameters x=" << Par[iC].ConstAt(0, 0, 0)
-                                   << " y=" << Par[iC].ConstAt(0, 1, 0));
+                                   << "propagated track parameters x=" << Par[iP].constAt(0, 0, 0)
+                                   << " y=" << Par[iP].constAt(0, 1, 0) << std::endl
+                                   << "               hit position x=" << msPar.constAt(0, 0, 0)
+                                   << " y=" << msPar.constAt(0, 1, 0) << std::endl
+                                   << "   updated track parameters x=" << Par[iC].constAt(0, 0, 0)
+                                   << " y=" << Par[iC].constAt(0, 1, 0));
 
         //create candidate with hit in case chi2 < m_iteration_params->chi2Cut_min
         //fixme: please vectorize me... (not sure it's possible in this case)
@@ -1069,7 +1069,7 @@ namespace mkfit {
                 if (chi2 < m_iteration_params->chi2CutOverlap) {
                   CombCandidate &ccand = *newcand.combCandidate();
                   ccand[CandIdx(itrack, 0, 0)].considerHitForOverlap(
-                      hit_idx, layer_of_hits.GetHit(hit_idx).detIDinLayer(), chi2);
+                      hit_idx, layer_of_hits.refHit(hit_idx).detIDinLayer(), chi2);
                 }
 
                 dprint("updated track parameters x=" << newcand.parameters()[0] << " y=" << newcand.parameters()[1]
@@ -1127,14 +1127,14 @@ namespace mkfit {
   // FindCandidatesCloneEngine - Clone Engine Track Finding
   //==============================================================================
 
-  void MkFinder::FindCandidatesCloneEngine(const LayerOfHits &layer_of_hits,
+  void MkFinder::findCandidatesCloneEngine(const LayerOfHits &layer_of_hits,
                                            CandCloner &cloner,
                                            const int offset,
                                            const int N_proc,
                                            const FindingFoos &fnd_foos) {
     // bool debug = true;
 
-    MatriplexHitPacker mhp(*layer_of_hits.GetHitArray());
+    MatriplexHitPacker mhp(*layer_of_hits.hitArray());
 
     int maxSize = 0;
 
@@ -1152,20 +1152,20 @@ namespace mkfit {
     int nHitsAdded[NN]{};
 
     for (int hit_cnt = 0; hit_cnt < maxSize; ++hit_cnt) {
-      mhp.Reset();
+      mhp.reset();
 
       int charge_pcm[NN];
 
 #pragma omp simd
       for (int itrack = 0; itrack < N_proc; ++itrack) {
         if (hit_cnt < XHitSize[itrack]) {
-          const auto &hit = layer_of_hits.GetHit(XHitArr.At(itrack, hit_cnt, 0));
-          mhp.AddInputAt(itrack, hit);
+          const auto &hit = layer_of_hits.refHit(XHitArr.At(itrack, hit_cnt, 0));
+          mhp.addInputAt(itrack, hit);
           charge_pcm[itrack] = hit.chargePerCM();
         }
       }
 
-      mhp.Pack(msErr, msPar);
+      mhp.pack(msErr, msPar);
 
       //now compute the chi2 of track state vs hit
       MPlexQF outChi2;
@@ -1218,13 +1218,13 @@ namespace mkfit {
               // Register hit for overlap consideration, here we apply chi2 cut
               if (chi2 < m_iteration_params->chi2CutOverlap) {
                 ccand[CandIdx(itrack, 0, 0)].considerHitForOverlap(
-                    hit_idx, layer_of_hits.GetHit(hit_idx).detIDinLayer(), chi2);
+                    hit_idx, layer_of_hits.refHit(hit_idx).detIDinLayer(), chi2);
               }
 
               IdxChi2List tmpList;
               tmpList.trkIdx = CandIdx(itrack, 0, 0);
               tmpList.hitIdx = hit_idx;
-              tmpList.module = layer_of_hits.GetHit(hit_idx).detIDinLayer();
+              tmpList.module = layer_of_hits.refHit(hit_idx).detIDinLayer();
               tmpList.nhits = NFoundHits(itrack, 0, 0) + 1;
               tmpList.ntailholes = 0;
               tmpList.noverlaps = NOverlapHits(itrack, 0, 0);
@@ -1289,14 +1289,14 @@ namespace mkfit {
   // UpdateWithLastHit
   //==============================================================================
 
-  void MkFinder::UpdateWithLastHit(const LayerOfHits &layer_of_hits, int N_proc, const FindingFoos &fnd_foos) {
+  void MkFinder::updateWithLastHit(const LayerOfHits &layer_of_hits, int N_proc, const FindingFoos &fnd_foos) {
     for (int i = 0; i < N_proc; ++i) {
       const HitOnTrack &hot = LastHoT[i];
 
-      const Hit &hit = layer_of_hits.GetHit(hot.index);
+      const Hit &hit = layer_of_hits.refHit(hot.index);
 
-      msErr.CopyIn(i, hit.errArray());
-      msPar.CopyIn(i, hit.posArray());
+      msErr.copyIn(i, hit.errArray());
+      msPar.copyIn(i, hit.posArray());
     }
 
     // See comment in MkBuilder::find_tracks_in_layer() about intra / inter flags used here
@@ -1309,15 +1309,15 @@ namespace mkfit {
   // CopyOutParErr
   //==============================================================================
 
-  void MkFinder::CopyOutParErr(std::vector<CombCandidate> &seed_cand_vec, int N_proc, bool outputProp) const {
+  void MkFinder::copyOutParErr(std::vector<CombCandidate> &seed_cand_vec, int N_proc, bool outputProp) const {
     const int iO = outputProp ? iP : iC;
 
     for (int i = 0; i < N_proc; ++i) {
       TrackCand &cand = seed_cand_vec[SeedIdx(i, 0, 0)][CandIdx(i, 0, 0)];
 
       // Set the track state to the updated parameters
-      Err[iO].CopyOut(i, cand.errors_nc().Array());
-      Par[iO].CopyOut(i, cand.parameters_nc().Array());
+      Err[iO].copyOut(i, cand.errors_nc().Array());
+      Par[iO].copyOut(i, cand.parameters_nc().Array());
       cand.setCharge(Chg(i, 0, 0));
 
       dprint((outputProp ? "propagated" : "updated")
@@ -1330,7 +1330,7 @@ namespace mkfit {
   // Backward Fit hack
   //==============================================================================
 
-  void MkFinder::BkFitInputTracks(TrackVec &cands, int beg, int end) {
+  void MkFinder::bkFitInputTracks(TrackVec &cands, int beg, int end) {
     // Uses HitOnTrack vector from Track directly + a local cursor array to current hit.
 
     MatriplexTrackPacker mtp(cands[beg]);
@@ -1344,17 +1344,17 @@ namespace mkfit {
       CurHit[itrack] = trk.nTotalHits() - 1;
       HoTArr[itrack] = trk.getHitsOnTrackArray();
 
-      mtp.AddInput(trk);
+      mtp.addInput(trk);
     }
 
-    Chi2.SetVal(0);
+    Chi2.setVal(0);
 
-    mtp.Pack(Err[iC], Par[iC]);
+    mtp.pack(Err[iC], Par[iC]);
 
-    Err[iC].Scale(100.0f);
+    Err[iC].scale(100.0f);
   }
 
-  void MkFinder::BkFitInputTracks(EventOfCombCandidates &eocss, int beg, int end) {
+  void MkFinder::bkFitInputTracks(EventOfCombCandidates &eocss, int beg, int end) {
     // Could as well use HotArrays from tracks directly + a local cursor array to last hit.
 
     // XXXX - shall we assume only TrackCand-zero is needed and that we can freely
@@ -1375,19 +1375,19 @@ namespace mkfit {
       // and fix it in BkFitOutputTracks.
       TrkCand[itrack] = &eocss[i][0];
 
-      mtp.AddInput(trk);
+      mtp.addInput(trk);
     }
 
-    Chi2.SetVal(0);
+    Chi2.setVal(0);
 
-    mtp.Pack(Err[iC], Par[iC]);
+    mtp.pack(Err[iC], Par[iC]);
 
-    Err[iC].Scale(100.0f);
+    Err[iC].scale(100.0f);
   }
 
   //------------------------------------------------------------------------------
 
-  void MkFinder::BkFitOutputTracks(TrackVec &cands, int beg, int end, bool outputProp) {
+  void MkFinder::bkFitOutputTracks(TrackVec &cands, int beg, int end, bool outputProp) {
     // Only copy out track params / errors / chi2, all the rest is ok.
 
     const int iO = outputProp ? iP : iC;
@@ -1396,8 +1396,8 @@ namespace mkfit {
     for (int i = beg; i < end; ++i, ++itrack) {
       Track &trk = cands[i];
 
-      Err[iO].CopyOut(itrack, trk.errors_nc().Array());
-      Par[iO].CopyOut(itrack, trk.parameters_nc().Array());
+      Err[iO].copyOut(itrack, trk.errors_nc().Array());
+      Par[iO].copyOut(itrack, trk.parameters_nc().Array());
 
       trk.setChi2(Chi2(itrack, 0, 0));
       if (!std::isnan(trk.chi2())) {
@@ -1406,7 +1406,7 @@ namespace mkfit {
     }
   }
 
-  void MkFinder::BkFitOutputTracks(EventOfCombCandidates &eocss, int beg, int end, bool outputProp) {
+  void MkFinder::bkFitOutputTracks(EventOfCombCandidates &eocss, int beg, int end, bool outputProp) {
     // Only copy out track params / errors / chi2, all the rest is ok.
 
     // XXXX - where will rejected hits get removed?
@@ -1417,8 +1417,8 @@ namespace mkfit {
     for (int i = beg; i < end; ++i, ++itrack) {
       TrackCand &trk = eocss[i][0];
 
-      Err[iO].CopyOut(itrack, trk.errors_nc().Array());
-      Par[iO].CopyOut(itrack, trk.parameters_nc().Array());
+      Err[iO].copyOut(itrack, trk.errors_nc().Array());
+      Par[iO].copyOut(itrack, trk.parameters_nc().Array());
 
       trk.setChi2(Chi2(itrack, 0, 0));
       if (!std::isnan(trk.chi2())) {
@@ -1435,7 +1435,7 @@ namespace mkfit {
   }  // namespace
 #endif
 
-  void MkFinder::BkFitFitTracksBH(const EventOfHits &eventofhits,
+  void MkFinder::bkFitFitTracksBH(const EventOfHits &eventofhits,
                                   const SteeringParams &st_par,
                                   const int N_proc,
                                   bool chiDebug) {
@@ -1468,17 +1468,17 @@ namespace mkfit {
           while (CurHit[i] > 0 && HoTArr[i][CurHit[i] - 1].layer == layer)
             --CurHit[i];
 
-          const Hit &hit = L.GetHit(HoTArr[i][CurHit[i]].index);
-          msErr.CopyIn(i, hit.errArray());
-          msPar.CopyIn(i, hit.posArray());
+          const Hit &hit = L.refHit(HoTArr[i][CurHit[i]].index);
+          msErr.copyIn(i, hit.errArray());
+          msPar.copyIn(i, hit.posArray());
           ++count;
           --CurHit[i];
         } else {
           tmp_pos[0] = Par[iC](i, 0, 0);
           tmp_pos[1] = Par[iC](i, 1, 0);
           tmp_pos[2] = Par[iC](i, 2, 0);
-          msErr.CopyIn(i, tmp_err);
-          msPar.CopyIn(i, tmp_pos);
+          msErr.copyIn(i, tmp_err);
+          msPar.copyIn(i, tmp_pos);
         }
       }
 
@@ -1488,12 +1488,12 @@ namespace mkfit {
       // ZZZ Could add missing hits here, only if there are any actual matches.
 
       if (LI.is_barrel()) {
-        PropagateTracksToHitR(msPar, N_proc, Config::backward_fit_pflags);
+        propagateTracksToHitR(msPar, N_proc, Config::backward_fit_pflags);
 
         kalmanOperation(
             KFO_Calculate_Chi2 | KFO_Update_Params, Err[iP], Par[iP], msErr, msPar, Err[iC], Par[iC], tmp_chi2, N_proc);
       } else {
-        PropagateTracksToHitZ(msPar, N_proc, Config::backward_fit_pflags);
+        propagateTracksToHitZ(msPar, N_proc, Config::backward_fit_pflags);
 
         kalmanOperationEndcap(
             KFO_Calculate_Chi2 | KFO_Update_Params, Err[iP], Par[iP], msErr, msPar, Err[iC], Par[iC], tmp_chi2, N_proc);
@@ -1552,13 +1552,13 @@ namespace mkfit {
 #endif
 
       // update chi2
-      Chi2.Add(tmp_chi2);
+      Chi2.add(tmp_chi2);
     }
   }
 
   //------------------------------------------------------------------------------
 
-  void MkFinder::BkFitFitTracks(const EventOfHits &eventofhits,
+  void MkFinder::bkFitFitTracks(const EventOfHits &eventofhits,
                                 const SteeringParams &st_par,
                                 const int N_proc,
                                 bool chiDebug) {
@@ -1584,7 +1584,7 @@ namespace mkfit {
       const Hit *last_hit_ptr[NN];
 #endif
 
-      no_mat_effs.SetVal(0);
+      no_mat_effs.setVal(0);
       int done_count = 0;
       int here_count = 0;
       for (int i = 0; i < N_proc; ++i) {
@@ -1605,14 +1605,14 @@ namespace mkfit {
                  HoTNodeArr[i][HoTNodeArr[i][CurNode[i]].m_prev_idx].m_hot.layer == layer)
             CurNode[i] = HoTNodeArr[i][CurNode[i]].m_prev_idx;
 
-          const Hit &hit = L.GetHit(HoTNodeArr[i][CurNode[i]].m_hot.index);
+          const Hit &hit = L.refHit(HoTNodeArr[i][CurNode[i]].m_hot.index);
 
           // XXXX
 #ifdef DEBUG_BACKWARD_FIT
           last_hit_ptr[i] = &hit;
 #endif
-          msErr.CopyIn(i, hit.errArray());
-          msPar.CopyIn(i, hit.posArray());
+          msErr.copyIn(i, hit.errArray());
+          msPar.copyIn(i, hit.posArray());
           ++here_count;
 
           CurNode[i] = HoTNodeArr[i][CurNode[i]].m_prev_idx;
@@ -1625,8 +1625,8 @@ namespace mkfit {
           tmp_pos[0] = Par[iC](i, 0, 0);
           tmp_pos[1] = Par[iC](i, 1, 0);
           tmp_pos[2] = Par[iC](i, 2, 0);
-          msErr.CopyIn(i, tmp_err);
-          msPar.CopyIn(i, tmp_pos);
+          msErr.copyIn(i, tmp_err);
+          msPar.copyIn(i, tmp_pos);
         }
       }
 
@@ -1638,12 +1638,12 @@ namespace mkfit {
       // ZZZ Could add missing hits here, only if there are any actual matches.
 
       if (LI.is_barrel()) {
-        PropagateTracksToHitR(msPar, N_proc, Config::backward_fit_pflags, &no_mat_effs);
+        propagateTracksToHitR(msPar, N_proc, Config::backward_fit_pflags, &no_mat_effs);
 
         kalmanOperation(
             KFO_Calculate_Chi2 | KFO_Update_Params, Err[iP], Par[iP], msErr, msPar, Err[iC], Par[iC], tmp_chi2, N_proc);
       } else {
-        PropagateTracksToHitZ(msPar, N_proc, Config::backward_fit_pflags, &no_mat_effs);
+        propagateTracksToHitZ(msPar, N_proc, Config::backward_fit_pflags, &no_mat_effs);
 
         kalmanOperationEndcap(
             KFO_Calculate_Chi2 | KFO_Update_Params, Err[iP], Par[iP], msErr, msPar, Err[iC], Par[iC], tmp_chi2, N_proc);
@@ -1705,8 +1705,8 @@ namespace mkfit {
 
           // XXXX Should I reduce num hits in TrackCand?
 
-          Par[iC].CopySlot(i, Par[iP]);
-          Err[iC].CopySlot(i, Err[iP]);
+          Par[iC].copySlot(i, Par[iP]);
+          Err[iC].copySlot(i, Err[iP]);
 
           tmp_chi2.At(i, 0, 0) = 0;
         }
@@ -1727,12 +1727,12 @@ namespace mkfit {
       // - Promote it to main hit without fitting.
 
       // update chi2
-      Chi2.Add(tmp_chi2);
+      Chi2.add(tmp_chi2);
     }
   }
 
   //------------------------------------------------------------------------------
 
-  void MkFinder::BkFitPropTracksToPCA(const int N_proc) { PropagateTracksToPCAZ(N_proc, Config::pca_prop_pflags); }
+  void MkFinder::bkFitPropTracksToPCA(const int N_proc) { propagateTracksToPCAZ(N_proc, Config::pca_prop_pflags); }
 
 }  // end namespace mkfit

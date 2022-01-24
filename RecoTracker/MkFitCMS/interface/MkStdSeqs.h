@@ -14,15 +14,15 @@ namespace mkfit {
 
   namespace StdSeq {
 
-    void LoadDeads(EventOfHits &eoh, const std::vector<DeadVec> &deadvectors);
+    void loadDeads(EventOfHits &eoh, const std::vector<DeadVec> &deadvectors);
 
-    void Cmssw_LoadHits_Begin(EventOfHits &eoh, const std::vector<const HitVec *> &orig_hitvectors);
-    void Cmssw_LoadHits_End(EventOfHits &eoh);
+    void cmssw_LoadHits_Begin(EventOfHits &eoh, const std::vector<const HitVec *> &orig_hitvectors);
+    void cmssw_LoadHits_End(EventOfHits &eoh);
 
     // Not used anymore. Left here if we want to experiment again with
     // COPY_SORTED_HITS in class LayerOfHits.
-    void Cmssw_Map_TrackHitIndices(const EventOfHits &eoh, TrackVec &seeds);
-    void Cmssw_ReMap_TrackHitIndices(const EventOfHits &eoh, TrackVec &out_tracks);
+    void cmssw_Map_TrackHitIndices(const EventOfHits &eoh, TrackVec &seeds);
+    void cmssw_ReMap_TrackHitIndices(const EventOfHits &eoh, TrackVec &out_tracks);
 
     int clean_cms_seedtracks_iter(TrackVec *seed_ptr, const IterationConfig &itrcfg, const BeamSpot &bspot);
 

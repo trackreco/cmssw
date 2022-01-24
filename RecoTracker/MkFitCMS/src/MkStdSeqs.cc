@@ -15,9 +15,9 @@ namespace mkfit {
     // Hit processing
     //=========================================================================
 
-    void LoadDeads(EventOfHits &eoh, const std::vector<DeadVec> &deadvectors) {
+    void loadDeads(EventOfHits &eoh, const std::vector<DeadVec> &deadvectors) {
       for (size_t il = 0; il < deadvectors.size(); il++) {
-        eoh.SuckInDeads(int(il), deadvectors[il]);
+        eoh.suckInDeads(int(il), deadvectors[il]);
       }
     }
 
@@ -25,15 +25,15 @@ namespace mkfit {
     // orig_hitvectors[0] - pixels,
     // orig_hitvectors[1] - strips.
 
-    void Cmssw_LoadHits_Begin(EventOfHits &eoh, const std::vector<const HitVec *> &orig_hitvectors) {
-      eoh.Reset();
+    void cmssw_LoadHits_Begin(EventOfHits &eoh, const std::vector<const HitVec *> &orig_hitvectors) {
+      eoh.reset();
 
       for (auto &&l : eoh.m_layers_of_hits) {
-        l.BeginRegistrationOfHits(*orig_hitvectors[l.is_pix_lyr() ? 0 : 1]);
+        l.beginRegistrationOfHits(*orig_hitvectors[l.is_pix_lyr() ? 0 : 1]);
       }
     }
 
-    // Loop with LayerOfHits::RegisterHit(int idx) - it takes Hit out of original HitVec to
+    // Loop with LayerOfHits::registerHit(int idx) - it takes Hit out of original HitVec to
     // extract phi, r/z, and calculate qphifines
     //
     // Something like what is done in MkFitInputConverter::convertHits
@@ -41,9 +41,9 @@ namespace mkfit {
     // Problem is I don't know layers for each large-vector;
     // Also, layer is calculated for each detset when looping over the HitCollection
 
-    void Cmssw_LoadHits_End(EventOfHits &eoh) {
+    void cmssw_LoadHits_End(EventOfHits &eoh) {
       for (auto &&l : eoh.m_layers_of_hits) {
-        l.EndRegistrationOfHits(false);
+        l.endRegistrationOfHits(false);
       }
     }
 
@@ -51,27 +51,27 @@ namespace mkfit {
     // Hit-index mapping / remapping
     //=========================================================================
 
-    void Cmssw_Map_TrackHitIndices(const EventOfHits &eoh, TrackVec &seeds) {
+    void cmssw_Map_TrackHitIndices(const EventOfHits &eoh, TrackVec &seeds) {
       for (auto &&track : seeds) {
         for (int i = 0; i < track.nTotalHits(); ++i) {
           const int hitidx = track.getHitIdx(i);
           const int hitlyr = track.getHitLyr(i);
           if (hitidx >= 0) {
             const auto &loh = eoh.m_layers_of_hits[hitlyr];
-            track.setHitIdx(i, loh.GetHitIndexFromOriginal(hitidx));
+            track.setHitIdx(i, loh.getHitIndexFromOriginal(hitidx));
           }
         }
       }
     }
 
-    void Cmssw_ReMap_TrackHitIndices(const EventOfHits &eoh, TrackVec &out_tracks) {
+    void cmssw_ReMap_TrackHitIndices(const EventOfHits &eoh, TrackVec &out_tracks) {
       for (auto &&track : out_tracks) {
         for (int i = 0; i < track.nTotalHits(); ++i) {
           const int hitidx = track.getHitIdx(i);
           const int hitlyr = track.getHitLyr(i);
           if (hitidx >= 0) {
             const auto &loh = eoh.m_layers_of_hits[hitlyr];
-            track.setHitIdx(i, loh.GetOriginalHitIndex(hitidx));
+            track.setHitIdx(i, loh.getOriginalHitIndex(hitidx));
           }
         }
       }
@@ -359,12 +359,12 @@ namespace mkfit {
                   const int hitidx2 = track2.getHitIdx(ihit2);
                   const int hitlyr2 = track2.getHitLyr(ihit2);
                   if (hitidx2 >= 0) {
-                    auto const it = std::find_if(track.BeginHitsOnTrack(),
-                                                 track.EndHitsOnTrack(),
+                    auto const it = std::find_if(track.beginHitsOnTrack(),
+                                                 track.endHitsOnTrack(),
                                                  [&hitidx2, &hitlyr2](const HitOnTrack &element) {
                                                    return (element.index == hitidx2 && element.layer == hitlyr2);
                                                  });
-                    if (it != track.EndHitsOnTrack())
+                    if (it != track.endHitsOnTrack())
                       numHitsShared++;
                   }
                 }

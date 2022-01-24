@@ -56,7 +56,7 @@ namespace mkfit {
         [&](const tbb::blocked_range<int>& i) {
           TripletIdxVec temp_thr_seed_idcs;
           for (int ihit1 = i.begin(); ihit1 < i.end(); ++ihit1) {
-            const Hit& hit1 = lay1_hits.GetHit(ihit1);
+            const Hit& hit1 = lay1_hits.refHit(ihit1);
             const float hit1_z = hit1.z();
 
             dprint("ihit1: " << ihit1 << " mcTrackID: " << hit1.mcTrackID(ev->simHitsInfo_) << " phi: " << hit1.phi()
@@ -65,10 +65,10 @@ namespace mkfit {
                                 << Config::seed_z0cut / 2.0f << std::endl);
 
             std::vector<int> cand_hit0_indices;  // pass by reference
-            // MIMI lay0_hits.SelectHitIndices(hit1_z/2.0f,hit1.phi(),Config::seed_z0cut/2.0f,Config::lay01angdiff,cand_hit0_indices,true,false);
+            // MIMI lay0_hits.selectHitIndices(hit1_z/2.0f,hit1.phi(),Config::seed_z0cut/2.0f,Config::lay01angdiff,cand_hit0_indices,true,false);
             // loop over first layer hits
             for (auto&& ihit0 : cand_hit0_indices) {
-              const Hit& hit0 = lay0_hits.GetHit(ihit0);
+              const Hit& hit0 = lay0_hits.refHit(ihit0);
               const float hit0_z = hit0.z();
               const float hit0_x = hit0.x();
               const float hit0_y = hit0.y();
@@ -101,7 +101,7 @@ namespace mkfit {
 #endif
 
               std::vector<int> cand_hit2_indices;
-              // MIMI lay2_hits.SelectHitIndices((2.0f*hit1_z-hit0_z),(lay2_posphi+lay2_negphi)/2.0f,
+              // MIMI lay2_hits.selectHitIndices((2.0f*hit1_z-hit0_z),(lay2_posphi+lay2_negphi)/2.0f,
               // MIMI seed_z2cut,(lay2_posphi-lay2_negphi)/2.0f,
               // MIMI cand_hit2_indices,true,false);
 
@@ -115,7 +115,7 @@ namespace mkfit {
 #pragma omp simd
               for (size_t idx = 0; idx < cand_hit2_indices.size(); ++idx) {
                 const int ihit2 = cand_hit2_indices[idx];
-                const Hit& hit2 = lay2_hits.GetHit(ihit2);
+                const Hit& hit2 = lay2_hits.refHit(ihit2);
 
                 const float lay1_predz = (hit0_z + hit2.z()) / 2.0f;
                 // filter by residual of second layer hit

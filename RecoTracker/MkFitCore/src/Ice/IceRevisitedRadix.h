@@ -56,7 +56,7 @@ public:
 private:
 #ifndef RADIX_LOCAL_RAM
   udword* mHistogram;  //!< Counters for each byte
-  udword* mLink;       //!< Offsets (nearly a cumulative distribution function)
+  udword* mLink;       //!< offsets (nearly a cumulative distribution function)
 #endif
   udword mCurrentSize;  //!< Current size of the indices list
   udword* mRanks;       //!< Two lists, swapped each pass

@@ -233,7 +233,7 @@ namespace mkfit {
       return (nb >= 0) ? m_layers[nb] : s_undefined_layer;
     }
 
-    static void ExecTrackerInfoCreatorPlugin(const std::string& base,
+    static void execTrackerInfoCreatorPlugin(const std::string& base,
                                              TrackerInfo& ti,
                                              IterationsInfo& ii,
                                              bool verbose = false);

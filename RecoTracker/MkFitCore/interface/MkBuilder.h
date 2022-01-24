@@ -127,12 +127,12 @@ namespace mkfit {
     void export_best_comb_cands(TrackVec &out_vec, bool remove_missing_hits = false);
     void export_tracks(TrackVec &out_vec);
 
-    void CompactifyHitStorageForBestCand(bool remove_seed_hits, int backward_fit_min_hits) {
-      m_event_of_comb_cands.CompactifyHitStorageForBestCand(remove_seed_hits, backward_fit_min_hits);
+    void compactifyHitStorageForBestCand(bool remove_seed_hits, int backward_fit_min_hits) {
+      m_event_of_comb_cands.compactifyHitStorageForBestCand(remove_seed_hits, backward_fit_min_hits);
     }
 
-    void BeginBkwSearch() { m_event_of_comb_cands.BeginBkwSearch(); }
-    void EndBkwSearch() { m_event_of_comb_cands.EndBkwSearch(); }
+    void beginBkwSearch() { m_event_of_comb_cands.beginBkwSearch(); }
+    void endBkwSearch() { m_event_of_comb_cands.endBkwSearch(); }
 
     // MIMI hack to export tracks for BH
     const TrackVec &ref_tracks() const { return m_tracks; }
@@ -170,14 +170,14 @@ namespace mkfit {
     // --------
     static void seed_post_cleaning(TrackVec &tv);
 
-    void FindTracksBestHit(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
-    void FindTracksStandard(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
-    void FindTracksCloneEngine(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
+    void findTracksBestHit(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
+    void findTracksStandard(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
+    void findTracksCloneEngine(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
 
-    void BackwardFitBH();
+    void backwardFitBH();
     void fit_cands_BH(MkFinder *mkfndr, int start_cand, int end_cand, int region);
 
-    void BackwardFit();
+    void backwardFit();
     void fit_cands(MkFinder *mkfndr, int start_cand, int end_cand, int region);
   };
 

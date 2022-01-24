@@ -8,7 +8,7 @@
 #include "RecoTracker/MkFitCore/interface/HitStructures.h"
 
 // Define to get printouts about track and hit chi2.
-// See also MkBuilder::BackwardFit().
+// See also MkBuilder::backwardFit().
 
 //#define DEBUG_BACKWARD_FIT_BH
 //#define DEBUG_BACKWARD_FIT
@@ -120,43 +120,43 @@ namespace mkfit {
 
     MkFinder() {}
 
-    void Setup(const IterationParams &ip, const IterationLayerConfig &ilc, const std::vector<bool> *ihm);
-    void Release();
+    void setup(const IterationParams &ip, const IterationLayerConfig &ilc, const std::vector<bool> *ihm);
+    void release();
 
     //----------------------------------------------------------------------------
 
-    void InputTracksAndHitIdx(const std::vector<Track> &tracks, int beg, int end, bool inputProp);
+    void inputTracksAndHitIdx(const std::vector<Track> &tracks, int beg, int end, bool inputProp);
 
-    void InputTracksAndHitIdx(const std::vector<Track> &tracks,
+    void inputTracksAndHitIdx(const std::vector<Track> &tracks,
                               const std::vector<int> &idxs,
                               int beg,
                               int end,
                               bool inputProp,
                               int mp_offset);
 
-    void InputTracksAndHitIdx(const std::vector<CombCandidate> &tracks,
+    void inputTracksAndHitIdx(const std::vector<CombCandidate> &tracks,
                               const std::vector<std::pair<int, int>> &idxs,
                               int beg,
                               int end,
                               bool inputProp);
 
-    void InputTracksAndHitIdx(const std::vector<CombCandidate> &tracks,
+    void inputTracksAndHitIdx(const std::vector<CombCandidate> &tracks,
                               const std::vector<std::pair<int, IdxChi2List>> &idxs,
                               int beg,
                               int end,
                               bool inputProp);
 
-    void OutputTracksAndHitIdx(std::vector<Track> &tracks, int beg, int end, bool outputProp) const;
+    void outputTracksAndHitIdx(std::vector<Track> &tracks, int beg, int end, bool outputProp) const;
 
-    void OutputTracksAndHitIdx(
+    void outputTracksAndHitIdx(
         std::vector<Track> &tracks, const std::vector<int> &idxs, int beg, int end, bool outputProp) const;
 
-    void OutputTrackAndHitIdx(Track &track, int itrack, bool outputProp) const {
+    void outputTrackAndHitIdx(Track &track, int itrack, bool outputProp) const {
       const int iO = outputProp ? iP : iC;
       copy_out(track, itrack, iO);
     }
 
-    void OutputNonStoppedTracksAndHitIdx(
+    void outputNonStoppedTracksAndHitIdx(
         std::vector<Track> &tracks, const std::vector<int> &idxs, int beg, int end, bool outputProp) const {
       const int iO = outputProp ? iP : iC;
       for (int i = beg, imp = 0; i < end; ++i, ++imp) {
@@ -165,7 +165,7 @@ namespace mkfit {
       }
     }
 
-    HitOnTrack BestHitLastHoT(int itrack) const { return HoTArrs[itrack][NHits(itrack, 0, 0) - 1]; }
+    HitOnTrack bestHitLastHoT(int itrack) const { return HoTArrs[itrack][NHits(itrack, 0, 0) - 1]; }
 
     //----------------------------------------------------------------------------
 
@@ -174,13 +174,13 @@ namespace mkfit {
 
     float getHitSelDynamicChi2Cut(const int itrk, const int ipar);
 
-    void SelectHitIndices(const LayerOfHits &layer_of_hits, const int N_proc);
+    void selectHitIndices(const LayerOfHits &layer_of_hits, const int N_proc);
 
-    void AddBestHit(const LayerOfHits &layer_of_hits, const int N_proc, const FindingFoos &fnd_foos);
+    void addBestHit(const LayerOfHits &layer_of_hits, const int N_proc, const FindingFoos &fnd_foos);
 
     //----------------------------------------------------------------------------
 
-    void FindCandidates(const LayerOfHits &layer_of_hits,
+    void findCandidates(const LayerOfHits &layer_of_hits,
                         std::vector<std::vector<TrackCand>> &tmp_candidates,
                         const int offset,
                         const int N_proc,
@@ -188,15 +188,15 @@ namespace mkfit {
 
     //----------------------------------------------------------------------------
 
-    void FindCandidatesCloneEngine(const LayerOfHits &layer_of_hits,
+    void findCandidatesCloneEngine(const LayerOfHits &layer_of_hits,
                                    CandCloner &cloner,
                                    const int offset,
                                    const int N_proc,
                                    const FindingFoos &fnd_foos);
 
-    void UpdateWithLastHit(const LayerOfHits &layer_of_hits, int N_proc, const FindingFoos &fnd_foos);
+    void updateWithLastHit(const LayerOfHits &layer_of_hits, int N_proc, const FindingFoos &fnd_foos);
 
-    void CopyOutParErr(std::vector<CombCandidate> &seed_cand_vec, int N_proc, bool outputProp) const;
+    void copyOutParErr(std::vector<CombCandidate> &seed_cand_vec, int N_proc, bool outputProp) const;
 
     //----------------------------------------------------------------------------
     // Backward fit hack
@@ -207,23 +207,23 @@ namespace mkfit {
     int CurNode[NN];
     HoTNode *HoTNodeArr[NN];  // Not const as we can modify it!
 
-    void BkFitInputTracks(TrackVec &cands, int beg, int end);
-    void BkFitOutputTracks(TrackVec &cands, int beg, int end, bool outputProp);
+    void bkFitInputTracks(TrackVec &cands, int beg, int end);
+    void bkFitOutputTracks(TrackVec &cands, int beg, int end, bool outputProp);
 
-    void BkFitInputTracks(EventOfCombCandidates &eocss, int beg, int end);
-    void BkFitOutputTracks(EventOfCombCandidates &eocss, int beg, int end, bool outputProp);
+    void bkFitInputTracks(EventOfCombCandidates &eocss, int beg, int end);
+    void bkFitOutputTracks(EventOfCombCandidates &eocss, int beg, int end, bool outputProp);
 
-    void BkFitFitTracksBH(const EventOfHits &eventofhits,
+    void bkFitFitTracksBH(const EventOfHits &eventofhits,
                           const SteeringParams &st_par,
                           const int N_proc,
                           bool chiDebug = false);
 
-    void BkFitFitTracks(const EventOfHits &eventofhits,
+    void bkFitFitTracks(const EventOfHits &eventofhits,
                         const SteeringParams &st_par,
                         const int N_proc,
                         bool chiDebug = false);
 
-    void BkFitPropTracksToPCA(const int N_proc);
+    void bkFitPropTracksToPCA(const int N_proc);
 
     //----------------------------------------------------------------------------
 
@@ -233,8 +233,8 @@ namespace mkfit {
 
   private:
     void copy_in(const Track &trk, const int mslot, const int tslot) {
-      Err[tslot].CopyIn(mslot, trk.errors().Array());
-      Par[tslot].CopyIn(mslot, trk.parameters().Array());
+      Err[tslot].copyIn(mslot, trk.errors().Array());
+      Par[tslot].copyIn(mslot, trk.parameters().Array());
 
       Chg(mslot, 0, 0) = trk.charge();
       Chi2(mslot, 0, 0) = trk.chi2();
@@ -246,24 +246,24 @@ namespace mkfit {
       NInsideMinusOneHits(mslot, 0, 0) = trk.nInsideMinusOneHits();
       NTailMinusOneHits(mslot, 0, 0) = trk.nTailMinusOneHits();
 
-      std::copy(trk.BeginHitsOnTrack(), trk.EndHitsOnTrack(), HoTArrs[mslot]);
+      std::copy(trk.beginHitsOnTrack(), trk.endHitsOnTrack(), HoTArrs[mslot]);
     }
 
     void copy_out(Track &trk, const int mslot, const int tslot) const {
-      Err[tslot].CopyOut(mslot, trk.errors_nc().Array());
-      Par[tslot].CopyOut(mslot, trk.parameters_nc().Array());
+      Err[tslot].copyOut(mslot, trk.errors_nc().Array());
+      Par[tslot].copyOut(mslot, trk.parameters_nc().Array());
 
       trk.setCharge(Chg(mslot, 0, 0));
       trk.setChi2(Chi2(mslot, 0, 0));
       trk.setLabel(Label(mslot, 0, 0));
 
       trk.resizeHits(NHits(mslot, 0, 0), NFoundHits(mslot, 0, 0));
-      std::copy(HoTArrs[mslot], &HoTArrs[mslot][NHits(mslot, 0, 0)], trk.BeginHitsOnTrack_nc());
+      std::copy(HoTArrs[mslot], &HoTArrs[mslot][NHits(mslot, 0, 0)], trk.beginHitsOnTrack_nc());
     }
 
     void copy_in(const TrackCand &trk, const int mslot, const int tslot) {
-      Err[tslot].CopyIn(mslot, trk.errors().Array());
-      Par[tslot].CopyIn(mslot, trk.parameters().Array());
+      Err[tslot].copyIn(mslot, trk.errors().Array());
+      Par[tslot].copyIn(mslot, trk.parameters().Array());
 
       Chg(mslot, 0, 0) = trk.charge();
       Chi2(mslot, 0, 0) = trk.chi2();
@@ -283,8 +283,8 @@ namespace mkfit {
     }
 
     void copy_out(TrackCand &trk, const int mslot, const int tslot) const {
-      Err[tslot].CopyOut(mslot, trk.errors_nc().Array());
-      Par[tslot].CopyOut(mslot, trk.parameters_nc().Array());
+      Err[tslot].copyOut(mslot, trk.errors_nc().Array());
+      Par[tslot].copyOut(mslot, trk.parameters_nc().Array());
 
       trk.setCharge(Chg(mslot, 0, 0));
       trk.setChi2(Chi2(mslot, 0, 0));

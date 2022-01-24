@@ -388,7 +388,7 @@ namespace {
   //       for (int i = 0; i < nia; ++i) {
   // 	for (int j = 0; j < njb; ++j) {
   // 	  C(n,i,j) = 0.;
-  // 	  for (int k = 0; k < nja; ++k) C(n,i,j) += A.ConstAt(n,i,k)*B.ConstAt(n,k,j);
+  // 	  for (int k = 0; k < nja; ++k) C(n,i,j) += A.constAt(n,i,k)*B.constAt(n,k,j);
   // 	}
   //       }
   //     }
@@ -409,7 +409,7 @@ namespace {
   //       for (int i = 0; i < nia; ++i) {
   // 	for (int j = 0; j < nib; ++j) {
   // 	  C(n,i,j) = 0.;
-  // 	  for (int k = 0; k < nja; ++k) C(n,i,j) += A.ConstAt(n,i,k)*B.ConstAt(n,j,k);
+  // 	  for (int k = 0; k < nja; ++k) C(n,i,j) += A.constAt(n,i,k)*B.constAt(n,j,k);
   // 	}
   //       }
   //     }
@@ -462,7 +462,7 @@ namespace mkfit {
       MPlexQF msRad;
 #pragma omp simd
       for (int n = 0; n < NN; ++n) {
-        msRad.At(n, 0, 0) = std::hypot(msPar.ConstAt(n, 0, 0), msPar.ConstAt(n, 1, 0));
+        msRad.At(n, 0, 0) = std::hypot(msPar.constAt(n, 0, 0), msPar.constAt(n, 1, 0));
       }
 
       propagateHelixToRMPlex(psErr, psPar, Chg, msRad, propErr, propPar, N_proc, propFlags);
@@ -506,7 +506,7 @@ namespace mkfit {
       MPlexQF msRad;
 #pragma omp simd
       for (int n = 0; n < NN; ++n) {
-        msRad.At(n, 0, 0) = std::hypot(msPar.ConstAt(n, 0, 0), msPar.ConstAt(n, 1, 0));
+        msRad.At(n, 0, 0) = std::hypot(msPar.constAt(n, 0, 0), msPar.constAt(n, 1, 0));
       }
 
       propagateHelixToRMPlex(psErr, psPar, inChg, msRad, propErr, propPar, N_proc, propFlags);
@@ -533,27 +533,27 @@ namespace mkfit {
       dmutex_guard;
       printf("psPar:\n");
       for (int i = 0; i < 6; ++i) {
-        printf("%8f ", psPar.ConstAt(0, 0, i));
+        printf("%8f ", psPar.constAt(0, 0, i));
         printf("\n");
       }
       printf("\n");
       printf("psErr:\n");
       for (int i = 0; i < 6; ++i) {
         for (int j = 0; j < 6; ++j)
-          printf("%8f ", psErr.ConstAt(0, i, j));
+          printf("%8f ", psErr.constAt(0, i, j));
         printf("\n");
       }
       printf("\n");
       printf("msPar:\n");
       for (int i = 0; i < 3; ++i) {
-        printf("%8f ", msPar.ConstAt(0, 0, i));
+        printf("%8f ", msPar.constAt(0, 0, i));
         printf("\n");
       }
       printf("\n");
       printf("msErr:\n");
       for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 3; ++j)
-          printf("%8f ", msErr.ConstAt(0, i, j));
+          printf("%8f ", msErr.constAt(0, i, j));
         printf("\n");
       }
       printf("\n");
@@ -572,9 +572,9 @@ namespace mkfit {
     MPlexQF rotT00;
     MPlexQF rotT01;
     for (int n = 0; n < NN; ++n) {
-      const float r = std::hypot(msPar.ConstAt(n, 0, 0), msPar.ConstAt(n, 1, 0));
-      rotT00.At(n, 0, 0) = -(msPar.ConstAt(n, 1, 0) + psPar.ConstAt(n, 1, 0)) / (2 * r);
-      rotT01.At(n, 0, 0) = (msPar.ConstAt(n, 0, 0) + psPar.ConstAt(n, 0, 0)) / (2 * r);
+      const float r = std::hypot(msPar.constAt(n, 0, 0), msPar.constAt(n, 1, 0));
+      rotT00.At(n, 0, 0) = -(msPar.constAt(n, 1, 0) + psPar.constAt(n, 1, 0)) / (2 * r);
+      rotT01.At(n, 0, 0) = (msPar.constAt(n, 0, 0) + psPar.constAt(n, 0, 0)) / (2 * r);
     }
 
     MPlexHV res_glo;  //position residual in global coordinates
@@ -604,7 +604,7 @@ namespace mkfit {
 #endif
 
     //invert the 2x2 matrix
-    Matriplex::InvertCramerSym(resErr_loc);
+    Matriplex::invertCramerSym(resErr_loc);
 
     if (kfOp & KFO_Calculate_Chi2) {
       Chi2Similarity(res_loc, resErr_loc, outChi2);
@@ -636,7 +636,7 @@ namespace mkfit {
 
       KHMult(K, rotT00, rotT01, tempLL);
       KHC(tempLL, psErr, outErr);
-      outErr.Subtract(psErr, outErr);
+      outErr.subtract(psErr, outErr);
 
 #ifdef DEBUG
       {
@@ -711,7 +711,7 @@ namespace mkfit {
       MPlexQF msZ;
 #pragma omp simd
       for (int n = 0; n < NN; ++n) {
-        msZ.At(n, 0, 0) = msPar.ConstAt(n, 2, 0);
+        msZ.At(n, 0, 0) = msPar.constAt(n, 2, 0);
       }
 
       propagateHelixToZMPlex(psErr, psPar, Chg, msZ, propErr, propPar, N_proc, propFlags);
@@ -755,7 +755,7 @@ namespace mkfit {
       MPlexQF msZ;
 #pragma omp simd
       for (int n = 0; n < NN; ++n) {
-        msZ.At(n, 0, 0) = msPar.ConstAt(n, 2, 0);
+        msZ.At(n, 0, 0) = msPar.constAt(n, 2, 0);
       }
 
       propagateHelixToZMPlex(psErr, psPar, inChg, msZ, propErr, propPar, N_proc, propFlags);
@@ -783,27 +783,27 @@ namespace mkfit {
       printf("updateParametersEndcapMPlex\n");
       printf("psPar:\n");
       for (int i = 0; i < 6; ++i) {
-        printf("%8f ", psPar.ConstAt(0, 0, i));
+        printf("%8f ", psPar.constAt(0, 0, i));
         printf("\n");
       }
       printf("\n");
       printf("msPar:\n");
       for (int i = 0; i < 3; ++i) {
-        printf("%8f ", msPar.ConstAt(0, 0, i));
+        printf("%8f ", msPar.constAt(0, 0, i));
         printf("\n");
       }
       printf("\n");
       printf("psErr:\n");
       for (int i = 0; i < 6; ++i) {
         for (int j = 0; j < 6; ++j)
-          printf("%8f ", psErr.ConstAt(0, i, j));
+          printf("%8f ", psErr.constAt(0, i, j));
         printf("\n");
       }
       printf("\n");
       printf("msErr:\n");
       for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 3; ++j)
-          printf("%8f ", msErr.ConstAt(0, i, j));
+          printf("%8f ", msErr.constAt(0, i, j));
         printf("\n");
       }
       printf("\n");
@@ -830,7 +830,7 @@ namespace mkfit {
 #endif
 
     //invert the 2x2 matrix
-    Matriplex::InvertCramerSym(resErr);
+    Matriplex::invertCramerSym(resErr);
 
     if (kfOp & KFO_Calculate_Chi2) {
       Chi2Similarity(res, resErr, outChi2);
@@ -873,7 +873,7 @@ namespace mkfit {
       }
 #endif
 
-      outErr.Subtract(psErr, outErr);
+      outErr.subtract(psErr, outErr);
 
 #ifdef DEBUG
       {

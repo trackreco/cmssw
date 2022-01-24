@@ -7,6 +7,32 @@
 
 namespace mkfit {
   //==============================================================================
+  // ReducedTrack
+  //==============================================================================
+
+  struct ReducedTrack  // used for cmssw reco track validation
+  {
+  public:
+    ReducedTrack() {}
+    ReducedTrack(const int label, const int seedID, const SVector2& params, const float phi, const HitLayerMap& hitmap)
+        : label_(label), seedID_(seedID), parameters_(params), phi_(phi), hitLayerMap_(hitmap) {}
+    ~ReducedTrack() {}
+
+    int label() const { return label_; }
+    int seedID() const { return seedID_; }
+    const SVector2& parameters() const { return parameters_; }
+    float momPhi() const { return phi_; }
+    const HitLayerMap& hitLayerMap() const { return hitLayerMap_; }
+
+    int label_;
+    int seedID_;
+    SVector2 parameters_;
+    float phi_;
+    HitLayerMap hitLayerMap_;
+  };
+  typedef std::vector<ReducedTrack> RedTrackVec;
+
+  //==============================================================================
   // TrackExtra
   //==============================================================================
 

@@ -145,26 +145,26 @@ namespace mkfit {
   }
 
   template <class T>
-  void ConfigJsonPatcher::Load(const T &o) {
+  void ConfigJsonPatcher::load(const T &o) {
     release_json();
     m_json = new nlohmann::json;
     *m_json = o;
     m_owner = true;
     cd_top();
   }
-  template void ConfigJsonPatcher::Load<IterationsInfo>(const IterationsInfo &o);
-  template void ConfigJsonPatcher::Load<IterationConfig>(const IterationConfig &o);
+  template void ConfigJsonPatcher::load<IterationsInfo>(const IterationsInfo &o);
+  template void ConfigJsonPatcher::load<IterationConfig>(const IterationConfig &o);
 
   template <class T>
-  void ConfigJsonPatcher::Save(T &o) {
+  void ConfigJsonPatcher::save(T &o) {
     from_json(*m_json, o);
   }
-  template void ConfigJsonPatcher::Save<IterationConfig>(IterationConfig &o);
+  template void ConfigJsonPatcher::save<IterationConfig>(IterationConfig &o);
 
   // Must not bork the IterationConfig elements of IterationsInfo ... default
   // deserializator apparently reinitializes the vectors with defaults c-tors.
   template <>
-  void ConfigJsonPatcher::Save<IterationsInfo>(IterationsInfo &o) {
+  void ConfigJsonPatcher::save<IterationsInfo>(IterationsInfo &o) {
     auto &itc_arr = m_json->at("m_iterations");
     for (int i = 0; i < o.size(); ++i) {
       from_json(itc_arr[i], o[i]);
@@ -390,11 +390,11 @@ namespace mkfit {
     }
   }  // namespace
 
-  void ConfigJson_Patch_Files(IterationsInfo &its_info,
+  void configJson_Patch_Files(IterationsInfo &its_info,
                               const std::vector<std::string> &fnames,
                               ConfigJsonPatcher::PatchReport *report) {
     ConfigJsonPatcher cjp(Config::json_verbose);
-    cjp.Load(its_info);
+    cjp.load(its_info);
 
     ConfigJsonPatcher::PatchReport rep;
 
@@ -440,14 +440,14 @@ namespace mkfit {
     }
 
     if (rep.n_replacements > 0) {
-      cjp.Save(its_info);
+      cjp.save(its_info);
     }
 
     if (report)
       report->inc_counts(rep);
   }
 
-  std::unique_ptr<IterationConfig> ConfigJson_PatchLoad_File(const IterationsInfo &its_info,
+  std::unique_ptr<IterationConfig> configJson_PatchLoad_File(const IterationsInfo &its_info,
                                                              const std::string &fname,
                                                              ConfigJsonPatcher::PatchReport *report) {
     ConfigJsonPatcher::PatchReport rep;
@@ -484,7 +484,7 @@ namespace mkfit {
     IterationConfig &ic = *icp;
 
     ConfigJsonPatcher cjp(Config::json_verbose);
-    cjp.Load(ic);
+    cjp.load(ic);
 
     int n_replaced = cjp.replace(j);
 
@@ -499,7 +499,7 @@ namespace mkfit {
     rep.inc_counts(1, 1, n_replaced);
 
     if (rep.n_replacements > 0) {
-      cjp.Save(ic);
+      cjp.save(ic);
     }
 
     if (report)
@@ -508,7 +508,7 @@ namespace mkfit {
     return std::unique_ptr<IterationConfig>(icp);
   }
 
-  std::unique_ptr<IterationConfig> ConfigJson_Load_File(const std::string &fname) {
+  std::unique_ptr<IterationConfig> configJson_Load_File(const std::string &fname) {
     std::ifstream ifs;
     open_ifstream(ifs, fname, __func__);
 
@@ -538,7 +538,7 @@ namespace mkfit {
   // Save each IterationConfig into a separate json file
   // ============================================================================
 
-  void ConfigJson_Save_Iterations(IterationsInfo &its_info,
+  void configJson_Save_Iterations(IterationsInfo &its_info,
                                   const std::string &fname_fmt,
                                   bool include_iter_info_preamble) {
     bool has_pct_d = fname_fmt.find("%d") != std::string::npos;
@@ -578,7 +578,7 @@ namespace mkfit {
     }
   }
 
-  void ConfigJson_Dump(IterationsInfo &its_info) {
+  void configJson_Dump(IterationsInfo &its_info) {
     nlohmann::ordered_json j = its_info;
     std::cout << j.dump(3) << "\n";
   }
@@ -587,7 +587,7 @@ namespace mkfit {
   // Tests for ConfigJson stuff
   // ============================================================================
 
-  void ConfigJson_Test_Direct(IterationConfig &it_cfg) {
+  void configJson_Test_Direct(IterationConfig &it_cfg) {
     using nlohmann::json;
 
     std::string lojz("/m_select_max_dphi");
@@ -633,9 +633,9 @@ namespace mkfit {
     std::cout << "Typename /m_layer_configs/143 " << y.type_name() << ", is_null=" << y.is_null() << "\n";
   }
 
-  void ConfigJson_Test_Patcher(IterationConfig &it_cfg) {
+  void configJson_Test_Patcher(IterationConfig &it_cfg) {
     ConfigJsonPatcher cjp;
-    cjp.Load(it_cfg);
+    cjp.load(it_cfg);
 
     std::cout << cjp.dump(1) << "\n";
 
@@ -672,7 +672,7 @@ namespace mkfit {
 
     // try getting it back into c++, see what happens to vector m_layer_configs.
 
-    cjp.Save(it_cfg);
+    cjp.save(it_cfg);
 
     printf("Layer 43: m_select_max_dphi = %f, size_of_layer_vec=%d, m_n_regions=%d, size_of_steering_params=%d\n",
            it_cfg.m_layer_configs[43].m_select_max_dphi,

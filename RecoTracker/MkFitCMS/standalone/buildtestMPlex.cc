@@ -147,7 +147,7 @@ namespace mkfit {
 
     double time = dtime();
 
-    builder.FindTracksBestHit();
+    builder.findTracksBestHit();
 
     time = dtime() - time;
 
@@ -169,7 +169,7 @@ namespace mkfit {
 
     // now do backwards fit... do we want to time this section?
     if (Config::backwardFit) {
-      builder.BackwardFitBH();
+      builder.backwardFitBH();
       ev.fitTracks_ = builder.ref_tracks();
     }
 
@@ -232,7 +232,7 @@ namespace mkfit {
 
     double time = dtime();
 
-    builder.FindTracksStandard();
+    builder.findTracksStandard();
 
     time = dtime() - time;
 
@@ -249,9 +249,9 @@ namespace mkfit {
     // now do backwards fit... do we want to time this section?
     if (Config::backwardFit) {
       // Using the TrackVec version until we home in on THE backward fit etc.
-      // builder.BackwardFit();
+      // builder.backwardFit();
       builder.select_best_comb_cands();
-      builder.BackwardFitBH();
+      builder.backwardFitBH();
       ev.fitTracks_ = builder.ref_tracks();
 
       check_nan_n_silly_bkfit(ev);
@@ -318,7 +318,7 @@ namespace mkfit {
 
     double time = dtime();
 
-    builder.FindTracksCloneEngine();
+    builder.findTracksCloneEngine();
 
     time = dtime() - time;
 
@@ -336,11 +336,11 @@ namespace mkfit {
     if (Config::backwardFit) {
       // a) TrackVec version:
       builder.select_best_comb_cands();
-      builder.BackwardFitBH();
+      builder.backwardFitBH();
       ev.fitTracks_ = builder.ref_tracks();
 
       // b) Version that runs on CombCand / TrackCand
-      // builder.BackwardFit();
+      // builder.backwardFit();
       // builder.quality_store_tracks(ev.fitTracks_);
 
       check_nan_n_silly_bkfit(ev);
@@ -450,7 +450,7 @@ namespace mkfit {
 
       double time = dtime();
 
-      builder.FindTracksCloneEngine();
+      builder.findTracksCloneEngine();
 
       timevec[it] = dtime() - time;
       timevec[n] += timevec[it];
@@ -487,7 +487,7 @@ namespace mkfit {
       // now do backwards fit... do we want to time this section?
       if (Config::backwardFit) {
         // a) TrackVec version:
-        // builder.BackwardFitBH();
+        // builder.backwardFitBH();
 
         // b) Version that runs on CombCand / TrackCand
         const bool do_backward_search = Config::backwardSearch && itconf.m_backward_search;
@@ -497,15 +497,15 @@ namespace mkfit {
         // if we want to export full tracks above we need to hold on to them (alternatively, we could
         // have a pointer to seed track in CombCandidate and copy them from there).
         if (do_backward_search) {
-          builder.CompactifyHitStorageForBestCand(itconf.m_backward_drop_seed_hits, itconf.m_backward_fit_min_hits);
+          builder.compactifyHitStorageForBestCand(itconf.m_backward_drop_seed_hits, itconf.m_backward_fit_min_hits);
         }
 
-        builder.BackwardFit();
+        builder.backwardFit();
 
         if (do_backward_search) {
-          builder.BeginBkwSearch();
-          builder.FindTracksCloneEngine(SteeringParams::IT_BkwSearch);
-          builder.EndBkwSearch();
+          builder.beginBkwSearch();
+          builder.findTracksCloneEngine(SteeringParams::IT_BkwSearch);
+          builder.endBkwSearch();
         }
 
         if (itconf.m_requires_quality_filter && (itconf.m_track_algorithm == 7 || itconf.m_track_algorithm == 9)) {

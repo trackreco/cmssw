@@ -16,17 +16,17 @@ namespace mkfit {
     // Hit processing
     //=========================================================================
 
-    void LoadHitsAndBeamSpot(Event &ev, EventOfHits &eoh) {
-      eoh.Reset();
+    void loadHitsAndBeamSpot(Event &ev, EventOfHits &eoh) {
+      eoh.reset();
 
       // fill vector of hits in each layer
       // XXXXMT: Does it really makes sense to multi-thread this?
       tbb::parallel_for(tbb::blocked_range<int>(0, ev.layerHits_.size()), [&](const tbb::blocked_range<int> &layers) {
         for (int ilay = layers.begin(); ilay < layers.end(); ++ilay) {
-          eoh.SuckInHits(ilay, ev.layerHits_[ilay]);
+          eoh.suckInHits(ilay, ev.layerHits_[ilay]);
         }
       });
-      eoh.SetBeamSpot(ev.beamSpot_);
+      eoh.setBeamSpot(ev.beamSpot_);
     }
 
     void handle_duplicates(Event *event) {
@@ -255,7 +255,7 @@ namespace mkfit {
       prep_recotracks(event);
 
       // validate
-      event->Validate();
+      event->validate();
     }
 
     void root_val(Event *event) {
@@ -275,7 +275,7 @@ namespace mkfit {
         prep_cmsswtracks(event);
 
       // validate
-      event->Validate();
+      event->validate();
     }
 
     void prep_recotracks(Event *event) {
@@ -529,9 +529,9 @@ void MkBuilder::find_seeds()
     seedtrack.setLabel(iseed);
 
     // use to set charge
-    const Hit & hit0 = loh0.GetHit(seed_idcs[iseed][0]);
-    const Hit & hit1 = loh1.GetHit(seed_idcs[iseed][1]);
-    const Hit & hit2 = loh2.GetHit(seed_idcs[iseed][2]);
+    const Hit & hit0 = loh0.refHit(seed_idcs[iseed][0]);
+    const Hit & hit1 = loh1.refHit(seed_idcs[iseed][1]);
+    const Hit & hit2 = loh2.refHit(seed_idcs[iseed][2]);
 
     seedtrack.setCharge(calculateCharge(hit0,hit1,hit2));
 
@@ -672,14 +672,14 @@ inline void MkBuilder::fit_one_seed_set(TrackVec& seedtracks, int itrack, int en
 {
   // debug=true;
 
-  mkfttr->SetNhits(Config::nlayers_per_seed);
-  mkfttr->InputTracksAndHits(seedtracks, m_event_of_hits.m_layers_of_hits, itrack, end);
+  mkfttr->setNhits(Config::nlayers_per_seed);
+  mkfttr->inputTracksAndHits(seedtracks, m_event_of_hits.m_layers_of_hits, itrack, end);
 
   if (Config::cf_seeding) mkfttr->ConformalFitTracks(false, itrack, end);
 
   mkfttr->FitTracksSteered(is_brl, end - itrack, m_event, Config::seed_fit_pflags);
 
-  mkfttr->OutputFittedTracksAndHitIdx(m_event->seedTracks_, itrack, end, false);
+  mkfttr->outputFittedTracksAndHitIdx(m_event->seedTracks_, itrack, end, false);
 }
 
 
@@ -906,9 +906,9 @@ void MkBuilder::PrepareSeeds()
 
               auto &LoH = m_event_of_hits.m_layers_of_hits[hnp->m_hot.layer];
 
-              const Hit &h = LoH.GetHit(hnp->m_hot.index);
+              const Hit &h = LoH.refHit(hnp->m_hot.index);
               const MCHitInfo &mchi = m_event->simHitsInfo_[h.mcHitID()];
-              const Hit &o = LoH.GetHit(hnp->m_index_ovlp);
+              const Hit &o = LoH.refHit(hnp->m_index_ovlp);
               const MCHitInfo &mcoi = m_event->simHitsInfo_[o.mcHitID()];
 
               const TrackBase &bb =
@@ -1015,7 +1015,7 @@ void MkFitter::FitTracks(const int N_proc, const Event * ev, const PropagationFl
     // propagateLineToRMPlex(Err[iC], Par[iC], msErr[hi], msPar[hi],
     //                       Err[iP], Par[iP]);
 
-    PropagateTracksToHitR(msPar[hi], N_proc, pflags);
+    propagateTracksToHitR(msPar[hi], N_proc, pflags);
 
     kalmanUpdate(Err[iP], Par[iP], msErr[hi], msPar[hi],
                  Err[iC], Par[iC], N_proc);
@@ -1032,9 +1032,9 @@ void MkFitter::CollectFitValidation(const int hi, const int N_proc, const Event 
     const float upt = 1.f/Par[iC](n,3,0);
     const FitVal tmpfitval
     {
-      Par[iP].ConstAt(n,2,0),
-      std::sqrt(Err[iP].ConstAt(n,2,2)),
-      getPhi(Par[iP].ConstAt(n,0,0),Par[iP].ConstAt(n,1,0)),
+      Par[iP].constAt(n,2,0),
+      std::sqrt(Err[iP].constAt(n,2,2)),
+      getPhi(Par[iP].constAt(n,0,0),Par[iP].constAt(n,1,0)),
       std::sqrt(getPhiErr2(Par[iP](n,0,0),Par[iP](n,1,0),Err[iP](n,0,0),Err[iP](n,1,1),Err[iP](n,0,1))),
       upt,
       std::sqrt(Err[iC](n,3,3))*upt*upt,
@@ -1062,14 +1062,14 @@ void MkFitter::FitTracksSteered(const bool is_barrel[], const int N_proc, const 
 
     if (is_barrel[hi])
     {
-      PropagateTracksToHitR(msPar[hi], N_proc, pflags);
+      propagateTracksToHitR(msPar[hi], N_proc, pflags);
 
       kalmanUpdate(Err[iP], Par[iP], msErr[hi], msPar[hi],
                    Err[iC], Par[iC], N_proc);
     }
     else
     {
-      PropagateTracksToHitZ(msPar[hi], N_proc, pflags);
+      propagateTracksToHitZ(msPar[hi], N_proc, pflags);
 
       kalmanUpdateEndcap(Err[iP], Par[iP], msErr[hi], msPar[hi],
                          Err[iC], Par[iC], N_proc);

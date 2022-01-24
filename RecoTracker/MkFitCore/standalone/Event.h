@@ -16,9 +16,9 @@ namespace mkfit {
     explicit Event(int evtID);
     Event(Validation &v, int evtID);
 
-    void Reset(int evtID);
-    void Validate();
-    void PrintStats(const TrackVec &, TrackExtraVec &);
+    void reset(int evtID);
+    void validate();
+    void printStats(const TrackVec &, TrackExtraVec &);
 
     int evtID() const { return evtID_; }
     void resetLayerHitMap(bool resetSimHits);
@@ -102,20 +102,20 @@ namespace mkfit {
 
     // ----------------------------------------------------------------
 
-    bool HasSimTrackStates() const { return f_header.f_extra_sections & ES_SimTrackStates; }
-    bool HasSeeds() const { return f_header.f_extra_sections & ES_Seeds; }
-    bool HasCmsswTracks() const { return f_header.f_extra_sections & ES_CmsswTracks; }
-    bool HasHitIterMasks() const { return f_header.f_extra_sections & ES_HitIterMasks; }
-    bool HasBeamSpot() const { return f_header.f_extra_sections & ES_BeamSpot; }
+    bool hasSimTrackStates() const { return f_header.f_extra_sections & ES_SimTrackStates; }
+    bool hasSeeds() const { return f_header.f_extra_sections & ES_Seeds; }
+    bool hasCmsswTracks() const { return f_header.f_extra_sections & ES_CmsswTracks; }
+    bool hasHitIterMasks() const { return f_header.f_extra_sections & ES_HitIterMasks; }
+    bool hasBeamSpot() const { return f_header.f_extra_sections & ES_BeamSpot; }
 
-    int OpenRead(const std::string &fname, bool set_n_layers = false);
-    void OpenWrite(const std::string &fname, int nev, int extra_sections = 0);
+    int openRead(const std::string &fname, bool set_n_layers = false);
+    void openWrite(const std::string &fname, int nev, int extra_sections = 0);
 
-    int AdvancePosToNextEvent(FILE *fp);
+    int advancePosToNextEvent(FILE *fp);
 
-    void SkipNEvents(int n_to_skip);
+    void skipNEvents(int n_to_skip);
 
-    void Close();
+    void close();
     void CloseWrite(int n_written);  //override nevents in the header and close
   };
 

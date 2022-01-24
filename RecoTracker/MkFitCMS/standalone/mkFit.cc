@@ -55,14 +55,14 @@ void initGeom() {
   for (int i = 0; i < 10; ++i) {
       ii[i].m_track_algorithm = algorithms[i];
   }
-  auto xx = ConfigJson_Load_File(ii, "mkfit-phase1-initialStep.json");
+  auto xx = configJson_Load_File(ii, "mkfit-phase1-initialStep.json");
   printf("%d\n", xx->m_iteration_index);
   */
 
-  TrackerInfo::ExecTrackerInfoCreatorPlugin(Config::geomPlugin, Config::TrkInfo, Config::ItrInfo);
+  TrackerInfo::execTrackerInfoCreatorPlugin(Config::geomPlugin, Config::TrkInfo, Config::ItrInfo);
 
   if (Config::json_dump_before)
-    ConfigJson_Dump(Config::ItrInfo);
+    configJson_Dump(Config::ItrInfo);
 
   if (!Config::json_load_filenames.empty()) {
     ConfigJsonPatcher::PatchReport report;
@@ -70,7 +70,7 @@ void initGeom() {
     for (auto& fn : Config::json_load_filenames) {
       // This is for testing only ... we drop the loaded IterationConfig
       // as further code will always use IterationsInfo[ iter_index ].
-      ConfigJson_PatchLoad_File(Config::ItrInfo, fn, &report);
+      configJson_PatchLoad_File(Config::ItrInfo, fn, &report);
     }
 
     printf(
@@ -85,7 +85,7 @@ void initGeom() {
   if (!Config::json_patch_filenames.empty()) {
     ConfigJsonPatcher::PatchReport report;
 
-    ConfigJson_Patch_Files(Config::ItrInfo, Config::json_patch_filenames, &report);
+    configJson_Patch_Files(Config::ItrInfo, Config::json_patch_filenames, &report);
 
     printf("mkFit.cc/%s--JOSN-Patch read %d JSON entities from %d files, replaced %d parameters.\n",
            __func__,
@@ -95,16 +95,16 @@ void initGeom() {
   }
 
   if (Config::json_dump_after)
-    ConfigJson_Dump(Config::ItrInfo);
+    configJson_Dump(Config::ItrInfo);
 
   if (!Config::json_save_iters_fname_fmt.empty()) {
-    ConfigJson_Save_Iterations(
+    configJson_Save_Iterations(
         Config::ItrInfo, Config::json_save_iters_fname_fmt, Config::json_save_iters_include_iter_info_preamble);
   }
 
   // Test functions for ConfigJsonPatcher
-  // ConfigJson_Test_Direct (Config::ItrInfo[0]);
-  // ConfigJson_Test_Patcher(Config::ItrInfo[0]);
+  // configJson_Test_Direct (Config::ItrInfo[0]);
+  // configJson_Test_Patcher(Config::ItrInfo[0]);
 
   /*
   if ( ! Config::useCMSGeom)
@@ -209,22 +209,22 @@ void listOpts(const U& g_opt_map) {
 
 void read_and_save_tracks() {
   DataFile in;
-  const int Nevents = in.OpenRead(g_input_file, true);
+  const int Nevents = in.openRead(g_input_file, true);
 
   DataFile out;
-  out.OpenWrite(g_output_file, Nevents);
+  out.openWrite(g_output_file, Nevents);
 
   printf("writing %i events\n", Nevents);
 
   Event ev(0);
   for (int evt = 0; evt < Nevents; ++evt) {
-    ev.Reset(evt);
+    ev.reset(evt);
     ev.read_in(in);
     ev.write_out(out);
   }
 
-  out.Close();
-  in.Close();
+  out.close();
+  in.close();
 }
 
 //==============================================================================
@@ -257,7 +257,7 @@ void test_standard() {
 
   DataFile data_file;
   if (g_operation == "read") {
-    int evs_in_file = data_file.OpenRead(g_input_file);
+    int evs_in_file = data_file.openRead(g_input_file);
     int evs_available = evs_in_file - g_start_event + 1;
     if (Config::nEvents == -1) {
       Config::nEvents = evs_available;
@@ -267,7 +267,7 @@ void test_standard() {
     }
 
     if (g_start_event > 1) {
-      data_file.SkipNEvents(g_start_event - 1);
+      data_file.skipNEvents(g_start_event - 1);
     }
   }
 
@@ -342,7 +342,7 @@ void test_standard() {
                                << " range " << evstart << ":" << evend);
 
           for (int evt = evstart; evt < evend; ++evt) {
-            ev.Reset(nevt++);
+            ev.reset(nevt++);
 
             if (!Config::silent) {
               std::lock_guard<std::mutex> printlock(Event::printmutex);
@@ -358,12 +358,12 @@ void test_standard() {
 
             // plex_tracks.resize(ev.simTracks_.size());
 
-            StdSeq::LoadHitsAndBeamSpot(ev, eoh);
+            StdSeq::loadHitsAndBeamSpot(ev, eoh);
 
             std::vector<DeadVec> deadvectors(ev.layerHits_.size());
 #include "RecoTracker/MkFitCMS/standalone/deadmodules.h"
             if (Config::useDeadModules) {
-              StdSeq::LoadDeads(eoh, deadvectors);
+              StdSeq::loadDeads(eoh, deadvectors);
             }
 
             double t_best[NT] = {0}, t_cur[NT] = {0};
@@ -480,7 +480,7 @@ void test_standard() {
     printf("================================================================\n");
   }
   if (g_operation == "read") {
-    data_file.Close();
+    data_file.close();
   }
 
   for (auto& val : vals) {
@@ -1072,7 +1072,7 @@ int main(int argc, const char* argv[]) {
     g_operation = "convert";
   }
 
-  Config::RecalculateDependentConstants();
+  Config::recalculateDependentConstants();
 
   printf("Running with n_threads=%d, best_out_of=%d\n", Config::numThreadsFinder, Config::finderReportBestOutOfN);
 

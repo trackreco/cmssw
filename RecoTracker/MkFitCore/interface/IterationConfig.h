@@ -175,7 +175,7 @@ namespace mkfit {
 
     // -------- Setup function
 
-    void CloneLayerSteerCore(const IterationConfig &o) {
+    void cloneLayerSteerCore(const IterationConfig &o) {
       // Clone common settings for an iteration.
       // m_iteration_index, m_track_algorithm, cleaning and bkw-search flags,
       // and IterationParams are not copied.
@@ -310,9 +310,9 @@ namespace mkfit {
     ~ConfigJsonPatcher();
 
     template <class T>
-    void Load(const T &o);
+    void load(const T &o);
     template <class T>
-    void Save(T &o);
+    void save(T &o);
 
     void cd(const std::string &path);
     void cd_up(const std::string &path = "");
@@ -335,7 +335,7 @@ namespace mkfit {
   // Assumes patch files include iteration-info preambles, i.e., they
   // were saved with include_iter_info_preamble=true.
   // If report is non-null counts are added to existing object.
-  void ConfigJson_Patch_Files(IterationsInfo &its_info,
+  void configJson_Patch_Files(IterationsInfo &its_info,
                               const std::vector<std::string> &fnames,
                               ConfigJsonPatcher::PatchReport *report = nullptr);
 
@@ -347,7 +347,7 @@ namespace mkfit {
   // Assumes JSON file has been saved WITHOUT iteration-info preamble.
   // Returns a unique_ptr to the cloned IterationConfig.
   // If report is non-null counts are added to existing object.
-  std::unique_ptr<IterationConfig> ConfigJson_PatchLoad_File(const IterationsInfo &its_info,
+  std::unique_ptr<IterationConfig> configJson_PatchLoad_File(const IterationsInfo &its_info,
                                                              const std::string &fname,
                                                              ConfigJsonPatcher::PatchReport *report = nullptr);
 
@@ -357,16 +357,16 @@ namespace mkfit {
   // The only such member is std::function m_partition_seeds.
   // Assumes JSON file has been saved WITHOUT iteration-info preamble.
   // Returns a unique_ptr to the cloned IterationConfig.
-  std::unique_ptr<IterationConfig> ConfigJson_Load_File(const std::string &fname);
+  std::unique_ptr<IterationConfig> configJson_Load_File(const std::string &fname);
 
-  void ConfigJson_Save_Iterations(IterationsInfo &its_info,
+  void configJson_Save_Iterations(IterationsInfo &its_info,
                                   const std::string &fname_fmt,
                                   bool include_iter_info_preamble);
 
-  void ConfigJson_Dump(IterationsInfo &its_info);
+  void configJson_Dump(IterationsInfo &its_info);
 
-  void ConfigJson_Test_Direct(IterationConfig &it_cfg);
-  void ConfigJson_Test_Patcher(IterationConfig &it_cfg);
+  void configJson_Test_Direct(IterationConfig &it_cfg);
+  void configJson_Test_Patcher(IterationConfig &it_cfg);
 
 }  // end namespace mkfit
 

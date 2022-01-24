@@ -23,11 +23,11 @@ namespace mkfit {
   public:
     MatriplexPackerSlurpIn(const D& base) : m_base(&base), m_pos(0) {}
 
-    void Reset() { m_pos = 0; }
+    void reset() { m_pos = 0; }
 
-    void AddNullInput() { m_idx[m_pos++] = 0; }
+    void addNullInput() { m_idx[m_pos++] = 0; }
 
-    void AddInput(const D& item) {
+    void addInput(const D& item) {
       // Could issue prefetch requests here.
 
       m_idx[m_pos] = &item - m_base;
@@ -35,18 +35,18 @@ namespace mkfit {
       ++m_pos;
     }
 
-    void AddInputAt(int pos, const D& item) {
+    void addInputAt(int pos, const D& item) {
       while (m_pos < pos) {
         // We might not care about initialization / reset to 0.
         // Or we could be building an additional mask (on top of N_proc).
         m_idx[m_pos++] = 0;
       }
 
-      AddInput(item);
+      addInput(item);
     }
 
     template <typename TM>
-    void Pack(TM& mplex, int base_offset) {
+    void pack(TM& mplex, int base_offset) {
       assert(m_pos <= NN);
 
       if (m_pos == 0) {
@@ -56,9 +56,9 @@ namespace mkfit {
 
 #if defined(GATHER_INTRINSICS)
       GATHER_IDX_LOAD(vi, m_idx);
-      mplex.SlurpIn(m_base + base_offset, vi, D(), m_pos);
+      mplex.slurpIn(m_base + base_offset, vi, D(), m_pos);
 #else
-      mplex.SlurpIn(m_base + base_offset, m_idx, m_pos);
+      mplex.slurpIn(m_base + base_offset, m_idx, m_pos);
 #endif
     }
   };
@@ -77,7 +77,7 @@ namespace mkfit {
     MatriplexErrParPackerSlurpIn(const T& t)
         : MatriplexPackerSlurpIn<D>(*t.errArray()), m_off_param(t.posArray() - this->m_base) {}
 
-    void AddInput(const T& item) {
+    void addInput(const T& item) {
       // Could issue L1 prefetch requests here.
 
       this->m_idx[this->m_pos] = item.errArray() - this->m_base;
@@ -85,18 +85,18 @@ namespace mkfit {
       ++this->m_pos;
     }
 
-    void AddInputAt(int pos, const T& item) {
+    void addInputAt(int pos, const T& item) {
       while (this->m_pos < pos) {
         // We might not care about initialization / reset to 0.
         // Or we could be building an additional mask (on top of N_proc).
         this->m_idx[this->m_pos++] = 0;
       }
 
-      AddInput(item);
+      addInput(item);
     }
 
     template <typename TMerr, typename TMpar>
-    void Pack(TMerr& err, TMpar& par) {
+    void pack(TMerr& err, TMpar& par) {
       assert(this->m_pos <= NN);
 
       if (this->m_pos == 0) {
@@ -106,11 +106,11 @@ namespace mkfit {
 
 #if defined(GATHER_INTRINSICS)
       GATHER_IDX_LOAD(vi, this->m_idx);
-      err.SlurpIn(this->m_base, vi, D(), this->m_pos);
-      par.SlurpIn(this->m_base + m_off_param, vi, D(), this->m_pos);
+      err.slurpIn(this->m_base, vi, D(), this->m_pos);
+      par.slurpIn(this->m_base + m_off_param, vi, D(), this->m_pos);
 #else
-      err.SlurpIn(this->m_base, this->m_idx, this->m_pos);
-      par.SlurpIn(this->m_base + m_off_param, this->m_idx, this->m_pos);
+      err.slurpIn(this->m_base, this->m_idx, this->m_pos);
+      par.slurpIn(this->m_base + m_off_param, this->m_idx, this->m_pos);
 #endif
     }
   };
@@ -123,18 +123,18 @@ namespace mkfit {
   class MatriplexTrackPackerPlexify  // : public MatriplexTrackPackerBase
   {
   public:
-    MatriplexTrackPackerPlexify(const T& t) {}
+    matriplexTrackPackerPlexify(const T& t) {}
 
-    void Reset() {}
+    void reset() {}
 
-    void AddNullInput() {}
+    void addNullInput() {}
 
-    void AddInput(const T& item) {}
+    void addInput(const T& item) {}
 
-    void AddInputAt(int pos, const T& item) {}
+    void addInputAt(int pos, const T& item) {}
 
     template <typename TMerr, typename TMpar>
-    void Pack(TMerr& err, TMpar& par) {}
+    void pack(TMerr& err, TMpar& par) {}
   };
 
   //==============================================================================

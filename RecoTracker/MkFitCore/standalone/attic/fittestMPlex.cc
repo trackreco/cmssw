@@ -61,7 +61,7 @@ namespace mkfit {
     tbb::parallel_for(tbb::blocked_range<int>(0, count, std::max(1, Config::numSeedsPerTask / NN)),
                       [&](const tbb::blocked_range<int>& i) {
                         std::unique_ptr<MkFitter, decltype(retfitr)> mkfp(g_exe_ctx.m_fitters.GetFromPool(), retfitr);
-                        mkfp->SetNhits(Nhits);
+                        mkfp->setNhits(Nhits);
                         for (int it = i.begin(); it < i.end(); ++it) {
                           int itrack = it * NN;
                           int end = itrack + NN;
@@ -69,23 +69,23 @@ namespace mkfit {
          * MT, trying to slurp and fit at the same time ...
 	  if (theEnd < end) {
 	    end = theEnd;
-	    mkfp->InputTracksAndHits(simtracks, ev.layerHits_, itrack, end);
+	    mkfp->inputTracksAndHits(simtracks, ev.layerHits_, itrack, end);
 	  } else {
-	    mkfp->SlurpInTracksAndHits(simtracks, ev.layerHits_, itrack, end); // only safe for a full matriplex
+	    mkfp->slurpInTracksAndHits(simtracks, ev.layerHits_, itrack, end); // only safe for a full matriplex
 	  }
 	  
 	  if (Config::cf_fitting) mkfp->ConformalFitTracks(true, itrack, end);
 	  mkfp->FitTracks(end - itrack, &ev, true);
         */
 
-                          mkfp->InputTracksForFit(simtracks, itrack, end);
+                          mkfp->inputTracksForFit(simtracks, itrack, end);
 
                           // XXXX MT - for this need 3 points in ... right
                           // XXXX if (Config::cf_fitting) mkfp->ConformalFitTracks(true, itrack, end);
 
-                          mkfp->FitTracksWithInterSlurp(ev.layerHits_, end - itrack);
+                          mkfp->fitTracksWithInterSlurp(ev.layerHits_, end - itrack);
 
-                          mkfp->OutputFittedTracks(rectracks, itrack, end);
+                          mkfp->outputFittedTracks(rectracks, itrack, end);
                         }
                       });
 
@@ -97,7 +97,7 @@ namespace mkfit {
 #endif
 
     if (Config::fit_val)
-      ev.Validate();
+      ev.validate();
 
     return time;
   }

@@ -26,7 +26,7 @@ namespace {
       const bool z_dir_pos = S.pz() > 0;
 
       const auto &hot = S.getLastHitOnTrack();
-      const float eta = eoh[hot.layer].GetHit(hot.index).eta();
+      const float eta = eoh[hot.layer].refHit(hot.index).eta();
 
       // Region to be defined by propagation / intersection tests
       TrackerInfo::EtaRegion reg;
@@ -153,7 +153,7 @@ namespace {
       const Track &S = in_seeds[i];
 
       const auto &hot = S.getLastHitOnTrack();
-      const float eta = eoh[hot.layer].GetHit(hot.index).eta();
+      const float eta = eoh[hot.layer].refHit(hot.index).eta();
 
       // Region to be defined by propagation / intersection tests
       TrackerInfo::EtaRegion reg;
@@ -233,7 +233,7 @@ void MkFitIterationConfigESProducer::fillDescriptions(edm::ConfigurationDescript
 
 std::unique_ptr<mkfit::IterationConfig> MkFitIterationConfigESProducer::produce(
     const TrackerRecoGeometryRecord &iRecord) {
-  auto it_conf = mkfit::ConfigJson_Load_File(configFile_);
+  auto it_conf = mkfit::configJson_Load_File(configFile_);
   it_conf->m_partition_seeds = partitionSeeds1;
   return it_conf;
 }
