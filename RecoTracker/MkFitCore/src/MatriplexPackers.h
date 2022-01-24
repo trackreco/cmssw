@@ -123,7 +123,7 @@ namespace mkfit {
   class MatriplexTrackPackerPlexify  // : public MatriplexTrackPackerBase
   {
   public:
-    matriplexTrackPackerPlexify(const T& t) {}
+    MatriplexTrackPackerPlexify(const T& t) {}
 
     void reset() {}
 
