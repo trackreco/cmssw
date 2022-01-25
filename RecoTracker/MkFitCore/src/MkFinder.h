@@ -205,7 +205,7 @@ namespace mkfit {
     const HitOnTrack *HoTArr[NN];
 
     int CurNode[NN];
-    HoTNode *HoTNodeArr[NN];  // Not const as we can modify it!
+    const HoTNode *HoTNodeArr[NN];
 
     void bkFitInputTracks(TrackVec &cands, int beg, int end);
     void bkFitOutputTracks(TrackVec &cands, int beg, int end, bool outputProp);

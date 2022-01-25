@@ -90,8 +90,8 @@ namespace mkfit {
 
     int total_cands() const {
       int res = 0;
-      for (auto const &icomb : m_event_of_comb_cands.m_candidates)
-        res += icomb.size();
+      for (int i = 0; i < m_event_of_comb_cands.size(); ++i)
+        res += m_event_of_comb_cands[i].size();
       return res;
     }
 

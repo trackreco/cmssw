@@ -415,7 +415,7 @@ namespace mkfit {
 
   class TrackCand : public TrackBase {
   public:
-    TrackCand() {}
+    TrackCand() = default;
 
     explicit TrackCand(const TrackBase& base, CombCandidate* ccand) : TrackBase(base), m_comb_candidate(ccand) {
       // Reset hit counters -- caller has to initialize hits.
@@ -423,6 +423,12 @@ namespace mkfit {
       nFoundHits_ = 0;
     }
 
+    // CombCandidate is used as a hit-container for a set of TrackCands originating from
+    // the same seed and track building functions need this access to be able to add hits
+    // into this holder class.
+    // Access is guaranteed to be thread safe as seed ranges pointing into CombCandidate
+    // vector is assigned to threads doing track-finding and final processing is only done
+    // when all worker threads have finished.
     CombCandidate* combCandidate() const { return m_comb_candidate; }
     void setCombCandidate(CombCandidate* cc) { m_comb_candidate = cc; }
 
@@ -488,7 +494,7 @@ namespace mkfit {
       m_comb_candidate = nullptr;
     }
 
-  protected:
+  private:
     CombCandidate* m_comb_candidate = nullptr;
     HitMatchPair m_overlap_hits;
 
@@ -529,21 +535,6 @@ namespace mkfit {
     using allocator_type = CcAlloc<TrackCand>;
 
     enum SeedState_e { Dormant = 0, Finding, Finished };
-
-    trk_cand_vec_type m_trk_cands;
-    TrackCand m_best_short_cand;
-    SeedState_e m_state : 8;
-    int m_pickup_layer : 16;
-    short int m_lastHitIdx_before_bkwsearch = -1;
-    short int m_nInsideMinusOneHits_before_bkwsearch = -1;
-    short int m_nTailMinusOneHits_before_bkwsearch = -1;
-
-#ifdef DUMPHITWINDOW
-    int m_seed_algo = 0;
-    int m_seed_label = 0;
-#endif
-    int m_hots_size = 0;
-    std::vector<HoTNode> m_hots;
 
     CombCandidate(const allocator_type& alloc) : m_trk_cands(alloc), m_state(Dormant), m_pickup_layer(-1) {}
 
@@ -651,22 +642,55 @@ namespace mkfit {
     void compactifyHitStorageForBestCand(bool remove_seed_hits, int backward_fit_min_hits);
     void beginBkwSearch();
     void endBkwSearch();
+
+    // Accessors
+    //-----------
+    int hotsSize() const { return m_hots_size; }
+    const HoTNode& hot_node(int i) const { return m_hots[i]; }
+    HoTNode& hot_node_nc(int i) { return m_hots[i]; }
+    HitOnTrack hot(int i) const { return m_hots[i].m_hot; }
+    // Direct access into array for vectorized code in MkFinder
+    const HoTNode* hotsData() const { return m_hots.data(); }
+
+    const TrackCand& refBestShortCand() const { return m_best_short_cand; }
+    void setBestShortCand(const TrackCand& tc) { m_best_short_cand = tc; }
+
+    SeedState_e state() const { return m_state; }
+    void setState(SeedState_e ss) { m_state = ss; }
+
+    int pickupLayer() const { return m_pickup_layer; }
+
+  private:
+    trk_cand_vec_type m_trk_cands;
+    TrackCand m_best_short_cand;
+    SeedState_e m_state : 8;
+    int m_pickup_layer : 16;
+    short int m_lastHitIdx_before_bkwsearch = -1;
+    short int m_nInsideMinusOneHits_before_bkwsearch = -1;
+    short int m_nTailMinusOneHits_before_bkwsearch = -1;
+
+#ifdef DUMPHITWINDOW
+    int m_seed_algo = 0;
+    int m_seed_label = 0;
+#endif
+    int m_hots_size = 0;
+    std::vector<HoTNode> m_hots;
   };
 
   //==============================================================================
 
-  inline HitOnTrack TrackCand::getLastHitOnTrack() const { return m_comb_candidate->m_hots[lastHitIdx_].m_hot; }
+  inline HitOnTrack TrackCand::getLastHitOnTrack() const { return m_comb_candidate->hot(lastHitIdx_); }
 
-  inline int TrackCand::getLastHitIdx() const { return m_comb_candidate->m_hots[lastHitIdx_].m_hot.index; }
+  inline int TrackCand::getLastHitIdx() const { return m_comb_candidate->hot(lastHitIdx_).index; }
 
-  inline int TrackCand::getLastHitLyr() const { return m_comb_candidate->m_hots[lastHitIdx_].m_hot.layer; }
+  inline int TrackCand::getLastHitLyr() const { return m_comb_candidate->hot(lastHitIdx_).layer; }
 
   inline int TrackCand::getLastFoundHitLyr() const {
     int nh = nTotalHits();
     int ch = lastHitIdx_;
     int ll = -1;
     while (--nh >= 0) {
-      HoTNode& hot_node = m_comb_candidate->m_hots[ch];
+      const HoTNode& hot_node = m_comb_candidate->hot_node(ch);
       if (hot_node.m_hot.index < 0) {
         ch = hot_node.m_prev_idx;
       } else {
@@ -682,7 +706,7 @@ namespace mkfit {
     int ch = lastHitIdx_;
     int ll = -1;
     while (--nh >= 0) {
-      HoTNode& hot_node = m_comb_candidate->m_hots[ch];
+      const HoTNode& hot_node = m_comb_candidate->hot_node(ch);
       int tl = hot_node.m_hot.layer;
       if (hot_node.m_hot.index < 0 || !((0 <= tl && tl <= 3) || (18 <= tl && tl <= 20) || (45 <= tl && tl <= 47))) {
         ch = hot_node.m_prev_idx;
@@ -701,7 +725,7 @@ namespace mkfit {
     int ch = lastHitIdx_;
 
     while (--nh >= 0) {
-      HoTNode& hot_node = m_comb_candidate->m_hots[ch];
+      const HoTNode& hot_node = m_comb_candidate->hot_node(ch);
       int thisL = hot_node.m_hot.layer;
       if (thisL >= 0 && (hot_node.m_hot.index >= 0 || hot_node.m_hot.index == -9) && thisL != prevL) {
         ++nUL;
@@ -720,7 +744,7 @@ namespace mkfit {
     int pix = 0, stereo = 0, mono = 0, matched = 0;
     int doubleStereo = -1;
     while (--nh >= 0) {
-      HoTNode& hot_node = m_comb_candidate->m_hots[ch];
+      const HoTNode& hot_node = m_comb_candidate->hot_node(ch);
       int thisL = hot_node.m_hot.layer;
       if (thisL >= 0 && (hot_node.m_hot.index >= 0 || hot_node.m_hot.index == -9)) {
         if (trk_inf.is_pix_lyr(thisL))
@@ -752,7 +776,7 @@ namespace mkfit {
     int ch = lastHitIdx_;
     int pix = 0, stereo = 0, mono = 0, matched = 0;
     while (--nh >= 0) {
-      HoTNode& hot_node = m_comb_candidate->m_hots[ch];
+      const HoTNode& hot_node = m_comb_candidate->hot_node(ch);
       int thisL = hot_node.m_hot.layer;
       if (thisL >= 0 && (hot_node.m_hot.index >= 0 || hot_node.m_hot.index == -9) && thisL != prevL) {
         if (trk_inf.is_pix_lyr(thisL))
@@ -773,9 +797,9 @@ namespace mkfit {
     return pix + 100 * stereo + 10000 * mono + 1000000 * matched;
   }
 
-  inline HoTNode& TrackCand::refLastHoTNode() { return m_comb_candidate->m_hots[lastHitIdx_]; }
+  inline HoTNode& TrackCand::refLastHoTNode() { return m_comb_candidate->hot_node_nc(lastHitIdx_); }
 
-  inline const HoTNode& TrackCand::refLastHoTNode() const { return m_comb_candidate->m_hots[lastHitIdx_]; }
+  inline const HoTNode& TrackCand::refLastHoTNode() const { return m_comb_candidate->hot_node(lastHitIdx_); }
 
   //------------------------------------------------------------------------------
 
@@ -799,14 +823,6 @@ namespace mkfit {
   //==============================================================================
 
   class EventOfCombCandidates {
-    CcPool<TrackCand> m_cc_pool;
-
-  public:
-    std::vector<CombCandidate> m_candidates;
-
-    int m_capacity;
-    int m_size;
-
   public:
     EventOfCombCandidates(int size = 0) : m_cc_pool(), m_candidates(), m_capacity(0), m_size(0) {}
 
@@ -843,9 +859,6 @@ namespace mkfit {
       m_size -= n_removed;
     }
 
-    const CombCandidate& operator[](int i) const { return m_candidates[i]; }
-    CombCandidate& operator[](int i) { return m_candidates[i]; }
-
     void insertSeed(const Track& seed, int region) {
       assert(m_size < m_capacity);
 
@@ -867,6 +880,25 @@ namespace mkfit {
       for (int i = 0; i < m_size; ++i)
         m_candidates[i].endBkwSearch();
     }
+
+    // Accessors
+    int size() const { return m_size; }
+
+    const CombCandidate& operator[](int i) const { return m_candidates[i]; }
+    CombCandidate& operator[](int i) { return m_candidates[i]; }
+    CombCandidate& cand(int i) { return m_candidates[i]; }
+
+    // Direct access for vectorized functions in MkBuilder / MkFinder
+    const std::vector<CombCandidate>& refCandidates() const { return m_candidates; }
+    std::vector<CombCandidate>& refCandidates_nc() { return m_candidates; }
+
+  private:
+    CcPool<TrackCand> m_cc_pool;
+
+    std::vector<CombCandidate> m_candidates;
+
+    int m_capacity;
+    int m_size;
   };
 
 }  // end namespace mkfit

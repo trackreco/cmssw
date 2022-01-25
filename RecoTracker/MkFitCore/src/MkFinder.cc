@@ -1197,14 +1197,14 @@ namespace mkfit {
             }
 
             if (isCompatible) {
-              CombCandidate &ccand = cloner.mp_event_of_comb_candidates->m_candidates[SeedIdx(itrack, 0, 0)];
+              CombCandidate &ccand = cloner.mp_event_of_comb_candidates->cand(SeedIdx(itrack, 0, 0));
               bool hitExists = false;
               int maxHits = NFoundHits(itrack, 0, 0);
               if (layer_of_hits.is_pix_lyr()) {
                 for (int i = 0; i <= maxHits; ++i) {
                   if (i > 2)
                     break;
-                  if (ccand.m_hots[i].m_hot.layer == layer_of_hits.layer_id()) {
+                  if (ccand.hot(i).layer == layer_of_hits.layer_id()) {
                     hitExists = true;
                     break;
                   }
@@ -1370,7 +1370,7 @@ namespace mkfit {
 
       Chg(itrack, 0, 0) = trk.charge();
       CurNode[itrack] = trk.lastCcIndex();
-      HoTNodeArr[itrack] = trk.combCandidate()->m_hots.data();
+      HoTNodeArr[itrack] = trk.combCandidate()->hotsData();
 
       // XXXX Need TrackCand* to update num-hits. Unless I collect info elsewhere
       // and fix it in BkFitOutputTracks.

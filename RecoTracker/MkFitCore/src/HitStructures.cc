@@ -393,7 +393,7 @@ namespace mkfit {
     int ch = lastHitIdx_;
     int good_hits_pos = nFoundHits();
     while (--nh >= 0) {
-      HoTNode &hot_node = m_comb_candidate->m_hots[ch];
+      const HoTNode &hot_node = m_comb_candidate->hot_node(ch);
       if (remove_missing_hits) {
         if (hot_node.m_hot.index >= 0)
           res.setHitIdxAtPos(--good_hits_pos, hot_node.m_hot);

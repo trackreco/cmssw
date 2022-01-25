@@ -32,13 +32,11 @@ namespace mkfit {
 
     dprintf("\nCandCloner::ProcessSeedRange is_beg=%d, is_end=%d\n", is_beg, is_end);
 
-    std::vector<CombCandidate> &cands = mp_event_of_comb_candidates->m_candidates;
-
     //1) sort the candidates
     for (int is = is_beg; is < is_end; ++is) {
       std::vector<IdxChi2List> &hitsForSeed = m_hits_to_add[is];
 
-      CombCandidate &ccand = cands[m_start_seed + is];
+      CombCandidate &ccand = mp_event_of_comb_candidates->cand(m_start_seed + is);
       std::vector<TrackCand> &extras = (*mp_extra_cands)[is];
       auto extra_i = extras.begin();
       auto extra_e = extras.end();
@@ -77,8 +75,8 @@ namespace mkfit {
           tc.setScore(h2a.score);
 
           if (h2a.hitIdx == -2) {
-            if (h2a.score > ccand.m_best_short_cand.score()) {
-              ccand.m_best_short_cand = tc;
+            if (h2a.score > ccand.refBestShortCand().score()) {
+              ccand.setBestShortCand(tc);
             }
             continue;
           }
@@ -141,7 +139,7 @@ namespace mkfit {
         cv.clear();
       } else  // hitsForSeed.empty()
       {
-        if (ccand.m_state == CombCandidate::Finding) {
+        if (ccand.state() == CombCandidate::Finding) {
           ccand.clear();
 
           while (extra_i != extra_e) {

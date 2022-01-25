@@ -143,7 +143,7 @@ namespace {
 
   void print_seeds(const EventOfCombCandidates &event_of_comb_cands) {
     for (int iseed = 0; iseed < event_of_comb_cands.m_size; iseed++) {
-      print_seed2(event_of_comb_cands.m_candidates[iseed].front());
+      print_seed2(event_of_comb_cands[iseed].front());
     }
   }
 #endif
@@ -283,7 +283,7 @@ namespace mkfit {
     // printf ("MkBuilder::filter_comb_cands Entering filter size eoccsm_size=%d\n", eoccs.m_size);
 
     IntVec removed_cnts(m_job->num_regions());
-    while (i < eoccs.m_size) {
+    while (i < eoccs.size()) {
       if (filter(eoccs[i].front())) {
         if (place_pos != i)
           std::swap(eoccs[place_pos], eoccs[i]);
@@ -320,8 +320,8 @@ namespace mkfit {
       min[reg] = 9999;
       max[reg] = 0;
       for (; i < m_seedEtaSeparators[reg]; i++) {
-        min[reg] = std::min(min[reg], eoccs[i].m_hots_size);
-        max[reg] = std::max(max[reg], eoccs[i].m_hots_size);
+        min[reg] = std::min(min[reg], eoccs[i].hotsSize());
+        max[reg] = std::max(max[reg], eoccs[i].hotsSize());
       }
       gmin = std::max(gmin, min[reg]);
       gmax = std::max(gmax, max[reg]);
@@ -351,8 +351,8 @@ namespace mkfit {
 
   void MkBuilder::export_best_comb_cands(TrackVec &out_vec, bool remove_missing_hits) {
     const EventOfCombCandidates &eoccs = m_event_of_comb_cands;
-    out_vec.reserve(out_vec.size() + eoccs.m_size);
-    for (int i = 0; i < eoccs.m_size; i++) {
+    out_vec.reserve(out_vec.size() + eoccs.size());
+    for (int i = 0; i < eoccs.size(); i++) {
       // See MT-RATS comment below.
       assert(!eoccs[i].empty() && "BackwardFitBH requires output tracks to align with seeds.");
 
@@ -612,10 +612,10 @@ namespace mkfit {
     for (int iseed = start_seed; iseed < end_seed; ++iseed) {
       CombCandidate &ccand = m_event_of_comb_cands[iseed];
 
-      if (ccand.m_state == CombCandidate::Dormant && ccand.m_pickup_layer == prev_layer) {
-        ccand.m_state = CombCandidate::Finding;
+      if (ccand.state() == CombCandidate::Dormant && ccand.pickupLayer() == prev_layer) {
+        ccand.setState(CombCandidate::Finding);
       }
-      if (!pickup_only && ccand.m_state == CombCandidate::Finding) {
+      if (!pickup_only && ccand.state() == CombCandidate::Finding) {
         bool active = false;
         for (int ic = 0; ic < (int)ccand.size(); ++ic) {
           if (ccand[ic].getLastHitIdx() != -2) {
@@ -643,7 +643,7 @@ namespace mkfit {
           }
         }
         if (!active) {
-          ccand.m_state = CombCandidate::Finished;
+          ccand.setState(CombCandidate::Finished);
         }
       }
     }
@@ -671,7 +671,7 @@ namespace mkfit {
     // bool debug = true;
 
     for (int ti = itrack; ti < end; ++ti) {
-      TrackCand &cand = m_event_of_comb_cands.m_candidates[seed_cand_idx[ti].first][seed_cand_idx[ti].second];
+      TrackCand &cand = m_event_of_comb_cands[seed_cand_idx[ti].first][seed_cand_idx[ti].second];
       WSR_Result &w = mkfndr->XWsrResult[ti - itrack];
 
       // XXXX-4 Low pT tracks can miss a barrel layer ... and should be stopped
@@ -707,8 +707,8 @@ namespace mkfit {
         // This can fire for Standard finding when candidates from a given seed are
         // split between two iterations of the vecotrized loop over seeds as the
         // output vector is shared between finding and the outside xtras here.
-        // if (tmp_cands[seed_cand_idx[ti].first - start_seed].size() > m_event_of_comb_cands.m_candidates[seed_cand_idx[ti].first].size())
-        //   printf("XXXXXXX %d %d for seed %d, index %d\n", (int) tmp_cands[seed_cand_idx[ti].first - start_seed].size(), (int) m_event_of_comb_cands.m_candidates[seed_cand_idx[ti].first].size(),
+        // if (tmp_cands[seed_cand_idx[ti].first - start_seed].size() > m_event_of_comb_cands[seed_cand_idx[ti].first].size())
+        //   printf("XXXXXXX %d %d for seed %d, index %d\n", (int) tmp_cands[seed_cand_idx[ti].first - start_seed].size(), (int) m_event_of_comb_cands[seed_cand_idx[ti].first].size(),
         //          seed_cand_idx[ti].first, seed_cand_idx[ti].first - start_seed);
       } else if (w.m_wsr == WSR_Edge) {
         // XXXX-2 Additionally, if I miss/hit by epsilon, here would be a
@@ -747,7 +747,7 @@ namespace mkfit {
 
       // adaptive seeds per task based on the total estimated amount of work to divide among all threads
       const int adaptiveSPT = std::clamp(
-          Config::numThreadsEvents * eoccs.m_size / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
+          Config::numThreadsEvents * eoccs.size() / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
       dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.m_size << " region " << region);
 
       // loop over seeds
@@ -813,12 +813,11 @@ namespace mkfit {
           for (int itrack = 0; itrack < theEndCand; itrack += NN) {
             int end = std::min(itrack + NN, theEndCand);
 
-            dprint("processing track="
-                   << itrack << ", label="
-                   << eoccs.m_candidates[seed_cand_idx[itrack].first][seed_cand_idx[itrack].second].label());
+            dprint("processing track=" << itrack << ", label="
+                                       << eoccs[seed_cand_idx[itrack].first][seed_cand_idx[itrack].second].label());
 
             //fixme find a way to deal only with the candidates needed in this thread
-            mkfndr->inputTracksAndHitIdx(eoccs.m_candidates, seed_cand_idx, itrack, end, false);
+            mkfndr->inputTracksAndHitIdx(eoccs.refCandidates(), seed_cand_idx, itrack, end, false);
 
             //propagate to layer
             dcall(pre_prop_print(curr_layer, mkfndr.get()));
@@ -897,8 +896,8 @@ namespace mkfit {
                   ++n_placed;
                 } else if (first_short) {
                   first_short = false;
-                  if (tc.score() > eoccs[start_seed + is].m_best_short_cand.score()) {
-                    eoccs[start_seed + is].m_best_short_cand = tc;
+                  if (tc.score() > eoccs[start_seed + is].refBestShortCand().score()) {
+                    eoccs[start_seed + is].setBestShortCand(tc);
                   }
                 }
               }
@@ -938,7 +937,7 @@ namespace mkfit {
 
       // adaptive seeds per task based on the total estimated amount of work to divide among all threads
       const int adaptiveSPT = std::clamp(
-          Config::numThreadsEvents * eoccs.m_size / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
+          Config::numThreadsEvents * eoccs.size() / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
       dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.m_size << " region " << region);
 
       tbb::parallel_for(rosi.tbb_blk_rng_std(adaptiveSPT), [&](const tbb::blocked_range<int> &seeds) {
@@ -1058,7 +1057,7 @@ namespace mkfit {
         dprintf("\n");
 #endif
 
-        mkfndr->inputTracksAndHitIdx(eoccs.m_candidates, seed_cand_idx, itrack, end, false);
+        mkfndr->inputTracksAndHitIdx(eoccs.refCandidates(), seed_cand_idx, itrack, end, false);
 
 #ifdef DEBUG
         for (int i = itrack; i < end; ++i)
@@ -1088,7 +1087,7 @@ namespace mkfit {
         // Do not, keep cands at last valid hit until actual update,
         // this requires change to propagation flags used in MkFinder::updateWithLastHit()
         // from intra-layer to inter-layer.
-        // mkfndr->copyOutParErr(eoccs.m_candidates, end - itrack, true);
+        // mkfndr->copyOutParErr(eoccs.refCandidates_nc(), end - itrack, true);
 
         dprint("make new candidates");
         cloner.begin_iteration();
@@ -1108,12 +1107,12 @@ namespace mkfit {
       for (int itrack = 0; itrack < theEndUpdater; itrack += NN) {
         const int end = std::min(itrack + NN, theEndUpdater);
 
-        mkfndr->inputTracksAndHitIdx(eoccs.m_candidates, seed_cand_update_idx, itrack, end, true);
+        mkfndr->inputTracksAndHitIdx(eoccs.refCandidates(), seed_cand_update_idx, itrack, end, true);
 
         mkfndr->updateWithLastHit(layer_of_hits, end - itrack, fnd_foos);
 
         // copy_out the updated track params, errors only (hit-idcs and chi2 already set)
-        mkfndr->copyOutParErr(eoccs.m_candidates, end - itrack, false);
+        mkfndr->copyOutParErr(eoccs.refCandidates_nc(), end - itrack, false);
       }
 
       // Check if cands are sorted, as expected.
@@ -1260,7 +1259,7 @@ namespace mkfit {
 
       // adaptive seeds per task based on the total estimated amount of work to divide among all threads
       const int adaptiveSPT = std::clamp(
-          Config::numThreadsEvents * eoccs.m_size / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
+          Config::numThreadsEvents * eoccs.size() / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
       dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.m_size << " region " << region);
 
       tbb::parallel_for(rosi.tbb_blk_rng_std(adaptiveSPT), [&](const tbb::blocked_range<int> &cands) {
