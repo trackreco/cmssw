@@ -45,7 +45,7 @@ namespace mkfit {
     if (do_seed_clean) {
       // Seed cleaning not done on pixelLess / tobTec iters
       if (itconf.m_requires_dupclean_tight)
-        StdSeq::clean_cms_seedtracks_iter(&seeds, itconf, eoh.m_beam_spot);
+        StdSeq::clean_cms_seedtracks_iter(&seeds, itconf, eoh.refBeamSpot());
     }
 
     // Check nans in seeds -- this should not be needed when Slava fixes
@@ -66,7 +66,7 @@ namespace mkfit {
         builder.filter_comb_cands([&](const TrackCand &t) { return StdSeq::qfilter_n_hits_pixseed(t, 3); });
       } else if (itconf.m_track_algorithm == 9) {
         builder.filter_comb_cands(
-            [&](const TrackCand &t) { return StdSeq::qfilter_pixelLessFwd(t, eoh.m_beam_spot, trackerInfo); });
+            [&](const TrackCand &t) { return StdSeq::qfilter_pixelLessFwd(t, eoh.refBeamSpot(), trackerInfo); });
       } else {
         builder.filter_comb_cands(
             [&](const TrackCand &t) { return StdSeq::qfilter_n_hits(t, itconf.m_params.minHitsQF); });
@@ -89,10 +89,10 @@ namespace mkfit {
       if (itconf.m_requires_quality_filter && (itconf.m_track_algorithm == 7 || itconf.m_track_algorithm == 9)) {
         if (itconf.m_track_algorithm == 7) {
           builder.filter_comb_cands(
-              [&](const TrackCand &t) { return StdSeq::qfilter_n_layers(t, eoh.m_beam_spot, trackerInfo); });
+              [&](const TrackCand &t) { return StdSeq::qfilter_n_layers(t, eoh.refBeamSpot(), trackerInfo); });
         } else if (itconf.m_track_algorithm == 9) {
           builder.filter_comb_cands(
-              [&](const TrackCand &t) { return StdSeq::qfilter_pixelLessBkwd(t, eoh.m_beam_spot, trackerInfo); });
+              [&](const TrackCand &t) { return StdSeq::qfilter_pixelLessBkwd(t, eoh.refBeamSpot(), trackerInfo); });
         }
       }
     }

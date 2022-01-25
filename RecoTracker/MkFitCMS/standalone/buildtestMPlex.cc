@@ -438,7 +438,7 @@ namespace mkfit {
       }
 
       if (itconf.m_requires_dupclean_tight)
-        StdSeq::clean_cms_seedtracks_iter(&seeds, itconf, eoh.m_beam_spot);
+        StdSeq::clean_cms_seedtracks_iter(&seeds, itconf, eoh.refBeamSpot());
 
       builder.seed_post_cleaning(seeds);
 
@@ -466,7 +466,7 @@ namespace mkfit {
           builder.filter_comb_cands([&](const TrackCand &t) { return StdSeq::qfilter_n_hits_pixseed(t, 3); });
         } else if (itconf.m_track_algorithm == 9) {
           builder.filter_comb_cands(
-              [&](const TrackCand &t) { return StdSeq::qfilter_pixelLessFwd(t, eoh.m_beam_spot, Config::TrkInfo); });
+              [&](const TrackCand &t) { return StdSeq::qfilter_pixelLessFwd(t, eoh.refBeamSpot(), Config::TrkInfo); });
         } else {
           builder.filter_comb_cands(
               [&](const TrackCand &t) { return StdSeq::qfilter_n_hits(t, itconf.m_params.minHitsQF); });
@@ -511,10 +511,11 @@ namespace mkfit {
         if (itconf.m_requires_quality_filter && (itconf.m_track_algorithm == 7 || itconf.m_track_algorithm == 9)) {
           if (itconf.m_track_algorithm == 7) {
             builder.filter_comb_cands(
-                [&](const TrackCand &t) { return StdSeq::qfilter_n_layers(t, eoh.m_beam_spot, Config::TrkInfo); });
+                [&](const TrackCand &t) { return StdSeq::qfilter_n_layers(t, eoh.refBeamSpot(), Config::TrkInfo); });
           } else if (itconf.m_track_algorithm == 9) {
-            builder.filter_comb_cands(
-                [&](const TrackCand &t) { return StdSeq::qfilter_pixelLessBkwd(t, eoh.m_beam_spot, Config::TrkInfo); });
+            builder.filter_comb_cands([&](const TrackCand &t) {
+              return StdSeq::qfilter_pixelLessBkwd(t, eoh.refBeamSpot(), Config::TrkInfo);
+            });
           }
         }
 

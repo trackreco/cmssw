@@ -6,6 +6,25 @@
 
 namespace mkfit {
 
+  LayerOfHits::~LayerOfHits() {
+#ifdef COPY_SORTED_HITS
+    free_hits();
+#endif
+    operator delete[](m_hit_ranks);
+  }
+
+#ifdef COPY_SORTED_HITS
+  void LayerOfHits::alloc_hits(int size) {
+    m_hits = (Hit *)std::aligned_alloc(64, sizeof(Hit) * size);
+    m_capacity = size;
+    for (int ihit = 0; ihit < m_capacity; ihit++) {
+      m_hits[ihit] = Hit();
+    }
+  }
+
+  void LayerOfHits::free_hits() { std::free(m_hits); }
+#endif
+
   void LayerOfHits::setup_bins(float qmin, float qmax, float dq) {
     // Define layer with min/max and number of bins along q.
 
@@ -45,52 +64,27 @@ namespace mkfit {
 
   //==============================================================================
 
-  /*
-void detect_q_min_max(const HitVec &hitv)
-{
-  float dq = 0.5;
-  // should know this from geom.
-  //m_qmin =  1000;
-  //m_qmax = -1000;
-  for (auto const &h : hitv)
-  {
-    if (h.q() < m_qmin) m_qmin = h.q();
-    if (h.q() > m_qmax) m_qmax = h.q();
-  }
-  printf("LoH::suckInHits qmin=%f, qmax=%f", m_qmin, m_qmax);
-  float nmin = std::floor(m_qmin / dq);
-  float nmax = std::ceil (m_qmax / dq);
-  m_qmin = dq * nmin;
-  m_qmax = dq * nmax;
-  int nq  = nmax - nmin;
-  int nqh = nq / 2;
-  m_fq = 1.0f / dq; // qbin = (qhit - m_qmin) * m_fq;
-  printf(" -> qmin=%f, qmax=%f, nq=%d, fq=%f\n", m_qmin, m_qmax, nq, m_fq);
-}
-*/
-
   void LayerOfHits::suckInHits(const HitVec &hitv) {
     assert(m_nq > 0 && "setupLayer() was not called.");
 
-    const int size = hitv.size();
-
+    m_n_hits = hitv.size();
     m_ext_hits = &hitv;
 
 #ifdef COPY_SORTED_HITS
-    if (m_capacity < size) {
+    if (m_capacity < m_n_hits) {
       free_hits();
-      alloc_hits(1.02 * size);
+      alloc_hits(1.02 * m_n_hits);
     }
 #endif
 
     if (Config::usePhiQArrays) {
-      m_hit_phis.resize(size);
-      m_hit_qs.resize(size);
-      m_hit_infos.resize(size);
+      m_hit_phis.resize(m_n_hits);
+      m_hit_qs.resize(m_n_hits);
+      m_hit_infos.resize(m_n_hits);
     }
-    m_qphifines.resize(size);
+    m_qphifines.resize(m_n_hits);
 
-    for (int i = 0; i < size; ++i) {
+    for (int i = 0; i < m_n_hits; ++i) {
       const Hit &h = hitv[i];
 
       HitInfo hi = {h.phi(), m_is_barrel ? h.z() : h.r()};
@@ -105,14 +99,14 @@ void detect_q_min_max(const HitVec &hitv)
     operator delete[](m_hit_ranks);
     {
       RadixSort sort;
-      sort.Sort(&m_qphifines[0], size, RADIX_UNSIGNED);
+      sort.Sort(&m_qphifines[0], m_n_hits, RADIX_UNSIGNED);
       m_hit_ranks = sort.RelinquishRanks();
     }
 
     int curr_qphi = -1;
     empty_q_bins(0, m_nq, 0);
 
-    for (int i = 0; i < size; ++i) {
+    for (int i = 0; i < m_n_hits; ++i) {
       int j = m_hit_ranks[i];
 
 #ifdef COPY_SORTED_HITS
@@ -138,34 +132,6 @@ void detect_q_min_max(const HitVec &hitv)
 
       m_phi_bin_infos[q_bin][phi_bin].second++;
     }
-
-    // Check for mis-sorts due to lost precision (not really important).
-    // float phi_prev = 0;
-    // int   bin_prev = -1;
-    // int   prev_err_idx = -1;
-    // for (int i = 0; i < size; ++i)
-    // {
-    //   int j = sort.GetRanks()[i];
-    //   float phi  = ha[j].phi;
-    //   int   qbin = ha[j].qbin;
-    //   if (qbin == bin_prev && phi < phi_prev)
-    //   {
-    //     //printf("  Offset error: %5d %5d %10f %10f %5d %8f\n", i, j, phi, phi_prev, ha[j].qbin, hitv[j].q());
-    //     if (prev_err_idx == i - 1)
-    //       printf("DOUBLE Offset error: %5d %5d %10f %10f %5d %8f\n", i, j, phi, phi_prev, ha[j].qbin, hitv[j].q());
-    //     prev_err_idx = i;
-    //   }
-    //   phi_prev = phi;
-    //   bin_prev = qbin;
-    // }
-
-    // Print first couple
-    // for(int i = 0; i < 20; ++i)
-    // {
-    //   int j = sort.GetRanks()[i];
-    //
-    //   printf("%3d %3d %8f %5d %8f\n", i, j, ha[j].phi, ha[j].qbin, hitv[j].q());
-    // }
   }
 
   //==============================================================================
@@ -202,6 +168,7 @@ void detect_q_min_max(const HitVec &hitv)
 
     m_ext_hits = &hitv;
 
+    m_n_hits = 0;
     m_hit_infos.clear();
     m_qphifines.clear();
     m_ext_idcs.clear();
@@ -226,36 +193,36 @@ void detect_q_min_max(const HitVec &hitv)
   }
 
   void LayerOfHits::endRegistrationOfHits(bool build_original_to_internal_map) {
-    const int size = m_ext_idcs.size();
-    if (size == 0)
+    m_n_hits = m_ext_idcs.size();
+    if (m_n_hits == 0)
       return;
 
     // radix
     operator delete[](m_hit_ranks);
     {
       RadixSort sort;
-      sort.Sort(&m_qphifines[0], size, RADIX_UNSIGNED);
+      sort.Sort(&m_qphifines[0], m_n_hits, RADIX_UNSIGNED);
       m_hit_ranks = sort.RelinquishRanks();
     }
 
     // copy q/phi
 
 #ifdef COPY_SORTED_HITS
-    if (m_capacity < size) {
+    if (m_capacity < m_n_hits) {
       free_hits();
-      alloc_hits(1.02 * size);
+      alloc_hits(1.02 * m_n_hits);
     }
 #endif
 
     if (Config::usePhiQArrays) {
-      m_hit_phis.resize(size);
-      m_hit_qs.resize(size);
+      m_hit_phis.resize(m_n_hits);
+      m_hit_qs.resize(m_n_hits);
     }
 
     int curr_qphi = -1;
     empty_q_bins(0, m_nq, 0);
 
-    for (int i = 0; i < size; ++i) {
+    for (int i = 0; i < m_n_hits; ++i) {
       int j = m_hit_ranks[i];  // index in intermediate
       int k = m_ext_idcs[j];   // index in external hit_vec
 
@@ -282,106 +249,108 @@ void detect_q_min_max(const HitVec &hitv)
 
       m_phi_bin_infos[q_bin][phi_bin].second++;
 
-      // m_hit_ranks[i] will never be used again ... use it to point to external/original index,
-      // as it does in standalone case.
+      // m_hit_ranks[i] will never be used again - use it to point to external/original index.
       m_hit_ranks[i] = k;
     }
 
     if (build_original_to_internal_map) {
-      if (m_max_ext_idx - m_min_ext_idx + 1 > 8 * size) {
+      if (m_max_ext_idx - m_min_ext_idx + 1 > 8 * m_n_hits) {
         // If this happens we might:
         // a) Use external indices for everything. -- *** We are now. ***
         // b) Build these maps for seeding layers only.
         // c) Have a flag in hit-on-track that tells us if the hit index has been remapped,
-        //    essentially, if it is a seed hit. This might not be too stupid anyway.
-        //    Hmmh, this could be index < -256, or something like that.
+        //    essentially, if it is a seed hit. This might be smart anyway.
+        //    One could use index < -256 or something similar.
 
         printf(
-            "LayerOfHits::endRegistrationOfHits() original_to_internal index map vector is largish: size=%d, "
+            "LayerOfHits::endRegistrationOfHits() original_to_internal index map vector is largish: m_n_hits=%d, "
             "map_vector_size=%d\n",
-            size,
+            m_n_hits,
             m_max_ext_idx - m_min_ext_idx + 1);
       }
 
       m_ext_idcs.resize(m_max_ext_idx - m_min_ext_idx + 1);
-      for (int i = 0; i < size; ++i) {
+      for (int i = 0; i < m_n_hits; ++i) {
         m_ext_idcs[m_hit_ranks[i] - m_min_ext_idx] = i;
       }
     }
 
-    // For Matti: We can release m_hit_infos and m_qphifines -- and realloc on next BeginInput.
+    // We can release m_hit_infos and m_qphifines -- and realloc on next BeginInput.
+    // m_qphifines could still be used as pre-selection in selectHitIndices().
   }
 
   //==============================================================================
 
   /*
-void LayerOfHits::selectHitIndices(float q, float phi, float dq, float dphi, std::vector<int>& idcs, bool isForSeeding, bool dump)
-{
-  // Sanitizes q, dq and dphi. phi is expected to be in -pi, pi.
-
-  // Make sure how phi bins work beyond -pi, +pi.
-  // for (float p = -8; p <= 8; p += 0.05)
-  // {
-  //   int pb = phiBin(p);
-  //   printf("%5.2f %4d %4d\n", p, pb, pb & m_phi_mask);
-  // }
-
-  if ( ! isForSeeding) // seeding has set cuts for dq and dphi
+  // Example code for looping over a given (q, phi) 2D range.
+  // A significantly more complex implementation of this can be found in MkFinder::selectHitIndices().
+  void LayerOfHits::selectHitIndices(float q, float phi, float dq, float dphi, std::vector<int>& idcs, bool isForSeeding, bool dump)
   {
-    // XXXX MT: min search windows not enforced here.
-    dq   = std::min(std::abs(dq),   max_dq());
-    dphi = std::min(std::abs(dphi), max_dphi());
-  }
+    // Sanitizes q, dq and dphi. phi is expected to be in -pi, pi.
 
-  int qb1 = qBinChecked(q - dq);
-  int qb2 = qBinChecked(q + dq) + 1;
-  int pb1 = phiBin(phi - dphi);
-  int pb2 = phiBin(phi + dphi) + 1;
+    // Make sure how phi bins work beyond -pi, +pi.
+    // for (float p = -8; p <= 8; p += 0.05)
+    // {
+    //   int pb = phiBin(p);
+    //   printf("%5.2f %4d %4d\n", p, pb, pb & m_phi_mask);
+    // }
 
-  // int extra = 2;
-  // qb1 -= 2; if (qb < 0) qb = 0;
-  // qb2 += 2; if (qb >= m_nq) qb = m_nq;
-
-  if (dump)
-    printf("LayerOfHits::SelectHitIndices %6.3f %6.3f %6.4f %7.5f %3d %3d %4d %4d\n",
-           q, phi, dq, dphi, qb1, qb2, pb1, pb2);
-
-  // This should be input argument, well ... it will be Matriplex op, or sth. // KPM -- it is now! used for seeding
-  for (int qi = qb1; qi < qb2; ++qi)
-  {
-    for (int pi = pb1; pi < pb2; ++pi)
+    if ( ! isForSeeding) // seeding has set cuts for dq and dphi
     {
-      int pb = pi & m_phi_mask;
+      // XXXX MT: min search windows not enforced here.
+      dq   = std::min(std::abs(dq),   max_dq());
+      dphi = std::min(std::abs(dphi), max_dphi());
+    }
 
-      for (uint16_t hi = m_phi_bin_infos[qi][pb].first; hi < m_phi_bin_infos[qi][pb].second; ++hi)
+    int qb1 = qBinChecked(q - dq);
+    int qb2 = qBinChecked(q + dq) + 1;
+    int pb1 = phiBin(phi - dphi);
+    int pb2 = phiBin(phi + dphi) + 1;
+
+    // int extra = 2;
+    // qb1 -= 2; if (qb < 0) qb = 0;
+    // qb2 += 2; if (qb >= m_nq) qb = m_nq;
+
+    if (dump)
+      printf("LayerOfHits::SelectHitIndices %6.3f %6.3f %6.4f %7.5f %3d %3d %4d %4d\n",
+            q, phi, dq, dphi, qb1, qb2, pb1, pb2);
+
+    // This should be input argument, well ... it will be Matriplex op, or sth. // KPM -- it is now! used for seeding
+    for (int qi = qb1; qi < qb2; ++qi)
+    {
+      for (int pi = pb1; pi < pb2; ++pi)
       {
-        // Here could enforce some furhter selection on hits
-	if (Config::usePhiQArrays)
-	{
-	  float ddq   = std::abs(q   - m_hit_qs[hi]);
-	  float ddphi = std::abs(phi - m_hit_phis[hi]);
-	  if (ddphi > Config::PI) ddphi = Config::TwoPI - ddphi;
+        int pb = pi & m_phi_mask;
 
-	  if (dump)
-	    printf("     SHI %3d %4d %4d %5d  %6.3f %6.3f %6.4f %7.5f   %s\n",
-		   qi, pi, pb, hi,
-		   m_hit_qs[hi], m_hit_phis[hi], ddq, ddphi,
-		   (ddq < dq && ddphi < dphi) ? "PASS" : "FAIL");
+        for (uint16_t hi = m_phi_bin_infos[qi][pb].first; hi < m_phi_bin_infos[qi][pb].second; ++hi)
+        {
+          // Here could enforce some furhter selection on hits
+    if (Config::usePhiQArrays)
+    {
+      float ddq   = std::abs(q   - m_hit_qs[hi]);
+      float ddphi = std::abs(phi - m_hit_phis[hi]);
+      if (ddphi > Config::PI) ddphi = Config::TwoPI - ddphi;
 
-	  if (ddq < dq && ddphi < dphi)
-	  {
-	    idcs.push_back(hi);
-	  }
-	}
-	else // do not use phi-q arrays
-	{
-	  idcs.push_back(hi);
-	}
+      if (dump)
+        printf("     SHI %3d %4d %4d %5d  %6.3f %6.3f %6.4f %7.5f   %s\n",
+        qi, pi, pb, hi,
+        m_hit_qs[hi], m_hit_phis[hi], ddq, ddphi,
+        (ddq < dq && ddphi < dphi) ? "PASS" : "FAIL");
+
+      if (ddq < dq && ddphi < dphi)
+      {
+        idcs.push_back(hi);
+      }
+    }
+    else // do not use phi-q arrays
+    {
+      idcs.push_back(hi);
+    }
+        }
       }
     }
   }
-}
-*/
+  */
 
   void LayerOfHits::printBins() {
     for (int qb = 0; qb < m_nq; ++qb) {

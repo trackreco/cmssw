@@ -98,11 +98,11 @@ namespace mkfit {
     std::pair<int, int> max_hits_layer(const EventOfHits &eoh) const {
       int maxN = 0;
       int maxL = 0;
-      for (auto const &lh : eoh.m_layers_of_hits) {
-        auto lsize = static_cast<int>(lh.m_hit_phis.size());
+      for (int l = 0; l < eoh.nLayers(); ++l) {
+        int lsize = eoh[l].nHits();
         if (lsize > maxN) {
           maxN = lsize;
-          maxL = lh.layer_id();
+          maxL = eoh[l].layer_id();
         }
       }
       return {maxN, maxL};

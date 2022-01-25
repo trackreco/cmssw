@@ -27,8 +27,8 @@ namespace mkfit {
 
     void cmssw_LoadHits_Begin(EventOfHits &eoh, const std::vector<const HitVec *> &orig_hitvectors) {
       eoh.reset();
-
-      for (auto &&l : eoh.m_layers_of_hits) {
+      for (int i = 0; i < eoh.nLayers(); ++i) {
+        auto &&l = eoh[i];
         l.beginRegistrationOfHits(*orig_hitvectors[l.is_pix_lyr() ? 0 : 1]);
       }
     }
@@ -42,7 +42,8 @@ namespace mkfit {
     // Also, layer is calculated for each detset when looping over the HitCollection
 
     void cmssw_LoadHits_End(EventOfHits &eoh) {
-      for (auto &&l : eoh.m_layers_of_hits) {
+      for (int i = 0; i < eoh.nLayers(); ++i) {
+        auto &&l = eoh[i];
         l.endRegistrationOfHits(false);
       }
     }
@@ -57,7 +58,7 @@ namespace mkfit {
           const int hitidx = track.getHitIdx(i);
           const int hitlyr = track.getHitLyr(i);
           if (hitidx >= 0) {
-            const auto &loh = eoh.m_layers_of_hits[hitlyr];
+            const auto &loh = eoh[hitlyr];
             track.setHitIdx(i, loh.getHitIndexFromOriginal(hitidx));
           }
         }
@@ -70,7 +71,7 @@ namespace mkfit {
           const int hitidx = track.getHitIdx(i);
           const int hitlyr = track.getHitLyr(i);
           if (hitidx >= 0) {
-            const auto &loh = eoh.m_layers_of_hits[hitlyr];
+            const auto &loh = eoh[hitlyr];
             track.setHitIdx(i, loh.getOriginalHitIndex(hitidx));
           }
         }

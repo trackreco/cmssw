@@ -302,7 +302,7 @@ void test_standard() {
       serial << "_" << i;
     }
     vals[i].reset(Validation::make_validation(valfile + serial.str() + ".root"));
-    mkbs[i].reset(MkBuilder::make_builder());
+    mkbs[i] = MkBuilder::make_builder();
     eohs[i].reset(new EventOfHits(Config::TrkInfo));
     evs[i].reset(new Event(*vals[i], 0));
     if (g_operation == "read") {

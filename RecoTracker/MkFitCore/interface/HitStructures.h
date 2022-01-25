@@ -69,46 +69,80 @@ namespace mkfit {
   //#define COPY_SORTED_HITS
 
   class LayerOfHits {
-  private:
+  public:
+    LayerOfHits() = default;
+
+    ~LayerOfHits();
+
+    // Setup and filling
+    //-------------------
+    void setupLayer(const LayerInfo& li);
+
+    void reset() {}
+
+    // Get in all hits from given hit-vec
+    void suckInHits(const HitVec& hitv);
+
+    // Get in all dead regions from given dead-vec
+    void suckInDeads(const DeadVec& deadv);
+
+    // Use external hit-vec and only use hits that are passed to me.
+    void beginRegistrationOfHits(const HitVec& hitv);
+    void registerHit(int idx);
+    void endRegistrationOfHits(bool build_original_to_internal_map);
+
+    int nHits() const { return m_n_hits; }
+
+    // Bin access / queries
+    //----------------------
+    int qBin(float q) const { return (q - m_qmin) * m_fq; }
+
+    int qBinChecked(float q) const { return std::clamp(qBin(q), 0, m_nq - 1); }
+
+    // if you don't pass phi in (-pi, +pi), mask away the upper bits using m_phi_mask or use the Checked version.
+    int phiBinFine(float phi) const { return std::floor(m_fphi_fine * (phi + Config::PI)); }
+    int phiBin(float phi) const { return phiBinFine(phi) >> m_phi_bits_shift; }
+
+    int phiBinChecked(float phi) const { return phiBin(phi) & m_phi_mask; }
+
+    int phiMaskApply(int in) const { return in & m_phi_mask; }
+
+    const vecPhiBinInfo_t& vecPhiBinInfo(float q) const { return m_phi_bin_infos[qBin(q)]; }
+
+    const vecvecPhiBinInfo_t& phi_bin_infos() const { return m_phi_bin_infos; }
+    const vecvecPhiBinDead_t& phi_bin_deads() const { return m_phi_bin_deads; }
+    PhiBinInfo_t phi_bin_info(int qi, int pi) const { return m_phi_bin_infos[qi][pi]; }
+    bool phi_bin_dead(int qi, int pi) const { return m_phi_bin_deads[qi][pi]; }
+
+    float hit_q(int i) const { return m_hit_qs[i]; }
+    float hit_phi(int i) const { return m_hit_phis[i]; }
+
+    // Use this to map original indices to sorted internal ones. m_ext_idcs needs to be initialized.
+    int getHitIndexFromOriginal(int i) const { return m_ext_idcs[i - m_min_ext_idx]; }
+    // Use this to remap internal hit index to external one.
+    int getOriginalHitIndex(int i) const { return m_hit_ranks[i]; }
+
 #ifdef COPY_SORTED_HITS
-    Hit* m_hits = nullptr;
-    int m_capacity = 0;
+    const Hit& refHit(int i) const { return m_hits[i]; }
+    const Hit* hitArray() const { return m_hits; }
 #else
-    unsigned int* m_hit_ranks = nullptr;  // allocated by IceSort via new []
-    const HitVec* m_ext_hits;
+    const Hit& refHit(int i) const { return (*m_ext_hits)[i]; }
+    const Hit* hitArray() const { return m_ext_hits->data(); }
 #endif
 
-    // Stuff needed during setup
-    struct HitInfo {
-      float phi;
-      float q;
-    };
-    std::vector<HitInfo> m_hit_infos;
-    std::vector<uint32_t> m_qphifines;
-    std::vector<int> m_ext_idcs;
-    int m_min_ext_idx, m_max_ext_idx;
+    // Left to document and demonstrate access to bin-info structures.
+    // void  selectHitIndices(float q, float phi, float dq, float dphi, std::vector<int>& idcs, bool isForSeeding=false, bool dump=false);
 
-  public:
-    const LayerInfo* m_layer_info = nullptr;
-    vecvecPhiBinInfo_t m_phi_bin_infos;
-    vecvecPhiBinDead_t m_phi_bin_deads;
-    std::vector<float> m_hit_phis;
-    std::vector<float> m_hit_qs;
+    void printBins();
 
-    float m_qmin, m_qmax, m_fq;
-    int m_nq = 0;
-    bool m_is_barrel;
+    // Geometry / LayerInfo accessors
+    //--------------------------------
 
+    const LayerInfo* layer_info() const { return m_layer_info; }
     int layer_id() const { return m_layer_info->m_layer_id; }
+
     bool is_barrel() const { return m_is_barrel; }
     bool is_endcap() const { return !m_is_barrel; }
-    int bin_index(int q, int p) const { return q * Config::m_nphi + p; }
-
-    PhiBinInfo_t operator[](int i) const {
-      int q = i / Config::m_nphi;
-      int p = i % Config::m_nphi;
-      return m_phi_bin_infos[q][p];
-    }
 
     bool is_within_z_limits(float z) const { return m_layer_info->is_within_z_limits(z); }
     bool is_within_r_limits(float r) const { return m_layer_info->is_within_r_limits(r); }
@@ -121,10 +155,9 @@ namespace mkfit {
       return m_layer_info->is_within_r_sensitive_region(r, dr);
     }
 
-    // Adding flag for mono/stereo
     bool is_stereo_lyr() const { return m_layer_info->is_stereo_lyr(); }
 
-    // Adding info on sub-detector
+    // Sub-detector type
     bool is_pixb_lyr() const { return m_layer_info->is_pixb_lyr(); }
     bool is_pixe_lyr() const { return m_layer_info->is_pixe_lyr(); }
     bool is_pix_lyr() const { return m_layer_info->is_pix_lyr(); }
@@ -133,7 +166,8 @@ namespace mkfit {
     bool is_tid_lyr() const { return m_layer_info->is_tid_lyr(); }
     bool is_tec_lyr() const { return m_layer_info->is_tec_lyr(); }
 
-    // Testing bin filling
+  private:
+    // Constants for phi-bin access / index manipulation.
     static constexpr float m_fphi = Config::m_nphi / Config::TwoPI;
     static constexpr int m_phi_mask = 0xff;
     static constexpr int m_phi_bits = 8;
@@ -143,28 +177,7 @@ namespace mkfit {
     static constexpr int m_phi_bits_shift = m_phi_bits_fine - m_phi_bits;
     static constexpr int m_phi_fine_xmask = ~((1 << m_phi_bits_shift) - 1);
 
-  protected:
-#ifdef COPY_SORTED_HITS
-    void alloc_hits(int size) {
-      m_hits = (Hit*)std::aligned_alloc(64, sizeof(Hit) * size);
-      m_capacity = size;
-      for (int ihit = 0; ihit < m_capacity; ihit++) {
-        m_hits[ihit] = Hit();
-      }
-    }
-
-    void free_hits() { std::free(m_hits); }
-#endif
-
     void setup_bins(float qmin, float qmax, float dq);
-
-    // Not used.
-    // void set_phi_bin(int q_bin, int phi_bin, uint16_t &hit_count, uint16_t &hits_in_bin)
-    // {
-    //   m_phi_bin_infos[q_bin][phi_bin] = { hit_count, hit_count + hits_in_bin };
-    //   hit_count  += hits_in_bin;
-    //   hits_in_bin = 0;
-    // }
 
     void empty_phi_bins(int q_bin, int phi_bin_1, int phi_bin_2, uint16_t hit_count) {
       for (int pb = phi_bin_1; pb < phi_bin_2; ++pb) {
@@ -190,71 +203,46 @@ namespace mkfit {
       }
     }
 
-  public:
-    LayerOfHits() {}
-
-    ~LayerOfHits() {
 #ifdef COPY_SORTED_HITS
-      free_hits();
-#endif
-      operator delete[](m_hit_ranks);
-    }
+    void alloc_hits(int size);
+    void free_hits()
 
-    void setupLayer(const LayerInfo& li);
-
-    void reset() {}
-
-    float normalizeQ(float q) const { return std::clamp(q, m_qmin, m_qmax); }
-
-    int qBin(float q) const { return (q - m_qmin) * m_fq; }
-
-    int qBinChecked(float q) const { return std::clamp(qBin(q), 0, m_nq - 1); }
-
-    // if you don't pass phi in (-pi, +pi), mask away the upper bits using m_phi_mask or use the Checked version.
-    int phiBinFine(float phi) const { return std::floor(m_fphi_fine * (phi + Config::PI)); }
-    int phiBin(float phi) const { return phiBinFine(phi) >> m_phi_bits_shift; }
-
-    int phiBinChecked(float phi) const { return phiBin(phi) & m_phi_mask; }
-
-    const vecPhiBinInfo_t& vecPhiBinInfo(float q) const { return m_phi_bin_infos[qBin(q)]; }
-
-    // Get in all hits from given hit-vec
-    void suckInHits(const HitVec& hitv);
-
-    // Get in all hits from given dead-vec
-    void suckInDeads(const DeadVec& deadv);
-
-    // Use external hit-vec and only use hits that are passed to me.
-    void beginRegistrationOfHits(const HitVec& hitv);
-    void registerHit(int idx);
-    void endRegistrationOfHits(bool build_original_to_internal_map);
-
-    // Use this to map original indices to sorted internal ones. m_ext_idcs needs to be initialized.
-    int getHitIndexFromOriginal(int i) const { return m_ext_idcs[i - m_min_ext_idx]; }
-    // Use this to remap internal hit index to external one.
-    int getOriginalHitIndex(int i) const { return m_hit_ranks[i]; }
-
-#ifdef COPY_SORTED_HITS
-    const Hit& refHit(int i) const { return m_hits[i]; }
-    const Hit* hitArray() const { return m_hits; }
+        Hit* m_hits = nullptr;
+    int m_capacity = 0;
 #else
-    const Hit& refHit(int i) const { return (*m_ext_hits)[i]; }
-    const Hit* hitArray() const { return m_ext_hits->data(); }
+    const HitVec* m_ext_hits;
 #endif
+    unsigned int* m_hit_ranks = nullptr;  // allocated by IceSort via new []
+    std::vector<int> m_ext_idcs;
+    int m_min_ext_idx, m_max_ext_idx;
+    int m_n_hits = 0;
 
-    // void  selectHitIndices(float q, float phi, float dq, float dphi, std::vector<int>& idcs, bool isForSeeding=false, bool dump=false);
+    // Bin information for hits and dead regions
+    vecvecPhiBinInfo_t m_phi_bin_infos;
+    vecvecPhiBinDead_t m_phi_bin_deads;
 
-    void printBins();
+    // Cached hit phi and q values to minimize Hit memory access
+    std::vector<float> m_hit_phis;
+    std::vector<float> m_hit_qs;
+
+    // Geometry / q-binning constants - initialized in setupLayer()
+    const LayerInfo* m_layer_info = nullptr;
+    float m_qmin, m_qmax, m_fq;
+    int m_nq = 0;
+    bool m_is_barrel;
+
+    // Data needed during setup
+    struct HitInfo {
+      float phi;
+      float q;
+    };
+    std::vector<HitInfo> m_hit_infos;
+    std::vector<uint32_t> m_qphifines;
   };
 
   //==============================================================================
 
   class EventOfHits {
-  public:
-    std::vector<LayerOfHits> m_layers_of_hits;
-    int m_n_layers;
-    BeamSpot m_beam_spot;
-
   public:
     EventOfHits(const TrackerInfo& trk_inf);
 
@@ -264,23 +252,22 @@ namespace mkfit {
       }
     }
 
-    void suckInHits(int layer, const HitVec& hitv) {
-      m_layers_of_hits[layer].suckInHits(hitv);
-      /*
-    int   nh  = hitv.size();
-    auto &loh = m_layers_of_hits[layer];
-    loh.beginRegistrationOfHits(hitv);
-    for (int i = 0; i < nh; ++i) loh.registerHit(i);
-    loh.endRegistrationOfHits();
-    */
-    }
+    void suckInHits(int layer, const HitVec& hitv) { m_layers_of_hits[layer].suckInHits(hitv); }
 
     void suckInDeads(int layer, const DeadVec& deadv) { m_layers_of_hits[layer].suckInDeads(deadv); }
 
+    const BeamSpot& refBeamSpot() const { return m_beam_spot; }
     void setBeamSpot(const BeamSpot& bs) { m_beam_spot = bs; }
+
+    int nLayers() const { return m_n_layers; }
 
     LayerOfHits& operator[](int i) { return m_layers_of_hits[i]; }
     const LayerOfHits& operator[](int i) const { return m_layers_of_hits[i]; }
+
+  private:
+    std::vector<LayerOfHits> m_layers_of_hits;
+    int m_n_layers;
+    BeamSpot m_beam_spot;
   };
 
   //==============================================================================

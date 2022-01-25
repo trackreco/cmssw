@@ -297,7 +297,7 @@ namespace mkfit {
         const float z = Par[iI].constAt(itrack, 2, 0);
         const float dz = std::abs(nSigmaZ * std::sqrt(Err[iI].constAt(itrack, 2, 2)));
         const float edgeCorr =
-            std::abs(0.5f * (L.m_layer_info->m_rout - L.m_layer_info->m_rin) / std::tan(Par[iI].constAt(itrack, 5, 0)));
+            std::abs(0.5f * (L.layer_info()->m_rout - L.layer_info()->m_rin) / std::tan(Par[iI].constAt(itrack, 5, 0)));
         // XXX-NUM-ERR above, Err(2,2) gets negative!
 
         ////// Disable correction
@@ -360,7 +360,7 @@ namespace mkfit {
             nSigmaR * std::sqrt(std::abs(x * x * Err[iI].constAt(itrack, 0, 0) + y * y * Err[iI].constAt(itrack, 1, 1) +
                                          2 * x * y * Err[iI].constAt(itrack, 0, 1)) /
                                 r2);
-        const float edgeCorr = std::abs(0.5f * (L.m_layer_info->m_zmax - L.m_layer_info->m_zmin) *
+        const float edgeCorr = std::abs(0.5f * (L.layer_info()->m_zmax - L.layer_info()->m_zmin) *
                                         std::tan(Par[iI].constAt(itrack, 5, 0)));
 
         ////// Disable correction
@@ -449,10 +449,10 @@ namespace mkfit {
 
       for (int qi = qb1; qi < qb2; ++qi) {
         for (int pi = pb1; pi < pb2; ++pi) {
-          const int pb = pi & L.m_phi_mask;
+          const int pb = L.phiMaskApply(pi);
 
           // Limit to central Q-bin
-          if (qi == qb && L.m_phi_bin_deads[qi][pb] == true) {
+          if (qi == qb && L.phi_bin_dead(qi, pb) == true) {
             //std::cout << "dead module for track in layer=" << L.layer_id() << " qb=" << qi << " pb=" << pb << " q=" << q << " phi=" << phi<< std::endl;
             XWsrResult[itrack].m_in_gap = true;
           }
@@ -465,14 +465,15 @@ namespace mkfit {
 
           //SK: ~20x1024 bin sizes give mostly 1 hit per bin. Commented out for 128 bins or less
           // #pragma nounroll
-          for (uint16_t hi = L.m_phi_bin_infos[qi][pb].first; hi < L.m_phi_bin_infos[qi][pb].second; ++hi) {
+          auto pbi = L.phi_bin_info(qi, pb);
+          for (uint16_t hi = pbi.first; hi < pbi.second; ++hi) {
             // MT: Access into m_hit_zs and m_hit_phis is 1% run-time each.
 
             int hi_orig = L.getOriginalHitIndex(hi);
 
             if (m_iteration_hit_mask && (*m_iteration_hit_mask)[hi_orig]) {
               // printf("Yay, denying masked hit on layer %d, hi %d, orig idx %d\n",
-              //        L.m_layer_info->m_layer_id, hi, hi_orig);
+              //        L.layer_info()->m_layer_id, hi, hi_orig);
               continue;
             }
 
@@ -480,8 +481,8 @@ namespace mkfit {
               if (XHitSize[itrack] >= MPlexHitIdxMax)
                 break;
 
-              const float ddq = std::abs(q - L.m_hit_qs[hi]);
-              const float ddphi = cdist(std::abs(phi - L.m_hit_phis[hi]));
+              const float ddq = std::abs(q - L.hit_q(hi));
+              const float ddphi = cdist(std::abs(phi - L.hit_phi(hi)));
 
 #ifdef DUMPHITWINDOW
               {
@@ -1452,8 +1453,8 @@ namespace mkfit {
     for (auto lp_iter = st_par.m_layer_plan.rbegin(); lp_iter != st_par.m_layer_plan.rend(); ++lp_iter) {
       const int layer = lp_iter->m_layer;
 
-      const LayerOfHits &L = eventofhits.m_layers_of_hits[layer];
-      const LayerInfo &LI = *L.m_layer_info;
+      const LayerOfHits &L = eventofhits[layer];
+      const LayerInfo &LI = *L.layer_info();
 
       int count = 0;
       for (int i = 0; i < N_proc; ++i) {
@@ -1576,8 +1577,8 @@ namespace mkfit {
     for (auto lp_iter = st_par.make_iterator(SteeringParams::IT_BkwFit); lp_iter.is_valid(); ++lp_iter) {
       const int layer = lp_iter.layer();
 
-      const LayerOfHits &L = eventofhits.m_layers_of_hits[layer];
-      const LayerInfo &LI = *L.m_layer_info;
+      const LayerOfHits &L = eventofhits[layer];
+      const LayerInfo &LI = *L.layer_info();
 
       // XXXX
 #ifdef DEBUG_BACKWARD_FIT
