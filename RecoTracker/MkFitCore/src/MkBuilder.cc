@@ -160,13 +160,9 @@ namespace {
 
 namespace mkfit {
 
-  MkBuilder *MkBuilder::make_builder() { return new MkBuilder; }
+  std::unique_ptr<MkBuilder> MkBuilder::make_builder() { return std::make_unique<MkBuilder>(); }
 
   void MkBuilder::populate() { g_exe_ctx.populate(Config::numThreadsFinder); }
-
-  MkBuilder::MkBuilder() {}
-
-  MkBuilder::~MkBuilder() {}
 
   //------------------------------------------------------------------------------
   // Common functions

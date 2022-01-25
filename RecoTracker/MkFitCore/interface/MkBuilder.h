@@ -1,17 +1,13 @@
 #ifndef RecoTracker_MkFitCore_interface_MkBuilder_h
 #define RecoTracker_MkFitCore_interface_MkBuilder_h
 
-#include <vector>
-#include <map>
-
-//------------------------------------------------------------------------------
-
 #include "RecoTracker/MkFitCore/interface/IterationConfig.h"
 #include "RecoTracker/MkFitCore/interface/Track.h"
 #include "RecoTracker/MkFitCore/interface/HitStructures.h"
 
 #include <functional>
-#include <mutex>
+#include <map>
+#include <vector>
 
 namespace mkfit {
 
@@ -62,7 +58,7 @@ namespace mkfit {
 
     MkJob *m_job = nullptr;
 
-    // MIMI -- To be removed. Used by seed processing / validation that has yet to be moved.
+    // MIMI -- Used by seed processing / validation.
     Event *m_event = nullptr;
 
     // State for BestHit
@@ -84,12 +80,12 @@ namespace mkfit {
 
     typedef std::vector<std::pair<int, int>> CandIdx_t;
 
-    MkBuilder();
-    ~MkBuilder();
+    MkBuilder() = default;
+    ~MkBuilder() = default;
 
     // --------
 
-    static MkBuilder *make_builder();
+    static std::unique_ptr<MkBuilder> make_builder();
     static void populate();
 
     int total_cands() const {
