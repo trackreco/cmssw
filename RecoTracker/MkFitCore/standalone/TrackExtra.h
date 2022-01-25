@@ -16,7 +16,6 @@ namespace mkfit {
     ReducedTrack() {}
     ReducedTrack(const int label, const int seedID, const SVector2& params, const float phi, const HitLayerMap& hitmap)
         : label_(label), seedID_(seedID), parameters_(params), phi_(phi), hitLayerMap_(hitmap) {}
-    ~ReducedTrack() {}
 
     int label() const { return label_; }
     int seedID() const { return seedID_; }

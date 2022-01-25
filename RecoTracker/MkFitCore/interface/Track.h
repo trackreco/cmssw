@@ -138,7 +138,6 @@ namespace mkfit {
     TrackBase(int charge, const SVector3& position, const SVector3& momentum, const SMatrixSym66& errors, float chi2)
         : state_(charge, position, momentum, errors), chi2_(chi2) {}
 
-    ~TrackBase() {}
 
     const TrackState& state() const { return state_; }
     void setState(const TrackState& newState) { state_ = newState; }
@@ -387,7 +386,6 @@ namespace mkfit {
 
     Track(const Track& t) : TrackBase(t), hitsOnTrk_(t.hitsOnTrk_) {}
 
-    ~Track() {}
 
     // used for swimming cmssw rec tracks to mkFit position
     float swimPhiToR(const float x, const float y) const;
