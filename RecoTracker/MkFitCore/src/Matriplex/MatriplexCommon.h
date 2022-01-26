@@ -88,6 +88,12 @@ inline __m256 FMA(const __m256 &a, const __m256 &b, const __m256 &v) {
 
 // #endif
 
+#ifdef __INTEL_COMPILER
+#define ASSUME_ALIGNED(a, b) __assume_aligned(a, b)
+#else
+#define ASSUME_ALIGNED(a, b) a = static_cast<decltype(a)>(__builtin_assume_aligned(a, b))
+#endif
+
 namespace Matriplex {
   typedef int idx_t;
 

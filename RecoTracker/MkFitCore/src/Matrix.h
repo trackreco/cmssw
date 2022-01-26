@@ -24,12 +24,6 @@ namespace mkfit {
 
 // Matriplex dimensions and typedefs
 
-#ifdef __INTEL_COMPILER
-#define ASSUME_ALIGNED(a, b) __assume_aligned(a, b)
-#else
-#define ASSUME_ALIGNED(a, b) a = static_cast<decltype(a)>(__builtin_assume_aligned(a, b))
-#endif
-
 #include "Matriplex/MatriplexSym.h"
 
 namespace mkfit {
