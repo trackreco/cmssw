@@ -2,6 +2,8 @@
 #include <limits>
 #include <algorithm>
 
+#include "RecoTracker/MkFitCore/interface/cms_common_macros.h"
+
 #include "RecoTracker/MkFitCore/interface/MkBuilder.h"
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 
@@ -43,7 +45,7 @@ namespace mkfit {
     }
   };
 
-  ExecutionContext g_exe_ctx;
+  CMS_SA_ALLOW ExecutionContext g_exe_ctx;
 
 }  // end namespace mkfit
 
