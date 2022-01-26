@@ -394,7 +394,7 @@ namespace mkfit {
     float rAtZ(float Z) const;
 
     //this function is very inefficient, use only for debug and validation!
-    const HitVec hitsVector(const std::vector<HitVec>& globalHitVec) const {
+    HitVec hitsVector(const std::vector<HitVec>& globalHitVec) const {
       HitVec hitsVec;
       for (int ihit = 0; ihit < Config::nMaxTrkHits; ++ihit) {
         const HitOnTrack& hot = hitsOnTrk_[ihit];
@@ -412,7 +412,6 @@ namespace mkfit {
         const HitOnTrack& hot = hitsOnTrk_[ihit];
         if ((hot.index >= 0) && (static_cast<size_t>(hot.index) < globalHitVec[hot.layer].size())) {
           mcHitIDs.push_back(globalHitVec[hot.layer][hot.index].mcTrackID(globalMCHitInfo));
-          //globalMCHitInfo[globalHitVec[hot.layer][hot.index].mcHitID()].mcTrackID());
         } else {
           mcHitIDs.push_back(hot.index);
         }
@@ -571,7 +570,7 @@ namespace mkfit {
     void sortHitsByLayer();
 
     // used by fittest only (NOT mplex)
-    const std::vector<int> foundLayers() const {
+    std::vector<int> foundLayers() const {
       std::vector<int> layers;
       for (int ihit = 0; ihit <= lastHitIdx_; ++ihit) {
         if (hitsOnTrk_[ihit].index >= 0 || hitsOnTrk_[ihit].index == -9) {

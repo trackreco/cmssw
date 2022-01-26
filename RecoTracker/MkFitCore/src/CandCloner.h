@@ -20,13 +20,6 @@ namespace mkfit {
     // Maximum number of seeds processed in one call to processSeedRange()
     static const int s_max_seed_range = MPT_SIZE;
 
-  private:
-    // Temporaries in processSeedRange(), resized/reserved  in constructor.
-
-    // Size of this one is s_max_seed_range
-    std::vector<std::vector<TrackCand>> t_cands_for_next_lay;
-
-  public:
     CandCloner() { t_cands_for_next_lay.resize(s_max_seed_range); }
 
     void setup(const IterationParams &ip);
@@ -163,6 +156,13 @@ namespace mkfit {
 
     int m_start_seed, m_n_seeds;
     int m_layer;
+
+  private:
+    // Temporaries in processSeedRange(), resized/reserved  in constructor.
+
+    // Size of this one is s_max_seed_range
+    std::vector<std::vector<TrackCand>> t_cands_for_next_lay;
+
   };
 
 }  // end namespace mkfit

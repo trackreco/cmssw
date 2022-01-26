@@ -3,7 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <string>  // won't compile on clang gcc for mac OS w/o this!
+#include <string>
 #include <map>
 #include <vector>
 

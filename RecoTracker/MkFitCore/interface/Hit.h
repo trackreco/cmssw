@@ -1,13 +1,14 @@
 #ifndef RecoTracker_MkFitCore_interface_Hit_h
 #define RecoTracker_MkFitCore_interface_Hit_h
 
-#include <cmath>
-#include <unordered_set>
-
 #include "RecoTracker/MkFitCore/interface/Config.h"
 #include "RecoTracker/MkFitCore/interface/MatrixSTypes.h"
+
 #include <atomic>
 #include <array>
+#include <cmath>
+#include <string_view>
+#include <unordered_set>
 
 namespace mkfit {
 
@@ -57,9 +58,6 @@ namespace mkfit {
 
   inline float getPhiErr2(float x, float y, float exx, float eyy, float exy) {
     const float rad2 = getRad2(x, y);
-    //  const float dphidx = -y/rad2;
-    //  const float dphidy =  x/rad2;
-    //  return dphidx*dphidx*exx + dphidy*dphidy*eyy + 2*dphidx*dphidy*exy;
     return (y * y * exx + x * x * eyy - 2.0f * x * y * exy) / (rad2 * rad2);
   }
 
@@ -192,25 +190,27 @@ namespace mkfit {
     int layer(const MCHitInfoVec& globalMCHitInfo) const { return globalMCHitInfo[mcHitID_].layer(); }
     int mcTrackID(const MCHitInfoVec& globalMCHitInfo) const { return globalMCHitInfo[mcHitID_].mcTrackID(); }
 
+    static constexpr int kMinChargePerCM = 1620;
+
     struct PackedData {
       unsigned int detid_in_layer : 12;
-      unsigned int charge_pcm : 8;  // MIMI see set/get funcs: is this Run2 specific ???
+      unsigned int charge_pcm : 8;  // MIMI see set/get funcs; applicable for phase-0/1
       unsigned int span_rows : 3;
       unsigned int span_cols : 3;
 
       PackedData() : detid_in_layer(0), charge_pcm(0), span_rows(0), span_cols(0) {}
 
       void set_charge_pcm(int cpcm) {
-        if (cpcm < 1620)
+        if (cpcm < kMinChargePerCM)
           charge_pcm = 0;
         else
-          charge_pcm = std::min(0xff, ((cpcm - 1620) >> 3) + 1);
+          charge_pcm = std::min(0xff, ((cpcm - kMinChargePerCM) >> 3) + 1);
       }
       unsigned int get_charge_pcm() const {
         if (charge_pcm == 0)
           return 0;
         else
-          return ((charge_pcm - 1) << 3) + 1620;
+          return ((charge_pcm - 1) << 3) + kMinChargePerCM;
       }
     };
 
@@ -219,8 +219,8 @@ namespace mkfit {
     unsigned int spanRows() const { return pdata_.span_rows + 1; }
     unsigned int spanCols() const { return pdata_.span_cols + 1; }
 
-    static unsigned int minChargePerCM() { return 1620; }
-    static unsigned int maxChargePerCM() { return 1620 + (0xfe << 3); }
+    static unsigned int minChargePerCM() { return kMinChargePerCM; }
+    static unsigned int maxChargePerCM() { return kMinChargePerCM + (0xfe << 3); }
     static unsigned int maxSpan() { return 8; }
 
     void setupAsPixel(unsigned int id, int rows, int cols) {
@@ -266,7 +266,7 @@ namespace mkfit {
 
   typedef std::vector<HitOnTrack> HoTVec;
 
-  void print(std::string label, const MeasurementState& s);
+  void print(std::string_view label, const MeasurementState& s);
 
   struct DeadRegion {
     float phi1, phi2, q1, q2;

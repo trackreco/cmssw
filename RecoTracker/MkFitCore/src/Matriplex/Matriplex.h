@@ -12,16 +12,14 @@ namespace Matriplex {
   public:
     typedef T value_type;
 
-    enum {
-      /// return no. of matrix rows
-      kRows = D1,
-      /// return no. of matrix columns
-      kCols = D2,
-      /// return no of elements: rows*columns
-      kSize = D1 * D2,
-      /// size of the whole matriplex
-      kTotSize = N * kSize
-    };
+    /// return no. of matrix rows
+    static constexpr int kRows = D1;
+    /// return no. of matrix columns
+    static constexpr int kCols = D2;
+    /// return no of elements: rows*columns
+    static constexpr int kSize = D1 * D2;
+    /// size of the whole matriplex
+    static constexpr int kTotSize = N * kSize;
 
     T fArray[kTotSize] __attribute__((aligned(64)));
 
