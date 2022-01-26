@@ -18,27 +18,6 @@ namespace mkfit {
 
   typedef tbb::concurrent_vector<TripletIdx> TripletIdxConVec;
 
-  // for each layer
-  //   Config::nEtaBin vectors of hits, resized to large enough N
-  //   filled with corresponding hits
-  //   sorted in phi
-  //   and with a corresponding BinInfoSomething
-  //
-  // My gut feeling is that we could have them all in one place and just store
-  // indices into small enough eta-phi bins (oh, and eta is a horrible separation variable)
-  // 10*50000*64/1024/1024
-  //    30.51757812500000000000
-  // Or make them smaller ... if we could use short indices that might make a difference.
-  //
-  // Need to add eta/phi ... or something significantly better to the Hit struct
-  //
-  // At least ... fast eta/phi estimators.
-  //
-  // Oh, and we should use radix sort. Could one vectorize this?
-
-  // Need a good "array of pods" class with aligned alloc and automatic growth.
-  // For now just implement the no-resize / no-destroy basics in the BoH.
-
   typedef std::pair<uint16_t, uint16_t> PhiBinInfo_t;
 
   typedef std::array<PhiBinInfo_t, Config::m_nphi> vecPhiBinInfo_t;
@@ -345,20 +324,16 @@ namespace mkfit {
     }
   };
 
+  // CcPool - CombCandidate Pool and Allocator
+
   template <class T>
   class CcPool {
-    std::vector<T> m_mem;
-    std::size_t m_pos = 0;
-    std::size_t m_size = 0;
-
   public:
     void reset(std::size_t size) {
       if (size > m_mem.size())
         m_mem.resize(size);
       m_pos = 0;
       m_size = size;
-
-      // printf("CcP reset to %zu\n", size);
     }
 
     void release() {
@@ -378,20 +353,21 @@ namespace mkfit {
         throw std::bad_alloc();
       T* ret = &m_mem[m_pos];
       m_pos += n;
-      // printf("CcP alloc %zu\n", n);
       return ret;
     }
 
     void deallocate(T* p, std::size_t n) noexcept {
-      // we do not care, implied on reset().
-      // printf("CcP dealloc %zu\n", n);
+      // we do not care, implied deallocation of the whole pool on reset().
     }
+
+  private:
+    std::vector<T> m_mem;
+    std::size_t m_pos = 0;
+    std::size_t m_size = 0;
   };
 
   template <class T>
   class CcAlloc {
-    CcPool<T>* m_pool;
-
   public:
     typedef T value_type;
 
@@ -402,6 +378,9 @@ namespace mkfit {
     T* allocate(std::size_t n) { return m_pool->allocate(n); }
 
     void deallocate(T* p, std::size_t n) noexcept { m_pool->deallocate(p, n); }
+
+  private:
+    CcPool<T>* m_pool;
   };
 
   template <class T, class U>
@@ -498,9 +477,7 @@ namespace mkfit {
     CombCandidate* m_comb_candidate = nullptr;
     HitMatchPair m_overlap_hits;
 
-    // using from TrackBase:
-    // short int lastHitIdx_
-    // short int nFoundHits_
+    // using TrackBase::lastHitIdx_ to point into hit-on-track-node vector of CombCandidate
     short int nMissingHits_ = 0;
     short int nOverlapHits_ = 0;
 
