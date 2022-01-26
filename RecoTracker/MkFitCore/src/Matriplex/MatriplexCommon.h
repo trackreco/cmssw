@@ -1,9 +1,7 @@
 #ifndef RecoTracker_MkFitCore_src_Matriplex_MatriplexCommon_h
 #define RecoTracker_MkFitCore_src_Matriplex_MatriplexCommon_h
 
-#include <cmath>
 #include <cstring>
-#include <stdexcept>
 
 // Use intrinsics version of code when available, done via CPP flags.
 // #define  MPLEX_USE_INTRINSICS
@@ -93,9 +91,7 @@ inline __m256 FMA(const __m256 &a, const __m256 &b, const __m256 &v) {
 namespace Matriplex {
   typedef int idx_t;
 
-  inline void align_check(const char *pref, void *adr) {
-    printf("%s 0x%llx  -  modulo 64 = %lld\n", pref, (long long unsigned)adr, (long long)adr % 64);
-  }
+  void align_check(const char *pref, void *adr);
 }  // namespace Matriplex
 
 #endif

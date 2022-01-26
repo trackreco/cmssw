@@ -3,8 +3,6 @@
 
 #include "Matriplex.h"
 
-#include "common.h"
-
 #include <vector>
 #include <cassert>
 
@@ -15,14 +13,14 @@ namespace Matriplex {
   template <class MP>
   class MatriplexVector {
     MP* fV;
-    idx_t fN;
+    const idx_t fN;
 
     typedef typename MP::value_type T;
 
   public:
-    MatriplexVector(idx_t n) : fN(n) { fV = new_sth<MP>(fN); }
+    MatriplexVector(idx_t n) : fN(n) { fV = (MP*) std::aligned_alloc(64, sizeof(MP)*fN); }
 
-    ~MatriplexVector() { free_sth(fV); }
+    ~MatriplexVector() { std::free(fV); }
 
     idx_t size() const { return fN; }
 
@@ -38,12 +36,12 @@ namespace Matriplex {
       }
     }
 
-    T& At(idx_t n, idx_t i, idx_t j) { return fV[n / N].At(i, j, n % N); }
+    T& At(idx_t n, idx_t i, idx_t j) { return fV[n / fN].At(n % fN, i, j); }
 
-    T& operator()(idx_t n, idx_t i, idx_t j) { return fV[n / N].At(i, j, n % N); }
+    T& operator()(idx_t n, idx_t i, idx_t j) { return fV[n / fN].At(n % fN, i, j); }
 
-    void copyIn(idx_t n, T* arr) { fV[n / N].copyIn(n % N, arr); }
-    void copyOut(idx_t n, T* arr) { fV[n / N].copyOut(n % N, arr); }
+    void copyIn(idx_t n, T* arr) { fV[n / fN].copyIn(n % fN, arr); }
+    void copyOut(idx_t n, T* arr) { fV[n / fN].copyOut(n % fN, arr); }
   };
 
   template <class MP>
