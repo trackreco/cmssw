@@ -9,8 +9,6 @@
 #include <algorithm>
 #include <array>
 
-//#define DUMPHITWINDOW
-
 namespace mkfit {
 
   class IterationParams;
