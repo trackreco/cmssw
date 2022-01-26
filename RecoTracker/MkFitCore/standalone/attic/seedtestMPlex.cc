@@ -1,5 +1,5 @@
 #include "seedtestMPlex.h"
-#include "tbb/parallel_for.h"
+#include "oneapi/tbb/parallel_for.h"
 
 // #define DEBUG
 #include "Debug.h"

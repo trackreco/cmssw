@@ -2,6 +2,11 @@
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 #include "RecoTracker/MkFitCore/interface/IterationConfig.h"
 
+// For plugin loader
+#include <dlfcn.h>
+#include <sys/stat.h>
+#include <cstdlib>
+
 namespace mkfit {
 
   namespace Config {
@@ -70,5 +75,58 @@ namespace mkfit {
     void recalculateDependentConstants() {}
 
   }  // namespace Config
+
+  //==============================================================================
+  // Geometry / Configuration Plugin Loader
+  //==============================================================================
+
+  namespace {
+    const char *search_path[] = {"", "../Geoms/", "Geoms/", "../", nullptr};
+    typedef void (*TrackerInfoCreator_foo)(TrackerInfo &, IterationsInfo &, bool verbose);
+  }  // namespace
+
+  void execTrackerInfoCreatorPlugin(const std::string &base, TrackerInfo &ti, IterationsInfo &ii, bool verbose) {
+    std::string soname = base + ".so";
+
+    struct stat st;
+
+    int si = 0;
+    while (search_path[si]) {
+      std::string path;
+      const char *envpath = std::getenv("MKFIT_BASE");
+      if (envpath != nullptr) {
+        path += envpath;
+        path += "/";
+      }
+      path += search_path[si];
+      path += soname;
+      if (stat(path.c_str(), &st) == 0) {
+        printf("mkfit::execTrackerInfoCreatorPlugin processing '%s'\n", path.c_str());
+
+        void *h = dlopen(path.c_str(), RTLD_LAZY);
+        if (!h) {
+          perror("dlopen failed");
+          exit(2);
+        }
+
+        long long *p2f = (long long *)dlsym(h, "TrackerInfoCrator_ptr");
+        if (!p2f) {
+          perror("dlsym failed");
+          exit(2);
+        }
+
+        TrackerInfoCreator_foo foo = (TrackerInfoCreator_foo)(*p2f);
+        foo(ti, ii, verbose);
+
+        dlclose(h);
+        return;
+      }
+
+      ++si;
+    }
+
+    fprintf(stderr, "TrackerInfo plugin '%s' not found in search path.\n", soname.c_str());
+    exit(2);
+  }
 
 }  // namespace mkfit

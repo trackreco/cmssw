@@ -228,14 +228,7 @@ namespace mkfit {
       int nb = m_layers[layer].m_next_barrel;
       return (nb >= 0) ? m_layers[nb] : s_undefined_layer;
     }
-
-    static void execTrackerInfoCreatorPlugin(const std::string& base,
-                                             TrackerInfo& ti,
-                                             IterationsInfo& ii,
-                                             bool verbose = false);
   };
-
-  typedef void (*TrackerInfoCreator_foo)(TrackerInfo&, IterationsInfo&, bool verbose);
 
 }  // end namespace mkfit
 #endif

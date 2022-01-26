@@ -5,7 +5,7 @@
 #include "RecoTracker/MkFitCore/src/Debug.h"
 
 #ifdef TBB
-#include "tbb/parallel_for.h"
+#include "oneapi/tbb/parallel_for.h"
 #endif
 
 #include <memory>

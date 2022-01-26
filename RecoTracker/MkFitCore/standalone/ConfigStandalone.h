@@ -12,6 +12,8 @@ namespace mkfit {
   class TrackerInfo;
   class IterationsInfo;
 
+  void execTrackerInfoCreatorPlugin(const std::string& base, TrackerInfo& ti, IterationsInfo& ii, bool verbose = false);
+
   //------------------------------------------------------------------------------
 
   // Enum for input seed options

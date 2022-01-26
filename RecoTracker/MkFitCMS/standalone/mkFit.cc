@@ -23,8 +23,8 @@
 //#define DEBUG
 #include "RecoTracker/MkFitCore/src/Debug.h"
 
-#include "tbb/task_arena.h"
-#include "tbb/parallel_for.h"
+#include "oneapi/tbb/task_arena.h"
+#include "oneapi/tbb/parallel_for.h"
 
 #if defined(USE_VTUNE_PAUSE)
 #include "ittnotify.h"
@@ -59,7 +59,7 @@ void initGeom() {
   printf("%d\n", xx->m_iteration_index);
   */
 
-  TrackerInfo::execTrackerInfoCreatorPlugin(Config::geomPlugin, Config::TrkInfo, Config::ItrInfo);
+  mkfit::execTrackerInfoCreatorPlugin(Config::geomPlugin, Config::TrkInfo, Config::ItrInfo);
 
   if (Config::json_dump_before)
     configJson_Dump(Config::ItrInfo);

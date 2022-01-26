@@ -10,7 +10,7 @@
 #include <mutex>
 #endif
 
-#include "tbb/parallel_for.h"
+#include "oneapi/tbb/parallel_for.h"
 
 #include <iostream>
 #include <memory>
