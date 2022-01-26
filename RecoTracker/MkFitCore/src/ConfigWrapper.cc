@@ -6,7 +6,6 @@
 namespace mkfit {
   namespace ConfigWrapper {
     void initializeForCMSSW(bool silent) {
-      Config::seedInput = cmsswSeeds;
       Config::silent = silent;
 
       // to do backward fit to the first layer, not point of closest approach

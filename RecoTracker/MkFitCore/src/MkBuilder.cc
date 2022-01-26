@@ -83,7 +83,7 @@ namespace {
   struct RegionOfSeedIndices {
     int m_reg_beg, m_reg_end, m_vec_cnt;
 
-    RegionOfSeedIndices(const IntVec &seedEtaSeparators, int region) {
+    RegionOfSeedIndices(const std::vector<int> &seedEtaSeparators, int region) {
       m_reg_beg = (region == 0) ? 0 : seedEtaSeparators[region - 1];
       m_reg_end = seedEtaSeparators[region];
       m_vec_cnt = (m_reg_end - m_reg_beg + NN - 1) / NN;
@@ -282,7 +282,7 @@ namespace mkfit {
 
     // printf ("MkBuilder::filter_comb_cands Entering filter size eoccsm_size=%d\n", eoccs.m_size);
 
-    IntVec removed_cnts(m_job->num_regions());
+    std::vector<int> removed_cnts(m_job->num_regions());
     while (i < eoccs.size()) {
       if (filter(eoccs[i].front())) {
         if (place_pos != i)

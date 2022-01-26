@@ -5,6 +5,7 @@
 #include "RecoTracker/MkFitCore/interface/Track.h"
 #include "RecoTracker/MkFitCore/interface/HitStructures.h"
 
+#include <atomic>
 #include <functional>
 #include <map>
 #include <vector>
@@ -68,9 +69,9 @@ namespace mkfit {
     EventOfCombCandidates m_event_of_comb_cands;
 
     // Per-region seed information
-    IntVec m_seedEtaSeparators;
-    IntVec m_seedMinLastLayer;
-    IntVec m_seedMaxLastLayer;
+    std::vector<int> m_seedEtaSeparators;
+    std::vector<int> m_seedMinLastLayer;
+    std::vector<int> m_seedMaxLastLayer;
 
     std::atomic<int> m_nan_n_silly_per_layer_count;
 

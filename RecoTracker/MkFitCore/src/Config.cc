@@ -9,14 +9,10 @@ namespace mkfit {
 
     int nTotalLayers = -1;
 
-    std::string geomPlugin = "CylCowWLids";
-
     // Multi threading and Clone engine configuration
     int numThreadsFinder = 1;
     int numThreadsEvents = 1;
     int numSeedsPerTask = 32;
-
-    seedOpts seedInput = simSeeds;
 
     bool removeDuplicates = false;
     bool useHitsForDuplicates = true;

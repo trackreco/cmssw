@@ -3,15 +3,37 @@
 
 #include "RecoTracker/MkFitCore/interface/Config.h"
 
+#include <string>
+#include <map>
+#include <vector>
+
 namespace mkfit {
 
   class TrackerInfo;
   class IterationsInfo;
 
+  //------------------------------------------------------------------------------
+
+  // Enum for input seed options
+  enum seedOpts { simSeeds, cmsswSeeds, findSeeds };
+  typedef std::map<std::string, std::pair<seedOpts, std::string> > seedOptsMap;
+
+  // Enum for seed cleaning options
+  enum cleanOpts { noCleaning, cleanSeedsN2, cleanSeedsPure, cleanSeedsBadLabel };
+  typedef std::map<std::string, std::pair<cleanOpts, std::string> > cleanOptsMap;
+
+  // Enum for cmssw matching options
+  enum matchOpts { trkParamBased, hitBased, labelBased };
+  typedef std::map<std::string, std::pair<matchOpts, std::string> > matchOptsMap;
+
+  //------------------------------------------------------------------------------
+
   namespace Config {
 
     extern TrackerInfo TrkInfo;
     extern IterationsInfo ItrInfo;
+
+    extern std::string geomPlugin;
 
     // default file version
     constexpr int FileVersion = 1;
@@ -127,6 +149,7 @@ namespace mkfit {
     extern int numHitsPerTask;
 
     // seed options
+    extern seedOpts seedInput;
     extern cleanOpts seedCleaning;
     extern bool readCmsswTracks;
 

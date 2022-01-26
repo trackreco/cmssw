@@ -3,10 +3,6 @@
 
 #include <string>
 #include <vector>
-#include <stdexcept>
-
-#include <cmath>
-#include <cstdio>
 
 namespace mkfit {
 

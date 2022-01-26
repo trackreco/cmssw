@@ -3,7 +3,10 @@
 
 #include "RecoTracker/MkFitCore/interface/Track.h"
 
+#include <array>
+#include <map>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace mkfit {
   //==============================================================================
@@ -30,6 +33,13 @@ namespace mkfit {
     HitLayerMap hitLayerMap_;
   };
   typedef std::vector<ReducedTrack> RedTrackVec;
+
+  typedef std::map<int, std::map<int, std::vector<int>>> LayIdxIDVecMapMap;
+  typedef std::map<int, std::unordered_set<int>> TrkIDLaySetMap;
+  typedef std::array<int, 2> PairIdx;
+  typedef std::vector<PairIdx> PairIdxVec;
+  typedef std::array<int, 3> TripletIdx;
+  typedef std::vector<TripletIdx> TripletIdxVec;
 
   //==============================================================================
   // TrackExtra
@@ -107,12 +117,12 @@ namespace mkfit {
 
   typedef std::vector<TrackState> TSVec;
   typedef std::vector<TSVec> TkIDToTSVecVec;
-  typedef std::vector<std::pair<int, TrackState> > TSLayerPairVec;
-  typedef std::vector<std::pair<int, float> > FltLayerPairVec;  // used exclusively for debugtree
+  typedef std::vector<std::pair<int, TrackState>> TSLayerPairVec;
+  typedef std::vector<std::pair<int, float>> FltLayerPairVec;  // used exclusively for debugtree
 
   // Map typedefs needed for mapping different sets of tracks to another
   typedef std::unordered_map<int, int> TkIDToTkIDMap;
-  typedef std::unordered_map<int, std::vector<int> > TkIDToTkIDVecMap;
+  typedef std::unordered_map<int, std::vector<int>> TkIDToTkIDVecMap;
   typedef std::unordered_map<int, TrackState> TkIDToTSMap;
   typedef std::unordered_map<int, TSLayerPairVec> TkIDToTSLayerPairVecMap;
 

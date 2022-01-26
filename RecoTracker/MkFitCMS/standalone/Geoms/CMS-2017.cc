@@ -3,7 +3,6 @@
 //-------------------
 
 #include "RecoTracker/MkFitCore/interface/Config.h"
-#include "RecoTracker/MkFitCore/src/Debug.h"
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 #include "RecoTracker/MkFitCore/interface/IterationConfig.h"
 #include "RecoTracker/MkFitCore/interface/HitStructures.h"

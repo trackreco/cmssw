@@ -4,11 +4,8 @@
 #include "RecoTracker/MkFitCore/interface/Config.h"
 #include "RecoTracker/MkFitCore/interface/MatrixSTypes.h"
 
-#include <atomic>
-#include <array>
 #include <cmath>
 #include <string_view>
-#include <unordered_set>
 
 namespace mkfit {
 
@@ -243,12 +240,6 @@ namespace mkfit {
   };
 
   typedef std::vector<Hit> HitVec;
-  typedef std::map<int, std::map<int, std::vector<int> > > LayIdxIDVecMapMap;
-  typedef std::map<int, std::unordered_set<int> > TrkIDLaySetMap;
-  typedef std::array<int, 2> PairIdx;
-  typedef std::vector<PairIdx> PairIdxVec;
-  typedef std::array<int, 3> TripletIdx;
-  typedef std::vector<TripletIdx> TripletIdxVec;
 
   struct HitOnTrack {
     int index : 24;

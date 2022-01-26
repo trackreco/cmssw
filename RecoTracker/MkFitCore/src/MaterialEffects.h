@@ -3,6 +3,8 @@
 
 #include "RecoTracker/MkFitCore/interface/Config.h"
 
+#include <cmath>
+
 namespace mkfit {
 
   inline int getZbinME(const float z) { return (std::abs(z) * Config::nBinsZME) / (Config::rangeZME); }

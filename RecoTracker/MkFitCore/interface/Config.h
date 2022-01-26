@@ -1,12 +1,6 @@
 #ifndef RecoTracker_MkFitCore_interface_Config_h
 #define RecoTracker_MkFitCore_interface_Config_h
 
-#include <algorithm>
-#include <cmath>
-#include <string>
-#include <map>
-#include <vector>
-
 namespace mkfit {
 
   enum PropagationFlagsEnum { PF_none = 0, PF_use_param_b_field = 0x1, PF_apply_material = 0x2 };
@@ -22,23 +16,6 @@ namespace mkfit {
     PropagationFlags(int pfe)
         : use_param_b_field(pfe & PF_use_param_b_field), apply_material(pfe & PF_apply_material) {}
   };
-
-  //------------------------------------------------------------------------------
-
-  using IntVec = std::vector<int>;
-  using IntVec_i = IntVec::iterator;
-
-  // Enum for input seed options
-  enum seedOpts { simSeeds, cmsswSeeds, findSeeds };
-  typedef std::map<std::string, std::pair<seedOpts, std::string> > seedOptsMap;
-
-  // Enum for seed cleaning options
-  enum cleanOpts { noCleaning, cleanSeedsN2, cleanSeedsPure, cleanSeedsBadLabel };
-  typedef std::map<std::string, std::pair<cleanOpts, std::string> > cleanOptsMap;
-
-  // Enum for cmssw matching options
-  enum matchOpts { trkParamBased, hitBased, labelBased };
-  typedef std::map<std::string, std::pair<matchOpts, std::string> > matchOptsMap;
 
   //------------------------------------------------------------------------------
 
@@ -59,8 +36,6 @@ namespace mkfit {
 
     // general parameters of matrices
     constexpr int nParams = 6;
-
-    extern std::string geomPlugin;
 
     // config for fitting
     constexpr int nLayers = 10;  // default: 10; cmssw tests: 13, 17, 26 (for endcap)
@@ -159,8 +134,6 @@ namespace mkfit {
     extern int numThreadsFinder;
     extern int numThreadsEvents;
     extern int numSeedsPerTask;
-
-    extern seedOpts seedInput;
 
     // config on seed cleaning
     constexpr float track1GeVradius = 87.6;  // = 1/(c*B)

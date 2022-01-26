@@ -496,7 +496,6 @@ void MkBuilder::create_seeds_from_sim_tracks()
           size, (int) seeds.size());
 }
 
-
 void MkBuilder::find_seeds()
 {
   fprintf(stderr, "__FILE__::__LINE__ Needs fixing for B/E support, search for XXMT4K\n");
@@ -505,6 +504,7 @@ void MkBuilder::find_seeds()
 #ifdef DEBUG
   bool debug(false);
 #endif
+  typedef tbb::concurrent_vector<TripletIdx> TripletIdxConVec;
   TripletIdxConVec seed_idcs;
 
   //double time = dtime();

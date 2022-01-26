@@ -8,15 +8,12 @@
 
 #include <algorithm>
 #include <array>
-#include "oneapi/tbb/concurrent_vector.h"
 
 //#define DUMPHITWINDOW
 
 namespace mkfit {
 
   class IterationParams;
-
-  typedef tbb::concurrent_vector<TripletIdx> TripletIdxConVec;
 
   typedef std::pair<uint16_t, uint16_t> PhiBinInfo_t;
 

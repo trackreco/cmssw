@@ -9,11 +9,14 @@ namespace mkfit {
     TrackerInfo TrkInfo;
     IterationsInfo ItrInfo;
 
+    std::string geomPlugin = "CylCowWLids";
+
     int nTracks = 10000;
     int nEvents = 20;
     int nItersCMSSW = 0;
     bool loopOverFile = false;
 
+    seedOpts seedInput = simSeeds;
     cleanOpts seedCleaning = noCleaning;
 
     bool readCmsswTracks = false;
