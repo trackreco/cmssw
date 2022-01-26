@@ -23,6 +23,103 @@ namespace mkfit {
 
   void CandCloner::release() { mp_iteration_params = nullptr; }
 
+  void CandCloner::begin_eta_bin(EventOfCombCandidates *e_o_ccs,
+                                 std::vector<std::pair<int, int>> *update_list,
+                                 std::vector<std::vector<TrackCand>> *extra_cands,
+                                 int start_seed,
+                                 int n_seeds) {
+    mp_event_of_comb_candidates = e_o_ccs;
+    mp_kalman_update_list = update_list;
+    mp_extra_cands = extra_cands;
+    m_start_seed = start_seed;
+    m_n_seeds = n_seeds;
+    m_hits_to_add.resize(n_seeds);
+
+    for (int i = 0; i < n_seeds; ++i)
+      m_hits_to_add[i].reserve(4);
+
+#ifdef CC_TIME_ETA
+    printf("CandCloner::begin_eta_bin\n");
+    t_eta = dtime();
+#endif
+  }
+
+  void CandCloner::begin_layer(int lay) {
+    m_layer = lay;
+
+    m_idx_max = 0;
+    m_idx_max_prev = 0;
+
+    mp_kalman_update_list->clear();
+
+#ifdef CC_TIME_LAYER
+    t_lay = dtime();
+#endif
+  }
+
+  void CandCloner::begin_iteration() {
+    // Do nothing, "secondary" state vars updated when work completed/assigned.
+  }
+
+  void CandCloner::end_iteration() {
+    int proc_n = m_idx_max - m_idx_max_prev;
+
+    dprintf("CandCloner::end_iteration process %d, max_prev=%d, max=%d\n", proc_n, m_idx_max_prev, m_idx_max);
+
+    if (proc_n >= s_max_seed_range) {
+      // Round to multiple of s_max_seed_range.
+      doWork((m_idx_max / s_max_seed_range) * s_max_seed_range);
+    }
+  }
+
+  void CandCloner::end_layer() {
+    if (m_n_seeds > m_idx_max_prev) {
+      doWork(m_n_seeds);
+    }
+
+    for (int i = 0; i < m_n_seeds; ++i) {
+      m_hits_to_add[i].clear();
+    }
+
+#ifdef CC_TIME_LAYER
+    t_lay = dtime() - t_lay;
+    printf("CandCloner::end_layer %d -- t_lay=%8.6f\n", m_layer, t_lay);
+    printf("                      m_idx_max=%d, m_idx_max_prev=%d, issued work=%d\n",
+           m_idx_max,
+           m_idx_max_prev,
+           m_idx_max + 1 > m_idx_max_prev);
+#endif
+  }
+
+  void CandCloner::end_eta_bin() {
+#ifdef CC_TIME_ETA
+    t_eta = dtime() - t_eta;
+    printf("CandCloner::end_eta_bin t_eta=%8.6f\n", t_eta);
+#endif
+  }
+  //==============================================================================
+
+  void CandCloner::doWork(int idx) {
+    dprintf("CandCloner::DoWork assigning work from seed %d to %d\n", m_idx_max_prev, idx);
+
+    int beg = m_idx_max_prev;
+    int the_end = idx;
+
+    dprintf("CandCloner::DoWork working on beg=%d to the_end=%d\n", beg, the_end);
+
+    while (beg != the_end) {
+      int end = std::min(beg + s_max_seed_range, the_end);
+
+      dprintf("CandCloner::DoWork processing %4d -> %4d\n", beg, end);
+
+      processSeedRange(beg, end);
+
+      beg = end;
+    }
+
+    m_idx_max_prev = idx;
+  }
+
   //==============================================================================
 
   void CandCloner::processSeedRange(int is_beg, int is_end) {
@@ -100,20 +197,6 @@ namespace mkfit {
               (hm = ccand[h2a.trkIdx].findOverlap(h2a.hitIdx, h2a.module))) {
             tc.addHitIdx(hm->m_hit_idx, m_layer, hm->m_chi2);
             tc.incOverlapCount();
-
-            // --- ROOT text tree dump of all used overlaps
-            // static bool first = true;
-            // if (first)
-            // {
-            //   // ./mkFit ... | perl -ne 'if (/^ZZZ_EXTRA/) { s/^ZZZ_EXTRA //og; print; }' > extra.rtt
-            //   printf("ZZZ_EXTRA label/I:can_idx/I:layer/I:pt/F:eta/F:phi/F:"
-            //          "chi2_orig/F:chi2/F:chi2_extra/F:module/I:module_extra/I\n");
-            //   first = false;
-            // }
-            // label/I:can_idx/I:layer/I:pt/F:eta/F:phi/F:chi2_orig/F:chi2/F:chi2_extra/F:module/I:module_extra/I
-            // printf("ZZZ_EXTRA %d %d %d %f %f %f %f %f %f %u %u\n",
-            //        tc.label(), h2a.trkIdx, m_layer, tc.pT(), tc.posEta(), tc.posPhi(),
-            //        ccand[h2a.trkIdx].chi2(), h2a.chi2, hm->m_chi2, h2a.module, hm->m_module_id);
           }
 
           cv.emplace_back(tc);
@@ -131,7 +214,7 @@ namespace mkfit {
           ++extra_i;
         }
 
-        //ccand.swap(cv); // segfaulting w/ backwards fit input tracks -- using loop below now
+        // ccand.swap(cv); // segfaulting w/ backwards fit input tracks -- using loop below now
         ccand.resize(cv.size());
         for (size_t ii = 0; ii < cv.size(); ++ii) {
           ccand[ii] = cv[ii];
@@ -147,17 +230,6 @@ namespace mkfit {
             ++extra_i;
           }
         }
-
-        // Cross-check for what is left once there are no more changes for a whole seed.
-        //
-        // for (auto &cand : cands[ m_start_seed + is ])
-        // {
-        //   if (cand.getLastHitIdx() < 0 && cand.getLastHitIdx() != -2)
-        //   {
-        //     printf("  We got cand with index %d\n", cand.getLastHitIdx());
-        //     print("offending track (unknown index)", -666, cand, true);
-        //   }
-        // }
       }
 
       extras.clear();

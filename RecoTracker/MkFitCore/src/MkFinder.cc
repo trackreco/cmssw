@@ -1197,7 +1197,7 @@ namespace mkfit {
             }
 
             if (isCompatible) {
-              CombCandidate &ccand = cloner.mp_event_of_comb_candidates->cand(SeedIdx(itrack, 0, 0));
+              CombCandidate &ccand = cloner.combCandWithOriginalIndex(SeedIdx(itrack, 0, 0));
               bool hitExists = false;
               int maxHits = NFoundHits(itrack, 0, 0);
               if (layer_of_hits.is_pix_lyr()) {
