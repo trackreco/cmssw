@@ -290,14 +290,13 @@ namespace mkfit {
     };
 
   private:
-    nlohmann::json *m_json = nullptr;
+    std::unique_ptr<nlohmann::json> m_json;
     nlohmann::json *m_current = nullptr;
 
     // add stack and cd_up() ? also, name stack for exceptions and printouts
     std::vector<nlohmann::json *> m_json_stack;
     std::vector<std::string> m_path_stack;
 
-    bool m_owner = false;
     bool m_verbose = false;
 
     void release_json();

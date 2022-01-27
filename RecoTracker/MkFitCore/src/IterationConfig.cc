@@ -115,12 +115,7 @@ namespace mkfit {
 
   ConfigJsonPatcher::~ConfigJsonPatcher() { release_json(); }
 
-  void ConfigJsonPatcher::release_json() {
-    if (m_owner)
-      delete m_json;
-    m_json = nullptr;
-    m_owner = false;
-  }
+  void ConfigJsonPatcher::release_json() { m_json.reset(); }
 
   std::string ConfigJsonPatcher::get_abs_path() const {
     std::string s;
@@ -147,9 +142,8 @@ namespace mkfit {
   template <class T>
   void ConfigJsonPatcher::load(const T &o) {
     release_json();
-    m_json = new nlohmann::json;
+    m_json = std::make_unique<nlohmann::json>();
     *m_json = o;
-    m_owner = true;
     cd_top();
   }
   template void ConfigJsonPatcher::load<IterationsInfo>(const IterationsInfo &o);
@@ -190,7 +184,7 @@ namespace mkfit {
   }
 
   void ConfigJsonPatcher::cd_top(const std::string &path) {
-    m_current = m_json;
+    m_current = m_json.get();
     m_json_stack.clear();
     m_path_stack.clear();
     if (!path.empty())
