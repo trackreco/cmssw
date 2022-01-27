@@ -113,9 +113,7 @@ namespace mkfit {
 
   ConfigJsonPatcher::ConfigJsonPatcher(bool verbose) : m_verbose(verbose) {}
 
-  ConfigJsonPatcher::~ConfigJsonPatcher() { release_json(); }
-
-  void ConfigJsonPatcher::release_json() { m_json.reset(); }
+  ConfigJsonPatcher::~ConfigJsonPatcher() = default;
 
   std::string ConfigJsonPatcher::get_abs_path() const {
     std::string s;
@@ -141,7 +139,6 @@ namespace mkfit {
 
   template <class T>
   void ConfigJsonPatcher::load(const T &o) {
-    release_json();
     m_json = std::make_unique<nlohmann::json>();
     *m_json = o;
     cd_top();

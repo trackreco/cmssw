@@ -299,8 +299,6 @@ namespace mkfit {
 
     bool m_verbose = false;
 
-    void release_json();
-
     std::string get_abs_path() const;
     std::string exc_hdr(const char *func = nullptr) const;
 
