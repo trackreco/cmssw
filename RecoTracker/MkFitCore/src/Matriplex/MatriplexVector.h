@@ -18,7 +18,7 @@ namespace Matriplex {
     typedef typename MP::value_type T;
 
   public:
-    MatriplexVector(idx_t n) : fN(n) { fV = (MP*) std::aligned_alloc(64, sizeof(MP)*fN); }
+    MatriplexVector(idx_t n) : fN(n) { fV = (MP*)std::aligned_alloc(64, sizeof(MP) * fN); }
 
     ~MatriplexVector() { std::free(fV); }
 

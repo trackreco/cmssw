@@ -509,7 +509,8 @@ namespace mkfit {
           builder.endBkwSearch();
         }
 
-        if (itconf.m_requires_quality_filter && (Algo(itconf.m_track_algorithm) == Algo::detachedTripletStep || Algo(itconf.m_track_algorithm) == Algo::pixelLessStep)) {
+        if (itconf.m_requires_quality_filter && (Algo(itconf.m_track_algorithm) == Algo::detachedTripletStep ||
+                                                 Algo(itconf.m_track_algorithm) == Algo::pixelLessStep)) {
           if (Algo(itconf.m_track_algorithm) == Algo::detachedTripletStep) {
             builder.filter_comb_cands(
                 [&](const TrackCand &t) { return StdSeq::qfilter_n_layers(t, eoh.refBeamSpot(), Config::TrkInfo); });
