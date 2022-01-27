@@ -118,7 +118,6 @@ namespace mkfit {
         TrackerInfoCreator_foo foo = (TrackerInfoCreator_foo)(*p2f);
         foo(ti, ii, verbose);
 
-        dlclose(h);
         return;
       }
 
