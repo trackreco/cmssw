@@ -536,13 +536,13 @@ namespace mkfit {
           hitsRl(n, 0, 0) = 0.f;
           hitsXi(n, 0, 0) = 0.f;
         } else {
-          const int zbin = getZbinME(outPar(n, 2, 0));
-          const int rbin = getRbinME(msRad(n, 0, 0));
+          const int zbin = Config::materialEff.getZbin(outPar(n, 2, 0));
+          const int rbin = Config::materialEff.getRbin(msRad(n, 0, 0));
           hitsRl(n, 0, 0) = (zbin >= 0 && zbin < Config::nBinsZME && rbin >= 0 && rbin < Config::nBinsRME)
-                                ? getRlVal(zbin, rbin)
+                                ? Config::materialEff.getRlVal(zbin, rbin)
                                 : 0.f;  // protect against crazy propagations
           hitsXi(n, 0, 0) = (zbin >= 0 && zbin < Config::nBinsZME && rbin >= 0 && rbin < Config::nBinsRME)
-                                ? getXiVal(zbin, rbin)
+                                ? Config::materialEff.getXiVal(zbin, rbin)
                                 : 0.f;  // protect against crazy propagations
         }
         const float r0 = hipo(inPar(n, 0, 0), inPar(n, 1, 0));
@@ -639,13 +639,13 @@ namespace mkfit {
           hitsRl(n, 0, 0) = 0.f;
           hitsXi(n, 0, 0) = 0.f;
         } else {
-          const int zbin = getZbinME(msZ(n, 0, 0));
-          const int rbin = getRbinME(std::hypot(outPar(n, 0, 0), outPar(n, 1, 0)));
+          const int zbin = Config::materialEff.getZbin(msZ(n, 0, 0));
+          const int rbin = Config::materialEff.getRbin(std::hypot(outPar(n, 0, 0), outPar(n, 1, 0)));
           hitsRl(n, 0, 0) = (zbin >= 0 && zbin < Config::nBinsZME && rbin >= 0 && rbin < Config::nBinsRME)
-                                ? getRlVal(zbin, rbin)
+                                ? Config::materialEff.getRlVal(zbin, rbin)
                                 : 0.f;  // protect against crazy propagations
           hitsXi(n, 0, 0) = (zbin >= 0 && zbin < Config::nBinsZME && rbin >= 0 && rbin < Config::nBinsRME)
-                                ? getXiVal(zbin, rbin)
+                                ? Config::materialEff.getXiVal(zbin, rbin)
                                 : 0.f;  // protect against crazy propagations
         }
         const float zout = msZ.constAt(n, 0, 0);

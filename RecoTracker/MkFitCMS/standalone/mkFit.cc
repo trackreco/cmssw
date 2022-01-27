@@ -271,9 +271,6 @@ void test_standard() {
     }
   }
 
-  if (Config::useCMSGeom)
-    fillZRgridME();
-
   constexpr int NT = 5;
   double t_sum[NT] = {0};
   double t_skip[NT] = {0};

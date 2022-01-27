@@ -28,10 +28,6 @@ namespace mkfit {
     const float maxcth_ob = 1.99;  //eta 1.44
     const float maxcth_fw = 6.05;  //eta 2.5
 
-    // material effects
-    float RlgridME[Config::nBinsZME][Config::nBinsRME];
-    float XigridME[Config::nBinsZME][Config::nBinsRME];
-
     bool finding_requires_propagation_to_hit_pos;
     PropagationFlags finding_inter_layer_pflags;
     PropagationFlags finding_intra_layer_pflags;
