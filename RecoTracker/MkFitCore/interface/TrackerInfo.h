@@ -88,7 +88,7 @@ namespace mkfit {
       return WSR_Result(WSR_Edge, false);
     }
 
-    void print_layer() {
+    void print_layer() const {
       printf("Layer %2d  r(%7.4f, %7.4f) z(% 9.4f, % 9.4f) is_brl=%d\n",
              m_layer_id,
              m_rin,
@@ -124,9 +124,6 @@ namespace mkfit {
   //==============================================================================
 
   class TrackerInfo {
-  private:
-    int new_layer(LayerInfo::LayerType_e type);
-
   public:
     enum AbsEtaRegion_e { AbsReg_Outside = -1, AbsReg_Barrel = 0, AbsReg_Transition = 1, AbsReg_Endcap = 2 };
 
@@ -141,21 +138,18 @@ namespace mkfit {
       Reg_Count = Reg_End
     };
 
-    std::vector<LayerInfo> m_layers;
-    static LayerInfo s_undefined_layer;
-
-    std::vector<int> m_barrel;
-    std::vector<int> m_ecap_pos;
-    std::vector<int> m_ecap_neg;
-
-    float m_eta_trans_beg, m_eta_trans_end, m_eta_ecap_end;
-
     void set_eta_regions(float tr_beg, float tr_end, float ec_end);
     void reserve_layers(int n_brl, int n_ec_pos, int n_ec_neg);
     void create_layers(int n_brl, int n_ec_pos, int n_ec_neg);
     LayerInfo& new_barrel_layer();
     LayerInfo& new_ecap_pos_layer();
     LayerInfo& new_ecap_neg_layer();
+
+    int n_layers() const { return m_layers.size(); }
+    const LayerInfo& layer(int l) const { return m_layers[l]; }
+    LayerInfo& layer_nc(int l) { return m_layers[l]; }
+
+    const LayerInfo& operator[](int l) const { return m_layers[l]; }
 
     bool is_barrel(float eta) const { return std::abs(eta) < m_eta_trans_beg; }
 
@@ -199,6 +193,18 @@ namespace mkfit {
     }
 
     const LayerInfo& outer_barrel_layer() const { return m_layers[m_barrel.back()]; }
+
+  private:
+    int new_layer(LayerInfo::LayerType_e type);
+
+    std::vector<LayerInfo> m_layers;
+    static LayerInfo s_undefined_layer;
+
+    std::vector<int> m_barrel;
+    std::vector<int> m_ecap_pos;
+    std::vector<int> m_ecap_neg;
+
+    float m_eta_trans_beg, m_eta_trans_end, m_eta_ecap_end;
   };
 
 }  // end namespace mkfit

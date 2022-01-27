@@ -46,7 +46,7 @@ namespace {
     void add_barrel(int lid, float r, float z, float eta) {
       // printf("Adding barrel layer r=%.3f z=%.3f eta_t=%.3f\n", r, z, eta);
 
-      LayerInfo& li = m_trkinfo.m_layers[lid];
+      LayerInfo& li = m_trkinfo.layer_nc(lid);
 
       li.set_layer_type(LayerInfo::Barrel);
 
@@ -74,7 +74,7 @@ namespace {
       // printf("Adding endcap layer r=%.3f z=%.3f r_l=%.3f eta_l=%.3f\n", r, z, r_end, eta);
 
       {
-        LayerInfo& li = m_trkinfo.m_layers[lid];
+        LayerInfo& li = m_trkinfo.layer_nc(lid);
 
         li.set_layer_type(LayerInfo::EndCapPos);
 
@@ -85,7 +85,7 @@ namespace {
       }
       {
         lid += 9;
-        LayerInfo& li = m_trkinfo.m_layers[lid];
+        LayerInfo& li = m_trkinfo.layer_nc(lid);
 
         li.set_layer_type(LayerInfo::EndCapNeg);
 
@@ -173,8 +173,8 @@ namespace {
 
     if (verbose) {
       printf("==========================================================================================\n");
-      for (auto& i : ti.m_layers)
-        i.print_layer();
+      for (int ii = 0; ii < ti.n_layers(); ++ii)
+        ti.layer(ii).print_layer();
       printf("==========================================================================================\n");
     }
   }

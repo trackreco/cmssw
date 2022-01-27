@@ -42,11 +42,11 @@ namespace {
       constexpr int tecp1_id = 27;
       constexpr int tecn1_id = 54;
 
-      const LayerInfo &tib1 = trk_info.m_layers[tib1_id];
-      const LayerInfo &tob1 = trk_info.m_layers[tob1_id];
+      const LayerInfo &tib1 = trk_info.layer(tib1_id);
+      const LayerInfo &tob1 = trk_info.layer(tob1_id);
 
-      const LayerInfo &tecp1 = trk_info.m_layers[tecp1_id];
-      const LayerInfo &tecn1 = trk_info.m_layers[tecn1_id];
+      const LayerInfo &tecp1 = trk_info.layer(tecp1_id);
+      const LayerInfo &tecn1 = trk_info.layer(tecn1_id);
 
       const LayerInfo &tec_first = z_dir_pos ? tecp1 : tecn1;
 
@@ -101,18 +101,18 @@ namespace {
     constexpr int tecp1_id = 27;
     constexpr int tecn1_id = 54;
 
-    const LayerInfo &tib1 = trk_info.m_layers[tib1_id];
-    const LayerInfo &tob1 = trk_info.m_layers[tob1_id];
+    const LayerInfo &tib1 = trk_info.layer(tib1_id);
+    const LayerInfo &tob1 = trk_info.layer(tob1_id);
 
-    const LayerInfo &tidp1 = trk_info.m_layers[tidp1_id];
-    const LayerInfo &tidn1 = trk_info.m_layers[tidn1_id];
+    const LayerInfo &tidp1 = trk_info.layer(tidp1_id);
+    const LayerInfo &tidn1 = trk_info.layer(tidn1_id);
 
-    const LayerInfo &tecp1 = trk_info.m_layers[tecp1_id];
-    const LayerInfo &tecn1 = trk_info.m_layers[tecn1_id];
+    const LayerInfo &tecp1 = trk_info.layer(tecp1_id);
+    const LayerInfo &tecn1 = trk_info.layer(tecn1_id);
 
     // Merge first two layers to account for mono/stereo coverage.
     // TrackerInfo could hold joint limits for sub-detectors.
-    const auto &L = trk_info.m_layers;
+    const auto &L = trk_info;
     const float tidp_rin = std::min(L[tidp1_id].rin(), L[tidp1_id + 1].rin());
     const float tidp_rout = std::max(L[tidp1_id].rout(), L[tidp1_id + 1].rout());
     const float tecp_rin = std::min(L[tecp1_id].rin(), L[tecp1_id + 1].rin());

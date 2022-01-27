@@ -371,8 +371,9 @@ namespace mkfit {
   //==============================================================================
 
   EventOfHits::EventOfHits(const TrackerInfo &trk_inf)
-      : m_layers_of_hits(trk_inf.m_layers.size()), m_n_layers(trk_inf.m_layers.size()) {
-    for (auto &li : trk_inf.m_layers) {
+      : m_layers_of_hits(trk_inf.n_layers()), m_n_layers(trk_inf.n_layers()) {
+    for (int ii = 0; ii < trk_inf.n_layers(); ++ii) {
+      const LayerInfo &li = trk_inf.layer(ii);
       m_layers_of_hits[li.layer_id()].setupLayer(li);
     }
   }

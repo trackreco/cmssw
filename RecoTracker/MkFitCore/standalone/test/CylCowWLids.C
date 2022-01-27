@@ -59,7 +59,7 @@ void CylCowWLids()
 
   for (auto i : g_tracker_info.m_barrel)
   {
-    LayerInfo &li = g_tracker_info.m_layers[i];
+    const LayerInfo &li = g_tracker_info.layer(i);
 
     TLine * l = new TLine(0, li.r_mean(), li.zmax(), li.r_mean());
     l->SetLineColor(kBlue);
@@ -71,7 +71,7 @@ void CylCowWLids()
 
   for (auto i : g_tracker_info.m_ecap_pos)
   {
-    LayerInfo &li = g_tracker_info.m_layers[i];
+    LayerInfo &li = g_tracker_info.layer(i);
 
     TLine *l = new TLine(li.z_mean(), li.rin(), li.z_mean(), li.rout());
     l->SetLineColor(kMagenta + 3);

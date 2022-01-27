@@ -561,7 +561,7 @@ namespace
 
     for (int i = 0; i < n_hits; ++i)
     {
-      is_brl[i] = trk_info.m_layers[ trk.getHitLyr(i) ].is_barrel();
+      is_brl[i] = trk_info.layer( trk.getHitLyr(i) ).is_barrel();
     }
   }
 
@@ -571,7 +571,7 @@ namespace
 
     for (int i = 0; i < n_hits; ++i)
     {
-      if(trk_info.m_layers[ trk.getHitLyr(i) ].is_barrel() != is_brl_ref[i]) return false;
+      if(trk_info.layer( trk.getHitLyr(i) ).is_barrel() != is_brl_ref[i]) return false;
     }
 
     return true;
@@ -831,7 +831,7 @@ void MkBuilder::PrepareSeeds()
 
               ++no;
 
-              const LayerInfo &li = Config::TrkInfo.m_layers[hot.layer];
+              const LayerInfo &li = Config::TrkInfo.layer(hot.layer);
 
               if (li.is_pixb_lyr() || li.is_pixe_lyr()) {
                 ++npix;

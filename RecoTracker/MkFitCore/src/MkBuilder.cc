@@ -512,7 +512,7 @@ namespace mkfit {
 
             dprint("at layer " << curr_layer);
             const LayerOfHits &layer_of_hits = m_job->m_event_of_hits[curr_layer];
-            const LayerInfo &layer_info = trk_info.m_layers[curr_layer];
+            const LayerInfo &layer_info = trk_info.layer(curr_layer);
             const FindingFoos &fnd_foos = FindingFoos::get_finding_foos(layer_info.is_barrel());
 
             // Pick up seeds that become active on current layer -- unless already fully loaded.
@@ -797,7 +797,7 @@ namespace mkfit {
           dprintf("\n* Processing layer %d\n", curr_layer);
 
           const LayerOfHits &layer_of_hits = m_job->m_event_of_hits[curr_layer];
-          const LayerInfo &layer_info = trk_info.m_layers[curr_layer];
+          const LayerInfo &layer_info = trk_info.layer(curr_layer);
           const FindingFoos &fnd_foos = FindingFoos::get_finding_foos(layer_info.is_barrel());
 
           int theEndCand = find_tracks_unroll_candidates(seed_cand_idx,
@@ -1019,7 +1019,7 @@ namespace mkfit {
 
       dprintf("\n\n* Processing layer %d, %s\n\n", curr_layer, pickup_only ? "pickup only" : "full finding");
 
-      const LayerInfo &layer_info = trk_info.m_layers[curr_layer];
+      const LayerInfo &layer_info = trk_info.layer(curr_layer);
       const LayerOfHits &layer_of_hits = m_job->m_event_of_hits[curr_layer];
       const FindingFoos &fnd_foos = FindingFoos::get_finding_foos(layer_info.is_barrel());
 

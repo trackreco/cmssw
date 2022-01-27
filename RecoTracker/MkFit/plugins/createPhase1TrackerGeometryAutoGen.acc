@@ -2,7 +2,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   // PIXB
 
   {
-    LayerInfo &obj = ti.m_layers[0];
+    LayerInfo &obj = ti.layer_nc(0);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(2.720, 3.390, -26.700, 26.700);
     obj.set_propagate_to(obj.r_mean());
@@ -11,7 +11,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   }
 
   {
-    LayerInfo &obj = ti.m_layers[1];
+    LayerInfo &obj = ti.layer_nc(1);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(6.560, 7.270, -26.700, 26.700);
     obj.set_propagate_to(obj.r_mean());
@@ -20,7 +20,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   }
 
   {
-    LayerInfo &obj = ti.m_layers[2];
+    LayerInfo &obj = ti.layer_nc(2);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(10.690, 11.360, -26.700, 26.700);
     obj.set_propagate_to(obj.r_mean());
@@ -29,7 +29,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   }
 
   {
-    LayerInfo &obj = ti.m_layers[3];
+    LayerInfo &obj = ti.layer_nc(3);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(15.800, 16.460, -26.700, 26.690);
     obj.set_propagate_to(obj.r_mean());
@@ -40,7 +40,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   // TIB
 
   {
-    LayerInfo &obj = ti.m_layers[4];
+    LayerInfo &obj = ti.layer_nc(4);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(23.450, 27.880, -66.670, 63.930);
     obj.set_propagate_to(obj.r_mean());
@@ -49,7 +49,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   }
 
   {
-    LayerInfo &obj = ti.m_layers[5];
+    LayerInfo &obj = ti.layer_nc(5);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(23.450, 27.880, -66.670, 63.930);
     obj.set_propagate_to(obj.r_mean());
@@ -59,7 +59,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   }
 
   {
-    LayerInfo &obj = ti.m_layers[6];
+    LayerInfo &obj = ti.layer_nc(6);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(31.830, 36.240, -65.890, 66.670);
     obj.set_propagate_to(obj.r_mean());
@@ -68,7 +68,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   }
 
   {
-    LayerInfo &obj = ti.m_layers[7];
+    LayerInfo &obj = ti.layer_nc(7);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(31.830, 36.240, -65.890, 66.670);
     obj.set_propagate_to(obj.r_mean());
@@ -78,7 +78,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   }
 
   {
-    LayerInfo &obj = ti.m_layers[8];
+    LayerInfo &obj = ti.layer_nc(8);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(39.880, 44.040, -66.400, 65.240);
     obj.set_propagate_to(obj.r_mean());
@@ -87,7 +87,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   }
 
   {
-    LayerInfo &obj = ti.m_layers[9];
+    LayerInfo &obj = ti.layer_nc(9);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(47.810, 51.980, -66.400, 66.400);
     obj.set_propagate_to(obj.r_mean());
@@ -98,7 +98,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   // TOB
 
   {
-    LayerInfo &obj = ti.m_layers[10];
+    LayerInfo &obj = ti.layer_nc(10);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(58.410, 63.430, -108.710, 108.710);
     obj.set_propagate_to(obj.r_mean());
@@ -107,7 +107,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   }
 
   {
-    LayerInfo &obj = ti.m_layers[11];
+    LayerInfo &obj = ti.layer_nc(11);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(58.410, 63.430, -108.710, 108.710);
     obj.set_propagate_to(obj.r_mean());
@@ -117,7 +117,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   }
 
   {
-    LayerInfo &obj = ti.m_layers[12];
+    LayerInfo &obj = ti.layer_nc(12);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(66.810, 71.740, -108.700, 108.710);
     obj.set_propagate_to(obj.r_mean());
@@ -126,7 +126,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   }
 
   {
-    LayerInfo &obj = ti.m_layers[13];
+    LayerInfo &obj = ti.layer_nc(13);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(66.810, 71.740, -108.700, 108.710);
     obj.set_propagate_to(obj.r_mean());
@@ -136,7 +136,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   }
 
   {
-    LayerInfo &obj = ti.m_layers[14];
+    LayerInfo &obj = ti.layer_nc(14);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(76.040, 80.090, -108.300, 108.290);
     obj.set_propagate_to(obj.r_mean());
@@ -145,7 +145,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   }
 
   {
-    LayerInfo &obj = ti.m_layers[15];
+    LayerInfo &obj = ti.layer_nc(15);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(84.840, 88.880, -108.290, 108.300);
     obj.set_propagate_to(obj.r_mean());
@@ -154,7 +154,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   }
 
   {
-    LayerInfo &obj = ti.m_layers[16];
+    LayerInfo &obj = ti.layer_nc(16);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(94.540, 98.570, -108.290, 108.290);
     obj.set_propagate_to(obj.r_mean());
@@ -163,7 +163,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   }
 
   {
-    LayerInfo &obj = ti.m_layers[17];
+    LayerInfo &obj = ti.layer_nc(17);
     obj.set_layer_type(LayerInfo::Barrel);
     obj.set_limits(106.040, 110.060, -108.290, 108.290);
     obj.set_propagate_to(obj.r_mean());
@@ -174,7 +174,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   // PIXE +/-
 
   {
-    LayerInfo &obj = ti.m_layers[18];
+    LayerInfo &obj = ti.layer_nc(18);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(4.590, 16.090, 29.440, 35.210);
     obj.set_propagate_to(obj.z_mean());
@@ -182,7 +182,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_pixe_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[45];
+    LayerInfo &obj = ti.layer_nc(45);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(4.590, 16.090, -35.200, -29.440);
     obj.set_propagate_to(obj.z_mean());
@@ -190,7 +190,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_pixe_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[19];
+    LayerInfo &obj = ti.layer_nc(19);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(4.590, 16.090, 36.940, 42.700);
     obj.set_propagate_to(obj.z_mean());
@@ -198,7 +198,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_pixe_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[46];
+    LayerInfo &obj = ti.layer_nc(46);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(4.590, 16.090, -42.700, -36.940);
     obj.set_propagate_to(obj.z_mean());
@@ -206,7 +206,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_pixe_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[20];
+    LayerInfo &obj = ti.layer_nc(20);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(4.590, 16.090, 46.450, 52.200);
     obj.set_propagate_to(obj.z_mean());
@@ -214,7 +214,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_pixe_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[47];
+    LayerInfo &obj = ti.layer_nc(47);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(4.590, 16.090, -52.210, -46.450);
     obj.set_propagate_to(obj.z_mean());
@@ -225,7 +225,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   // TID +/-
 
   {
-    LayerInfo &obj = ti.m_layers[21];
+    LayerInfo &obj = ti.layer_nc(21);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(22.980, 50.440, 74.350, 84.050);
     obj.set_propagate_to(obj.z_mean());
@@ -233,7 +233,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tid_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[48];
+    LayerInfo &obj = ti.layer_nc(48);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(22.980, 50.440, -84.050, -74.350);
     obj.set_propagate_to(obj.z_mean());
@@ -241,7 +241,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tid_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[22];
+    LayerInfo &obj = ti.layer_nc(22);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(22.800, 42.000, 74.350, 84.050);
     obj.set_propagate_to(obj.z_mean());
@@ -250,7 +250,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tid_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[49];
+    LayerInfo &obj = ti.layer_nc(49);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(22.800, 42.000, -84.050, -74.350);
     obj.set_propagate_to(obj.z_mean());
@@ -259,7 +259,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tid_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[23];
+    LayerInfo &obj = ti.layer_nc(23);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(22.980, 50.440, 87.300, 97.000);
     obj.set_propagate_to(obj.z_mean());
@@ -267,7 +267,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tid_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[50];
+    LayerInfo &obj = ti.layer_nc(50);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(22.980, 50.440, -97.000, -87.300);
     obj.set_propagate_to(obj.z_mean());
@@ -275,7 +275,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tid_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[24];
+    LayerInfo &obj = ti.layer_nc(24);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(22.800, 42.000, 87.300, 97.000);
     obj.set_propagate_to(obj.z_mean());
@@ -284,7 +284,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tid_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[51];
+    LayerInfo &obj = ti.layer_nc(51);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(22.800, 42.000, -97.000, -87.300);
     obj.set_propagate_to(obj.z_mean());
@@ -293,7 +293,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tid_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[25];
+    LayerInfo &obj = ti.layer_nc(25);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(22.980, 50.440, 100.250, 109.950);
     obj.set_propagate_to(obj.z_mean());
@@ -301,7 +301,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tid_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[52];
+    LayerInfo &obj = ti.layer_nc(52);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(22.980, 50.440, -109.950, -100.250);
     obj.set_propagate_to(obj.z_mean());
@@ -309,7 +309,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tid_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[26];
+    LayerInfo &obj = ti.layer_nc(26);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(22.800, 42.000, 100.250, 109.950);
     obj.set_propagate_to(obj.z_mean());
@@ -318,7 +318,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tid_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[53];
+    LayerInfo &obj = ti.layer_nc(53);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(22.800, 42.000, -109.950, -100.250);
     obj.set_propagate_to(obj.z_mean());
@@ -330,7 +330,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
   // TEC +/-
 
   {
-    LayerInfo &obj = ti.m_layers[27];
+    LayerInfo &obj = ti.layer_nc(27);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(23.370, 109.390, 126.380, 137.390);
     obj.set_propagate_to(obj.z_mean());
@@ -338,7 +338,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[54];
+    LayerInfo &obj = ti.layer_nc(54);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(23.360, 109.400, -137.390, -126.380);
     obj.set_propagate_to(obj.z_mean());
@@ -346,7 +346,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[28];
+    LayerInfo &obj = ti.layer_nc(28);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(23.300, 76.100, 126.380, 137.390);
     obj.set_propagate_to(obj.z_mean());
@@ -356,7 +356,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.set_r_hole_range(42.000, 59.900);
   }
   {
-    LayerInfo &obj = ti.m_layers[55];
+    LayerInfo &obj = ti.layer_nc(55);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(23.300, 76.100, -137.390, -126.380);
     obj.set_propagate_to(obj.z_mean());
@@ -366,7 +366,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.set_r_hole_range(42.000, 59.900);
   }
   {
-    LayerInfo &obj = ti.m_layers[29];
+    LayerInfo &obj = ti.layer_nc(29);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(23.360, 109.410, 140.380, 151.390);
     obj.set_propagate_to(obj.z_mean());
@@ -374,7 +374,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[56];
+    LayerInfo &obj = ti.layer_nc(56);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(23.360, 109.390, -151.420, -140.380);
     obj.set_propagate_to(obj.z_mean());
@@ -382,7 +382,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[30];
+    LayerInfo &obj = ti.layer_nc(30);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(23.300, 76.100, 140.380, 151.390);
     obj.set_propagate_to(obj.z_mean());
@@ -392,7 +392,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.set_r_hole_range(42.000, 59.900);
   }
   {
-    LayerInfo &obj = ti.m_layers[57];
+    LayerInfo &obj = ti.layer_nc(57);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(23.300, 76.100, -151.420, -140.380);
     obj.set_propagate_to(obj.z_mean());
@@ -402,7 +402,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.set_r_hole_range(42.000, 59.900);
   }
   {
-    LayerInfo &obj = ti.m_layers[31];
+    LayerInfo &obj = ti.layer_nc(31);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(23.360, 109.390, 154.380, 165.390);
     obj.set_propagate_to(obj.z_mean());
@@ -410,7 +410,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[58];
+    LayerInfo &obj = ti.layer_nc(58);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(23.360, 109.390, -165.390, -154.380);
     obj.set_propagate_to(obj.z_mean());
@@ -418,7 +418,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[32];
+    LayerInfo &obj = ti.layer_nc(32);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(23.300, 76.100, 154.380, 165.390);
     obj.set_propagate_to(obj.z_mean());
@@ -428,7 +428,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.set_r_hole_range(42.000, 59.900);
   }
   {
-    LayerInfo &obj = ti.m_layers[59];
+    LayerInfo &obj = ti.layer_nc(59);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(23.300, 76.100, -165.390, -154.380);
     obj.set_propagate_to(obj.z_mean());
@@ -438,7 +438,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.set_r_hole_range(42.000, 59.900);
   }
   {
-    LayerInfo &obj = ti.m_layers[33];
+    LayerInfo &obj = ti.layer_nc(33);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(32.110, 109.400, 168.380, 179.380);
     obj.set_propagate_to(obj.z_mean());
@@ -446,7 +446,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[60];
+    LayerInfo &obj = ti.layer_nc(60);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(32.110, 109.390, -179.390, -168.380);
     obj.set_propagate_to(obj.z_mean());
@@ -454,7 +454,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[34];
+    LayerInfo &obj = ti.layer_nc(34);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(31.600, 75.900, 168.380, 179.380);
     obj.set_propagate_to(obj.z_mean());
@@ -464,7 +464,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.set_r_hole_range(42.100, 59.700);
   }
   {
-    LayerInfo &obj = ti.m_layers[61];
+    LayerInfo &obj = ti.layer_nc(61);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(31.600, 75.900, -179.390, -168.380);
     obj.set_propagate_to(obj.z_mean());
@@ -474,7 +474,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.set_r_hole_range(42.100, 59.700);
   }
   {
-    LayerInfo &obj = ti.m_layers[35];
+    LayerInfo &obj = ti.layer_nc(35);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(32.110, 109.390, 182.370, 193.390);
     obj.set_propagate_to(obj.z_mean());
@@ -482,7 +482,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[62];
+    LayerInfo &obj = ti.layer_nc(62);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(32.110, 109.390, -193.380, -182.380);
     obj.set_propagate_to(obj.z_mean());
@@ -490,7 +490,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[36];
+    LayerInfo &obj = ti.layer_nc(36);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(31.600, 75.900, 182.370, 193.390);
     obj.set_propagate_to(obj.z_mean());
@@ -500,7 +500,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.set_r_hole_range(42.100, 59.700);
   }
   {
-    LayerInfo &obj = ti.m_layers[63];
+    LayerInfo &obj = ti.layer_nc(63);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(31.600, 75.900, -193.380, -182.380);
     obj.set_propagate_to(obj.z_mean());
@@ -510,7 +510,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.set_r_hole_range(42.100, 59.700);
   }
   {
-    LayerInfo &obj = ti.m_layers[37];
+    LayerInfo &obj = ti.layer_nc(37);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(32.110, 109.390, 199.870, 210.880);
     obj.set_propagate_to(obj.z_mean());
@@ -518,7 +518,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[64];
+    LayerInfo &obj = ti.layer_nc(64);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(32.110, 109.390, -210.880, -199.870);
     obj.set_propagate_to(obj.z_mean());
@@ -526,7 +526,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[38];
+    LayerInfo &obj = ti.layer_nc(38);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(31.600, 75.900, 199.870, 210.880);
     obj.set_propagate_to(obj.z_mean());
@@ -536,7 +536,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.set_r_hole_range(42.100, 59.700);
   }
   {
-    LayerInfo &obj = ti.m_layers[65];
+    LayerInfo &obj = ti.layer_nc(65);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(31.600, 75.900, -210.880, -199.870);
     obj.set_propagate_to(obj.z_mean());
@@ -546,7 +546,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.set_r_hole_range(42.100, 59.700);
   }
   {
-    LayerInfo &obj = ti.m_layers[39];
+    LayerInfo &obj = ti.layer_nc(39);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(39.200, 109.390, 218.870, 229.860);
     obj.set_propagate_to(obj.z_mean());
@@ -554,7 +554,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[66];
+    LayerInfo &obj = ti.layer_nc(66);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(39.200, 109.390, -229.860, -218.870);
     obj.set_propagate_to(obj.z_mean());
@@ -562,7 +562,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[40];
+    LayerInfo &obj = ti.layer_nc(40);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(59.900, 75.900, 218.870, 229.860);
     obj.set_propagate_to(obj.z_mean());
@@ -571,7 +571,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[67];
+    LayerInfo &obj = ti.layer_nc(67);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(59.900, 75.900, -229.860, -218.870);
     obj.set_propagate_to(obj.z_mean());
@@ -580,7 +580,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[41];
+    LayerInfo &obj = ti.layer_nc(41);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(39.200, 109.400, 239.370, 250.360);
     obj.set_propagate_to(obj.z_mean());
@@ -588,7 +588,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[68];
+    LayerInfo &obj = ti.layer_nc(68);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(39.200, 109.400, -250.360, -239.370);
     obj.set_propagate_to(obj.z_mean());
@@ -596,7 +596,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[42];
+    LayerInfo &obj = ti.layer_nc(42);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(59.900, 75.900, 239.370, 250.360);
     obj.set_propagate_to(obj.z_mean());
@@ -605,7 +605,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[69];
+    LayerInfo &obj = ti.layer_nc(69);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(59.900, 75.900, -250.360, -239.370);
     obj.set_propagate_to(obj.z_mean());
@@ -614,7 +614,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[43];
+    LayerInfo &obj = ti.layer_nc(43);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(50.410, 109.400, 260.870, 271.870);
     obj.set_propagate_to(obj.z_mean());
@@ -622,7 +622,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[70];
+    LayerInfo &obj = ti.layer_nc(70);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(50.410, 109.390, -271.880, -260.870);
     obj.set_propagate_to(obj.z_mean());
@@ -630,7 +630,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[44];
+    LayerInfo &obj = ti.layer_nc(44);
     obj.set_layer_type(LayerInfo::EndCapPos);
     obj.set_limits(59.900, 75.900, 260.870, 271.870);
     obj.set_propagate_to(obj.z_mean());
@@ -639,7 +639,7 @@ void createPhase1TrackerGeometryAutoGen(TrackerInfo &ti) {
     obj.m_is_tec_lyr = true;
   }
   {
-    LayerInfo &obj = ti.m_layers[71];
+    LayerInfo &obj = ti.layer_nc(71);
     obj.set_layer_type(LayerInfo::EndCapNeg);
     obj.set_limits(59.900, 75.900, -271.880, -260.870);
     obj.set_propagate_to(obj.z_mean());
