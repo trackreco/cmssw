@@ -16,18 +16,18 @@ void print_etas(LayerInfo &li, float dz)
   if (li.is_barrel())
   {
     r = li.r_mean();
-    z = li.m_zmax;
+    z = li.zmax();
   } else {
-    r = li.m_rout;
+    r = li.rout();
     z = li.z_mean();
   }
 
-  printf("%2d %6.4f %6.4f %6.4f", li.m_layer_id,
+  printf("%2d %6.4f %6.4f %6.4f", li.layer_id(),
          getEta(r, z - dz), getEta(r, z), getEta(r, z + dz));
 
   if ( ! li.is_barrel())
   {
-    r = li.m_rin;
+    r = li.rin();
 
     printf("  -  %6.4f %6.4f %6.4f",
            getEta(r, z - dz), getEta(r, z), getEta(r, z + dz));
@@ -61,7 +61,7 @@ void CylCowWLids()
   {
     LayerInfo &li = g_tracker_info.m_layers[i];
 
-    TLine * l = new TLine(0, li.r_mean(), li.m_zmax, li.r_mean());
+    TLine * l = new TLine(0, li.r_mean(), li.zmax(), li.r_mean());
     l->SetLineColor(kBlue);
     l->SetLineWidth(2);
     l->Draw();
@@ -73,7 +73,7 @@ void CylCowWLids()
   {
     LayerInfo &li = g_tracker_info.m_layers[i];
 
-    TLine *l = new TLine(li.z_mean(), li.m_rin, li.z_mean(), li.m_rout);
+    TLine *l = new TLine(li.z_mean(), li.rin(), li.z_mean(), li.rout());
     l->SetLineColor(kMagenta + 3);
     l->SetLineWidth(2);
     l->Draw();

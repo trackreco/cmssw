@@ -48,7 +48,7 @@ namespace mkfit {
   }
 
   void LayerOfHits::setupLayer(const LayerInfo &li) {
-    // Note, LayerInfo::m_q_bin ==>  > 0 - bin width, < 0 - number of bins
+    // Note, LayerInfo::q_bin( ==>  > 0 - bin width, < 0 - number of bins
 
     assert(m_layer_info == nullptr && "setupLayer() already called.");
 
@@ -57,9 +57,9 @@ namespace mkfit {
     m_is_barrel = m_layer_info->is_barrel();
 
     if (m_is_barrel)
-      setup_bins(li.m_zmin, li.m_zmax, li.m_q_bin);
+      setup_bins(li.zmin(), li.zmax(), li.q_bin());
     else
-      setup_bins(li.m_rin, li.m_rout, li.m_q_bin);
+      setup_bins(li.rin(), li.rout(), li.q_bin());
   }
 
   //==============================================================================
@@ -373,7 +373,7 @@ namespace mkfit {
   EventOfHits::EventOfHits(const TrackerInfo &trk_inf)
       : m_layers_of_hits(trk_inf.m_layers.size()), m_n_layers(trk_inf.m_layers.size()) {
     for (auto &li : trk_inf.m_layers) {
-      m_layers_of_hits[li.m_layer_id].setupLayer(li);
+      m_layers_of_hits[li.layer_id()].setupLayer(li);
     }
   }
 

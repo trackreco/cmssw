@@ -25,60 +25,29 @@ namespace mkfit {
   //==============================================================================
 
   class LayerInfo {
-  private:
-    bool is_in_r_hole_no_check(float r) const { return r > m_hole_r_min && r < m_hole_r_max; }
-
   public:
     enum LayerType_e { Undef = -1, Barrel = 0, EndCapPos = 1, EndCapNeg = 2 };
 
-    int m_layer_id = -1;
-    LayerType_e m_layer_type = Undef;
-
-    float m_rin, m_rout, m_zmin, m_zmax;
-    float m_propagate_to;
-
-    int m_next_barrel = -1, m_next_ecap_pos = -1, m_next_ecap_neg = -1;
-    int m_sibl_barrel = -1, m_sibl_ecap_pos = -1, m_sibl_ecap_neg = -1;
-
-    bool m_is_outer = false;
-    bool m_has_r_range_hole = false;
-    float m_hole_r_min, m_hole_r_max;  // This could be turned into std::function when needed.
-
-    // Selection limits
-    float m_q_bin;  // > 0 - bin width, < 0 - number of bins
-
-    // Seeding information: if we do more than one iteration: change from bool to int
-    // Will need a separate map to make this simpler
-    bool m_is_seed_lyr = false;
-
-    // Adding flag for mono/stereo
-    bool m_is_stereo_lyr = false;
-
-    // Adding info on sub-detector
-    bool m_is_pixb_lyr = false;
-    bool m_is_pixe_lyr = false;
-    bool m_is_tib_lyr = false;
-    bool m_is_tob_lyr = false;
-    bool m_is_tid_lyr = false;
-    bool m_is_tec_lyr = false;
-
-    // Additional stuff needed?
-    // * pixel / strip, mono / stereo
-    // * resolutions, min/max search windows
-    // * holes in coverage
-    // * functions / lambdas for deciding / calculating stuff
-    // * ...
-    // * pointers to hit containers
-
     LayerInfo(int lid, LayerType_e type) : m_layer_id(lid), m_layer_type(type) {}
 
+    void set_layer_type(LayerType_e t) { m_layer_type = t; }
     void set_limits(float r1, float r2, float z1, float z2);
-    void set_next_layers(int nb, int nep, int nen);
-    void set_selection_limits(float p1, float p2, float q1, float q2);
+    void set_propagate_to(float pto) { m_propagate_to = pto; }
     void set_r_hole_range(float rh1, float rh2);
+    void set_q_bin(float qb) { m_q_bin = qb; }
+    void set_is_stereo(bool s) { m_is_stereo = s; }
 
+    int layer_id() const { return m_layer_id; }
+    LayerType_e layer_type() const { return m_layer_type; }
+    float rin() const { return m_rin; }
+    float rout() const { return m_rout; }
     float r_mean() const { return 0.5f * (m_rin + m_rout); }
+    float zmin() const { return m_zmin; }
+    float zmax() const { return m_zmax; }
     float z_mean() const { return 0.5f * (m_zmin + m_zmax); }
+    float propagate_to() const { return m_propagate_to; }
+    float q_bin() const { return m_q_bin; }
+    bool is_stereo() const { return m_is_stereo; }
 
     bool is_barrel() const { return m_layer_type == Barrel; }
 
@@ -87,10 +56,6 @@ namespace mkfit {
     bool is_within_q_limits(float q) const { return is_barrel() ? is_within_z_limits(q) : is_within_r_limits(q); }
 
     bool is_in_r_hole(float r) const { return m_has_r_range_hole ? is_in_r_hole_no_check(r) : false; }
-
-    bool is_seed_lyr() const { return m_is_seed_lyr; }
-
-    bool is_stereo_lyr() const { return m_is_stereo_lyr; }
 
     bool is_pixb_lyr() const { return m_is_pixb_lyr; }
     bool is_pixe_lyr() const { return m_is_pixe_lyr; }
@@ -124,18 +89,36 @@ namespace mkfit {
     }
 
     void print_layer() {
-      printf("Layer %2d  r(%7.4f, %7.4f) z(% 9.4f, % 9.4f) next(%2d, %2d, %2d) is_brl=%d is_outer=%d\n",
+      printf("Layer %2d  r(%7.4f, %7.4f) z(% 9.4f, % 9.4f) is_brl=%d\n",
              m_layer_id,
              m_rin,
              m_rout,
              m_zmin,
              m_zmax,
-             m_next_barrel,
-             m_next_ecap_pos,
-             m_next_ecap_neg,
-             is_barrel(),
-             m_is_outer);
+             is_barrel());
     }
+
+    // To be cleaned out with other geometry cleanup
+    bool m_is_pixb_lyr = false;
+    bool m_is_pixe_lyr = false;
+    bool m_is_tib_lyr = false;
+    bool m_is_tob_lyr = false;
+    bool m_is_tid_lyr = false;
+    bool m_is_tec_lyr = false;
+
+  private:
+    bool is_in_r_hole_no_check(float r) const { return r > m_hole_r_min && r < m_hole_r_max; }
+
+    int m_layer_id = -1;
+    LayerType_e m_layer_type = Undef;
+
+    float m_rin, m_rout, m_zmin, m_zmax;
+    float m_propagate_to;
+
+    float m_q_bin;                     // > 0 - bin width, < 0 - number of bins
+    float m_hole_r_min, m_hole_r_max;  // This could be turned into std::function when needed.
+    bool m_has_r_range_hole = false;
+    bool m_is_stereo;
   };
 
   //==============================================================================
@@ -166,16 +149,13 @@ namespace mkfit {
     std::vector<int> m_ecap_neg;
 
     float m_eta_trans_beg, m_eta_trans_end, m_eta_ecap_end;
-    bool m_has_sibling_layers;
 
-    void set_eta_regions(float tr_beg, float tr_end, float ec_end, bool has_sibl_lyrs);
+    void set_eta_regions(float tr_beg, float tr_end, float ec_end);
     void reserve_layers(int n_brl, int n_ec_pos, int n_ec_neg);
     void create_layers(int n_brl, int n_ec_pos, int n_ec_neg);
     LayerInfo& new_barrel_layer();
     LayerInfo& new_ecap_pos_layer();
     LayerInfo& new_ecap_neg_layer();
-
-    bool are_layers_siblings(int l1, int l2) const;
 
     bool is_barrel(float eta) const { return std::abs(eta) < m_eta_trans_beg; }
 
@@ -185,8 +165,7 @@ namespace mkfit {
 
     bool is_endcap(float eta) const { return std::abs(eta) > m_eta_trans_end; }
 
-    bool is_seed_lyr(int i) const { return m_layers[i].is_seed_lyr(); }
-    bool is_stereo_lyr(int i) const { return m_layers[i].is_stereo_lyr(); }
+    bool is_stereo(int i) const { return m_layers[i].is_stereo(); }
     bool is_pixb_lyr(int i) const { return m_layers[i].is_pixb_lyr(); }
     bool is_pixe_lyr(int i) const { return m_layers[i].is_pixe_lyr(); }
     bool is_pix_lyr(int i) const { return m_layers[i].is_pix_lyr(); }
@@ -220,11 +199,6 @@ namespace mkfit {
     }
 
     const LayerInfo& outer_barrel_layer() const { return m_layers[m_barrel.back()]; }
-
-    const LayerInfo& next_barrel_layer(int layer) const {
-      int nb = m_layers[layer].m_next_barrel;
-      return (nb >= 0) ? m_layers[nb] : s_undefined_layer;
-    }
   };
 
 }  // end namespace mkfit

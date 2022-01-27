@@ -839,7 +839,7 @@ void MkBuilder::PrepareSeeds()
                 ++nstrip;
               }
 
-              if (li.is_stereo_lyr())
+              if (li.is_stereo())
                 ++nstereo;
 
               printf("SSS_OVERLAP %d %d %d %d %f %f %f\n",

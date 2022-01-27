@@ -113,7 +113,7 @@ namespace mkfit {
     //--------------------------------
 
     const LayerInfo* layer_info() const { return m_layer_info; }
-    int layer_id() const { return m_layer_info->m_layer_id; }
+    int layer_id() const { return m_layer_info->layer_id(); }
 
     bool is_barrel() const { return m_is_barrel; }
     bool is_endcap() const { return !m_is_barrel; }
@@ -129,7 +129,7 @@ namespace mkfit {
       return m_layer_info->is_within_r_sensitive_region(r, dr);
     }
 
-    bool is_stereo_lyr() const { return m_layer_info->is_stereo_lyr(); }
+    bool is_stereo() const { return m_layer_info->is_stereo(); }
 
     // Sub-detector type
     bool is_pixb_lyr() const { return m_layer_info->is_pixb_lyr(); }
@@ -721,7 +721,7 @@ namespace mkfit {
       if (thisL >= 0 && (hot_node.m_hot.index >= 0 || hot_node.m_hot.index == -9)) {
         if (trk_inf.is_pix_lyr(thisL))
           ++pix;
-        else if (trk_inf.is_stereo_lyr(thisL)) {
+        else if (trk_inf.is_stereo(thisL)) {
           ++stereo;
           if (thisL == prevL)
             doubleStereo = thisL;
@@ -753,7 +753,7 @@ namespace mkfit {
       if (thisL >= 0 && (hot_node.m_hot.index >= 0 || hot_node.m_hot.index == -9) && thisL != prevL) {
         if (trk_inf.is_pix_lyr(thisL))
           ++pix;
-        else if (trk_inf.is_stereo_lyr(thisL))
+        else if (trk_inf.is_stereo(thisL))
           ++stereo;
         else {
           //mono if not pixel, nor stereo - can be matched to stereo

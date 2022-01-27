@@ -536,7 +536,7 @@ namespace mkfit {
             dcall(pre_prop_print(curr_layer, mkfndr.get()));
 
             (mkfndr.get()->*fnd_foos.m_propagate_foo)(
-                layer_info.m_propagate_to, curr_tridx, Config::finding_inter_layer_pflags);
+                layer_info.propagate_to(), curr_tridx, Config::finding_inter_layer_pflags);
 
             dcall(post_prop_print(curr_layer, mkfndr.get()));
 
@@ -544,7 +544,7 @@ namespace mkfit {
 
             // Stop low-pT tracks that can not reach the current barrel layer.
             if (layer_info.is_barrel()) {
-              const float r_min_sqr = layer_info.m_rin * layer_info.m_rin;
+              const float r_min_sqr = layer_info.rin() * layer_info.rin();
               for (int i = 0; i < curr_tridx; ++i) {
                 if (!mkfndr->Stopped[i]) {
                   if (mkfndr->radiusSqr(i, MkBase::iP) < r_min_sqr) {
@@ -688,11 +688,11 @@ namespace mkfit {
               w.m_wsr,
               w.m_in_gap);
 
-      if (layer_info.is_barrel() && cand_r < layer_info.m_rin) {
+      if (layer_info.is_barrel() && cand_r < layer_info.rin()) {
         // Fake outside so it does not get processed in FindTracks Std/CE... and
         // create a stopped replica in barrel and original copy if there is
         // still chance to hit endcaps.
-        dprintf("Barrel cand propagated to r=%f ... layer is %f - %f\n", cand_r, layer_info.m_rin, layer_info.m_rout);
+        dprintf("Barrel cand propagated to r=%f ... layer is %f - %f\n", cand_r, layer_info.rin(), layer_info.rout());
 
         mkfndr->XHitSize[ti - itrack] = 0;
         w.m_wsr = WSR_Outside;
@@ -700,7 +700,7 @@ namespace mkfit {
         tmp_cands[seed_cand_idx[ti].first - start_seed].push_back(cand);
         if (region == TrackerInfo::Reg_Barrel) {
           dprintf(" creating extra stopped held back candidate\n");
-          tmp_cands[seed_cand_idx[ti].first - start_seed].back().addHitIdx(-2, layer_info.m_layer_id, 0);
+          tmp_cands[seed_cand_idx[ti].first - start_seed].back().addHitIdx(-2, layer_info.layer_id(), 0);
         }
       } else if (w.m_wsr == WSR_Outside) {
         dprintf(" creating extra held back candidate\n");
@@ -825,7 +825,7 @@ namespace mkfit {
             dcall(pre_prop_print(curr_layer, mkfndr.get()));
 
             (mkfndr.get()->*fnd_foos.m_propagate_foo)(
-                layer_info.m_propagate_to, end - itrack, Config::finding_inter_layer_pflags);
+                layer_info.propagate_to(), end - itrack, Config::finding_inter_layer_pflags);
 
             dcall(post_prop_print(curr_layer, mkfndr.get()));
 
@@ -1068,7 +1068,7 @@ namespace mkfit {
 
         // propagate to current layer
         (mkfndr->*fnd_foos.m_propagate_foo)(
-            layer_info.m_propagate_to, end - itrack, Config::finding_inter_layer_pflags);
+            layer_info.propagate_to(), end - itrack, Config::finding_inter_layer_pflags);
 
         dprint("now get hit range");
 

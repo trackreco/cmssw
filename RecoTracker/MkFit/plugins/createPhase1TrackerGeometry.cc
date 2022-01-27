@@ -28,7 +28,7 @@ namespace mkfit {
     Config::seed_fit_pflags = PropagationFlags(PF_none);
     Config::pca_prop_pflags = PropagationFlags(PF_none);
 
-    ti.set_eta_regions(0.9, 1.7, 2.45, false);
+    ti.set_eta_regions(0.9, 1.7, 2.45);
     ti.create_layers(18, 27, 27);
     createPhase1TrackerGeometryAutoGen(ti);
 

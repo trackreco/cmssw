@@ -297,7 +297,7 @@ namespace mkfit {
         const float z = Par[iI].constAt(itrack, 2, 0);
         const float dz = std::abs(nSigmaZ * std::sqrt(Err[iI].constAt(itrack, 2, 2)));
         const float edgeCorr =
-            std::abs(0.5f * (L.layer_info()->m_rout - L.layer_info()->m_rin) / std::tan(Par[iI].constAt(itrack, 5, 0)));
+            std::abs(0.5f * (L.layer_info()->rout() - L.layer_info()->rin()) / std::tan(Par[iI].constAt(itrack, 5, 0)));
         // XXX-NUM-ERR above, Err(2,2) gets negative!
 
         ////// Disable correction
@@ -360,7 +360,7 @@ namespace mkfit {
             nSigmaR * std::sqrt(std::abs(x * x * Err[iI].constAt(itrack, 0, 0) + y * y * Err[iI].constAt(itrack, 1, 1) +
                                          2 * x * y * Err[iI].constAt(itrack, 0, 1)) /
                                 r2);
-        const float edgeCorr = std::abs(0.5f * (L.layer_info()->m_zmax - L.layer_info()->m_zmin) *
+        const float edgeCorr = std::abs(0.5f * (L.layer_info()->zmax() - L.layer_info()->zmin()) *
                                         std::tan(Par[iI].constAt(itrack, 5, 0)));
 
         ////// Disable correction
@@ -473,7 +473,7 @@ namespace mkfit {
 
             if (m_iteration_hit_mask && (*m_iteration_hit_mask)[hi_orig]) {
               // printf("Yay, denying masked hit on layer %d, hi %d, orig idx %d\n",
-              //        L.layer_info()->m_layer_id, hi, hi_orig);
+              //        L.layer_info()->layer_id(), hi, hi_orig);
               continue;
             }
 
@@ -1677,7 +1677,7 @@ namespace mkfit {
               (int)bb.prodType(),
               bb.isFindable(),
               layer,
-              L.is_stereo_lyr(),
+              L.is_stereo(),
               L.is_barrel(),
               bb.pT(),
               bb.posEta(),

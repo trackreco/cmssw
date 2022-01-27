@@ -48,25 +48,12 @@ namespace {
 
       LayerInfo& li = m_trkinfo.m_layers[lid];
 
-      li.m_layer_type = LayerInfo::Barrel;
+      li.set_layer_type(LayerInfo::Barrel);
 
       li.set_limits(r - m_det_half_thickness, r + m_det_half_thickness, -z, z);
-      li.m_propagate_to = li.m_rin;
+      li.set_propagate_to(li.rin());
 
-      li.m_next_barrel = lid < 9 ? lid + 1 : -1;
-      li.m_next_ecap_pos = lid < 9 ? lid + 1 + 9 : -1;
-      li.m_next_ecap_neg = lid < 9 ? lid + 1 + 18 : -1;
-
-      li.m_sibl_barrel = -1;
-      li.m_sibl_ecap_pos = lid > 0 ? lid + 9 : -1;
-      li.m_sibl_ecap_neg = lid > 0 ? lid + 18 : -1;
-
-      li.m_is_outer = (lid == 9);
-
-      li.m_q_bin = 2.0;
-      li.set_selection_limits(0.01, 0.05, 1.0, 2.0);
-
-      li.m_is_seed_lyr = (lid < 4);
+      li.set_q_bin(2.0);
     }
 
     void add_barrel_r_eta(int lid, float r, float eta) {
@@ -89,49 +76,23 @@ namespace {
       {
         LayerInfo& li = m_trkinfo.m_layers[lid];
 
-        li.m_layer_type = LayerInfo::EndCapPos;
+        li.set_layer_type(LayerInfo::EndCapPos);
 
         li.set_limits(r_end, r, z - m_det_half_thickness, z + m_det_half_thickness);
-        li.m_propagate_to = li.m_zmin;
+        li.set_propagate_to(li.zmin());
 
-        li.m_next_barrel = lid < 18 ? lid - 10 + 2 : -1;
-        li.m_next_ecap_pos = lid < 18 ? lid + 1 : -1;
-        li.m_next_ecap_neg = -1;
-
-        li.m_sibl_barrel = lid - 9;
-        li.m_sibl_ecap_pos = -1;
-        li.m_sibl_ecap_neg = -1;
-
-        li.m_is_outer = (lid == 18);
-
-        li.m_q_bin = 1.5;
-        li.set_selection_limits(0.01, 0.05, 1.0, 2.0);
-
-        li.m_is_seed_lyr = ((lid - 9) < 4);
+        li.set_q_bin(1.5);
       }
       {
         lid += 9;
         LayerInfo& li = m_trkinfo.m_layers[lid];
 
-        li.m_layer_type = LayerInfo::EndCapNeg;
+        li.set_layer_type(LayerInfo::EndCapNeg);
 
         li.set_limits(r_end, r, -z - m_det_half_thickness, -z + m_det_half_thickness);
-        li.m_propagate_to = li.m_zmax;
+        li.set_propagate_to(li.zmax());
 
-        li.m_next_barrel = lid < 27 ? lid - 19 + 2 : -1;
-        li.m_next_ecap_pos = -1;
-        li.m_next_ecap_neg = lid < 27 ? lid + 1 : -1;
-
-        li.m_sibl_barrel = lid - 18;
-        li.m_sibl_ecap_pos = -1;
-        li.m_sibl_ecap_neg = -1;
-
-        li.m_is_outer = (lid == 27);
-
-        li.m_q_bin = 1.5;
-        li.set_selection_limits(0.01, 0.05, 1.0, 2.0);
-
-        li.m_is_seed_lyr = ((lid - 18) < 4);
+        li.set_q_bin(1.5);
       }
     }
 
@@ -144,7 +105,7 @@ namespace {
       // XXXXXXMT: Hack smaller transition region.
       // Need better estimate for seeds?
       // m_trkinfo.set_eta_regions(1.15, 1.4, 2.4);
-      m_trkinfo.set_eta_regions(1.1, 1.3, 2.4, true);
+      m_trkinfo.set_eta_regions(1.1, 1.3, 2.4);
       m_trkinfo.create_layers(10, 9, 9);
 
       // Actual coverage for tracks with z = 3cm is 2.4
