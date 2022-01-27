@@ -461,10 +461,11 @@ namespace mkfit {
       if (validation_on)
         seeds_used.insert(seeds_used.end(), seeds.begin(), seeds.end());  //cleaned seeds need to be stored somehow
 
-      if (itconf.m_requires_quality_filter && itconf.m_track_algorithm != 7) {
-        if (itconf.m_track_algorithm == 6) {
+      using Algo = TrackBase::TrackAlgorithm;
+      if (itconf.m_requires_quality_filter && Algo(itconf.m_track_algorithm) != Algo::detachedTripletStep) {
+        if (Algo(itconf.m_track_algorithm) == Algo::pixelPairStep) {
           builder.filter_comb_cands([&](const TrackCand &t) { return StdSeq::qfilter_n_hits_pixseed(t, 3); });
-        } else if (itconf.m_track_algorithm == 9) {
+        } else if (Algo(itconf.m_track_algorithm) == Algo::pixelLessStep) {
           builder.filter_comb_cands(
               [&](const TrackCand &t) { return StdSeq::qfilter_pixelLessFwd(t, eoh.refBeamSpot(), Config::TrkInfo); });
         } else {
@@ -508,11 +509,11 @@ namespace mkfit {
           builder.endBkwSearch();
         }
 
-        if (itconf.m_requires_quality_filter && (itconf.m_track_algorithm == 7 || itconf.m_track_algorithm == 9)) {
-          if (itconf.m_track_algorithm == 7) {
+        if (itconf.m_requires_quality_filter && (Algo(itconf.m_track_algorithm) == Algo::detachedTripletStep || Algo(itconf.m_track_algorithm) == Algo::pixelLessStep)) {
+          if (Algo(itconf.m_track_algorithm) == Algo::detachedTripletStep) {
             builder.filter_comb_cands(
                 [&](const TrackCand &t) { return StdSeq::qfilter_n_layers(t, eoh.refBeamSpot(), Config::TrkInfo); });
-          } else if (itconf.m_track_algorithm == 9) {
+          } else if (Algo(itconf.m_track_algorithm) == Algo::pixelLessStep) {
             builder.filter_comb_cands([&](const TrackCand &t) {
               return StdSeq::qfilter_pixelLessBkwd(t, eoh.refBeamSpot(), Config::TrkInfo);
             });
