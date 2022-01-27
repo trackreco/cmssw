@@ -44,11 +44,8 @@ namespace mkfit {
     bool m_has_r_range_hole = false;
     float m_hole_r_min, m_hole_r_max;  // This could be turned into std::function when needed.
 
-    /*MM: moving out to IterationLayerConfig*/
-    //// Selection limits
+    // Selection limits
     float m_q_bin;  // > 0 - bin width, < 0 - number of bins
-    //float         m_select_min_dphi, m_select_max_dphi;
-    //float         m_select_min_dq,   m_select_max_dq;
 
     // Seeding information: if we do more than one iteration: change from bool to int
     // Will need a separate map to make this simpler
