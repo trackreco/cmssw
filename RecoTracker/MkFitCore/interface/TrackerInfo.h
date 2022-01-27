@@ -118,7 +118,7 @@ namespace mkfit {
     float m_q_bin;                     // > 0 - bin width, < 0 - number of bins
     float m_hole_r_min, m_hole_r_max;  // This could be turned into std::function when needed.
     bool m_has_r_range_hole = false;
-    bool m_is_stereo;
+    bool m_is_stereo = false;
   };
 
   //==============================================================================
