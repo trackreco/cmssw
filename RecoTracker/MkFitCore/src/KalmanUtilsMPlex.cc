@@ -374,46 +374,44 @@ namespace {
 #include "K62HC.ah"
   }
 
-  // //Warning: MultFull is not vectorized, use only for testing!
-  // template<typename T1, typename T2, typename T3>
-  // void MultFull(const T1& A, int nia, int nja, const T2& B, int nib, int njb, T3& C, int nic, int njc)
-  // {
-  // #ifdef DEBUG
-  //   assert(nja==nib);
-  //   assert(nia==nic);
-  //   assert(njb==njc);
-  // #endif
-  //   for (int n = 0; n < NN; ++n)
-  //     {
-  //       for (int i = 0; i < nia; ++i) {
-  // 	for (int j = 0; j < njb; ++j) {
-  // 	  C(n,i,j) = 0.;
-  // 	  for (int k = 0; k < nja; ++k) C(n,i,j) += A.constAt(n,i,k)*B.constAt(n,k,j);
-  // 	}
-  //       }
-  //     }
-  // }
+  //Warning: MultFull is not vectorized!
+  template <typename T1, typename T2, typename T3>
+  void MultFull(const T1& A, int nia, int nja, const T2& B, int nib, int njb, T3& C, int nic, int njc) {
+#ifdef DEBUG
+    assert(nja == nib);
+    assert(nia == nic);
+    assert(njb == njc);
+#endif
+    for (int n = 0; n < NN; ++n) {
+      for (int i = 0; i < nia; ++i) {
+        for (int j = 0; j < njb; ++j) {
+          C(n, i, j) = 0.;
+          for (int k = 0; k < nja; ++k)
+            C(n, i, j) += A.constAt(n, i, k) * B.constAt(n, k, j);
+        }
+      }
+    }
+  }
 
-  // //Warning: MultTranspFull is not vectorized, use only for testing!
-  // // (careful about which one is transposed, I think rows and cols are swapped and the one that is transposed is A)
-  // template<typename T1, typename T2, typename T3>
-  // void MultTranspFull(const T1& A, int nia, int nja, const T2& B, int nib, int njb, T3& C, int nic, int njc)
-  // {
-  // #ifdef DEBUG
-  //   assert(nja==njb);
-  //   assert(nia==nic);
-  //   assert(nib==njc);
-  // #endif
-  //   for (int n = 0; n < NN; ++n)
-  //     {
-  //       for (int i = 0; i < nia; ++i) {
-  // 	for (int j = 0; j < nib; ++j) {
-  // 	  C(n,i,j) = 0.;
-  // 	  for (int k = 0; k < nja; ++k) C(n,i,j) += A.constAt(n,i,k)*B.constAt(n,j,k);
-  // 	}
-  //       }
-  //     }
-  // }
+  //Warning: MultTranspFull is not vectorized!
+  // (careful about which one is transposed, I think rows and cols are swapped and the one that is transposed is A)
+  template <typename T1, typename T2, typename T3>
+  void MultTranspFull(const T1& A, int nia, int nja, const T2& B, int nib, int njb, T3& C, int nic, int njc) {
+#ifdef DEBUG
+    assert(nja == njb);
+    assert(nia == nic);
+    assert(nib == njc);
+#endif
+    for (int n = 0; n < NN; ++n) {
+      for (int i = 0; i < nia; ++i) {
+        for (int j = 0; j < nib; ++j) {
+          C(n, i, j) = 0.;
+          for (int k = 0; k < nja; ++k)
+            C(n, i, j) += A.constAt(n, i, k) * B.constAt(n, j, k);
+        }
+      }
+    }
+  }
 
 }  // namespace
 
