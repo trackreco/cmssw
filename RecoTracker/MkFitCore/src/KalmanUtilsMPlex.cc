@@ -229,9 +229,9 @@ namespace {
   }
 
   inline void RotateResidualsOnTangentPlane(const MPlexQF& R00,  //r00
-                                           const MPlexQF& R01,  //r01
-                                           const MPlexHV& A,    //res_glo
-                                           MPlex2V& B)          //res_loc
+                                            const MPlexQF& R01,  //r01
+                                            const MPlexHV& A,    //res_glo
+                                            MPlex2V& B)          //res_loc
   {
     RotateResidualsOnTangentPlane_impl(R00, R01, A, B, 0, NN);
   }

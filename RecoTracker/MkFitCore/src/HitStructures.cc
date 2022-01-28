@@ -384,7 +384,11 @@ namespace mkfit {
 
   Track TrackCand::exportTrack(bool remove_missing_hits) const {
     dprintf("TrackCand::exportTrack label=%5d, total_hits=%2d, overlaps=%2d -- n_seed_hits=%d,prod_type=%d\n",
-            label(), nTotalHits(), nOverlapHits_, getNSeedHits(), (int)prodType());
+            label(),
+            nTotalHits(),
+            nOverlapHits_,
+            getNSeedHits(),
+            (int)prodType());
 
     Track res(*this);
     res.resizeHits(remove_missing_hits ? nFoundHits() : nTotalHits(), nFoundHits());
@@ -402,7 +406,11 @@ namespace mkfit {
         res.setHitIdxAtPos(nh, hot_node.m_hot);
       }
       dprintf("  nh=%2d, ch=%d, idx=%d lyr=%d prev_idx=%d\n",
-              nh, ch, hot_node.m_hot.index, hot_node.m_hot.layer, hot_node.m_prev_idx);
+              nh,
+              ch,
+              hot_node.m_hot.index,
+              hot_node.m_hot.layer,
+              hot_node.m_prev_idx);
       ch = hot_node.m_prev_idx;
     }
 
@@ -459,11 +467,12 @@ namespace mkfit {
         if ((int)m_trk_cands.size() >= params.maxCandsPerSeed)
           m_trk_cands.pop_back();
 
-        // To print out what has been replaced -- remove when done with short track handling.
+          // To print out what has been replaced -- remove when done with short track handling.
 #ifdef DEBUG
         if (ci == m_trk_cands.begin()) {
           printf("FindTracksStd -- Replacing best cand (%f) with short one (%f) in final sorting\n",
-                 m_trk_cands.front().score(), best_short->score());
+                 m_trk_cands.front().score(),
+                 best_short->score());
         }
 #endif
 

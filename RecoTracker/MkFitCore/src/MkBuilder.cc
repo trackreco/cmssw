@@ -286,7 +286,7 @@ namespace mkfit {
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
     int i = 0, place_pos = 0;
 
-    dprintf ("MkBuilder::filter_comb_cands Entering filter size eoccsm_size=%d\n", eoccs.size());
+    dprintf("MkBuilder::filter_comb_cands Entering filter size eoccsm_size=%d\n", eoccs.size());
 
     std::vector<int> removed_cnts(m_job->num_regions());
     while (i < eoccs.size()) {
@@ -303,9 +303,13 @@ namespace mkfit {
 
     int n_removed = 0;
     for (int reg = 0; reg < m_job->num_regions(); ++reg) {
-      dprintf ("MkBuilder::filter_comb_cands reg=%d: n_rem_was=%d removed_in_r=%d n_rem=%d, es_was=%d es_new=%d\n",
-               reg, n_removed, removed_cnts[reg], n_removed + removed_cnts[reg],
-               m_seedEtaSeparators[reg], m_seedEtaSeparators[reg] - n_removed - removed_cnts[reg]);
+      dprintf("MkBuilder::filter_comb_cands reg=%d: n_rem_was=%d removed_in_r=%d n_rem=%d, es_was=%d es_new=%d\n",
+              reg,
+              n_removed,
+              removed_cnts[reg],
+              n_removed + removed_cnts[reg],
+              m_seedEtaSeparators[reg],
+              m_seedEtaSeparators[reg] - n_removed - removed_cnts[reg]);
 
       n_removed += removed_cnts[reg];
       m_seedEtaSeparators[reg] -= n_removed;
@@ -313,7 +317,7 @@ namespace mkfit {
 
     eoccs.resizeAfterFiltering(n_removed);
 
-    dprintf ("MkBuilder::filter_comb_cands n_removed = %d, eoccsm_size=%d\n", n_removed, eoccs.size());
+    dprintf("MkBuilder::filter_comb_cands n_removed = %d, eoccsm_size=%d\n", n_removed, eoccs.size());
 
     return n_removed;
   }
@@ -1115,19 +1119,22 @@ namespace mkfit {
 
       // Check if cands are sorted, as expected.
 #ifdef DEBUG
-    for (int iseed = start_seed; iseed < end_seed; ++iseed)
-    {
-      auto & cc = eoccs[iseed];
+      for (int iseed = start_seed; iseed < end_seed; ++iseed) {
+        auto &cc = eoccs[iseed];
 
-      for (int i = 0; i < ((int) cc.size()) - 1; ++i)
-      {
-        if (cc[i].score() < cc[i+1].score())
-        {
-          printf("CloneEngine - NOT SORTED: layer=%d, iseed=%d (size=%lu)-- %d : %f smaller than %d : %f\n",
-                 curr_layer, iseed, cc.size(), i, cc[i].score(), i+1, cc[i+1].score());
+        for (int i = 0; i < ((int)cc.size()) - 1; ++i) {
+          if (cc[i].score() < cc[i + 1].score()) {
+            printf("CloneEngine - NOT SORTED: layer=%d, iseed=%d (size=%lu)-- %d : %f smaller than %d : %f\n",
+                   curr_layer,
+                   iseed,
+                   cc.size(),
+                   i,
+                   cc[i].score(),
+                   i + 1,
+                   cc[i + 1].score());
+          }
         }
       }
-    }
 #endif
 
     }  // end of layer loop
@@ -1179,9 +1186,21 @@ namespace mkfit {
 
 #ifdef DEBUG
       printf("Pre Final fit for %d - %d\n", icand, end);
-      for (int i = icand; i < end; ++i) { const TrackCand &t = eoccs[i][0];
-        printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
-               i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
+      for (int i = icand; i < end; ++i) {
+        const TrackCand &t = eoccs[i][0];
+        printf(
+            "  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
+            i,
+            t.charge(),
+            t.chi2(),
+            t.pT(),
+            t.momEta(),
+            t.x(),
+            t.y(),
+            t.z(),
+            t.nFoundHits(),
+            t.label(),
+            t.isFindable());
       }
 #endif
 
@@ -1250,9 +1269,21 @@ namespace mkfit {
 
 #ifdef DEBUG
       printf("Post Final fit for %d - %d\n", icand, end);
-      for (int i = icand; i < end; ++i) { const TrackCand &t = eoccs[i][0];
-        printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
-               i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
+      for (int i = icand; i < end; ++i) {
+        const TrackCand &t = eoccs[i][0];
+        printf(
+            "  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
+            i,
+            t.charge(),
+            t.chi2(),
+            t.pT(),
+            t.momEta(),
+            t.x(),
+            t.y(),
+            t.z(),
+            t.nFoundHits(),
+            t.label(),
+            t.isFindable());
       }
 #endif
     }
@@ -1315,9 +1346,21 @@ namespace mkfit {
 
 #ifdef DEBUG
       printf("Pre Final fit for %d - %d\n", icand, end);
-      for (int i = icand; i < end; ++i) { const TrackCand &t = eoccs[i][0];
-        printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
-               i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
+      for (int i = icand; i < end; ++i) {
+        const TrackCand &t = eoccs[i][0];
+        printf(
+            "  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
+            i,
+            t.charge(),
+            t.chi2(),
+            t.pT(),
+            t.momEta(),
+            t.x(),
+            t.y(),
+            t.z(),
+            t.nFoundHits(),
+            t.label(),
+            t.isFindable());
       }
 #endif
 
@@ -1351,9 +1394,21 @@ namespace mkfit {
 
 #ifdef DEBUG
       printf("Post Final fit for %d - %d\n", icand, end);
-      for (int i = icand; i < end; ++i) { const TrackCand &t = eoccs[i][0];
-        printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
-               i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
+      for (int i = icand; i < end; ++i) {
+        const TrackCand &t = eoccs[i][0];
+        printf(
+            "  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
+            i,
+            t.charge(),
+            t.chi2(),
+            t.pT(),
+            t.momEta(),
+            t.x(),
+            t.y(),
+            t.z(),
+            t.nFoundHits(),
+            t.label(),
+            t.isFindable());
       }
 #endif
     }

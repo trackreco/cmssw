@@ -229,7 +229,7 @@ namespace mkfit {
         ++c_bin.count;
 
 #ifdef DEBUG
-        B_pair n_pair = m_bin_to_n_bin(m_cons[ j ]);
+        B_pair n_pair = m_bin_to_n_bin(m_cons[j]);
         printf("i=%4u j=%4u  %u %u %u %u\n", i, j, n_pair.bin1, n_pair.bin2, c_bin.first, c_bin.count);
 #endif
       }

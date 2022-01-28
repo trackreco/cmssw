@@ -102,44 +102,37 @@ namespace Matriplex {
       }
     }
 
-   // Experimental methods, slurpIn() seems to be at least as fast.
-   // See comments in mkFit/MkFitter.cc MkFitter::addBestHit().
-   void ChewIn(const char *arr, int off, int vi[N], const char *tmp,  __m512i& ui)
-   {
+    // Experimental methods, slurpIn() seems to be at least as fast.
+    // See comments in mkFit/MkFitter.cc MkFitter::addBestHit().
+    void ChewIn(const char* arr, int off, int vi[N], const char* tmp, __m512i& ui) {
       // This is a hack ... we know sizeof(Hit) = 64 = cache line = vector width.
 
-      for (int i = 0; i < N; ++i)
-      {
-         __m512 reg = _mm512_load_ps(arr + vi[i]);
-         _mm512_store_ps((void*) (tmp + 64*i), reg);
+      for (int i = 0; i < N; ++i) {
+        __m512 reg = _mm512_load_ps(arr + vi[i]);
+        _mm512_store_ps((void*)(tmp + 64 * i), reg);
       }
 
-      for (int i = 0; i < kSize; ++i)
-      {
-         __m512 reg = _mm512_i32gather_ps(ui, tmp + off + i*sizeof(T), 1);
-         _mm512_store_ps(&fArray[i*N], reg);
+      for (int i = 0; i < kSize; ++i) {
+        __m512 reg = _mm512_i32gather_ps(ui, tmp + off + i * sizeof(T), 1);
+        _mm512_store_ps(&fArray[i * N], reg);
       }
-   }
+    }
 
-   void Contaginate(const char *arr, int vi[N], const char *tmp)
-   {
+    void Contaginate(const char* arr, int vi[N], const char* tmp) {
       // This is a hack ... we know sizeof(Hit) = 64 = cache line = vector width.
 
-      for (int i = 0; i < N; ++i)
-      {
-         __m512 reg = _mm512_load_ps(arr + vi[i]);
-         _mm512_store_ps((void*) (tmp + 64*i), reg);
+      for (int i = 0; i < N; ++i) {
+        __m512 reg = _mm512_load_ps(arr + vi[i]);
+        _mm512_store_ps((void*)(tmp + 64 * i), reg);
       }
-   }
+    }
 
-   void Plexify(const char *tmp, __m512i& ui)
-   {
-      for (int i = 0; i < kSize; ++i)
-      {
-         __m512 reg = _mm512_i32gather_ps(ui, tmp + i*sizeof(T), 1);
-         _mm512_store_ps(&fArray[i*N], reg);
+    void Plexify(const char* tmp, __m512i& ui) {
+      for (int i = 0; i < kSize; ++i) {
+        __m512 reg = _mm512_i32gather_ps(ui, tmp + i * sizeof(T), 1);
+        _mm512_store_ps(&fArray[i * N], reg);
       }
-   }
+    }
 
 #elif defined(AVX2_INTRINSICS)
 
