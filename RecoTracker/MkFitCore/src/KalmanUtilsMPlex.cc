@@ -226,31 +226,12 @@ namespace {
     }
   }
 
-  inline void RotateResidulsOnTangentPlane(const MPlexQF& R00,  //r00
+  inline void RotateResidualsOnTangentPlane(const MPlexQF& R00,  //r00
                                            const MPlexQF& R01,  //r01
                                            const MPlexHV& A,    //res_glo
                                            MPlex2V& B)          //res_loc
   {
-    RotateResidulsOnTangentPlane_impl(R00, R01, A, B, 0, NN);
-#if 0
-   // res_loc = rotT * res_glo
-   //   B     =  R   *    A   
-
-   typedef float T;
-   const idx_t N = NN;
-
-   const T *a   = A.fArray;   ASSUME_ALIGNED(a, 64);
-   const T *r00 = R00.fArray; ASSUME_ALIGNED(r00, 64);
-   const T *r01 = R01.fArray; ASSUME_ALIGNED(r01, 64);
-         T *b   = B.fArray;   ASSUME_ALIGNED(b, 64);
-
-#pragma omp simd
-   for (idx_t n = 0; n < N; ++n)
-   {
-      b[0 * N + n] =  r00[0 * N + n]*a[0 * N + n] + r01[0 * N + n]*a[1 * N + n];
-      b[1 * N + n] =  a[2 * N + n];
-   }
-#endif
+    RotateResidualsOnTangentPlane_impl(R00, R01, A, B, 0, NN);
   }
 
   inline void KalmanHTG(const MPlexQF& A00, const MPlexQF& A01, const MPlex2S& B, MPlexHH& C) {
@@ -582,7 +563,7 @@ namespace mkfit {
     AddIntoUpperLeft3x3(psErr, msErr, resErr_glo);
 
     MPlex2V res_loc;  //position residual in local coordinates
-    RotateResidulsOnTangentPlane(rotT00, rotT01, res_glo, res_loc);
+    RotateResidualsOnTangentPlane(rotT00, rotT01, res_glo, res_loc);
     MPlex2S resErr_loc;  //covariance sum in local position coordinates
     MPlexHH tempHH;
     ProjectResErr(rotT00, rotT01, resErr_glo, tempHH);

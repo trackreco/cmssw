@@ -191,11 +191,11 @@ static inline void AddIntoUpperLeft3x3_imp(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///  RotateResidulsOnTangentPlane_impl
+///  RotateResidualsOnTangentPlane_impl
 ///////////////////////////////////////////////////////////////////////////////
 
 template <typename TfQF1, typename TfQF2, typename TfHV, typename Tf2V>
-static inline void RotateResidulsOnTangentPlane_impl(
+static inline void RotateResidualsOnTangentPlane_impl(
     const TfQF1& r00, const TfQF2& r01, const TfHV& a, Tf2V& b, const int nmin, const int nmax) {
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
