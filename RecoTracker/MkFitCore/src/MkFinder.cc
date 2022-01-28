@@ -13,7 +13,7 @@
 #include "Debug.h"
 
 #if (defined(DUMPHITWINDOW) || defined(DEBUG_BACKWARD_FIT)) && defined(MKFIT_STANDALONE)
-#include "Event.h"
+#include "RecoTracker/MkFitCore/standalone/Event.h"
 #endif
 
 #include <algorithm>
@@ -411,12 +411,12 @@ namespace mkfit {
       // Or, set them up so I can always take 3x3 array around the intersection.
 
 #if defined(DUMPHITWINDOW) && defined(MKFIT_STANDALONE)
+      int thisseedmcid = -999999;
       {
-        int thisseedmcid = -999999;
         int seedlabel = SeedLabel(itrack, 0, 0);
         TrackVec &seedtracks = m_event->seedTracks_;
         int thisidx = -999999;
-        for (int i = 0; i < seedtracks.size(); ++i) {
+        for (int i = 0; i < int(seedtracks.size()); ++i) {
           auto &thisseed = seedtracks[i];
           if (thisseed.label() == seedlabel) {
             thisidx = i;

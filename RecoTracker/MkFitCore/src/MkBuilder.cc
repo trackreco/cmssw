@@ -13,6 +13,10 @@
 #include "MkFitter.h"
 #include "MkFinder.h"
 
+#ifdef MKFIT_STANDALONE
+#include "RecoTracker/MkFitCore/standalone/Event.h"
+#endif
+
 #include "Ice/IceRevisitedRadix.h"
 
 //#define DEBUG

@@ -510,7 +510,7 @@ namespace mkfit {
     //
     // Returns number of passed simtracks.
 
-    dprintf("Event::clean_cms_simtracks processing %d simtracks.\n", simTracks_.size());
+    dprintf("Event::clean_cms_simtracks processing %lu simtracks.\n", simTracks_.size());
 
     int n_acc = 0;
     int i = -1;  //wrap in ifdef DEBUG?
