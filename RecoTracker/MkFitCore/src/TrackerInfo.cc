@@ -21,8 +21,6 @@ namespace mkfit {
   // TrackerInfo
   //==============================================================================
 
-  LayerInfo TrackerInfo::s_undefined_layer(-1, LayerInfo::Undef);
-
   void TrackerInfo::set_eta_regions(float tr_beg, float tr_end, float ec_end) {
     m_eta_trans_beg = tr_beg;
     m_eta_trans_end = tr_end;

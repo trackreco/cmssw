@@ -198,7 +198,6 @@ namespace mkfit {
     int new_layer(LayerInfo::LayerType_e type);
 
     std::vector<LayerInfo> m_layers;
-    static LayerInfo s_undefined_layer;
 
     std::vector<int> m_barrel;
     std::vector<int> m_ecap_pos;
