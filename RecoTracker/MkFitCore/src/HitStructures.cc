@@ -461,7 +461,7 @@ namespace mkfit {
 
         // To print out what has been replaced -- remove when done with short track handling.
 #ifdef DEBUG
-        if (ci == finalcands.begin()) {
+        if (ci == m_trk_cands.begin()) {
           printf("FindTracksStd -- Replacing best cand (%f) with short one (%f) in final sorting\n",
                  m_trk_cands.front().score(), best_short->score());
         }
@@ -528,13 +528,6 @@ namespace mkfit {
           --n_hits_to_pick;
         idx = m_hots[idx].m_prev_idx;
       }
-
-#ifdef DEBUG
-      auto lh = m_hots[stash_pos].m_hot;
-      auto pi = m_hots[stash_pos].m_prev_idx;
-      printf("CC::CHSFBC n=%d, last_hot=(%d,%d), prev_idx=%d ... end_prev_idx=%d\n",
-             stash_end - stash_pos, lh.layer, lh.index, pi, end_prev_idx);
-#endif
 
       m_hots_size = 0;
       m_hots.clear();

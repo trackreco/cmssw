@@ -12,11 +12,7 @@
 //#define DEBUG
 #include "Debug.h"
 
-//#ifdef DEBUG_BACKWARD_FIT
-//#include "Event.h"
-//#endif
-
-#ifdef DUMPHITWINDOW
+#if (defined(DUMPHITWINDOW) || defined(DEBUG_BACKWARD_FIT)) && defined(MKFIT_STANDALONE)
 #include "Event.h"
 #endif
 
@@ -85,8 +81,8 @@ namespace mkfit {
       copy_in(trk, imp, iI);
 
 #ifdef DUMPHITWINDOW
-      SeedAlgo(imp, 0, 0) = tracks[idxs[i].first].m_seed_algo;
-      SeedLabel(imp, 0, 0) = tracks[idxs[i].first].m_seed_label;
+      SeedAlgo(imp, 0, 0) = tracks[idxs[i].first].seed_algo();
+      SeedLabel(imp, 0, 0) = tracks[idxs[i].first].seed_label();
 #endif
 
       SeedIdx(imp, 0, 0) = idxs[i].first;
@@ -112,8 +108,8 @@ namespace mkfit {
       copy_in(trk, imp, iI);
 
 #ifdef DUMPHITWINDOW
-      SeedAlgo(imp, 0, 0) = tracks[idxs[i].first].m_seed_algo;
-      SeedLabel(imp, 0, 0) = tracks[idxs[i].first].m_seed_label;
+      SeedAlgo(imp, 0, 0) = tracks[idxs[i].first].seed_algo();
+      SeedLabel(imp, 0, 0) = tracks[idxs[i].first].seed_label();
 #endif
 
       SeedIdx(imp, 0, 0) = idxs[i].first;
@@ -414,7 +410,7 @@ namespace mkfit {
       // This would then work best with relatively small bin sizes.
       // Or, set them up so I can always take 3x3 array around the intersection.
 
-#ifdef DUMPHITWINDOW
+#if defined(DUMPHITWINDOW) && defined(MKFIT_STANDALONE)
       {
         int thisseedmcid = -999999;
         int seedlabel = SeedLabel(itrack, 0, 0);
@@ -476,7 +472,7 @@ namespace mkfit {
               const float ddq = std::abs(q - L.hit_q(hi));
               const float ddphi = cdist(std::abs(phi - L.hit_phi(hi)));
 
-#ifdef DUMPHITWINDOW
+#if defined(DUMPHITWINDOW) && defined(MKFIT_STANDALONE)
               {
                 const MCHitInfo &mchinfo = m_event->simHitsInfo_[L.refHit(hi).mcHitID()];
                 int mchid = mchinfo.mcTrackID();
@@ -652,11 +648,11 @@ namespace mkfit {
                       st_r,
                       st_z,
                       q,
-                      L.m_hit_qs[hi],
+                      L.hit_q(hi),
                       ddq,
                       dq,
                       phi,
-                      L.m_hit_phis[hi],
+                      L.hit_phi(hi),
                       ddphi,
                       dphi,
                       tx,
@@ -694,7 +690,7 @@ namespace mkfit {
 
               dprintf("     SHI %3d %4d %4d %5d  %6.3f %6.3f %6.4f %7.5f   %s\n",
                       qi, pi, pb, hi,
-                      L.m_hit_qs[hi], L.m_hit_phis[hi], ddq, ddphi,
+                      L.hit_q(hi), L.hit_phi(hi), ddq, ddphi,
                       (ddq < dq && ddphi < dphi) ? "PASS" : "FAIL");
               
               // MT: Removing extra check gives full efficiency ...
@@ -1572,7 +1568,7 @@ namespace mkfit {
       const LayerInfo &LI = *L.layer_info();
 
       // XXXX
-#ifdef DEBUG_BACKWARD_FIT
+#if defined(DEBUG_BACKWARD_FIT)
       const Hit *last_hit_ptr[NN];
 #endif
 
@@ -1650,13 +1646,14 @@ namespace mkfit {
       }
 
       for (int i = 0; i < N_proc; ++i) {
-#ifdef DEBUG_BACKWARD_FIT
+#if defined(DEBUG_BACKWARD_FIT)
         if (chiDebug && last_hit_ptr[i]) {
           TrackCand &bb = *TrkCand[i];
           int ti = iP;
           float chi = tmp_chi2.At(i, 0, 0);
           float chi_prnt = std::isfinite(chi) ? chi : -9;
 
+#if defined(MKFIT_STANDALONE)
           const MCHitInfo &mchi = m_event->simHitsInfo_[last_hit_ptr[i]->mcHitID()];
 
           printf(
@@ -1664,6 +1661,12 @@ namespace mkfit {
               "%f %f %f %f %d %d %d %d "
               "%f %f %f %f %f\n",
               m_event->evtID(),
+#else
+          printf(
+              "BKF_OVERLAP %d %d %d %d %d %d "
+              "%f %f %f %f %d %d %d "
+              "%f %f %f %f %f\n",
+#endif
               bb.label(),
               (int)bb.prodType(),
               bb.isFindable(),
@@ -1677,7 +1680,9 @@ namespace mkfit {
               std::isnan(chi),
               std::isfinite(chi),
               chi > 0,
+#if defined(MKFIT_STANDALONE)
               mchi.mcTrackID(),
+#endif
               e2s(Err[ti].At(i, 0, 0)),
               e2s(Err[ti].At(i, 1, 1)),
               e2s(Err[ti].At(i, 2, 2)),  // sx_t sy_t sz_t -- track errors

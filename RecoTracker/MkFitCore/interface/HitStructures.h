@@ -632,6 +632,11 @@ namespace mkfit {
 
     int pickupLayer() const { return m_pickup_layer; }
 
+#ifdef DUMPHITWINDOW
+    int seed_algo() const { return m_seed_algo; }
+    int seed_label() const { return m_seed_label; }
+#endif
+
   private:
     trk_cand_vec_type m_trk_cands;
     TrackCand m_best_short_cand;

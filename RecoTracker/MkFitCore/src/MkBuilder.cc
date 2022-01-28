@@ -144,7 +144,7 @@ namespace {
   }
 
   void print_seeds(const EventOfCombCandidates &event_of_comb_cands) {
-    for (int iseed = 0; iseed < event_of_comb_cands.m_size; iseed++) {
+    for (int iseed = 0; iseed < event_of_comb_cands.size(); iseed++) {
       print_seed2(event_of_comb_cands[iseed].front());
     }
   }
@@ -750,7 +750,7 @@ namespace mkfit {
       // adaptive seeds per task based on the total estimated amount of work to divide among all threads
       const int adaptiveSPT = std::clamp(
           Config::numThreadsEvents * eoccs.size() / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
-      dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.m_size << " region " << region);
+      dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.size() << " region " << region);
 
       // loop over seeds
       tbb::parallel_for(rosi.tbb_blk_rng_std(adaptiveSPT), [&](const tbb::blocked_range<int> &seeds) {
@@ -834,8 +834,6 @@ namespace mkfit {
 
             find_tracks_handle_missed_layers(
                 mkfndr.get(), layer_info, tmp_cands, seed_cand_idx, region, start_seed, itrack, end);
-
-            dprint("MX number of hits in window in layer " << curr_layer << " is " <<  mkfndr->getXHitEnd(0, 0, 0)-mkfndr->getXHitBegin(0, 0, 0));
 
             dprint("make new candidates");
             mkfndr->findCandidates(layer_of_hits, tmp_cands, start_seed, end - itrack, fnd_foos);
@@ -938,7 +936,7 @@ namespace mkfit {
       // adaptive seeds per task based on the total estimated amount of work to divide among all threads
       const int adaptiveSPT = std::clamp(
           Config::numThreadsEvents * eoccs.size() / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
-      dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.m_size << " region " << region);
+      dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.size() << " region " << region);
 
       tbb::parallel_for(rosi.tbb_blk_rng_std(adaptiveSPT), [&](const tbb::blocked_range<int> &seeds) {
         auto cloner = g_exe_ctx.m_cloners.makeOrGet();
@@ -1079,8 +1077,6 @@ namespace mkfit {
         find_tracks_handle_missed_layers(
             mkfndr, layer_info, extra_cands, seed_cand_idx, region, start_seed, itrack, end);
 
-        dprint("MX number of hits in window in layer " << curr_layer << " is " <<  mkfndr->getXHitEnd(0, 0, 0)-mkfndr->getXHitBegin(0, 0, 0));
-
         // copy_out the propagated track params, errors only.
         // Do not, keep cands at last valid hit until actual update,
         // this requires change to propagation flags used in MkFinder::updateWithLastHit()
@@ -1123,7 +1119,7 @@ namespace mkfit {
       {
         if (cc[i].score() < cc[i+1].score())
         {
-          printf("CloneEngine - NOT SORTED: layer=%d, iseed=%d (size=%llu)-- %d : %d smaller than %d : %d\n",
+          printf("CloneEngine - NOT SORTED: layer=%d, iseed=%d (size=%lu)-- %d : %f smaller than %d : %f\n",
                  curr_layer, iseed, cc.size(), i, cc[i].score(), i+1, cc[i+1].score());
         }
       }
@@ -1170,13 +1166,16 @@ namespace mkfit {
 
   void MkBuilder::fit_cands_BH(MkFinder *mkfndr, int start_cand, int end_cand, int region) {
     const SteeringParams &st_par = m_job->steering_params(region);
+#ifdef DEBUG
+    EventOfCombCandidates &eoccs = m_event_of_comb_cands;
+#endif
 
     for (int icand = start_cand; icand < end_cand; icand += NN) {
       const int end = std::min(icand + NN, end_cand);
 
 #ifdef DEBUG
       printf("Pre Final fit for %d - %d\n", icand, end);
-      for (int i = icand; i < end; ++i) { const Track &t = eoccs[i][0];
+      for (int i = icand; i < end; ++i) { const TrackCand &t = eoccs[i][0];
         printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
                i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
       }
@@ -1203,8 +1202,12 @@ namespace mkfit {
       if (!chi_debug && 1.0f / mkfndr->Par[MkBase::iP].At(0, 3, 0) > 2.0f &&
           mkfndr->Chi2(0, 0, 0) / (eoccs[icand][0].nFoundHits() * 3 - 6) > 20.0f) {
         chi_debug = true;
+#ifdef MKFIT_STANDALONE
         printf("CHIHDR Event %d, Cand %3d, pT %f, chipdof %f ### NOTE x,y,z in cm, sigmas, deltas in mum ### !!!\n",
                m_event->evtID(),
+#else
+        printf("CHIHDR Cand %3d, pT %f, chipdof %f ### NOTE x,y,z in cm, sigmas, deltas in mum ### !!!\n",
+#endif
                icand,
                1.0f / mkfndr->Par[MkBase::iP].At(0, 3, 0),
                mkfndr->Chi2(0, 0, 0) / (eoccs[icand][0].nFoundHits() * 3 - 6));
@@ -1243,7 +1246,7 @@ namespace mkfit {
 
 #ifdef DEBUG
       printf("Post Final fit for %d - %d\n", icand, end);
-      for (int i = icand; i < end; ++i) { const Track &t = eoccs[i][0];
+      for (int i = icand; i < end; ++i) { const TrackCand &t = eoccs[i][0];
         printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
                i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
       }
@@ -1262,7 +1265,7 @@ namespace mkfit {
       // adaptive seeds per task based on the total estimated amount of work to divide among all threads
       const int adaptiveSPT = std::clamp(
           Config::numThreadsEvents * eoccs.size() / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
-      dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.m_size << " region " << region);
+      dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.size() << " region " << region);
 
       tbb::parallel_for(rosi.tbb_blk_rng_std(adaptiveSPT), [&](const tbb::blocked_range<int> &cands) {
         auto mkfndr = g_exe_ctx.m_finders.makeOrGet();
@@ -1308,7 +1311,7 @@ namespace mkfit {
 
 #ifdef DEBUG
       printf("Pre Final fit for %d - %d\n", icand, end);
-      for (int i = icand; i < end; ++i) { const Track &t = eoccs[i][0];
+      for (int i = icand; i < end; ++i) { const TrackCand &t = eoccs[i][0];
         printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
                i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
       }
@@ -1344,7 +1347,7 @@ namespace mkfit {
 
 #ifdef DEBUG
       printf("Post Final fit for %d - %d\n", icand, end);
-      for (int i = icand; i < end; ++i) { const Track &t = eoccs[i][0];
+      for (int i = icand; i < end; ++i) { const TrackCand &t = eoccs[i][0];
         printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
                i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
       }

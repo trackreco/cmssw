@@ -80,7 +80,7 @@ namespace {
 
   struct debug_guard {
     bool m_prev_debug;
-    debug_guard(bool state = true) m_prev_debug(debug) { debug = state; }
+    debug_guard(bool state = true) : m_prev_debug(debug) { debug = state; }
     ~debug_guard() { debug = m_prev_debug; }
   };
 }  // namespace
