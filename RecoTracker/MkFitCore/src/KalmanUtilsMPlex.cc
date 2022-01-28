@@ -6,6 +6,8 @@
 
 #include "KalmanUtilsMPlex.icc"
 
+#include "RecoTracker/MkFitCore/interface/cms_common_macros.h"
+
 namespace {
   using namespace mkfit;
   using idx_t = Matriplex::idx_t;
@@ -405,9 +407,9 @@ namespace {
   // Through KalmanFilterOperation enum parameter it is guaranteed that
   // those will never get accessed in the code (read from or written into).
 
-  mkfit::MPlexLS dummy_err;
-  mkfit::MPlexLV dummy_par;
-  mkfit::MPlexQF dummy_chi2;
+  CMS_SA_ALLOW mkfit::MPlexLS dummy_err;
+  CMS_SA_ALLOW mkfit::MPlexLV dummy_par;
+  CMS_SA_ALLOW mkfit::MPlexQF dummy_chi2;
 }  // namespace
 
 namespace mkfit {

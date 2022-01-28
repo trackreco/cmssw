@@ -261,11 +261,6 @@ namespace mkfit {
       return std::max(nSigmaPhi * std::sqrt(std::abs(dphi2)), min_dphi);
     };
 
-    float min_dq = ILC.min_dq();
-    float max_dq = ILC.max_dq();
-    float min_dphi = ILC.min_dphi();
-    float max_dphi = ILC.max_dphi();
-
     if (L.is_barrel()) {
       // Pull out the part of the loop that vectorizes
       //#pragma ivdep
@@ -273,10 +268,10 @@ namespace mkfit {
       for (int itrack = 0; itrack < NN; ++itrack) {
         XHitSize[itrack] = 0;
 
-        min_dq = ILC.min_dq();
-        max_dq = ILC.max_dq();
-        min_dphi = ILC.min_dphi();
-        max_dphi = ILC.max_dphi();
+        float min_dq = ILC.min_dq();
+        float max_dq = ILC.max_dq();
+        float min_dphi = ILC.min_dphi();
+        float max_dphi = ILC.max_dphi();
 
         const float invpt = Par[iI].At(itrack, 3, 0);
         const float theta = std::fabs(Par[iI].At(itrack, 5, 0) - Config::PIOver2);
@@ -334,10 +329,10 @@ namespace mkfit {
       for (int itrack = 0; itrack < NN; ++itrack) {
         XHitSize[itrack] = 0;
 
-        min_dq = ILC.min_dq();
-        max_dq = ILC.max_dq();
-        min_dphi = ILC.min_dphi();
-        max_dphi = ILC.max_dphi();
+        float min_dq = ILC.min_dq();
+        float max_dq = ILC.max_dq();
+        float min_dphi = ILC.min_dphi();
+        float max_dphi = ILC.max_dphi();
 
         const float invpt = Par[iI].At(itrack, 3, 0);
         const float theta = std::fabs(Par[iI].At(itrack, 5, 0) - Config::PIOver2);
