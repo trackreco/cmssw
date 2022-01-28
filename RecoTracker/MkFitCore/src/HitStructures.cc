@@ -576,11 +576,6 @@ namespace mkfit {
 
     TrackCand &tc = m_trk_cands[0];
 
-    // Could compatify m_hots, removing all not used by element 0.
-    // Not trivial, as I have to start from back to get to the front
-    // and then reorder. Or have some semi-complicated scheme to
-    // put them at the back and then grow new hits in the front.
-
     m_state = Dormant;
     m_pickup_layer = m_hots[0].m_hot.layer;
     m_lastHitIdx_before_bkwsearch = tc.lastCcIndex();
