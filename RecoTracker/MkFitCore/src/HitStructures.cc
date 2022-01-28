@@ -4,6 +4,8 @@
 
 #include "Ice/IceRevisitedRadix.h"
 
+#include "Debug.h"
+
 namespace mkfit {
 
   LayerOfHits::~LayerOfHits() {
@@ -381,8 +383,8 @@ namespace mkfit {
   //==============================================================================
 
   Track TrackCand::exportTrack(bool remove_missing_hits) const {
-    // printf("TrackCand::exportTrack label=%5d, total_hits=%2d, overlaps=%2d -- n_seed_hits=%d,prod_type=%d\n",
-    //        label(), nTotalHits(), nOverlapHits_, getNSeedHits(), (int)prodType());
+    dprintf("TrackCand::exportTrack label=%5d, total_hits=%2d, overlaps=%2d -- n_seed_hits=%d,prod_type=%d\n",
+            label(), nTotalHits(), nOverlapHits_, getNSeedHits(), (int)prodType());
 
     Track res(*this);
     res.resizeHits(remove_missing_hits ? nFoundHits() : nTotalHits(), nFoundHits());
@@ -399,8 +401,8 @@ namespace mkfit {
       } else {
         res.setHitIdxAtPos(nh, hot_node.m_hot);
       }
-      // printf("  nh=%2d, ch=%d, idx=%d lyr=%d prev_idx=%d\n",
-      //        nh, ch, hot_node.m_hot.index, hot_node.m_hot.layer, hot_node.m_prev_idx);
+      dprintf("  nh=%2d, ch=%d, idx=%d lyr=%d prev_idx=%d\n",
+              nh, ch, hot_node.m_hot.index, hot_node.m_hot.layer, hot_node.m_prev_idx);
       ch = hot_node.m_prev_idx;
     }
 
@@ -425,10 +427,10 @@ namespace mkfit {
     cand.setNSeedHits(seed.nTotalHits());
     cand.setEtaRegion(region);
 
-    // printf("Importing pt=%f eta=%f, lastCcIndex=%d\n", cand.pT(), cand.momEta(), cand.lastCcIndex());
+    dprintf("Importing pt=%f eta=%f, lastCcIndex=%d\n", cand.pT(), cand.momEta(), cand.lastCcIndex());
 
     for (const HitOnTrack *hp = seed.beginHitsOnTrack(); hp != seed.endHitsOnTrack(); ++hp) {
-      // printf(" hit idx=%d lyr=%d\n", hp->index, hp->layer);
+      dprintf(" hit idx=%d lyr=%d\n", hp->index, hp->layer);
       cand.addHitIdx(hp->index, hp->layer, 0.0f);
     }
 
@@ -458,10 +460,12 @@ namespace mkfit {
           m_trk_cands.pop_back();
 
         // To print out what has been replaced -- remove when done with short track handling.
-        // if (ci == finalcands.begin()) {
-        //   printf("FindTracksStd -- Replacing best cand (%f) with short one (%f) in final sorting\n",
-        //          m_trk_cands.front().score(), best_short->score());
-        // }
+#ifdef DEBUG
+        if (ci == finalcands.begin()) {
+          printf("FindTracksStd -- Replacing best cand (%f) with short one (%f) in final sorting\n",
+                 m_trk_cands.front().score(), best_short->score());
+        }
+#endif
 
         m_trk_cands.insert(ci, *best_short);
       }
@@ -525,10 +529,12 @@ namespace mkfit {
         idx = m_hots[idx].m_prev_idx;
       }
 
-      // auto lh = m_hots[stash_pos].m_hot;
-      // auto pi = m_hots[stash_pos].m_prev_idx;
-      // printf("CC::CHSFBC n=%d, last_hot=(%d,%d), prev_idx=%d ... end_prev_idx=%d\n",
-      //        stash_end - stash_pos, lh.layer, lh.index, pi, end_prev_idx);
+#ifdef DEBUG
+      auto lh = m_hots[stash_pos].m_hot;
+      auto pi = m_hots[stash_pos].m_prev_idx;
+      printf("CC::CHSFBC n=%d, last_hot=(%d,%d), prev_idx=%d ... end_prev_idx=%d\n",
+             stash_end - stash_pos, lh.layer, lh.index, pi, end_prev_idx);
+#endif
 
       m_hots_size = 0;
       m_hots.clear();

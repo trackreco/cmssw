@@ -263,7 +263,6 @@ namespace mkfit {
 
     if (L.is_barrel()) {
       // Pull out the part of the loop that vectorizes
-      //#pragma ivdep
 #pragma omp simd
       for (int itrack = 0; itrack < NN; ++itrack) {
         XHitSize[itrack] = 0;
@@ -324,7 +323,6 @@ namespace mkfit {
     } else  // endcap
     {
       // Pull out the part of the loop that vectorizes
-      //#pragma ivdep
 #pragma omp simd
       for (int itrack = 0; itrack < NN; ++itrack) {
         XHitSize[itrack] = 0;
@@ -380,7 +378,6 @@ namespace mkfit {
     }
 
     // Vectorizing this makes it run slower!
-    //#pragma ivdep
     //#pragma omp simd
     for (int itrack = 0; itrack < N_proc; ++itrack) {
       if (XWsrResult[itrack].m_wsr == WSR_Outside) {
@@ -448,7 +445,7 @@ namespace mkfit {
 
           // Limit to central Q-bin
           if (qi == qb && L.phi_bin_dead(qi, pb) == true) {
-            //std::cout << "dead module for track in layer=" << L.layer_id() << " qb=" << qi << " pb=" << pb << " q=" << q << " phi=" << phi<< std::endl;
+            dprint("dead module for track in layer=" << L.layer_id() << " qb=" << qi << " pb=" << pb << " q=" << q << " phi=" << phi);
             XWsrResult[itrack].m_in_gap = true;
           }
 
@@ -467,8 +464,8 @@ namespace mkfit {
             int hi_orig = L.getOriginalHitIndex(hi);
 
             if (m_iteration_hit_mask && (*m_iteration_hit_mask)[hi_orig]) {
-              // printf("Yay, denying masked hit on layer %d, hi %d, orig idx %d\n",
-              //        L.layer_info()->layer_id(), hi, hi_orig);
+              dprintf("Yay, denying masked hit on layer %d, hi %d, orig idx %d\n",
+                      L.layer_info()->layer_id(), hi, hi_orig);
               continue;
             }
 
@@ -695,11 +692,11 @@ namespace mkfit {
               if (ddphi >= dphi)
                 continue;
 
-              // dprintf("     SHI %3d %4d %4d %5d  %6.3f %6.3f %6.4f %7.5f   %s\n",
-              //         qi, pi, pb, hi,
-              //         L.m_hit_qs[hi], L.m_hit_phis[hi], ddq, ddphi,
-              //         (ddq < dq && ddphi < dphi) ? "PASS" : "FAIL");
-
+              dprintf("     SHI %3d %4d %4d %5d  %6.3f %6.3f %6.4f %7.5f   %s\n",
+                      qi, pi, pb, hi,
+                      L.m_hit_qs[hi], L.m_hit_phis[hi], ddq, ddphi,
+                      (ddq < dq && ddphi < dphi) ? "PASS" : "FAIL");
+              
               // MT: Removing extra check gives full efficiency ...
               //     and means our error estimations are wrong!
               // Avi says we should have *minimal* search windows per layer.
@@ -851,7 +848,7 @@ namespace mkfit {
     (*fnd_foos.m_update_param_foo)(
         Err[iP], Par[iP], Chg, msErr, msPar, Err[iC], Par[iC], N_proc, Config::finding_intra_layer_pflags);
 
-    //std::cout << "Par[iP](0,0,0)=" << Par[iP](0,0,0) << " Par[iC](0,0,0)=" << Par[iC](0,0,0)<< std::endl;
+    dprint("Par[iP](0,0,0)=" << Par[iP](0,0,0) << " Par[iC](0,0,0)=" << Par[iC](0,0,0));
   }
 
   //=======================================================
@@ -1090,7 +1087,6 @@ namespace mkfit {
         continue;
       }
 
-      // int fake_hit_idx = num_all_minus_one_hits(itrack) < m_iteration_params->maxHolesPerCand ? -1 : -2;
       int fake_hit_idx = ((num_all_minus_one_hits(itrack) < m_iteration_params->maxHolesPerCand) &&
                           (NTailMinusOneHits(itrack, 0, 0) < m_iteration_params->maxConsecHoles))
                              ? -1

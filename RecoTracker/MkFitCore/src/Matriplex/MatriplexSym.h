@@ -26,16 +26,14 @@ namespace Matriplex {
   public:
     typedef T value_type;
 
-    enum {
-      /// no. of matrix rows
-      kRows = D,
-      /// no. of matrix columns
-      kCols = D,
-      /// no of elements: lower triangle
-      kSize = (D + 1) * D / 2,
-      /// size of the whole matriplex
-      kTotSize = N * kSize
-    };
+    /// no. of matrix rows
+    static constexpr int kRows = D;
+    /// no. of matrix columns
+    static constexpr int kCols = D;
+    /// no of elements: lower triangle
+    static constexpr int kSize = (D + 1) * D / 2;
+    /// size of the whole matriplex
+    static constexpr int kTotSize = N * kSize;
 
     T fArray[kTotSize] __attribute__((aligned(64)));
 
@@ -121,7 +119,6 @@ namespace Matriplex {
       }
     }
 
-    /*
    // Experimental methods, slurpIn() seems to be at least as fast.
    // See comments in mkFit/MkFitter.cc MkFitter::addBestHit().
 
@@ -161,7 +158,6 @@ namespace Matriplex {
          _mm512_store_ps(&fArray[i*N], reg);
       }
    }
-   */
 
 #elif defined(AVX2_INTRINSICS)
 

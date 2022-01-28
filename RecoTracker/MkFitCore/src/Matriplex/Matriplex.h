@@ -102,7 +102,6 @@ namespace Matriplex {
       }
     }
 
-    /*
    // Experimental methods, slurpIn() seems to be at least as fast.
    // See comments in mkFit/MkFitter.cc MkFitter::addBestHit().
    void ChewIn(const char *arr, int off, int vi[N], const char *tmp,  __m512i& ui)
@@ -141,7 +140,6 @@ namespace Matriplex {
          _mm512_store_ps(&fArray[i*N], reg);
       }
    }
-   */
 
 #elif defined(AVX2_INTRINSICS)
 
@@ -355,7 +353,9 @@ namespace Matriplex {
 
   template <typename T, idx_t D, idx_t N>
   void multiply(const MPlex<T, D, D, N>& A, const MPlex<T, D, D, N>& B, MPlex<T, D, D, N>& C) {
-    // printf("Multipl %d %d\n", D, N);
+#ifdef DEBUG
+    printf("Multipl %d %d\n", D, N);
+#endif
 
     MultiplyCls<T, D, N>::multiply(A, B, C);
   }

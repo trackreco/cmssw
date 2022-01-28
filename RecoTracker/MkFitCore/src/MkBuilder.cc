@@ -282,7 +282,7 @@ namespace mkfit {
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
     int i = 0, place_pos = 0;
 
-    // printf ("MkBuilder::filter_comb_cands Entering filter size eoccsm_size=%d\n", eoccs.m_size);
+    dprintf ("MkBuilder::filter_comb_cands Entering filter size eoccsm_size=%d\n", eoccs.size());
 
     std::vector<int> removed_cnts(m_job->num_regions());
     while (i < eoccs.size()) {
@@ -299,9 +299,9 @@ namespace mkfit {
 
     int n_removed = 0;
     for (int reg = 0; reg < m_job->num_regions(); ++reg) {
-      // printf ("MkBuilder::filter_comb_cands reg=%d: n_rem_was=%d removed_in_r=%d n_rem=%d, es_was=%d es_new=%d\n",
-      //         reg, n_removed, removed_cnts[reg], n_removed + removed_cnts[reg],
-      //         m_seedEtaSeparators[reg], m_seedEtaSeparators[reg] - n_removed - removed_cnts[reg]);
+      dprintf ("MkBuilder::filter_comb_cands reg=%d: n_rem_was=%d removed_in_r=%d n_rem=%d, es_was=%d es_new=%d\n",
+               reg, n_removed, removed_cnts[reg], n_removed + removed_cnts[reg],
+               m_seedEtaSeparators[reg], m_seedEtaSeparators[reg] - n_removed - removed_cnts[reg]);
 
       n_removed += removed_cnts[reg];
       m_seedEtaSeparators[reg] -= n_removed;
@@ -309,7 +309,7 @@ namespace mkfit {
 
     eoccs.resizeAfterFiltering(n_removed);
 
-    // printf ("MkBuilder::filter_comb_cands n_removed = %d, eoccsm_size=%d\n", n_removed, eoccs.m_size);
+    dprintf ("MkBuilder::filter_comb_cands n_removed = %d, eoccsm_size=%d\n", n_removed, eoccs.size());
 
     return n_removed;
   }
@@ -835,9 +835,7 @@ namespace mkfit {
             find_tracks_handle_missed_layers(
                 mkfndr.get(), layer_info, tmp_cands, seed_cand_idx, region, start_seed, itrack, end);
 
-            // if(Config::dumpForPlots) {
-            //std::cout << "MX number of hits in window in layer " << curr_layer << " is " <<  mkfndr->getXHitEnd(0, 0, 0)-mkfndr->getXHitBegin(0, 0, 0) << std::endl;
-            //}
+            dprint("MX number of hits in window in layer " << curr_layer << " is " <<  mkfndr->getXHitEnd(0, 0, 0)-mkfndr->getXHitBegin(0, 0, 0));
 
             dprint("make new candidates");
             mkfndr->findCandidates(layer_of_hits, tmp_cands, start_seed, end - itrack, fnd_foos);
@@ -1081,9 +1079,7 @@ namespace mkfit {
         find_tracks_handle_missed_layers(
             mkfndr, layer_info, extra_cands, seed_cand_idx, region, start_seed, itrack, end);
 
-        // if (Config::dumpForPlots) {
-        //std::cout << "MX number of hits in window in layer " << curr_layer << " is " <<  mkfndr->getXHitEnd(0, 0, 0)-mkfndr->getXHitBegin(0, 0, 0) << std::endl;
-        // }
+        dprint("MX number of hits in window in layer " << curr_layer << " is " <<  mkfndr->getXHitEnd(0, 0, 0)-mkfndr->getXHitBegin(0, 0, 0));
 
         // copy_out the propagated track params, errors only.
         // Do not, keep cands at last valid hit until actual update,
@@ -1118,7 +1114,7 @@ namespace mkfit {
       }
 
       // Check if cands are sorted, as expected.
-      /*
+#ifdef DEBUG
     for (int iseed = start_seed; iseed < end_seed; ++iseed)
     {
       auto & cc = eoccs[iseed];
@@ -1132,7 +1128,7 @@ namespace mkfit {
         }
       }
     }
-    */
+#endif
 
     }  // end of layer loop
 
@@ -1178,11 +1174,13 @@ namespace mkfit {
     for (int icand = start_cand; icand < end_cand; icand += NN) {
       const int end = std::min(icand + NN, end_cand);
 
-      // printf("Pre Final fit for %d - %d\n", icand, end);
-      // for (int i = icand; i < end; ++i) { const Track &t = eoccs[i][0];
-      //   printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
-      //          i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
-      // }
+#ifdef DEBUG
+      printf("Pre Final fit for %d - %d\n", icand, end);
+      for (int i = icand; i < end; ++i) { const Track &t = eoccs[i][0];
+        printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
+               i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
+      }
+#endif
 
       bool chi_debug = false;
 #ifdef DEBUG_BACKWARD_FIT_BH
@@ -1243,11 +1241,13 @@ namespace mkfit {
       // copy out full set of info at last propagated position
       mkfndr->bkFitOutputTracks(m_tracks, icand, end, Config::includePCA);
 
-      // printf("Post Final fit for %d - %d\n", icand, end);
-      // for (int i = icand; i < end; ++i) { const Track &t = eoccs[i][0];
-      //   printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
-      //          i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
-      // }
+#ifdef DEBUG
+      printf("Post Final fit for %d - %d\n", icand, end);
+      for (int i = icand; i < end; ++i) { const Track &t = eoccs[i][0];
+        printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
+               i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
+      }
+#endif
     }
   }
 
@@ -1306,11 +1306,13 @@ namespace mkfit {
     }
     */
 
-      // printf("Pre Final fit for %d - %d\n", icand, end);
-      // for (int i = icand; i < end; ++i) { const Track &t = eoccs[i][0];
-      //   printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
-      //          i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
-      // }
+#ifdef DEBUG
+      printf("Pre Final fit for %d - %d\n", icand, end);
+      for (int i = icand; i < end; ++i) { const Track &t = eoccs[i][0];
+        printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
+               i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
+      }
+#endif
 
       bool chi_debug = false;
 #ifdef DEBUG_BACKWARD_FIT
@@ -1340,11 +1342,13 @@ namespace mkfit {
 
       mkfndr->bkFitOutputTracks(eoccs, icand, end, Config::includePCA);
 
-      // printf("Post Final fit for %d - %d\n", icand, end);
-      // for (int i = icand; i < end; ++i) { const Track &t = eoccs[i][0];
-      //   printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
-      //          i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
-      // }
+#ifdef DEBUG
+      printf("Post Final fit for %d - %d\n", icand, end);
+      for (int i = icand; i < end; ++i) { const Track &t = eoccs[i][0];
+        printf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
+               i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(), t.nFoundHits(), t.label(), t.isFindable());
+      }
+#endif
     }
   }
 
