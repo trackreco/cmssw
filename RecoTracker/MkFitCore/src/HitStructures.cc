@@ -28,8 +28,6 @@ namespace mkfit {
   void LayerOfHits::setup_bins(float qmin, float qmax, float dq) {
     // Define layer with min/max and number of bins along q.
 
-    // XXXX MT: Could have n_phi bins per layer, too.
-
     if (dq < 0) {
       m_nq = (int)-dq;
       m_qmin = qmin;
@@ -41,7 +39,7 @@ namespace mkfit {
       m_qmin = qmin - extra;
       m_qmax = qmax + extra;
     }
-    m_fq = m_nq / (qmax - qmin);  // qbin = (q_hit - m_qmin) * m_fq;
+    m_fq = m_nq / (qmax - qmin);  // used in e.g. qbin = (q_hit - m_qmin) * m_fq;
 
     m_phi_bin_infos.resize(m_nq);
     m_phi_bin_deads.resize(m_nq);
