@@ -264,10 +264,6 @@ namespace mkfit {
             m_current->at(jp) = value;
             ++n_replaced;
           }
-          // else {
-          //     if (m_verbose)
-          //         std::cout << "  " << get_abs_path() << s << ": " << m_current->at(jp) << " -> unchanged\n";
-          // }
         } else {
           throw std::runtime_error(exc_hdr(__func__) + "unexpected value type");
         }

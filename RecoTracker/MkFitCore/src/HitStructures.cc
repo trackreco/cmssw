@@ -484,7 +484,7 @@ namespace mkfit {
     // Other cands are dropped, their hits are dropped as well.
     // Seed hits are dropped if remove_seed_hits is true.
 
-    /* From skype chats
+    /* The following considerations are related to the following implementation:
   minNrOfHitsForRebuild (checked against "nHits - nseed") has a default at 5, except
   1 in initialStep
   4 in tobTec and pixelLess
