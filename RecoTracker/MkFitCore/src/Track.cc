@@ -191,7 +191,7 @@ namespace mkfit {
     if (linearize) {
       return std::abs(std::cos(momPhi()) * (y() - y_bs) - std::sin(momPhi()) * (x() - x_bs));
     } else {
-      const float k = ((charge() < 0) ? 100.0f : -100.0f) / (Config::sol * Config::Bfield);
+      const float k = ((charge() < 0) ? 100.0f : -100.0f) / (Const::sol * Config::Bfield);
       const float abs_ooc_half = std::abs(k * pT());
       // center of helix in x,y plane
       const float x_center = x() - k * py();
@@ -274,19 +274,19 @@ namespace mkfit {
     // XXX-ASSUMPTION-ERROR can not always reach R, should see what callers expect.
     // For now return PI to signal apex on the ohter side of the helix.
     const float v = dR / 176.f / pT() * charge();
-    const float dPhi = std::abs(v) <= 1.0f ? 2.f * std::asin(v) : Config::PI;
+    const float dPhi = std::abs(v) <= 1.0f ? 2.f * std::asin(v) : Const::PI;
     ;
     return squashPhiGeneral(momPhi() - dPhi);
   }
 
   bool Track::canReachRadius(float R) const {
-    const float k = ((charge() < 0) ? 100.0f : -100.0f) / (Config::sol * Config::Bfield);
+    const float k = ((charge() < 0) ? 100.0f : -100.0f) / (Const::sol * Config::Bfield);
     const float ooc = 2.0f * k * pT();
     return std::abs(ooc) > R - std::hypot(x(), y());
   }
 
   float Track::maxReachRadius() const {
-    const float k = ((charge() < 0) ? 100.0f : -100.0f) / (Config::sol * Config::Bfield);
+    const float k = ((charge() < 0) ? 100.0f : -100.0f) / (Const::sol * Config::Bfield);
     const float abs_ooc_half = std::abs(k * pT());
     // center of helix in x,y plane
     const float x_center = x() - k * py();
@@ -301,7 +301,7 @@ namespace mkfit {
     float pyc = py();
 
     const float ipt = invpT();
-    const float kinv = ((charge() < 0) ? 0.01f : -0.01f) * Config::sol * Config::Bfield;
+    const float kinv = ((charge() < 0) ? 0.01f : -0.01f) * Const::sol * Config::Bfield;
     const float k = 1.0f / kinv;
 
     const float c = 0.5f * kinv * ipt;
@@ -356,7 +356,7 @@ namespace mkfit {
 
     //   float B      = c * std::sqrt((R*R - D*D) / (1.0f + 2.0f*c*D));
     //   float s1     = std::asin(B) / c;
-    //   float s2     = (Config::PI - std::asin(B)) / c;
+    //   float s2     = (Const::PI - std::asin(B)) / c;
 
     //   printf("pt %f, invpT %f\n", pT, S.invpT());
     //   printf("lambda %f, a %f, c %f, T %f, D0 %f, D %f, B %f, s1 %f, s2 %f\n",
@@ -378,7 +378,7 @@ namespace mkfit {
     float pyc = py();
 
     const float ipt = invpT();
-    const float kinv = ((charge() < 0) ? 0.01f : -0.01f) * Config::sol * Config::Bfield;
+    const float kinv = ((charge() < 0) ? 0.01f : -0.01f) * Const::sol * Config::Bfield;
     const float k = 1.0f / kinv;
 
     const float dz = Z - z();

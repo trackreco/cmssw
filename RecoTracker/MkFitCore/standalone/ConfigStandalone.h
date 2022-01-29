@@ -51,7 +51,7 @@ namespace mkfit {
     // the following are only used in SMatrix version
     constexpr float nSigma = 3.;
     constexpr float minDPhi = 0.01;  // default: 0.;  cmssw tests: 0.01;
-    constexpr float maxDPhi = Config::PI;
+    constexpr float maxDPhi = Const::PI;
     constexpr float minDEta = 0.;
     constexpr float maxDEta = 1.0;
 
@@ -106,7 +106,7 @@ namespace mkfit {
     extern bool cf_seeding;
 
     // config for seeding as well... needed bfield
-    constexpr float maxCurvR = (100 * minSimPt) / (sol * Bfield);  // in cm
+    constexpr float maxCurvR = (100 * minSimPt) / (Const::sol * Bfield);  // in cm
 
     // Config for Conformal fitter --> these change depending on inward/outward, which tracks used (MC vs reco), geometry, layers used, track params generated...
     // parameters for layers 0,4,9

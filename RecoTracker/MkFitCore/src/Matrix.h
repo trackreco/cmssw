@@ -26,6 +26,18 @@ namespace mkfit {
 
 #include "Matriplex/MatriplexSym.h"
 
+#ifndef MPT_SIZE
+#if defined(__AVX512F__)
+#define MPT_SIZE 16
+#elif defined(__AVX__) || defined(__AVX2__)
+#define MPT_SIZE 8
+#elif defined(__SSE3__)
+#define MPT_SIZE 4
+#else
+#define MPT_SIZE 8
+#endif
+#endif
+
 namespace mkfit {
 
   constexpr Matriplex::idx_t NN = MPT_SIZE;  // "Length" of MPlex.

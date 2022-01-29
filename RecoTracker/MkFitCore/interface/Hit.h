@@ -19,11 +19,11 @@ namespace mkfit {
   }
 
   inline float squashPhiGeneral(float phi) {
-    return phi - floor(0.5 * Config::InvPI * (phi + Config::PI)) * Config::TwoPI;
+    return phi - floor(0.5 * Const::InvPI * (phi + Const::PI)) * Const::TwoPI;
   }
 
   inline float squashPhiMinimal(float phi) {
-    return phi >= Config::PI ? phi - Config::TwoPI : (phi < -Config::PI ? phi + Config::TwoPI : phi);
+    return phi >= Const::PI ? phi - Const::TwoPI : (phi < -Const::PI ? phi + Const::TwoPI : phi);
   }
 
   inline float getRad2(float x, float y) { return x * x + y * y; }

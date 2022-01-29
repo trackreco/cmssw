@@ -40,7 +40,6 @@ namespace mkfit {
     bool usePhiQArrays = true;
 #endif
 
-    bool useCMSGeom = false;
     bool includePCA = false;
 
     bool silent = false;

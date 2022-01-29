@@ -19,24 +19,37 @@ namespace mkfit {
 
   //------------------------------------------------------------------------------
 
-  namespace Config {
-
-    // math general --> from namespace TMath
+  namespace Const {
     constexpr float PI = 3.14159265358979323846;
     constexpr float TwoPI = 6.28318530717958647692;
-    constexpr float PIOver2 = Config::PI / 2.0f;
-    constexpr float PIOver4 = Config::PI / 4.0f;
-    constexpr float PI3Over4 = 3.0f * Config::PI / 4.0f;
-    constexpr float InvPI = 1.0f / Config::PI;
-    constexpr float RadToDeg = 180.0f / Config::PI;
-    constexpr float DegToRad = Config::PI / 180.0f;
+    constexpr float PIOver2 = Const::PI / 2.0f;
+    constexpr float PIOver4 = Const::PI / 4.0f;
+    constexpr float PI3Over4 = 3.0f * Const::PI / 4.0f;
+    constexpr float InvPI = 1.0f / Const::PI;
+    constexpr float RadToDeg = 180.0f / Const::PI;
+    constexpr float DegToRad = Const::PI / 180.0f;
     constexpr float sol = 0.299792458;  // speed of light in nm/s
     constexpr double Sqrt2 = 1.4142135623730950488016887242097;
-    constexpr double OOSqrt2 = 1.0 / Config::Sqrt2;
+    constexpr double OOSqrt2 = 1.0 / Const::Sqrt2;
 
-    // general parameters of matrices
-    constexpr int nParams = 6;
+    // NAN and silly track parameter tracking options
+    constexpr bool nan_etc_sigs_enable = false;
 
+    constexpr bool nan_n_silly_check_seeds = true;
+    constexpr bool nan_n_silly_print_bad_seeds = false;
+    constexpr bool nan_n_silly_fixup_bad_seeds = false;
+    constexpr bool nan_n_silly_remove_bad_seeds = true;
+
+    constexpr bool nan_n_silly_check_cands_every_layer = false;
+    constexpr bool nan_n_silly_print_bad_cands_every_layer = false;
+    constexpr bool nan_n_silly_fixup_bad_cands_every_layer = false;
+
+    constexpr bool nan_n_silly_check_cands_pre_bkfit = true;
+    constexpr bool nan_n_silly_check_cands_post_bkfit = true;
+    constexpr bool nan_n_silly_print_bad_cands_bkfit = false;
+  }
+
+  namespace Config {
     // config for fitting
     constexpr int nLayers = 10;  // default: 10; cmssw tests: 13, 17, 26 (for endcap)
 
@@ -127,27 +140,10 @@ namespace mkfit {
     extern const float maxcth_ob;
     extern const float maxcth_fw;
 
-    extern bool useCMSGeom;
     extern bool includePCA;
 
     extern bool silent;
     extern bool json_verbose;
-
-    // NAN and silly track parameter tracking options
-    constexpr bool nan_etc_sigs_enable = false;
-
-    constexpr bool nan_n_silly_check_seeds = true;
-    constexpr bool nan_n_silly_print_bad_seeds = false;
-    constexpr bool nan_n_silly_fixup_bad_seeds = false;
-    constexpr bool nan_n_silly_remove_bad_seeds = true;
-
-    constexpr bool nan_n_silly_check_cands_every_layer = false;
-    constexpr bool nan_n_silly_print_bad_cands_every_layer = false;
-    constexpr bool nan_n_silly_fixup_bad_cands_every_layer = false;
-
-    constexpr bool nan_n_silly_check_cands_pre_bkfit = true;
-    constexpr bool nan_n_silly_check_cands_post_bkfit = true;
-    constexpr bool nan_n_silly_print_bad_cands_bkfit = false;
 
     // ================================================================
 
@@ -155,21 +151,9 @@ namespace mkfit {
       return (Config::mag_b0 * z * z + Config::mag_b1 * z + Config::mag_c1) * (Config::mag_a * r * r + 1.f);
     }
 
-#ifndef MPT_SIZE
-#if defined(__AVX512F__)
-#define MPT_SIZE 16
-#elif defined(__AVX__) || defined(__AVX2__)
-#define MPT_SIZE 8
-#elif defined(__SSE3__)
-#define MPT_SIZE 4
-#else
-#define MPT_SIZE 8
-#endif
-#endif
-
   };  // namespace Config
 
-  inline float cdist(float a) { return a > Config::PI ? Config::TwoPI - a : a; }
+  inline float cdist(float a) { return a > Const::PI ? Const::TwoPI - a : a; }
 
 }  // end namespace mkfit
 #endif

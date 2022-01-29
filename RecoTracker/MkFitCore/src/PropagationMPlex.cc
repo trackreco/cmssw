@@ -305,7 +305,7 @@ namespace mkfit {
       errorProp(n, 4, 4) = 1.f;
       errorProp(n, 5, 5) = 1.f;
 
-      const float k = inChg.constAt(n, 0, 0) * 100.f / (-Config::sol * Config::Bfield);
+      const float k = inChg.constAt(n, 0, 0) * 100.f / (-Const::sol * Config::Bfield);
       const float r = msRad.constAt(n, 0, 0);
       float r0 = hipo(inPar.constAt(n, 0, 0), inPar.constAt(n, 1, 0));
 
@@ -718,7 +718,7 @@ namespace mkfit {
 
       const float k =
           inChg.constAt(n, 0, 0) * 100.f /
-          (-Config::sol * (pflags.use_param_b_field
+          (-Const::sol * (pflags.use_param_b_field
                                ? Config::bFieldFromZR(zin, hipo(inPar.constAt(n, 0, 0), inPar.constAt(n, 1, 0)))
                                : Config::Bfield));
       const float kinv = 1.f / k;

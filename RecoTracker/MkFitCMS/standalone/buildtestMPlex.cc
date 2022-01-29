@@ -51,7 +51,7 @@ namespace mkfit {
     int check_nan_n_silly(TrackVec &tracks, const char *prefix) {
       int count = 0;
       for (auto &t : tracks) {
-        if (t.hasSillyValues(Config::nan_n_silly_print_bad_cands_bkfit, false, prefix)) {
+        if (t.hasSillyValues(Const::nan_n_silly_print_bad_cands_bkfit, false, prefix)) {
           ++count;
         }
       }
@@ -60,13 +60,13 @@ namespace mkfit {
 
     void check_nan_n_silly_candidates(Event &ev) {
       // MIMI -- nan_n_silly_per_layer_count is in MkBuilder, could be in MkJob.
-      // if (Config::nan_n_silly_check_cands_every_layer)
+      // if (Const::nan_n_silly_check_cands_every_layer)
       // {
       //   int sc = (int) ev.nan_n_silly_per_layer_count_;
       //   if (sc > 0)
       //     printf("Nan'n'Silly: Number of silly candidates over all layers = %d\n", sc);
       // }
-      if (Config::nan_n_silly_check_cands_pre_bkfit) {
+      if (Const::nan_n_silly_check_cands_pre_bkfit) {
         int sc = check_nan_n_silly(ev.candidateTracks_, "Pre-bkfit silly check");
         if (sc > 0)
           printf("Nan'n'Silly: Number of silly pre-bkfit candidates = %d\n", sc);
@@ -74,7 +74,7 @@ namespace mkfit {
     }
 
     void check_nan_n_silly_bkfit(Event &ev) {
-      if (Config::nan_n_silly_check_cands_post_bkfit) {
+      if (Const::nan_n_silly_check_cands_post_bkfit) {
         int sc = check_nan_n_silly(ev.fitTracks_, "Post-bkfit silly check");
         if (sc > 0)
           printf("Nan'n'Silly: Number of silly post-bkfit candidates = %d\n", sc);

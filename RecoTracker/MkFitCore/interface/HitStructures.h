@@ -74,7 +74,7 @@ namespace mkfit {
     int qBinChecked(float q) const { return std::clamp(qBin(q), 0, m_nq - 1); }
 
     // if you don't pass phi in (-pi, +pi), mask away the upper bits using m_phi_mask or use the Checked version.
-    int phiBinFine(float phi) const { return std::floor(m_fphi_fine * (phi + Config::PI)); }
+    int phiBinFine(float phi) const { return std::floor(m_fphi_fine * (phi + Const::PI)); }
     int phiBin(float phi) const { return phiBinFine(phi) >> m_phi_bits_shift; }
 
     int phiBinChecked(float phi) const { return phiBin(phi) & m_phi_mask; }
@@ -142,10 +142,10 @@ namespace mkfit {
 
   private:
     // Constants for phi-bin access / index manipulation.
-    static constexpr float m_fphi = Config::m_nphi / Config::TwoPI;
+    static constexpr float m_fphi = Config::m_nphi / Const::TwoPI;
     static constexpr int m_phi_mask = 0xff;
     static constexpr int m_phi_bits = 8;
-    static constexpr float m_fphi_fine = 1024 / Config::TwoPI;
+    static constexpr float m_fphi_fine = 1024 / Const::TwoPI;
     static constexpr int m_phi_mask_fine = 0x3ff;
     static constexpr int m_phi_bits_fine = 10;  //can't be more than 16
     static constexpr int m_phi_bits_shift = m_phi_bits_fine - m_phi_bits;

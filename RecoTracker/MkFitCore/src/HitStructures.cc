@@ -329,7 +329,7 @@ namespace mkfit {
     {
       float ddq   = std::abs(q   - m_hit_qs[hi]);
       float ddphi = std::abs(phi - m_hit_phis[hi]);
-      if (ddphi > Config::PI) ddphi = Config::TwoPI - ddphi;
+      if (ddphi > Const::PI) ddphi = Const::TwoPI - ddphi;
 
       if (dump)
         printf("     SHI %3d %4d %4d %5d  %6.3f %6.3f %6.4f %7.5f   %s\n",

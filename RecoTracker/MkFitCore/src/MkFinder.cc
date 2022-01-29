@@ -187,7 +187,7 @@ namespace mkfit {
 
     const float minChi2Cut = m_iteration_params->chi2Cut_min;
     const float invpt = Par[ipar].At(itrk, 3, 0);
-    const float theta = std::abs(Par[ipar].At(itrk, 5, 0) - Config::PIOver2);
+    const float theta = std::abs(Par[ipar].At(itrk, 5, 0) - Const::PIOver2);
 
     float max_invpt = invpt;
     if (invpt > 10.0)
@@ -269,7 +269,7 @@ namespace mkfit {
         float max_dphi = ILC.max_dphi();
 
         const float invpt = Par[iI].At(itrack, 3, 0);
-        const float theta = std::fabs(Par[iI].At(itrack, 5, 0) - Config::PIOver2);
+        const float theta = std::fabs(Par[iI].At(itrack, 5, 0) - Const::PIOver2);
         getHitSelDynamicWindows(invpt, theta, min_dq, max_dq, min_dphi, max_dphi);
 
         const float x = Par[iI].constAt(itrack, 0, 0);
@@ -290,9 +290,8 @@ namespace mkfit {
             std::abs(0.5f * (L.layer_info()->rout() - L.layer_info()->rin()) / std::tan(Par[iI].constAt(itrack, 5, 0)));
         // XXX-NUM-ERR above, Err(2,2) gets negative!
 
-        ////// Disable correction
-        //if (Config::useCMSGeom) // should be Config::finding_requires_propagation_to_hit_pos
-        //{
+        ////// Disable correction - subsumed in window sizes
+        //if (Config::finding_requires_propagation_to_hit_pos) {
         //  //now correct for bending and for layer thickness unsing linear approximation
         //  //fixme! using constant value, to be taken from layer properties
         //  //XXXXMT4GC should we also increase dz?
@@ -329,7 +328,7 @@ namespace mkfit {
         float max_dphi = ILC.max_dphi();
 
         const float invpt = Par[iI].At(itrack, 3, 0);
-        const float theta = std::fabs(Par[iI].At(itrack, 5, 0) - Config::PIOver2);
+        const float theta = std::fabs(Par[iI].At(itrack, 5, 0) - Const::PIOver2);
         getHitSelDynamicWindows(invpt, theta, min_dq, max_dq, min_dphi, max_dphi);
 
         const float x = Par[iI].constAt(itrack, 0, 0);
@@ -352,9 +351,8 @@ namespace mkfit {
         const float edgeCorr = std::abs(0.5f * (L.layer_info()->zmax() - L.layer_info()->zmin()) *
                                         std::tan(Par[iI].constAt(itrack, 5, 0)));
 
-        ////// Disable correction
-        //if (Config::useCMSGeom) // should be Config::finding_requires_propagation_to_hit_pos
-        //{
+        ////// Disable correction - subsumed in window sizes
+        //if (Config::finding_requires_propagation_to_hit_pos) {
         //  //now correct for bending and for layer thickness unsing linear approximation
         //  //fixme! using constant value, to be taken from layer properties
         //  //XXXXMT4GC should we also increase dr?
@@ -363,7 +361,7 @@ namespace mkfit {
         //  float cosT = std::cos(Par[iI].constAt(itrack, 5, 0));
         //  float sinT = std::sin(Par[iI].constAt(itrack, 5, 0));
         //  //here alpha is the helix angular path corresponding to deltaZ
-        //  const float k = Chg.constAt(itrack, 0, 0) * 100.f / (-Config::sol*Config::Bfield);
+        //  const float k = Chg.constAt(itrack, 0, 0) * 100.f / (-Const::sol*Config::Bfield);
         //  const float alpha  = deltaZ*sinT*Par[iI].constAt(itrack, 3, 0)/(cosT*k);
         //  dphi += std::abs(alpha);
         //}

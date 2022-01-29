@@ -405,16 +405,16 @@ namespace mkfit {
     }
 #endif
 
-    if (Config::nan_n_silly_check_seeds) {
+    if (Const::nan_n_silly_check_seeds) {
       int count = 0;
 
       for (int i = 0; i < (int)tv.size(); ++i) {
-        bool silly = tv[i].hasSillyValues(Config::nan_n_silly_print_bad_seeds,
-                                          Config::nan_n_silly_fixup_bad_seeds,
+        bool silly = tv[i].hasSillyValues(Const::nan_n_silly_print_bad_seeds,
+                                          Const::nan_n_silly_fixup_bad_seeds,
                                           "Post-cleaning seed silly value check and fix");
         if (silly) {
           ++count;
-          if (Config::nan_n_silly_remove_bad_seeds) {
+          if (Const::nan_n_silly_remove_bad_seeds) {
             // XXXX MT
             // Could do somethin smarter here: setStopped ?  check in seed cleaning ?
             tv.erase(tv.begin() + i);
@@ -426,8 +426,8 @@ namespace mkfit {
       if (count > 0 && !Config::silent) {
         printf("Nan'n'Silly detected %d silly seeds (fix=%d, remove=%d).\n",
                count,
-               Config::nan_n_silly_fixup_bad_seeds,
-               Config::nan_n_silly_remove_bad_seeds);
+               Const::nan_n_silly_fixup_bad_seeds,
+               Const::nan_n_silly_remove_bad_seeds);
       }
     }
   }
@@ -644,9 +644,9 @@ namespace mkfit {
             seed_cand_vec.push_back(std::pair<int, int>(iseed, ic));
             ccand[ic].resetOverlaps();
 
-            if (Config::nan_n_silly_check_cands_every_layer) {
-              if (ccand[ic].hasSillyValues(Config::nan_n_silly_print_bad_cands_every_layer,
-                                           Config::nan_n_silly_fixup_bad_cands_every_layer,
+            if (Const::nan_n_silly_check_cands_every_layer) {
+              if (ccand[ic].hasSillyValues(Const::nan_n_silly_print_bad_cands_every_layer,
+                                           Const::nan_n_silly_fixup_bad_cands_every_layer,
                                            "Per layer silly check"))
                 ++silly_count;
             }
@@ -658,7 +658,7 @@ namespace mkfit {
       }
     }
 
-    if (Config::nan_n_silly_check_cands_every_layer && silly_count > 0) {
+    if (Const::nan_n_silly_check_cands_every_layer && silly_count > 0) {
       m_nan_n_silly_per_layer_count += silly_count;
     }
 

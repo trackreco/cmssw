@@ -95,7 +95,7 @@ namespace mkfit {
       float invpt = t.invpT();
       float invptmin = 1.11;  // =1/0.9
 
-      float thetasym = std::abs(t.theta() - Config::PIOver2);
+      float thetasym = std::abs(t.theta() - Const::PIOver2);
       float thetasymmin = 1.11;  // -> |eta|=1.45
 
       return (((t.nFoundHits() - seedReduction >= 4 && invpt < invptmin) ||
@@ -118,7 +118,7 @@ namespace mkfit {
       float invpt = t.invpT();
       float invptmin = 1.11;  // =1/0.9
 
-      float thetasym = std::abs(t.theta() - Config::PIOver2);
+      float thetasym = std::abs(t.theta() - Const::PIOver2);
       float thetasymmin_l = 0.80;  // -> |eta|=0.9
       float thetasymmin_h = 1.11;  // -> |eta|=1.45
 

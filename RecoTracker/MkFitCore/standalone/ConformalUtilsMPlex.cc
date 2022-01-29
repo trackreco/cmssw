@@ -173,7 +173,7 @@ namespace mkfit {
     for (int n = 0; n < N; ++n) {
       initPhi.At(n, 0, 0) = std::abs(getPhi(x.constAt(n, 0, 0), y.constAt(n, 0, 0)));
       xtou.At(n, 0, 0) =
-          ((initPhi.constAt(n, 0, 0) < Config::PIOver4 || initPhi.constAt(n, 0, 0) > Config::PI3Over4) ? 1 : 0);
+          ((initPhi.constAt(n, 0, 0) < Const::PIOver4 || initPhi.constAt(n, 0, 0) > Const::PI3Over4) ? 1 : 0);
     }
 
     MPlexHV u, v;
@@ -215,7 +215,7 @@ namespace mkfit {
     }
 
     // constant used throughtout
-    const float k = (Config::sol * Config::Bfield) / 100.0f;
+    const float k = (Const::sol * Config::Bfield) / 100.0f;
 
     MPlexQF vrx, vry, pT, px, py, pz;
 #pragma omp simd

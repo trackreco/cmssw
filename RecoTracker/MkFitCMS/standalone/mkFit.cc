@@ -105,26 +105,6 @@ void initGeom() {
   // Test functions for ConfigJsonPatcher
   // configJson_Test_Direct (Config::ItrInfo[0]);
   // configJson_Test_Patcher(Config::ItrInfo[0]);
-
-  /*
-  if ( ! Config::useCMSGeom)
-  {
-    // This is the new standalone case -- Cylindrical Cow with Lids
-    //Create_TrackerInfo(Config::TrkInfo);
-    geom.BuildFromTrackerInfo(Config::TrkInfo);
-  }
-  else
-  {
-    float eta = 2.0; // can tune this to whatever geometry required (one can make this layer dependent as well)
-    for (int l = 0; l < Config::nLayers; l++)
-    {
-        float r = Config::useCMSGeom ? Config::cmsAvgRads[l] : (l+1)*Config::fRadialSpacing;
-        float z = r / std::tan(2.0*std::atan(std::exp(-eta))); // calculate z extent based on eta, r
-        VUSolid* utub = new VUSolid(r, r+Config::fRadialExtent, -z, z, true, l + 1 == Config::nLayers);
-        geom.AddLayer(utub, r, z);
-    }
-  }
-  */
 }
 
 namespace {
@@ -243,8 +223,6 @@ void test_standard() {
       sizeof(SMatrixSym33),
       sizeof(MCHitInfo));
 
-  if (Config::useCMSGeom)
-    printf("- using CMS-like geometry\n");
   if (Config::seedInput == cmsswSeeds)
     printf("- reading seeds from file\n");
 
@@ -514,7 +492,7 @@ void next_arg_or_die(lStr_t& args, lStr_i& i, bool allow_single_minus = false) {
 
 int main(int argc, const char* argv[]) {
 #ifdef _GNU_SOURCE
-  if (Config::nan_etc_sigs_enable) {
+  if (Const::nan_etc_sigs_enable) {
     feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);  //FE_ALL_EXCEPT);
   }
 #endif

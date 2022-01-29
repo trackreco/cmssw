@@ -701,7 +701,7 @@ void MkBuilder::PrepareSeeds()
 
   if (Config::seedInput == simSeeds)
   {
-    if (Config::useCMSGeom)
+    if (Config::clean_cms_simtracks_for_seeding)
     {
       m_event->clean_cms_simtracks();
 
