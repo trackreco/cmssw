@@ -152,7 +152,6 @@ namespace mkfit {
     extern bool includePCA;
 
     extern bool silent;
-    extern bool json_verbose;
 
     // ================================================================
 

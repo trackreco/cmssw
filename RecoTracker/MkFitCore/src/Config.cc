@@ -38,8 +38,6 @@ namespace mkfit {
     bool includePCA = false;
 
     bool silent = false;
-    bool json_verbose = false;
-
   }  // namespace Config
 
 }  // end namespace mkfit

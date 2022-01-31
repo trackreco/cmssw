@@ -328,43 +328,48 @@ namespace mkfit {
     std::string dump(int indent = 2);
   };
 
-  // Patch IterationsInfo from a vector of files.
-  // Assumes patch files include iteration-info preambles, i.e., they
-  // were saved with include_iter_info_preamble=true.
-  // If report is non-null counts are added to existing object.
-  void configJson_Patch_Files(IterationsInfo &its_info,
-                              const std::vector<std::string> &fnames,
-                              ConfigJsonPatcher::PatchReport *report = nullptr);
+  class ConfigJson {
+  public:
+    ConfigJson(bool verbose = false) : m_verbose(verbose) {}
 
-  // Load a single iteration from JSON file.
-  // Searches for a match between m_algorithm in its_info and in JSON file to decide
-  // which IterationConfig it will clone and patch-load the JSON file over.
-  // The IterationConfig in question *must* match in structure to what is on file,
-  // in particular, arrays must be of same lengths.
-  // Assumes JSON file has been saved WITHOUT iteration-info preamble.
-  // Returns a unique_ptr to the cloned IterationConfig.
-  // If report is non-null counts are added to existing object.
-  std::unique_ptr<IterationConfig> configJson_PatchLoad_File(const IterationsInfo &its_info,
-                                                             const std::string &fname,
-                                                             ConfigJsonPatcher::PatchReport *report = nullptr);
+    // Patch IterationsInfo from a vector of files.
+    // Assumes patch files include iteration-info preambles, i.e., they
+    // were saved with include_iter_info_preamble=true.
+    // If report is non-null counts are added to existing object.
+    void patch_Files(IterationsInfo &its_info,
+                     const std::vector<std::string> &fnames,
+                     ConfigJsonPatcher::PatchReport *report = nullptr);
 
-  // Load a single iteration from JSON file.
-  // This leaves IterationConfig data-members that are not registered
-  // in JSON schema at their default values.
-  // The only such member is std::function m_partition_seeds.
-  // Assumes JSON file has been saved WITHOUT iteration-info preamble.
-  // Returns a unique_ptr to the cloned IterationConfig.
-  std::unique_ptr<IterationConfig> configJson_Load_File(const std::string &fname);
+    // Load a single iteration from JSON file.
+    // Searches for a match between m_algorithm in its_info and in JSON file to decide
+    // which IterationConfig it will clone and patch-load the JSON file over.
+    // The IterationConfig in question *must* match in structure to what is on file,
+    // in particular, arrays must be of same lengths.
+    // Assumes JSON file has been saved WITHOUT iteration-info preamble.
+    // Returns a unique_ptr to the cloned IterationConfig.
+    // If report is non-null counts are added to existing object.
+    std::unique_ptr<IterationConfig> patchLoad_File(const IterationsInfo &its_info,
+                                                    const std::string &fname,
+                                                    ConfigJsonPatcher::PatchReport *report = nullptr);
 
-  void configJson_Save_Iterations(IterationsInfo &its_info,
-                                  const std::string &fname_fmt,
-                                  bool include_iter_info_preamble);
+    // Load a single iteration from JSON file.
+    // This leaves IterationConfig data-members that are not registered
+    // in JSON schema at their default values.
+    // The only such member is std::function m_partition_seeds.
+    // Assumes JSON file has been saved WITHOUT iteration-info preamble.
+    // Returns a unique_ptr to the cloned IterationConfig.
+    std::unique_ptr<IterationConfig> load_File(const std::string &fname);
 
-  void configJson_Dump(IterationsInfo &its_info);
+    void save_Iterations(IterationsInfo &its_info, const std::string &fname_fmt, bool include_iter_info_preamble);
 
-  void configJson_Test_Direct(IterationConfig &it_cfg);
-  void configJson_Test_Patcher(IterationConfig &it_cfg);
+    void dump(IterationsInfo &its_info);
 
+    void test_Direct(IterationConfig &it_cfg);
+    void test_Patcher(IterationConfig &it_cfg);
+
+  private:
+    bool m_verbose = false;
+  };
 }  // end namespace mkfit
 
 #endif

@@ -332,7 +332,7 @@ namespace mkfit {
   std::string ConfigJsonPatcher::dump(int indent) { return m_json->dump(indent); }
 
   // ============================================================================
-  // ConfigJson_Patch_File steering function
+  // patch_File steering function
   // ============================================================================
   /*
     See example JSON patcher input: "mkFit/config-parse/test.json"
@@ -377,10 +377,10 @@ namespace mkfit {
     }
   }  // namespace
 
-  void configJson_Patch_Files(IterationsInfo &its_info,
-                              const std::vector<std::string> &fnames,
-                              ConfigJsonPatcher::PatchReport *report) {
-    ConfigJsonPatcher cjp(Config::json_verbose);
+  void ConfigJson::patch_Files(IterationsInfo &its_info,
+                               const std::vector<std::string> &fnames,
+                               ConfigJsonPatcher::PatchReport *report) {
+    ConfigJsonPatcher cjp(m_verbose);
     cjp.load(its_info);
 
     ConfigJsonPatcher::PatchReport rep;
@@ -389,7 +389,7 @@ namespace mkfit {
       std::ifstream ifs;
       open_ifstream(ifs, fname, __func__);
 
-      if (Config::json_verbose) {
+      if (m_verbose) {
         printf("%s begin reading from file %s.\n", __func__, fname.c_str());
       }
 
@@ -399,21 +399,21 @@ namespace mkfit {
         ifs >> j;
         ++n_read;
 
-        if (Config::json_verbose) {
+        if (m_verbose) {
           std::cout << " Read JSON entity " << n_read << " -- applying patch:\n";
           // std::cout << j.dump(3) << "\n";
         }
 
         int n_replaced = cjp.replace(j);
 
-        if (Config::json_verbose) {
+        if (m_verbose) {
           std::cout << " Replaced " << n_replaced << " entries.\n";
         }
         cjp.cd_top();
         n_tot_replaced += n_replaced;
       }
 
-      if (Config::json_verbose) {
+      if (m_verbose) {
         printf("%s read %d JSON entities from file %s, replaced %d parameters.\n",
                __func__,
                n_read,
@@ -434,15 +434,15 @@ namespace mkfit {
       report->inc_counts(rep);
   }
 
-  std::unique_ptr<IterationConfig> configJson_PatchLoad_File(const IterationsInfo &its_info,
-                                                             const std::string &fname,
-                                                             ConfigJsonPatcher::PatchReport *report) {
+  std::unique_ptr<IterationConfig> ConfigJson::patchLoad_File(const IterationsInfo &its_info,
+                                                              const std::string &fname,
+                                                              ConfigJsonPatcher::PatchReport *report) {
     ConfigJsonPatcher::PatchReport rep;
 
     std::ifstream ifs;
     open_ifstream(ifs, fname, __func__);
 
-    if (Config::json_verbose) {
+    if (m_verbose) {
       printf("%s begin reading from file %s.\n", __func__, fname.c_str());
     }
 
@@ -463,21 +463,21 @@ namespace mkfit {
     if (iii == -1)
       throw std::runtime_error("matching IterationConfig not found");
 
-    if (Config::json_verbose) {
+    if (m_verbose) {
       std::cout << " Read JSON entity, Iteration index is " << iii << " -- cloning and applying JSON patch:\n";
     }
 
     IterationConfig *icp = new IterationConfig(its_info[iii]);
     IterationConfig &ic = *icp;
 
-    ConfigJsonPatcher cjp(Config::json_verbose);
+    ConfigJsonPatcher cjp(m_verbose);
     cjp.load(ic);
 
     int n_replaced = cjp.replace(j);
 
     cjp.cd_top();
 
-    if (Config::json_verbose) {
+    if (m_verbose) {
       printf("%s read 1 JSON entity from file %s, replaced %d parameters.\n", __func__, fname.c_str(), n_replaced);
     }
 
@@ -495,11 +495,11 @@ namespace mkfit {
     return std::unique_ptr<IterationConfig>(icp);
   }
 
-  std::unique_ptr<IterationConfig> configJson_Load_File(const std::string &fname) {
+  std::unique_ptr<IterationConfig> ConfigJson::load_File(const std::string &fname) {
     std::ifstream ifs;
     open_ifstream(ifs, fname, __func__);
 
-    if (Config::json_verbose) {
+    if (m_verbose) {
       printf("%s begin reading from file %s.\n", __func__, fname.c_str());
     }
 
@@ -509,7 +509,7 @@ namespace mkfit {
     nlohmann::json j;
     ifs >> j;
 
-    if (Config::json_verbose) {
+    if (m_verbose) {
       std::cout << " Read JSON entity, iteration index is " << j["m_iteration_index"] << ", track algorithm is "
                 << j["m_track_algorithm"] << ". Instantiating IterationConfig object and over-laying it with JSON.\n";
     }
@@ -525,9 +525,9 @@ namespace mkfit {
   // Save each IterationConfig into a separate json file
   // ============================================================================
 
-  void configJson_Save_Iterations(IterationsInfo &its_info,
-                                  const std::string &fname_fmt,
-                                  bool include_iter_info_preamble) {
+  void ConfigJson::save_Iterations(IterationsInfo &its_info,
+                                   const std::string &fname_fmt,
+                                   bool include_iter_info_preamble) {
     bool has_pct_d = fname_fmt.find("%d") != std::string::npos;
     bool has_pct_s = fname_fmt.find("%s") != std::string::npos;
 
@@ -565,7 +565,7 @@ namespace mkfit {
     }
   }
 
-  void configJson_Dump(IterationsInfo &its_info) {
+  void ConfigJson::dump(IterationsInfo &its_info) {
     nlohmann::ordered_json j = its_info;
     std::cout << j.dump(3) << "\n";
   }
@@ -574,7 +574,7 @@ namespace mkfit {
   // Tests for ConfigJson stuff
   // ============================================================================
 
-  void configJson_Test_Direct(IterationConfig &it_cfg) {
+  void ConfigJson::test_Direct(IterationConfig &it_cfg) {
     using nlohmann::json;
 
     std::string lojz("/m_select_max_dphi");
@@ -620,7 +620,7 @@ namespace mkfit {
     std::cout << "Typename /m_layer_configs/143 " << y.type_name() << ", is_null=" << y.is_null() << "\n";
   }
 
-  void configJson_Test_Patcher(IterationConfig &it_cfg) {
+  void ConfigJson::test_Patcher(IterationConfig &it_cfg) {
     ConfigJsonPatcher cjp;
     cjp.load(it_cfg);
 

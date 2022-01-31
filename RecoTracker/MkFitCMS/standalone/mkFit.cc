@@ -61,8 +61,10 @@ void initGeom() {
 
   mkfit::execTrackerInfoCreatorPlugin(Config::geomPlugin, Config::TrkInfo, Config::ItrInfo);
 
+  ConfigJson cj(Config::json_verbose);
+
   if (Config::json_dump_before)
-    configJson_Dump(Config::ItrInfo);
+    cj.dump(Config::ItrInfo);
 
   if (!Config::json_load_filenames.empty()) {
     ConfigJsonPatcher::PatchReport report;
@@ -70,7 +72,7 @@ void initGeom() {
     for (auto& fn : Config::json_load_filenames) {
       // This is for testing only ... we drop the loaded IterationConfig
       // as further code will always use IterationsInfo[ iter_index ].
-      configJson_PatchLoad_File(Config::ItrInfo, fn, &report);
+      cj.patchLoad_File(Config::ItrInfo, fn, &report);
     }
 
     printf(
@@ -85,7 +87,7 @@ void initGeom() {
   if (!Config::json_patch_filenames.empty()) {
     ConfigJsonPatcher::PatchReport report;
 
-    configJson_Patch_Files(Config::ItrInfo, Config::json_patch_filenames, &report);
+    cj.patch_Files(Config::ItrInfo, Config::json_patch_filenames, &report);
 
     printf("mkFit.cc/%s--JOSN-Patch read %d JSON entities from %d files, replaced %d parameters.\n",
            __func__,
@@ -95,16 +97,16 @@ void initGeom() {
   }
 
   if (Config::json_dump_after)
-    configJson_Dump(Config::ItrInfo);
+    cj.dump(Config::ItrInfo);
 
   if (!Config::json_save_iters_fname_fmt.empty()) {
-    configJson_Save_Iterations(
+    cj.save_Iterations(
         Config::ItrInfo, Config::json_save_iters_fname_fmt, Config::json_save_iters_include_iter_info_preamble);
   }
 
   // Test functions for ConfigJsonPatcher
-  // configJson_Test_Direct (Config::ItrInfo[0]);
-  // configJson_Test_Patcher(Config::ItrInfo[0]);
+  // cj.test_Direct (Config::ItrInfo[0]);
+  // cj.test_Patcher(Config::ItrInfo[0]);
 }
 
 namespace {

@@ -63,6 +63,7 @@ namespace mkfit {
 
     // ================================================================
 
+    bool json_verbose = false;
     bool json_dump_before = false;
     bool json_dump_after = false;
     std::vector<std::string> json_patch_filenames;

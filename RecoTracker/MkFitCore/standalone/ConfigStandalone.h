@@ -166,6 +166,7 @@ namespace mkfit {
 
     // ================================================================
 
+    extern bool json_verbose;
     extern bool json_dump_before;
     extern bool json_dump_after;
     extern std::vector<std::string> json_patch_filenames;

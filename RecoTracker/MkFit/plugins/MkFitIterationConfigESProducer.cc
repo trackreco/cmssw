@@ -233,7 +233,8 @@ void MkFitIterationConfigESProducer::fillDescriptions(edm::ConfigurationDescript
 
 std::unique_ptr<mkfit::IterationConfig> MkFitIterationConfigESProducer::produce(
     const TrackerRecoGeometryRecord &iRecord) {
-  auto it_conf = mkfit::configJson_Load_File(configFile_);
+  mkfit::ConfigJson cj;
+  auto it_conf = cj.load_File(configFile_);
   it_conf->m_partition_seeds = partitionSeeds1;
   return it_conf;
 }
