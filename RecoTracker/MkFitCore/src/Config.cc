@@ -2,6 +2,15 @@
 
 namespace mkfit {
 
+  const PropagationConfig* PropagationConfig::s_default = nullptr;
+
+  void PropagationConfig::set_as_default() {
+    delete s_default;
+    s_default = new PropagationConfig(*this);
+  }
+
+  //------------------------------------------------------------------------------
+
   namespace Config {
     // Multi threading and Clone engine configuration
     int numThreadsFinder = 1;
@@ -21,14 +30,6 @@ namespace mkfit {
     const float maxdcth = 0.37;    //comparisons
     const float maxcth_ob = 1.99;  //eta 1.44
     const float maxcth_fw = 6.05;  //eta 2.5
-
-    bool finding_requires_propagation_to_hit_pos;
-    PropagationFlags finding_inter_layer_pflags;
-    PropagationFlags finding_intra_layer_pflags;
-    PropagationFlags backward_fit_pflags;
-    PropagationFlags forward_fit_pflags;
-    PropagationFlags seed_fit_pflags;
-    PropagationFlags pca_prop_pflags;
 
 #ifdef CONFIG_PhiQArrays
     bool usePhiQArrays = true;

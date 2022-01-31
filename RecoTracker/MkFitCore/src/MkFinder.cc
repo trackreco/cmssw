@@ -20,13 +20,18 @@
 
 namespace mkfit {
 
-  void MkFinder::setup(const IterationParams &ip, const IterationLayerConfig &ilc, const std::vector<bool> *ihm) {
+  void MkFinder::setup(const PropagationConfig &pc,
+                       const IterationParams &ip,
+                       const IterationLayerConfig &ilc,
+                       const std::vector<bool> *ihm) {
+    m_prop_config = &pc;
     m_iteration_params = &ip;
     m_iteration_layer_config = &ilc;
     m_iteration_hit_mask = ihm;
   }
 
   void MkFinder::release() {
+    m_prop_config = nullptr;
     m_iteration_params = nullptr;
     m_iteration_layer_config = nullptr;
     m_iteration_hit_mask = nullptr;
@@ -291,7 +296,7 @@ namespace mkfit {
         // XXX-NUM-ERR above, Err(2,2) gets negative!
 
         ////// Disable correction - subsumed in window sizes
-        //if (Config::finding_requires_propagation_to_hit_pos) {
+        //if (m_prop_config->finding_requires_propagation_to_hit_pos) {
         //  //now correct for bending and for layer thickness unsing linear approximation
         //  //fixme! using constant value, to be taken from layer properties
         //  //XXXXMT4GC should we also increase dz?
@@ -352,7 +357,7 @@ namespace mkfit {
                                         std::tan(Par[iI].constAt(itrack, 5, 0)));
 
         ////// Disable correction - subsumed in window sizes
-        //if (Config::finding_requires_propagation_to_hit_pos) {
+        //if (m_prop_config->finding_requires_propagation_to_hit_pos) {
         //  //now correct for bending and for layer thickness unsing linear approximation
         //  //fixme! using constant value, to be taken from layer properties
         //  //XXXXMT4GC should we also increase dr?
@@ -514,7 +519,7 @@ namespace mkfit {
                                                thisOutChi2,
                                                tmpPropPar,
                                                N_proc,
-                                               Config::finding_intra_layer_pflags);
+                                               m_prop_config->finding_intra_layer_pflags);
 
                 float hx = thishit.x();
                 float hy = thishit.y();
@@ -769,8 +774,16 @@ namespace mkfit {
       //now compute the chi2 of track state vs hit
       MPlexQF outChi2;
       MPlexLV tmpPropPar;
-      (*fnd_foos.m_compute_chi2_foo)(
-          Err[iP], Par[iP], Chg, msErr, msPar, outChi2, tmpPropPar, N_proc, Config::finding_intra_layer_pflags);
+      (*fnd_foos.m_compute_chi2_foo)(Err[iP],
+                                     Par[iP],
+                                     Chg,
+                                     msErr,
+                                     msPar,
+                                     outChi2,
+                                     tmpPropPar,
+                                     N_proc,
+                                     m_prop_config->finding_intra_layer_pflags,
+                                     m_prop_config->finding_requires_propagation_to_hit_pos);
 
       //update best hit in case chi2<minChi2
 #pragma omp simd
@@ -846,8 +859,16 @@ namespace mkfit {
     // are already done when computing chi2. Not sure it's worth caching them?)
 
     dprint("update parameters");
-    (*fnd_foos.m_update_param_foo)(
-        Err[iP], Par[iP], Chg, msErr, msPar, Err[iC], Par[iC], N_proc, Config::finding_intra_layer_pflags);
+    (*fnd_foos.m_update_param_foo)(Err[iP],
+                                   Par[iP],
+                                   Chg,
+                                   msErr,
+                                   msPar,
+                                   Err[iC],
+                                   Par[iC],
+                                   N_proc,
+                                   m_prop_config->finding_intra_layer_pflags,
+                                   m_prop_config->finding_requires_propagation_to_hit_pos);
 
     dprint("Par[iP](0,0,0)=" << Par[iP](0, 0, 0) << " Par[iC](0,0,0)=" << Par[iC](0, 0, 0));
   }
@@ -965,8 +986,16 @@ namespace mkfit {
       //now compute the chi2 of track state vs hit
       MPlexQF outChi2;
       MPlexLV propPar;
-      (*fnd_foos.m_compute_chi2_foo)(
-          Err[iP], Par[iP], Chg, msErr, msPar, outChi2, propPar, N_proc, Config::finding_intra_layer_pflags);
+      (*fnd_foos.m_compute_chi2_foo)(Err[iP],
+                                     Par[iP],
+                                     Chg,
+                                     msErr,
+                                     msPar,
+                                     outChi2,
+                                     propPar,
+                                     N_proc,
+                                     m_prop_config->finding_intra_layer_pflags,
+                                     m_prop_config->finding_requires_propagation_to_hit_pos);
 
       // Now update the track parameters with this hit (note that some
       // calculations are already done when computing chi2, to be optimized).
@@ -1001,8 +1030,16 @@ namespace mkfit {
 
       if (oneCandPassCut) {
         MPlexQI tmpChg = Chg;
-        (*fnd_foos.m_update_param_foo)(
-            Err[iP], Par[iP], tmpChg, msErr, msPar, Err[iC], Par[iC], N_proc, Config::finding_intra_layer_pflags);
+        (*fnd_foos.m_update_param_foo)(Err[iP],
+                                       Par[iP],
+                                       tmpChg,
+                                       msErr,
+                                       msPar,
+                                       Err[iC],
+                                       Par[iC],
+                                       N_proc,
+                                       m_prop_config->finding_intra_layer_pflags,
+                                       m_prop_config->finding_requires_propagation_to_hit_pos);
 
         dprint("update parameters" << std::endl
                                    << "propagated track parameters x=" << Par[iP].constAt(0, 0, 0)
@@ -1163,8 +1200,16 @@ namespace mkfit {
       //now compute the chi2 of track state vs hit
       MPlexQF outChi2;
       MPlexLV propPar;
-      (*fnd_foos.m_compute_chi2_foo)(
-          Err[iP], Par[iP], Chg, msErr, msPar, outChi2, propPar, N_proc, Config::finding_intra_layer_pflags);
+      (*fnd_foos.m_compute_chi2_foo)(Err[iP],
+                                     Par[iP],
+                                     Chg,
+                                     msErr,
+                                     msPar,
+                                     outChi2,
+                                     propPar,
+                                     N_proc,
+                                     m_prop_config->finding_intra_layer_pflags,
+                                     m_prop_config->finding_requires_propagation_to_hit_pos);
 
 #pragma omp simd  // DOES NOT VECTORIZE AS IT IS NOW
       for (int itrack = 0; itrack < N_proc; ++itrack) {
@@ -1294,8 +1339,16 @@ namespace mkfit {
 
     // See comment in MkBuilder::find_tracks_in_layer() about intra / inter flags used here
     // for propagation to the hit.
-    (*fnd_foos.m_update_param_foo)(
-        Err[iP], Par[iP], Chg, msErr, msPar, Err[iC], Par[iC], N_proc, Config::finding_inter_layer_pflags);
+    (*fnd_foos.m_update_param_foo)(Err[iP],
+                                   Par[iP],
+                                   Chg,
+                                   msErr,
+                                   msPar,
+                                   Err[iC],
+                                   Par[iC],
+                                   N_proc,
+                                   m_prop_config->finding_inter_layer_pflags,
+                                   m_prop_config->finding_requires_propagation_to_hit_pos);
   }
 
   //==============================================================================
@@ -1481,12 +1534,12 @@ namespace mkfit {
       // ZZZ Could add missing hits here, only if there are any actual matches.
 
       if (LI.is_barrel()) {
-        propagateTracksToHitR(msPar, N_proc, Config::backward_fit_pflags);
+        propagateTracksToHitR(msPar, N_proc, m_prop_config->backward_fit_pflags);
 
         kalmanOperation(
             KFO_Calculate_Chi2 | KFO_Update_Params, Err[iP], Par[iP], msErr, msPar, Err[iC], Par[iC], tmp_chi2, N_proc);
       } else {
-        propagateTracksToHitZ(msPar, N_proc, Config::backward_fit_pflags);
+        propagateTracksToHitZ(msPar, N_proc, m_prop_config->backward_fit_pflags);
 
         kalmanOperationEndcap(
             KFO_Calculate_Chi2 | KFO_Update_Params, Err[iP], Par[iP], msErr, msPar, Err[iC], Par[iC], tmp_chi2, N_proc);
@@ -1631,12 +1684,12 @@ namespace mkfit {
       // ZZZ Could add missing hits here, only if there are any actual matches.
 
       if (LI.is_barrel()) {
-        propagateTracksToHitR(msPar, N_proc, Config::backward_fit_pflags, &no_mat_effs);
+        propagateTracksToHitR(msPar, N_proc, m_prop_config->backward_fit_pflags, &no_mat_effs);
 
         kalmanOperation(
             KFO_Calculate_Chi2 | KFO_Update_Params, Err[iP], Par[iP], msErr, msPar, Err[iC], Par[iC], tmp_chi2, N_proc);
       } else {
-        propagateTracksToHitZ(msPar, N_proc, Config::backward_fit_pflags, &no_mat_effs);
+        propagateTracksToHitZ(msPar, N_proc, m_prop_config->backward_fit_pflags, &no_mat_effs);
 
         kalmanOperationEndcap(
             KFO_Calculate_Chi2 | KFO_Update_Params, Err[iP], Par[iP], msErr, msPar, Err[iC], Par[iC], tmp_chi2, N_proc);
@@ -1735,6 +1788,8 @@ namespace mkfit {
 
   //------------------------------------------------------------------------------
 
-  void MkFinder::bkFitPropTracksToPCA(const int N_proc) { propagateTracksToPCAZ(N_proc, Config::pca_prop_pflags); }
+  void MkFinder::bkFitPropTracksToPCA(const int N_proc) {
+    propagateTracksToPCAZ(N_proc, m_prop_config->pca_prop_pflags);
+  }
 
 }  // end namespace mkfit

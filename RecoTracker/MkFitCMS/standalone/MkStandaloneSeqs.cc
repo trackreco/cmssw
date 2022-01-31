@@ -677,7 +677,7 @@ inline void MkBuilder::fit_one_seed_set(TrackVec& seedtracks, int itrack, int en
 
   if (Config::cf_seeding) mkfttr->ConformalFitTracks(false, itrack, end);
 
-  mkfttr->FitTracksSteered(is_brl, end - itrack, m_event, Config::seed_fit_pflags);
+  mkfttr->FitTracksSteered(is_brl, end - itrack, m_event, PropagationConfig::get_default().seed_fit_pflags);
 
   mkfttr->outputFittedTracksAndHitIdx(m_event->seedTracks_, itrack, end, false);
 }

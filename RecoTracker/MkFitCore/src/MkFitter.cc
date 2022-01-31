@@ -330,7 +330,7 @@ namespace mkfit {
 
       mhp.pack(msErr[0], msPar[0]);
 
-      propagateTracksToHitR(msPar[0], N_proc, Config::forward_fit_pflags);
+      propagateTracksToHitR(msPar[0], N_proc, PropagationConfig::get_default().forward_fit_pflags);
 
       kalmanUpdate(Err[iP], Par[iP], msErr[0], msPar[0], Err[iC], Par[iC], N_proc);
     }

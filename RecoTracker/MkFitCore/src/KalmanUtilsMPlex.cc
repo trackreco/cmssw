@@ -436,8 +436,9 @@ namespace mkfit {
                                 MPlexLS& outErr,
                                 MPlexLV& outPar,
                                 const int N_proc,
-                                const PropagationFlags propFlags) {
-    if (Config::finding_requires_propagation_to_hit_pos) {
+                                const PropagationFlags propFlags,
+                                const bool propToHit) {
+    if (propToHit) {
       MPlexLS propErr;
       MPlexLV propPar;
       MPlexQF msRad;
@@ -480,9 +481,10 @@ namespace mkfit {
                                      MPlexQF& outChi2,
                                      MPlexLV& propPar,
                                      const int N_proc,
-                                     const PropagationFlags propFlags) {
+                                     const PropagationFlags propFlags,
+                                     const bool propToHit) {
     propPar = psPar;
-    if (Config::finding_requires_propagation_to_hit_pos) {
+    if (propToHit) {
       MPlexLS propErr;
       MPlexQF msRad;
 #pragma omp simd
@@ -685,8 +687,9 @@ namespace mkfit {
                                       MPlexLS& outErr,
                                       MPlexLV& outPar,
                                       const int N_proc,
-                                      const PropagationFlags propFlags) {
-    if (Config::finding_requires_propagation_to_hit_pos) {
+                                      const PropagationFlags propFlags,
+                                      const bool propToHit) {
+    if (propToHit) {
       MPlexLS propErr;
       MPlexLV propPar;
       MPlexQF msZ;
@@ -729,9 +732,10 @@ namespace mkfit {
                                            MPlexQF& outChi2,
                                            MPlexLV& propPar,
                                            const int N_proc,
-                                           const PropagationFlags propFlags) {
+                                           const PropagationFlags propFlags,
+                                           const bool propToHit) {
     propPar = psPar;
-    if (Config::finding_requires_propagation_to_hit_pos) {
+    if (propToHit) {
       MPlexLS propErr;
       MPlexQF msZ;
 #pragma omp simd

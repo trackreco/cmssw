@@ -17,6 +17,24 @@ namespace mkfit {
         : use_param_b_field(pfe & PF_use_param_b_field), apply_material(pfe & PF_apply_material) {}
   };
 
+  class PropagationConfig {
+  public:
+    bool finding_requires_propagation_to_hit_pos;
+    PropagationFlags finding_inter_layer_pflags;
+    PropagationFlags finding_intra_layer_pflags;
+    PropagationFlags backward_fit_pflags;
+    PropagationFlags forward_fit_pflags;
+    PropagationFlags seed_fit_pflags;
+    PropagationFlags pca_prop_pflags;
+
+    void set_as_default();
+
+    static const PropagationConfig& get_default() { return *s_default; }
+
+  private:
+    static const PropagationConfig* s_default;
+  };
+
   //------------------------------------------------------------------------------
 
   namespace Const {
@@ -49,6 +67,10 @@ namespace mkfit {
     constexpr bool nan_n_silly_print_bad_cands_bkfit = false;
   }  // namespace Const
 
+  inline float cdist(float a) { return a > Const::PI ? Const::TwoPI - a : a; }
+
+  //------------------------------------------------------------------------------
+
   namespace Config {
     // config for fitting
     constexpr int nLayers = 10;  // default: 10; cmssw tests: 13, 17, 26 (for endcap)
@@ -66,15 +88,6 @@ namespace mkfit {
     // Config for propagation - could/should enter into PropagationFlags?!
     constexpr int Niter = 5;
     constexpr bool useTrigApprox = true;
-
-    // PropagationFlags as used during finding and fitting. Defined for each Geom in its plugin.
-    extern bool finding_requires_propagation_to_hit_pos;
-    extern PropagationFlags finding_inter_layer_pflags;
-    extern PropagationFlags finding_intra_layer_pflags;
-    extern PropagationFlags backward_fit_pflags;
-    extern PropagationFlags forward_fit_pflags;
-    extern PropagationFlags seed_fit_pflags;
-    extern PropagationFlags pca_prop_pflags;
 
     // Config for Bfield. Note: for now the same for CMS-2017 and CylCowWLids.
     constexpr float Bfield = 3.8112;
@@ -149,7 +162,7 @@ namespace mkfit {
 
   };  // namespace Config
 
-  inline float cdist(float a) { return a > Const::PI ? Const::TwoPI - a : a; }
+  //------------------------------------------------------------------------------
 
 }  // end namespace mkfit
 #endif

@@ -112,6 +112,7 @@ namespace mkfit {
     // MPlexLS    candErrAtCurrHit;
     // MPlexLV    candParAtCurrHit;
 
+    const PropagationConfig *m_prop_config = nullptr;
     const IterationParams *m_iteration_params = nullptr;
     const IterationLayerConfig *m_iteration_layer_config = nullptr;
     const std::vector<bool> *m_iteration_hit_mask = nullptr;
@@ -120,7 +121,10 @@ namespace mkfit {
 
     MkFinder() {}
 
-    void setup(const IterationParams &ip, const IterationLayerConfig &ilc, const std::vector<bool> *ihm);
+    void setup(const PropagationConfig &pc,
+               const IterationParams &ip,
+               const IterationLayerConfig &ilc,
+               const std::vector<bool> *ihm);
     void release();
 
     //----------------------------------------------------------------------------

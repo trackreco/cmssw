@@ -150,13 +150,15 @@ namespace {
   //============================================================================
 
   void Create_CylCowWLids(TrackerInfo& ti, IterationsInfo& ii, bool verbose) {
-    Config::finding_requires_propagation_to_hit_pos = false;
-    Config::finding_inter_layer_pflags = PropagationFlags(PF_none);
-    Config::finding_intra_layer_pflags = PropagationFlags(PF_none);
-    Config::backward_fit_pflags = PropagationFlags(PF_use_param_b_field);
-    Config::forward_fit_pflags = PropagationFlags(PF_use_param_b_field);
-    Config::seed_fit_pflags = PropagationFlags(PF_none);
-    Config::pca_prop_pflags = PropagationFlags(PF_use_param_b_field);
+    PropagationConfig pconf;
+    pconf.finding_requires_propagation_to_hit_pos = false;
+    pconf.finding_inter_layer_pflags = PropagationFlags(PF_none);
+    pconf.finding_intra_layer_pflags = PropagationFlags(PF_none);
+    pconf.backward_fit_pflags = PropagationFlags(PF_use_param_b_field);
+    pconf.forward_fit_pflags = PropagationFlags(PF_use_param_b_field);
+    pconf.seed_fit_pflags = PropagationFlags(PF_none);
+    pconf.pca_prop_pflags = PropagationFlags(PF_use_param_b_field);
+    pconf.set_as_default();
 
     CylCowWLidsCreator creator(ti);
 

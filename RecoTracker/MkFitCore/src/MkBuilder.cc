@@ -470,6 +470,7 @@ namespace mkfit {
 
       const SteeringParams &st_par = m_job->steering_params(region);
       const TrackerInfo &trk_info = m_job->m_trk_info;
+      const PropagationConfig &prop_config = PropagationConfig::get_default();
 
       const RegionOfSeedIndices rosi(m_seedEtaSeparators, region);
 
@@ -514,7 +515,8 @@ namespace mkfit {
           while (++layer_plan_it) {
             prev_layer = curr_layer;
             curr_layer = layer_plan_it.layer();
-            mkfndr->setup(m_job->m_iter_config.m_params,
+            mkfndr->setup(prop_config,
+                          m_job->m_iter_config.m_params,
                           m_job->m_iter_config.m_layer_configs[curr_layer],
                           m_job->get_mask_for_layer(curr_layer));
 
@@ -544,7 +546,7 @@ namespace mkfit {
             dcall(pre_prop_print(curr_layer, mkfndr.get()));
 
             (mkfndr.get()->*fnd_foos.m_propagate_foo)(
-                layer_info.propagate_to(), curr_tridx, Config::finding_inter_layer_pflags);
+                layer_info.propagate_to(), curr_tridx, prop_config.finding_inter_layer_pflags);
 
             dcall(post_prop_print(curr_layer, mkfndr.get()));
 
@@ -752,6 +754,7 @@ namespace mkfit {
       const TrackerInfo &trk_info = m_job->m_trk_info;
       const SteeringParams &st_par = m_job->steering_params(region);
       const IterationParams &params = m_job->params();
+      const PropagationConfig &prop_config = PropagationConfig::get_default();
 
       const RegionOfSeedIndices rosi(m_seedEtaSeparators, region);
 
@@ -799,8 +802,10 @@ namespace mkfit {
         while (++layer_plan_it) {
           prev_layer = curr_layer;
           curr_layer = layer_plan_it.layer();
-          mkfndr->setup(
-              iter_params, m_job->m_iter_config.m_layer_configs[curr_layer], m_job->get_mask_for_layer(curr_layer));
+          mkfndr->setup(prop_config,
+                        iter_params,
+                        m_job->m_iter_config.m_layer_configs[curr_layer],
+                        m_job->get_mask_for_layer(curr_layer));
 
           dprintf("\n* Processing layer %d\n", curr_layer);
 
@@ -833,7 +838,7 @@ namespace mkfit {
             dcall(pre_prop_print(curr_layer, mkfndr.get()));
 
             (mkfndr.get()->*fnd_foos.m_propagate_foo)(
-                layer_info.propagate_to(), end - itrack, Config::finding_inter_layer_pflags);
+                layer_info.propagate_to(), end - itrack, prop_config.finding_inter_layer_pflags);
 
             dcall(post_prop_print(curr_layer, mkfndr.get()));
 
@@ -972,6 +977,7 @@ namespace mkfit {
     const TrackerInfo &trk_info = m_job->m_trk_info;
     const SteeringParams &st_par = m_job->steering_params(region);
     const IterationParams &params = m_job->params();
+    const PropagationConfig &prop_config = PropagationConfig::get_default();
 
     const int n_seeds = end_seed - start_seed;
 
@@ -1016,8 +1022,10 @@ namespace mkfit {
     while (++layer_plan_it) {
       prev_layer = curr_layer;
       curr_layer = layer_plan_it.layer();
-      mkfndr->setup(
-          iter_params, m_job->m_iter_config.m_layer_configs[curr_layer], m_job->get_mask_for_layer(curr_layer));
+      mkfndr->setup(prop_config,
+                    iter_params,
+                    m_job->m_iter_config.m_layer_configs[curr_layer],
+                    m_job->get_mask_for_layer(curr_layer));
 
       const bool pickup_only = layer_plan_it.is_pickup_only();
 
@@ -1072,7 +1080,7 @@ namespace mkfit {
 
         // propagate to current layer
         (mkfndr->*fnd_foos.m_propagate_foo)(
-            layer_info.propagate_to(), end - itrack, Config::finding_inter_layer_pflags);
+            layer_info.propagate_to(), end - itrack, prop_config.finding_inter_layer_pflags);
 
         dprint("now get hit range");
 
