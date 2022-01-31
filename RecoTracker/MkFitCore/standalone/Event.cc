@@ -11,22 +11,21 @@
 #include <memory>
 
 namespace {
-  std::unique_ptr<mkfit::Validation> dummyValidation(mkfit::Validation::make_validation("dummy"));
+  std::unique_ptr<mkfit::Validation> dummyValidation(mkfit::Validation::make_validation("dummy", nullptr));
 }
 
 namespace mkfit {
 
   std::mutex Event::printmutex;
 
-  Event::Event(int evtID) : validation_(*dummyValidation), evtID_(evtID) {
-    layerHits_.resize(Config::nTotalLayers);
-    layerHitMasks_.resize(Config::nTotalLayers);
+  Event::Event(int evtID, int nLayers) : validation_(*dummyValidation), evtID_(evtID) {
+    layerHits_.resize(nLayers);
+    layerHitMasks_.resize(nLayers);
   }
 
-  Event::Event(Validation &v, int evtID) : validation_(v), evtID_(evtID) {
-    layerHits_.resize(Config::nTotalLayers);
-    layerHitMasks_.resize(Config::nTotalLayers);
-
+  Event::Event(Validation &v, int evtID, int nLayers) : validation_(v), evtID_(evtID) {
+    layerHits_.resize(nLayers);
+    layerHitMasks_.resize(nLayers);
     validation_.resetValidationMaps();  // need to reset maps for every event.
   }
 
@@ -849,7 +848,7 @@ namespace mkfit {
   // DataFile
   //==============================================================================
 
-  int DataFile::openRead(const std::string &fname, bool set_n_layers) {
+  int DataFile::openRead(const std::string &fname, int expected_n_layers) {
     constexpr int min_ver = 4;
     constexpr int max_ver = 6;
 
@@ -891,13 +890,11 @@ namespace mkfit {
               (int)sizeof(HitOnTrack));
       exit(1);
     }
-    if (set_n_layers) {
-      Config::nTotalLayers = f_header.f_n_layers;
-    } else if (f_header.f_n_layers != Config::nTotalLayers) {
+    if (f_header.f_n_layers != expected_n_layers) {
       fprintf(stderr,
-              "Number of layers on file (%d) is different from current Config::nTotalLayers (%d).\n",
+              "Number of layers on file (%d) is different from current TrackerInfo (%d).\n",
               f_header.f_n_layers,
-              Config::nTotalLayers);
+              expected_n_layers);
       exit(1);
     }
 
@@ -930,11 +927,10 @@ namespace mkfit {
     return f_header.f_n_events;
   }
 
-  void DataFile::openWrite(const std::string &fname, int nev, int extra_sections) {
+  void DataFile::openWrite(const std::string &fname, int n_layers, int n_ev, int extra_sections) {
     f_fp = fopen(fname.c_str(), "w");
-
-    f_header.f_n_events = nev;
-
+    f_header.f_n_layers = n_layers;
+    f_header.f_n_events = n_ev;
     f_header.f_extra_sections = extra_sections;
 
     fwrite(&f_header, sizeof(DataFileHeader), 1, f_fp);

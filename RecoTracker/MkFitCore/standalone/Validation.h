@@ -72,7 +72,7 @@ namespace mkfit {
 
     virtual void saveTTrees() {}
 
-    static Validation* make_validation(const std::string&);
+    static Validation* make_validation(const std::string&, const TrackerInfo*);
 
   protected:
     Validation();

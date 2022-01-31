@@ -4,7 +4,7 @@
 #include <iostream>
 #include <list>
 #include <unordered_map>
-#include "Event.h"
+#include "RecoTracker/MkFitCore/standalone/Event.h"
 #include "RecoTracker/MkFitCore/interface/Config.h"
 #include "RecoTracker/MkFitCMS/interface/LayerNumberConverter.h"
 
@@ -132,9 +132,8 @@ int main(int argc, char* argv[]) {
 
   LayerNumberConverter lnc(TkLayout::phase1);
   const unsigned int nTotalLayers = lnc.nLayers();
-  Config::nTotalLayers = lnc.nLayers();
 
-  vector<unordered_map<unsigned int, unsigned int>> module_shortId_hash(Config::nTotalLayers);
+  vector<unordered_map<unsigned int, unsigned int>> module_shortId_hash(nTotalLayers);
 
   int nstot = 0;
   std::vector<int> nhitstot(nTotalLayers, 0);
@@ -490,9 +489,9 @@ int main(int argc, char* argv[]) {
 
   if (maxevt < 0)
     maxevt = totentries;
-  data_file.openWrite(outputFileName, std::min(maxevt, totentries), outOptions);
+  data_file.openWrite(outputFileName, static_cast<int>(nTotalLayers), std::min(maxevt, totentries), outOptions);
 
-  Event EE(0);
+  Event EE(0, static_cast<int>(nTotalLayers));
 
   int numFailCCC = 0;
   int numTotalStr = 0;
@@ -706,7 +705,7 @@ int main(int argc, char* argv[]) {
       }
       if (trkIdx >= 0) {
         int seedIdx = trk_seedIdx->at(trkIdx);
-        auto const& shTypes = see_hitType->at(seedIdx);
+        // Unused: auto const& shTypes = see_hitType->at(seedIdx);
         seedSimIdx[seedIdx] = simTracks_.size();
       }
       if (cleanSimTracks) {
@@ -1124,7 +1123,7 @@ int main(int argc, char* argv[]) {
         for (int il = 0; il < nl; ++il) {
           int nh = layerHits_[il].size();
           for (int ih = 0; ih < nh; ++ih) {
-            printf("lay=%i idx=%i mcid=%i x=(%6.3f, %6.3f, %6.3f) r=%6.3f mask=0x%x\n",
+            printf("lay=%i idx=%i mcid=%i x=(%6.3f, %6.3f, %6.3f) r=%6.3f mask=0x%lx\n",
                    il + 1,
                    ih,
                    layerHits_[il][ih].mcHitID(),
@@ -1174,7 +1173,7 @@ int main(int argc, char* argv[]) {
           printf("seed id=%i label=%i algo=%i q=%2i pT=%6.3f p=(%6.3f, %6.3f, %6.3f) x=(%6.3f, %6.3f, %6.3f)\n",
                  i,
                  seedTracks_[i].label(),
-                 seedTracks_[i].algorithm(),
+                 (int)seedTracks_[i].algorithm(),
                  seedTracks_[i].charge(),
                  seedTracks_[i].pT(),
                  seedTracks_[i].px(),
@@ -1196,7 +1195,7 @@ int main(int argc, char* argv[]) {
                 "pT=%7.4f nTotal=%i nFound=%i \n",
                 i,
                 cmsswTracks_[i].label(),
-                cmsswTracks_[i].algorithm(),
+                (int)cmsswTracks_[i].algorithm(),
                 cmsswTracks_[i].chi2(),
                 cmsswTracks_[i].charge(),
                 cmsswTracks_[i].px(),
@@ -1250,9 +1249,9 @@ int main(int argc, char* argv[]) {
   //========================================================================
 
   printf("\n\n================================================================\n");
-  printf("=== Max module id for %d layers\n", Config::nTotalLayers);
+  printf("=== Max module id for %u layers\n", nTotalLayers);
   printf("================================================================\n");
-  for (int ii = 0; ii < Config::nTotalLayers; ++ii) {
+  for (unsigned int ii = 0; ii < nTotalLayers; ++ii) {
     printf("Layer%2d : %d\n", ii, (int)module_shortId_hash[ii].size());
   }
 }

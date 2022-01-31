@@ -47,18 +47,14 @@ namespace mkfit {
     constexpr bool nan_n_silly_check_cands_pre_bkfit = true;
     constexpr bool nan_n_silly_check_cands_post_bkfit = true;
     constexpr bool nan_n_silly_print_bad_cands_bkfit = false;
-  }
+  }  // namespace Const
 
   namespace Config {
     // config for fitting
     constexpr int nLayers = 10;  // default: 10; cmssw tests: 13, 17, 26 (for endcap)
 
-    // New layer constants for common barrel / endcap. I'd prefer those to go
-    // into some geometry definition "plugin" -- they belong more into some Geom
-    // namespace, too.
-    // XXXX This needs to be generalized for other geometries !
-    // TrackerInfo more or less has all this information (or could have it).
-    extern int nTotalLayers;         // To be set by geometry plugin.
+    // Layer constants for common barrel / endcap.
+    // TrackerInfo more or less has all this information.
     constexpr int nMaxTrkHits = 64;  // Used for array sizes in MkFitter/Finder, max hits in toy MC
     constexpr int nAvgSimHits = 32;  // Used for reserve() calls for sim hits/states
 

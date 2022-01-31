@@ -1,14 +1,8 @@
 #include "RecoTracker/MkFitCore/interface/Config.h"
 
-#include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
-#include "RecoTracker/MkFitCore/interface/IterationConfig.h"
-
 namespace mkfit {
 
   namespace Config {
-
-    int nTotalLayers = -1;
-
     // Multi threading and Clone engine configuration
     int numThreadsFinder = 1;
     int numThreadsEvents = 1;

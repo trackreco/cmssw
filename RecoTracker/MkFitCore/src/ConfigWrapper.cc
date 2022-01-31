@@ -10,7 +10,5 @@ namespace mkfit {
       // to do backward fit to the first layer, not point of closest approach
       Config::includePCA = false;
     }
-
-    void setNTotalLayers(int nTotalLayers) { Config::nTotalLayers = nTotalLayers; }
   }  // namespace ConfigWrapper
 }  // namespace mkfit

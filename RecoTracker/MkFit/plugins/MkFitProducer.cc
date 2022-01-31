@@ -179,13 +179,6 @@ void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::Ev
     stripClusterChargeCut(iEvent.get(stripClusterChargeToken_), stripMask);
   }
 
-  // Initialize the number of layers, has to be done exactly once in
-  // the whole program.
-  // TODO: the mechanism needs to be improved...
-  std::call_once(geometryFlag, [nlayers = mkFitGeom.layerNumberConverter().nLayers()]() {
-    mkfit::ConfigWrapper::setNTotalLayers(nlayers);
-  });
-
   // seeds need to be mutable because of the possible cleaning
   auto seeds_mutable = seeds.seeds();
   mkfit::TrackVec tracks;

@@ -150,10 +150,6 @@ namespace {
   //============================================================================
 
   void Create_CylCowWLids(TrackerInfo& ti, IterationsInfo& ii, bool verbose) {
-    Config::nTotalLayers = 10 + 2 * 9;
-    // MIMI -- in IterationParams
-    // Config::nlayers_per_seed = 4;
-
     Config::finding_requires_propagation_to_hit_pos = false;
     Config::finding_inter_layer_pflags = PropagationFlags(PF_none);
     Config::finding_intra_layer_pflags = PropagationFlags(PF_none);

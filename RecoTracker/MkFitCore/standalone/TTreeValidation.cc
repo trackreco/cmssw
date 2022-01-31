@@ -8,9 +8,11 @@
 
 namespace mkfit {
 
-  TTreeValidation::TTreeValidation(std::string fileName) {
+  TTreeValidation::TTreeValidation(std::string fileName, const TrackerInfo* trk_info) {
     std::lock_guard<std::mutex> locker(glock_);
     gROOT->ProcessLine("#include <vector>");
+
+    ntotallayers_fit_ = trk_info->n_layers();
 
     // KPM via DSR's ROOT wizardry: ROOT's context management implicitly assumes that a file is opened and
     // closed on the same thread. To avoid the problem, we declare a local
@@ -30,7 +32,7 @@ namespace mkfit {
     }
     if (Config::fit_val) {
       for (int i = 0; i < nfvs_; ++i)
-        fvs_[i].resize(Config::nTotalLayers);
+        fvs_[i].resize(ntotallayers_fit_);
       TTreeValidation::initializeFitTree();
     }
     TTreeValidation::initializeConfigTree();
@@ -652,8 +654,6 @@ namespace mkfit {
     fittree_ = std::make_unique<TTree>("fittree", "fittree");
     fittree_->SetDirectory(0);
 
-    ntotallayers_fit_ = Config::nTotalLayers;
-
     fittree_->Branch("ntotallayers", &ntotallayers_fit_, "ntotallayers_fit_/I");
     fittree_->Branch("tkid", &tkid_fit_, "tkid_fit_/I");
     fittree_->Branch("evtid", &evtid_fit_, "evtid_fit_/I");
@@ -1221,7 +1221,7 @@ namespace mkfit {
   }
 
   void TTreeValidation::resetFitBranches() {
-    for (int ilayer = 0; ilayer < Config::nTotalLayers; ++ilayer) {
+    for (int ilayer = 0; ilayer < ntotallayers_fit_; ++ilayer) {
       z_prop_fit_[ilayer] = -1000.f;
       ez_prop_fit_[ilayer] = -1000.f;
       z_hit_fit_[ilayer] = -1000.f;
@@ -1268,7 +1268,7 @@ namespace mkfit {
 
       const auto& simtrack = simtracks[tkid_fit_];
       const auto& fitvalmap = fitvalmapmap.second;
-      for (int ilayer = 0; ilayer < Config::nTotalLayers; ++ilayer) {
+      for (int ilayer = 0; ilayer < ntotallayers_fit_; ++ilayer) {
         if (fitvalmap.count(ilayer)) {
           const auto& hit = layerhits[ilayer][simtrack.getHitIdx(ilayer)];
           const auto& initTS = simtrackstates.at(hit.mcHitID());

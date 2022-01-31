@@ -10,8 +10,6 @@ namespace mkfit {
    */
   namespace ConfigWrapper {
     void initializeForCMSSW(bool silent);
-
-    void setNTotalLayers(int nTotalLayers);
   }  // namespace ConfigWrapper
 }  // namespace mkfit
 

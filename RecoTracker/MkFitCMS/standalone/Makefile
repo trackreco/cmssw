@@ -6,21 +6,22 @@ CMS_DIR := ${SRCDIR}/RecoTracker/MkFitCMS
 
 LIB_CMS := ../libMicCMS.so
 MAIN    := ../mkFit
+WRMEMF  := ../writeMemoryFile
 
-TGTS := ${LIB_CMS} ${MAIN}
+TGTS := ${LIB_CMS} ${MAIN} ${WRMEMF}
 
 .PHONY: all clean distclean
 
 all: ${TGTS}
 
-SRCS := $(wildcard ${CMS_DIR}/src/*.cc) $(wildcard ${SACMS}/*.cc)
+SRCS := $(wildcard ${CMS_DIR}/src/*.cc) $(wildcard ${SACMS}/*.cc) ${SACMS}/tkNtuple/WriteMemoryFile.cc
 SRCB := $(notdir ${SRCS})
 DEPS := $(SRCB:.cc=.d)
 OBJS := $(SRCB:.cc=.o)
 
-CMS_OBJS := $(filter-out mkFit.o, ${OBJS})
+CMS_OBJS := $(filter-out mkFit.o WriteMemoryFile.o, ${OBJS})
 
-vpath %.cc ${CMS_DIR}/src ${SACMS}
+vpath %.cc ${CMS_DIR}/src ${SACMS} ${SACMS}/tkNtuple
 
 ifeq ($(filter clean-local clean distclean, ${MAKECMDGOALS}),)
 include ${DEPS}
@@ -42,7 +43,10 @@ ${LIB_CMS}: ${CMS_OBJS}
 	${CXX} ${CXXFLAGS} ${VEC_HOST} ${CMS_OBJS} -shared -o $@ ${LDFLAGS_HOST} ${LDFLAGS}
 
 ${MAIN}: ${LIB_CMS} mkFit.o
-	${CXX} ${CXXFLAGS} ${VEC_HOST} ${LDFLAGS} mkFit.o -o $@ ${LDFLAGS_HOST} -ltbb -L.. -lMicCore -lMicCMS -Wl,-rpath,..,-rpath,.
+	${CXX} ${CXXFLAGS} ${VEC_HOST} ${LDFLAGS} mkFit.o -o $@ ${LDFLAGS_HOST} -ltbb -L.. -lMicCore -lMicCMS -Wl,-rpath=.
+
+${WRMEMF}: WriteMemoryFile.o
+	${CXX} ${CXXFLAGS} ${LDFLAGS} $^ -o $@ ${LDFLAGS_HOST} -ltbb -L.. -lMicCore -Wl,-rpath=.
 
 ${OBJS}: %.o: %.cc %.d
 	${CXX} ${CPPFLAGS} ${CXXFLAGS} ${VEC_HOST} -c -o $@ $<

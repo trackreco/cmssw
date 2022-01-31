@@ -26,7 +26,7 @@ namespace mkfit {
 
   class TTreeValidation : public Validation {
   public:
-    TTreeValidation(std::string fileName);
+    TTreeValidation(std::string fileName, const TrackerInfo* trk_info);
     ~TTreeValidation() {}
 
     void initializeEfficiencyTree();
@@ -402,7 +402,6 @@ namespace mkfit {
     static const int nfvs_ = 24;
     std::vector<float> fvs_[nfvs_];
 
-    // perl -pe 'BEGIN{$i=0} while (s/\(Config::nTotalLayers\)/ = fvs_[$i]/){++$i}' xxin
     std::vector<float>&z_prop_fit_ = fvs_[0], &ez_prop_fit_ = fvs_[1];
     std::vector<float>&z_hit_fit_ = fvs_[2], &ez_hit_fit_ = fvs_[3], &z_sim_fit_ = fvs_[4], &ez_sim_fit_ = fvs_[5];
     std::vector<float>&pphi_prop_fit_ = fvs_[6], &epphi_prop_fit_ = fvs_[7];

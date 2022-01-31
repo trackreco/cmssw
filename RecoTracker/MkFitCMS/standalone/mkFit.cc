@@ -187,28 +187,6 @@ void listOpts(const U& g_opt_map) {
 
 //==============================================================================
 
-void read_and_save_tracks() {
-  DataFile in;
-  const int Nevents = in.openRead(g_input_file, true);
-
-  DataFile out;
-  out.openWrite(g_output_file, Nevents);
-
-  printf("writing %i events\n", Nevents);
-
-  Event ev(0);
-  for (int evt = 0; evt < Nevents; ++evt) {
-    ev.reset(evt);
-    ev.read_in(in);
-    ev.write_out(out);
-  }
-
-  out.close();
-  in.close();
-}
-
-//==============================================================================
-
 void test_standard() {
   printf("Running test_standard(), operation=\"%s\"\n", g_operation.c_str());
   printf("  vusize=%d, num_th_sim=%d, num_th_finder=%d\n",
@@ -226,16 +204,11 @@ void test_standard() {
   if (Config::seedInput == cmsswSeeds)
     printf("- reading seeds from file\n");
 
-  if (g_operation == "convert") {
-    read_and_save_tracks();
-    return;
-  }
-
   initGeom();
 
   DataFile data_file;
   if (g_operation == "read") {
-    int evs_in_file = data_file.openRead(g_input_file);
+    int evs_in_file = data_file.openRead(g_input_file, Config::TrkInfo.n_layers());
     int evs_available = evs_in_file - g_start_event + 1;
     if (Config::nEvents == -1) {
       Config::nEvents = evs_available;
@@ -276,10 +249,10 @@ void test_standard() {
     if (Config::numThreadsEvents > 1) {
       serial << "_" << i;
     }
-    vals[i].reset(Validation::make_validation(valfile + serial.str() + ".root"));
+    vals[i].reset(Validation::make_validation(valfile + serial.str() + ".root", &Config::TrkInfo));
     mkbs[i] = MkBuilder::make_builder();
     eohs[i].reset(new EventOfHits(Config::TrkInfo));
-    evs[i].reset(new Event(*vals[i], 0));
+    evs[i].reset(new Event(*vals[i], 0, Config::TrkInfo.n_layers()));
     if (g_operation == "read") {
       fps.emplace_back(fopen(g_input_file.c_str(), "r"), [](FILE* fp) {
         if (fp)
@@ -1040,11 +1013,6 @@ int main(int argc, const char* argv[]) {
            "shorts is only an option for the standard simval, and will break the MTV-Like simval! Exiting..."
         << std::endl;
     exit(1);
-  }
-
-  // set to convert if I/O files both set!
-  if (g_input_file != "" && g_output_file != "") {
-    g_operation = "convert";
   }
 
   Config::recalculateDependentConstants();

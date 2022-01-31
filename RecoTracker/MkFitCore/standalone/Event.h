@@ -13,8 +13,8 @@ namespace mkfit {
 
   class Event {
   public:
-    explicit Event(int evtID);
-    Event(Validation &v, int evtID);
+    explicit Event(int evtID, int nLayers);
+    Event(Validation &v, int evtID, int nLayers);
 
     void reset(int evtID);
     void validate();
@@ -81,7 +81,7 @@ namespace mkfit {
 
     int f_extra_sections = 0;
 
-    DataFileHeader() { f_n_layers = Config::nTotalLayers; }
+    DataFileHeader() = default;
   };
 
   struct DataFile {
@@ -108,8 +108,8 @@ namespace mkfit {
     bool hasHitIterMasks() const { return f_header.f_extra_sections & ES_HitIterMasks; }
     bool hasBeamSpot() const { return f_header.f_extra_sections & ES_BeamSpot; }
 
-    int openRead(const std::string &fname, bool set_n_layers = false);
-    void openWrite(const std::string &fname, int nev, int extra_sections = 0);
+    int openRead(const std::string &fname, int expected_n_layers);
+    void openWrite(const std::string &fname, int n_layers, int n_ev, int extra_sections = 0);
 
     int advancePosToNextEvent(FILE *fp);
 
