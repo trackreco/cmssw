@@ -9,7 +9,7 @@ namespace mkfit {
    * MkFit package.
    */
   namespace ConfigWrapper {
-    void initializeForCMSSW(bool silent);
+    void initializeForCMSSW();
   }  // namespace ConfigWrapper
 }  // namespace mkfit
 

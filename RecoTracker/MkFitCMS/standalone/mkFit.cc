@@ -252,7 +252,7 @@ void test_standard() {
       serial << "_" << i;
     }
     vals[i].reset(Validation::make_validation(valfile + serial.str() + ".root", &Config::TrkInfo));
-    mkbs[i] = MkBuilder::make_builder();
+    mkbs[i] = MkBuilder::make_builder(Config::silent);
     eohs[i].reset(new EventOfHits(Config::TrkInfo));
     evs[i].reset(new Event(*vals[i], 0, Config::TrkInfo.n_layers()));
     if (g_operation == "read") {

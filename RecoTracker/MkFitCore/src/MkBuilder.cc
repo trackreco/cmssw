@@ -166,7 +166,7 @@ namespace {
 
 namespace mkfit {
 
-  std::unique_ptr<MkBuilder> MkBuilder::make_builder() { return std::make_unique<MkBuilder>(); }
+  std::unique_ptr<MkBuilder> MkBuilder::make_builder(bool silent) { return std::make_unique<MkBuilder>(silent); }
 
   void MkBuilder::populate() { g_exe_ctx.populate(Config::numThreadsFinder); }
 
@@ -190,7 +190,7 @@ namespace mkfit {
       m_seedMaxLastLayer[i] = 0;
     }
 
-    if (!Config::silent) {
+    if (!m_silent) {
       std::cout << "MkBuilder building tracks with '" << build_type << "'"
                 << ", iteration_index=" << job->m_iter_config.m_iteration_index
                 << ", track_algorithm=" << job->m_iter_config.m_track_algorithm << std::endl;
@@ -423,7 +423,7 @@ namespace mkfit {
         }
       }
 
-      if (count > 0 && !Config::silent) {
+      if (count > 0 && !m_silent) {
         printf("Nan'n'Silly detected %d silly seeds (fix=%d, remove=%d).\n",
                count,
                Const::nan_n_silly_fixup_bad_seeds,
@@ -1343,7 +1343,7 @@ namespace mkfit {
           {
              end  = end_c;
              step = end - icand;
-             if ( ! Config::silent)
+             if ( ! m_silent)
                printf("XXYZZ MkBuilder::fit_cands Breaking up candidates with offset outside of 32-bit range, step=%d.\n", step);
              break;
           }

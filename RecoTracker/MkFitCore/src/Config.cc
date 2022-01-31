@@ -36,8 +36,6 @@ namespace mkfit {
 #endif
 
     bool includePCA = false;
-
-    bool silent = false;
   }  // namespace Config
 
 }  // end namespace mkfit

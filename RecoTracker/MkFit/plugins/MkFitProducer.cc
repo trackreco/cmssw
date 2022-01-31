@@ -100,7 +100,7 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
 
   // TODO: what to do when we have multiple instances of MkFitProducer in a job?
   mkfit::MkBuilderWrapper::populate();
-  mkfit::ConfigWrapper::initializeForCMSSW(mkFitSilent_);
+  mkfit::ConfigWrapper::initializeForCMSSW();
 }
 
 void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -133,7 +133,7 @@ void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& description
 }
 
 std::unique_ptr<mkfit::MkBuilderWrapper> MkFitProducer::beginStream(edm::StreamID iID) const {
-  return std::make_unique<mkfit::MkBuilderWrapper>();
+  return std::make_unique<mkfit::MkBuilderWrapper>(mkFitSilent_);
 }
 
 namespace {

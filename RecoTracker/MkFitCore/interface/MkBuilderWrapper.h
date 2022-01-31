@@ -14,7 +14,7 @@ namespace mkfit {
    */
   class MkBuilderWrapper {
   public:
-    MkBuilderWrapper();
+    MkBuilderWrapper(bool silent);
     ~MkBuilderWrapper();
 
     MkBuilder& get() { return *builder_; }

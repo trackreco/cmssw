@@ -63,6 +63,7 @@ namespace mkfit {
 
     // ================================================================
 
+    bool silent = false;
     bool json_verbose = false;
     bool json_dump_before = false;
     bool json_dump_after = false;

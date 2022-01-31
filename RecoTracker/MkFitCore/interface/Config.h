@@ -151,8 +151,6 @@ namespace mkfit {
 
     extern bool includePCA;
 
-    extern bool silent;
-
     // ================================================================
 
     inline float bFieldFromZR(const float z, const float r) {

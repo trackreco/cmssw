@@ -166,6 +166,7 @@ namespace mkfit {
 
     // ================================================================
 
+    extern bool silent;
     extern bool json_verbose;
     extern bool json_dump_before;
     extern bool json_dump_after;

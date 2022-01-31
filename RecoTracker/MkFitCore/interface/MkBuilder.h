@@ -54,39 +54,18 @@ namespace mkfit {
   //==============================================================================
 
   class MkBuilder {
-  protected:
-    void fit_one_seed_set(TrackVec &simtracks, int itrack, int end, MkFitter *mkfttr, const bool is_brl[]);
-
-    MkJob *m_job = nullptr;
-
-    // MIMI -- Used by seed processing / validation.
-    Event *m_event = nullptr;
-
-    // State for BestHit
-    TrackVec m_tracks;
-
-    // State for Std / CloneEngine
-    EventOfCombCandidates m_event_of_comb_cands;
-
-    // Per-region seed information
-    std::vector<int> m_seedEtaSeparators;
-    std::vector<int> m_seedMinLastLayer;
-    std::vector<int> m_seedMaxLastLayer;
-
-    std::atomic<int> m_nan_n_silly_per_layer_count;
-
   public:
     using insert_seed_foo = void(const Track &, int);
     using filter_track_cand_foo = bool(const TrackCand &);
 
     typedef std::vector<std::pair<int, int>> CandIdx_t;
 
-    MkBuilder() = default;
+    MkBuilder(bool silent=true) : m_silent(silent) {}
     ~MkBuilder() = default;
 
     // --------
 
-    static std::unique_ptr<MkBuilder> make_builder();
+    static std::unique_ptr<MkBuilder> make_builder(bool silent=true);
     static void populate();
 
     int total_cands() const {
@@ -165,7 +144,8 @@ namespace mkfit {
                                const int region);
 
     // --------
-    static void seed_post_cleaning(TrackVec &tv);
+
+    void seed_post_cleaning(TrackVec &tv);
 
     void findTracksBestHit(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
     void findTracksStandard(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
@@ -176,6 +156,29 @@ namespace mkfit {
 
     void backwardFit();
     void fit_cands(MkFinder *mkfndr, int start_cand, int end_cand, int region);
+
+  private:
+    void fit_one_seed_set(TrackVec &simtracks, int itrack, int end, MkFitter *mkfttr, const bool is_brl[]);
+
+    MkJob *m_job = nullptr;
+
+    // MIMI -- Used by seed processing / validation.
+    Event *m_event = nullptr;
+
+    // State for BestHit
+    TrackVec m_tracks;
+
+    // State for Std / CloneEngine
+    EventOfCombCandidates m_event_of_comb_cands;
+
+    // Per-region seed information
+    std::vector<int> m_seedEtaSeparators;
+    std::vector<int> m_seedMinLastLayer;
+    std::vector<int> m_seedMaxLastLayer;
+
+    std::atomic<int> m_nan_n_silly_per_layer_count;
+
+    bool m_silent;
   };
 
 }  // end namespace mkfit

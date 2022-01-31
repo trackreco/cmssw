@@ -4,8 +4,7 @@
 
 namespace mkfit {
   namespace ConfigWrapper {
-    void initializeForCMSSW(bool silent) {
-      Config::silent = silent;
+    void initializeForCMSSW() {
       Config::includePCA = false;
 
       PropagationConfig pconf;
