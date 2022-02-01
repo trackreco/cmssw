@@ -1185,6 +1185,7 @@ namespace mkfit {
 
   void MkBuilder::fit_cands_BH(MkFinder *mkfndr, int start_cand, int end_cand, int region) {
     const SteeringParams &st_par = m_job->steering_params(region);
+    const PropagationConfig &prop_config = PropagationConfig::get_default();
 #ifdef DEBUG
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
 #endif
@@ -1224,7 +1225,7 @@ namespace mkfit {
       mkfndr->bkFitFitTracksBH(m_job->m_event_of_hits, st_par, end - icand, chi_debug);
 
       // now move one last time to PCA
-      if (Config::includePCA) {
+      if (prop_config.backward_fit_to_pca) {
         mkfndr->bkFitPropTracksToPCA(end - icand);
       }
 
@@ -1273,7 +1274,7 @@ namespace mkfit {
 #endif
 
       // copy out full set of info at last propagated position
-      mkfndr->bkFitOutputTracks(m_tracks, icand, end, Config::includePCA);
+      mkfndr->bkFitOutputTracks(m_tracks, icand, end, prop_config.backward_fit_to_pca);
 
 #ifdef DEBUG
       printf("Post Final fit for %d - %d\n", icand, end);
@@ -1321,6 +1322,7 @@ namespace mkfit {
   void MkBuilder::fit_cands(MkFinder *mkfndr, int start_cand, int end_cand, int region) {
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
     const SteeringParams &st_par = m_job->steering_params(region);
+    const PropagationConfig &prop_config = PropagationConfig::get_default();
 
     int step = NN;
 
@@ -1394,11 +1396,11 @@ namespace mkfit {
       mkfndr->bkFitFitTracks(m_job->m_event_of_hits, st_par, end - icand, chi_debug);
 
       // now move one last time to PCA
-      if (Config::includePCA) {
+      if (prop_config.backward_fit_to_pca) {
         mkfndr->bkFitPropTracksToPCA(end - icand);
       }
 
-      mkfndr->bkFitOutputTracks(eoccs, icand, end, Config::includePCA);
+      mkfndr->bkFitOutputTracks(eoccs, icand, end, prop_config.backward_fit_to_pca);
 
 #ifdef DEBUG
       printf("Post Final fit for %d - %d\n", icand, end);

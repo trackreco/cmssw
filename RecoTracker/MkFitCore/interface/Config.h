@@ -19,6 +19,7 @@ namespace mkfit {
 
   class PropagationConfig {
   public:
+    bool backward_fit_to_pca;
     bool finding_requires_propagation_to_hit_pos;
     PropagationFlags finding_inter_layer_pflags;
     PropagationFlags finding_intra_layer_pflags;
@@ -27,7 +28,7 @@ namespace mkfit {
     PropagationFlags seed_fit_pflags;
     PropagationFlags pca_prop_pflags;
 
-    void set_as_default();
+    void set_as_default(bool force = false);
 
     static const PropagationConfig& get_default() { return *s_default; }
 
@@ -117,9 +118,15 @@ namespace mkfit {
     constexpr float tailMissingHitPenalty_ = 3;
 
     // Threading
+#if defined(MKFIT_STANDALONE)
     extern int numThreadsFinder;
     extern int numThreadsEvents;
     extern int numSeedsPerTask;
+#else
+    constexpr int numThreadsFinder = 1;
+    constexpr int numThreadsEvents = 1;
+    constexpr int numSeedsPerTask = 32;
+#endif
 
     // config on seed cleaning
     constexpr float track1GeVradius = 87.6;  // = 1/(c*B)
@@ -148,8 +155,6 @@ namespace mkfit {
     extern const float maxdcth;
     extern const float maxcth_ob;
     extern const float maxcth_fw;
-
-    extern bool includePCA;
 
     // ================================================================
 

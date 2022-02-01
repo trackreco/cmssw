@@ -18,6 +18,7 @@
 // Eta partitions for B / T / EC
 
 #include "RecoTracker/MkFitCore/interface/Config.h"
+#include "RecoTracker/MkFitCore/standalone/ConfigStandalone.h"
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 
 #include <cmath>
@@ -151,6 +152,7 @@ namespace {
 
   void Create_CylCowWLids(TrackerInfo& ti, IterationsInfo& ii, bool verbose) {
     PropagationConfig pconf;
+    pconf.backward_fit_to_pca = Config::includePCA;
     pconf.finding_requires_propagation_to_hit_pos = false;
     pconf.finding_inter_layer_pflags = PropagationFlags(PF_none);
     pconf.finding_intra_layer_pflags = PropagationFlags(PF_none);

@@ -4,18 +4,25 @@ namespace mkfit {
 
   const PropagationConfig* PropagationConfig::s_default = nullptr;
 
-  void PropagationConfig::set_as_default() {
-    delete s_default;
+  void PropagationConfig::set_as_default(bool force) {
+    if (s_default != nullptr) {
+      if (force)
+        delete s_default;
+      else
+        return;
+    }
     s_default = new PropagationConfig(*this);
   }
 
   //------------------------------------------------------------------------------
 
   namespace Config {
-    // Multi threading and Clone engine configuration
+    // Multi threading configuration
+#if defined(MKFIT_STANDALONE)
     int numThreadsFinder = 1;
     int numThreadsEvents = 1;
     int numSeedsPerTask = 32;
+#endif
 
     bool removeDuplicates = false;
     bool useHitsForDuplicates = true;
@@ -34,8 +41,6 @@ namespace mkfit {
 #ifdef CONFIG_PhiQArrays
     bool usePhiQArrays = true;
 #endif
-
-    bool includePCA = false;
   }  // namespace Config
 
 }  // end namespace mkfit

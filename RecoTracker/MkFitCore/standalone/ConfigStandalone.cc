@@ -61,6 +61,8 @@ namespace mkfit {
 
     int finderReportBestOutOfN = 1;
 
+    bool includePCA = false;
+
     // ================================================================
 
     bool silent = false;

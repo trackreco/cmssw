@@ -164,6 +164,8 @@ namespace mkfit {
     extern int numThreadsSimulation;
     extern int finderReportBestOutOfN;
 
+    extern bool includePCA;
+
     // ================================================================
 
     extern bool silent;
