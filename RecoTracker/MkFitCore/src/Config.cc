@@ -24,8 +24,10 @@ namespace mkfit {
     int numSeedsPerTask = 32;
 #endif
 
+#if defined(MKFIT_STANDALONE)
     bool removeDuplicates = false;
     bool useHitsForDuplicates = true;
+#endif
     const float maxdPt = 0.5;
     const float maxdPhi = 0.25;
     const float maxdEta = 0.05;

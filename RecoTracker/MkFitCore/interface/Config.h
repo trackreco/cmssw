@@ -141,8 +141,12 @@ namespace mkfit {
     constexpr float c_drmax_els = 0.015;
 
     // config on duplicate removal
+#if defined(MKFIT_STANDALONE)
     extern bool useHitsForDuplicates;
     extern bool removeDuplicates;
+#else
+    const bool useHitsForDuplicates = true;
+#endif
     extern const float maxdPhi;
     extern const float maxdPt;
     extern const float maxdEta;
