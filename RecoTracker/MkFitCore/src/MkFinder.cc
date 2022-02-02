@@ -519,7 +519,8 @@ namespace mkfit {
                                                thisOutChi2,
                                                tmpPropPar,
                                                N_proc,
-                                               m_prop_config->finding_intra_layer_pflags);
+                                               m_prop_config->finding_intra_layer_pflags,
+                                               m_prop_config->finding_requires_propagation_to_hit_pos);
 
                 float hx = thishit.x();
                 float hy = thishit.y();
