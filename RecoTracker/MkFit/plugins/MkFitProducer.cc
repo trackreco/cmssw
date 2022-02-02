@@ -136,9 +136,6 @@ std::unique_ptr<mkfit::MkBuilderWrapper> MkFitProducer::beginStream(edm::StreamI
   return std::make_unique<mkfit::MkBuilderWrapper>(mkFitSilent_);
 }
 
-namespace {
-  std::once_flag geometryFlag;
-}
 void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::EventSetup& iSetup) const {
   const auto& pixelHits = iEvent.get(pixelHitsToken_);
   const auto& stripHits = iEvent.get(stripHitsToken_);
