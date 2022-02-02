@@ -719,8 +719,8 @@ namespace mkfit {
       const float k =
           inChg.constAt(n, 0, 0) * 100.f /
           (-Const::sol * (pflags.use_param_b_field
-                               ? Config::bFieldFromZR(zin, hipo(inPar.constAt(n, 0, 0), inPar.constAt(n, 1, 0)))
-                               : Config::Bfield));
+                              ? Config::bFieldFromZR(zin, hipo(inPar.constAt(n, 0, 0), inPar.constAt(n, 1, 0)))
+                              : Config::Bfield));
       const float kinv = 1.f / k;
 
       dprint_np(n,

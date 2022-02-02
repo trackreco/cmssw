@@ -60,12 +60,12 @@ namespace mkfit {
 
     typedef std::vector<std::pair<int, int>> CandIdx_t;
 
-    MkBuilder(bool silent=true) : m_silent(silent) {}
+    MkBuilder(bool silent = true) : m_silent(silent) {}
     ~MkBuilder() = default;
 
     // --------
 
-    static std::unique_ptr<MkBuilder> make_builder(bool silent=true);
+    static std::unique_ptr<MkBuilder> make_builder(bool silent = true);
     static void populate();
 
     int total_cands() const {
