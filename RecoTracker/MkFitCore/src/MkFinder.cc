@@ -16,7 +16,21 @@
 #include "RecoTracker/MkFitCore/standalone/Event.h"
 #endif
 
+#ifndef MKFIT_STANDALONE
+#include "FWCore/Utilities/interface/isFinite.h"
+#endif
+
 #include <algorithm>
+
+namespace {
+  constexpr bool isFinite(float x) {
+#ifndef MKFIT_STANDALONE
+    return edm::isFinite(x);
+#else
+    return std::isfinite(x);
+#endif
+  }
+}  // namespace
 
 namespace mkfit {
 
@@ -1447,7 +1461,7 @@ namespace mkfit {
       Par[iO].copyOut(itrack, trk.parameters_nc().Array());
 
       trk.setChi2(Chi2(itrack, 0, 0));
-      if (!std::isnan(trk.chi2())) {
+      if (isFinite(trk.chi2())) {
         trk.setScore(getScoreCand(trk));
       }
     }
@@ -1468,7 +1482,7 @@ namespace mkfit {
       Par[iO].copyOut(itrack, trk.parameters_nc().Array());
 
       trk.setChi2(Chi2(itrack, 0, 0));
-      if (!std::isnan(trk.chi2())) {
+      if (isFinite(trk.chi2())) {
         trk.setScore(getScoreCand(trk));
       }
     }
