@@ -9,46 +9,30 @@ namespace mkfit {
 
   class CandCloner;
 
-  const int MPlexHitIdxMax = 16;
+  static constexpr int MPlexHitIdxMax = 16;
   using MPlexHitIdx = Matriplex::Matriplex<int, MPlexHitIdxMax, 1, NN>;
   using MPlexQHoT = Matriplex::Matriplex<HitOnTrack, 1, 1, NN>;
 
   class MkFitter : public MkBase {
   public:
-    MPlexQF Chi2;
-
-    MPlexHS msErr[Config::nMaxTrkHits];
-    MPlexHV msPar[Config::nMaxTrkHits];
-
-    MPlexQI Label;    //this is the seed index in global seed vector (for MC truth match)
-    MPlexQI SeedIdx;  //this is the seed index in local thread (for bookkeeping at thread level)
-    MPlexQI CandIdx;  //this is the candidate index for the given seed (for bookkeeping of clone engine)
-
-    MPlexQHoT HoTArr[Config::nMaxTrkHits];
-
-    // Hold hit indices to explore at current layer.
-    MPlexQI XHitSize;
-    MPlexHitIdx XHitArr;
-
-    int Nhits;
-
-  public:
-    MkFitter() : Nhits(0) {}
+    MkFitter() : m_Nhits(0) {}
 
     // Copy-in timing tests.
-    MPlexLS& refErr0() { return Err[0]; }
-    MPlexLV& refPar0() { return Par[0]; }
+    MPlexLS& refErr0() { return m_Err[0]; }
+    MPlexLV& refPar0() { return m_Par[0]; }
+
+    //----------------------------------------------------------------------------
 
     void checkAlignment();
 
     void printPt(int idx);
 
-    void setNhits(int newnhits) { Nhits = std::min(newnhits, Config::nMaxTrkHits - 1); }
+    void setNhits(int newnhits) { m_Nhits = std::min(newnhits, Config::nMaxTrkHits - 1); }
 
     int countValidHits(int itrack, int end_hit) const;
     int countInvalidHits(int itrack, int end_hit) const;
-    int countValidHits(int itrack) const { return countValidHits(itrack, Nhits); }
-    int countInvalidHits(int itrack) const { return countInvalidHits(itrack, Nhits); }
+    int countValidHits(int itrack) const { return countValidHits(itrack, m_Nhits); }
+    int countInvalidHits(int itrack) const { return countInvalidHits(itrack, m_Nhits); }
 
     void inputTracksAndHits(const std::vector<Track>& tracks, const std::vector<HitVec>& layerHits, int beg, int end);
     void inputTracksAndHits(const std::vector<Track>& tracks,
@@ -82,6 +66,26 @@ namespace mkfit {
     }
 
     void outputFittedTracksAndHitIdx(std::vector<Track>& tracks, int beg, int end, bool outputProp) const;
+
+    //----------------------------------------------------------------------------
+
+  private:
+    MPlexQF m_Chi2;
+
+    MPlexHS m_msErr[Config::nMaxTrkHits];
+    MPlexHV m_msPar[Config::nMaxTrkHits];
+
+    MPlexQI m_Label;    //this is the seed index in global seed vector (for MC truth match)
+    MPlexQI m_SeedIdx;  //this is the seed index in local thread (for bookkeeping at thread level)
+    MPlexQI m_CandIdx;  //this is the candidate index for the given seed (for bookkeeping of clone engine)
+
+    MPlexQHoT m_HoTArr[Config::nMaxTrkHits];
+
+    // Hold hit indices to explore at current layer.
+    MPlexQI m_XHitSize;
+    MPlexHitIdx m_XHitArr;
+
+    int m_Nhits;
   };
 
 }  // end namespace mkfit

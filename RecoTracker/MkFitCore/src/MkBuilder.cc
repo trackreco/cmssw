@@ -416,7 +416,7 @@ namespace mkfit {
           ++count;
           if (Const::nan_n_silly_remove_bad_seeds) {
             // XXXX MT
-            // Could do somethin smarter here: setStopped ?  check in seed cleaning ?
+            // Could do somethin smarter here: set as Stopped ?  check in seed cleaning ?
             tv.erase(tv.begin() + i);
             --i;
           }
@@ -507,7 +507,7 @@ namespace mkfit {
 
           int curr_layer = layer_plan_it.layer();
 
-          mkfndr->Stopped.setVal(0);
+          mkfndr->m_Stopped.setVal(0);
 
           // Loop over layers, starting from after the seed.
           // Consider inverting loop order and make layer outer, need to
@@ -556,18 +556,18 @@ namespace mkfit {
             if (layer_info.is_barrel()) {
               const float r_min_sqr = layer_info.rin() * layer_info.rin();
               for (int i = 0; i < curr_tridx; ++i) {
-                if (!mkfndr->Stopped[i]) {
+                if (!mkfndr->m_Stopped[i]) {
                   if (mkfndr->radiusSqr(i, MkBase::iP) < r_min_sqr) {
                     if (region == TrackerInfo::Reg_Barrel) {
-                      mkfndr->Stopped[i] = 1;
+                      mkfndr->m_Stopped[i] = 1;
                       mkfndr->outputTrackAndHitIdx(cands[rng.m_beg + i], i, false);
                     }
-                    mkfndr->XWsrResult[i].m_wsr = WSR_Outside;
-                    mkfndr->XHitSize[i] = 0;
+                    mkfndr->m_XWsrResult[i].m_wsr = WSR_Outside;
+                    mkfndr->m_XHitSize[i] = 0;
                   }
                 } else {  // make sure we don't add extra work for AddBestHit
-                  mkfndr->XWsrResult[i].m_wsr = WSR_Outside;
-                  mkfndr->XHitSize[i] = 0;
+                  mkfndr->m_XWsrResult[i].m_wsr = WSR_Outside;
+                  mkfndr->m_XHitSize[i] = 0;
                 }
               }
             }
@@ -579,8 +579,8 @@ namespace mkfit {
 
             // Stop tracks that have reached N_max_holes.
             for (int i = 0; i < curr_tridx; ++i) {
-              if (!mkfndr->Stopped[i] && mkfndr->bestHitLastHoT(i).index == -2) {
-                mkfndr->Stopped[i] = 1;
+              if (!mkfndr->m_Stopped[i] && mkfndr->bestHitLastHoT(i).index == -2) {
+                mkfndr->m_Stopped[i] = 1;
                 mkfndr->outputTrackAndHitIdx(cands[rng.m_beg + i], i, false);
               }
             }
@@ -684,7 +684,7 @@ namespace mkfit {
 
     for (int ti = itrack; ti < end; ++ti) {
       TrackCand &cand = m_event_of_comb_cands[seed_cand_idx[ti].first][seed_cand_idx[ti].second];
-      WSR_Result &w = mkfndr->XWsrResult[ti - itrack];
+      WSR_Result &w = mkfndr->m_XWsrResult[ti - itrack];
 
       // XXXX-4 Low pT tracks can miss a barrel layer ... and should be stopped
       const float cand_r =
@@ -704,7 +704,7 @@ namespace mkfit {
         // still chance to hit endcaps.
         dprintf("Barrel cand propagated to r=%f ... layer is %f - %f\n", cand_r, layer_info.rin(), layer_info.rout());
 
-        mkfndr->XHitSize[ti - itrack] = 0;
+        mkfndr->m_XHitSize[ti - itrack] = 0;
         w.m_wsr = WSR_Outside;
 
         tmp_cands[seed_cand_idx[ti].first - start_seed].push_back(cand);
@@ -1075,7 +1075,7 @@ namespace mkfit {
 
 #ifdef DEBUG
         for (int i = itrack; i < end; ++i)
-          dprintf("  track %d, idx %d is from seed %d\n", i, i - itrack, mkfndr->Label(i - itrack, 0, 0));
+          dprintf("  track %d, idx %d is from seed %d\n", i, i - itrack, mkfndr->m_Label(i - itrack, 0, 0));
 #endif
 
         // propagate to current layer
@@ -1231,8 +1231,8 @@ namespace mkfit {
 
 #ifdef DEBUG_BACKWARD_FIT_BH
       // Dump tracks with pT > 2 and chi2/dof > 20. Assumes MPT_SIZE=1.
-      if (!chi_debug && 1.0f / mkfndr->Par[MkBase::iP].At(0, 3, 0) > 2.0f &&
-          mkfndr->Chi2(0, 0, 0) / (eoccs[icand][0].nFoundHits() * 3 - 6) > 20.0f) {
+      if (!chi_debug && 1.0f / mkfndr->m_Par[MkBase::iP].At(0, 3, 0) > 2.0f &&
+          mkfndr->m_Chi2(0, 0, 0) / (eoccs[icand][0].nFoundHits() * 3 - 6) > 20.0f) {
         chi_debug = true;
 #ifdef MKFIT_STANDALONE
         printf("CHIHDR Event %d, Cand %3d, pT %f, chipdof %f ### NOTE x,y,z in cm, sigmas, deltas in mum ### !!!\n",
@@ -1241,8 +1241,8 @@ namespace mkfit {
         printf("CHIHDR Cand %3d, pT %f, chipdof %f ### NOTE x,y,z in cm, sigmas, deltas in mum ### !!!\n",
 #endif
                icand,
-               1.0f / mkfndr->Par[MkBase::iP].At(0, 3, 0),
-               mkfndr->Chi2(0, 0, 0) / (eoccs[icand][0].nFoundHits() * 3 - 6));
+               1.0f / mkfndr->m_Par[MkBase::iP].At(0, 3, 0),
+               mkfndr->m_Chi2(0, 0, 0) / (eoccs[icand][0].nFoundHits() * 3 - 6));
         printf(
             "CHIHDR %3s %10s %10s %10s %10s %10s %11s %11s %11s %10s %10s %10s %10s %11s %11s %11s %10s %10s %10s %10s "
             "%10s %11s %11s\n",

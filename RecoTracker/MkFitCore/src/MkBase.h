@@ -13,15 +13,10 @@ namespace mkfit {
 
   class MkBase {
   public:
-    MPlexLS Err[2];
-    MPlexLV Par[2];
-
-    MPlexQI Chg;
-
     static constexpr int iC = 0;  // current
     static constexpr int iP = 1;  // propagated
 
-    float getPar(int itrack, int i, int par) const { return Par[i].constAt(itrack, par, 0); }
+    float getPar(int itrack, int i, int par) const { return m_Par[i].constAt(itrack, par, 0); }
 
     float radiusSqr(int itrack, int i) const { return hipo_sqr(getPar(itrack, i, 0), getPar(itrack, i, 1)); }
 
@@ -38,7 +33,7 @@ namespace mkfit {
         msRad.At(n, 0, 0) = r;
       }
 
-      propagateHelixToRMPlex(Err[iC], Par[iC], Chg, msRad, Err[iP], Par[iP], N_proc, pf);
+      propagateHelixToRMPlex(m_Err[iC], m_Par[iC], m_Chg, msRad, m_Err[iP], m_Par[iP], N_proc, pf);
     }
 
     void propagateTracksToHitR(const MPlexHV& par,
@@ -51,7 +46,7 @@ namespace mkfit {
         msRad.At(n, 0, 0) = std::hypot(par.constAt(n, 0, 0), par.constAt(n, 1, 0));
       }
 
-      propagateHelixToRMPlex(Err[iC], Par[iC], Chg, msRad, Err[iP], Par[iP], N_proc, pf, noMatEffPtr);
+      propagateHelixToRMPlex(m_Err[iC], m_Par[iC], m_Chg, msRad, m_Err[iP], m_Par[iP], N_proc, pf, noMatEffPtr);
     }
 
     //----------------------------------------------------------------------------
@@ -63,7 +58,7 @@ namespace mkfit {
         msZ.At(n, 0, 0) = z;
       }
 
-      propagateHelixToZMPlex(Err[iC], Par[iC], Chg, msZ, Err[iP], Par[iP], N_proc, pf);
+      propagateHelixToZMPlex(m_Err[iC], m_Par[iC], m_Chg, msZ, m_Err[iP], m_Par[iP], N_proc, pf);
     }
 
     void propagateTracksToHitZ(const MPlexHV& par,
@@ -76,22 +71,29 @@ namespace mkfit {
         msZ.At(n, 0, 0) = par.constAt(n, 2, 0);
       }
 
-      propagateHelixToZMPlex(Err[iC], Par[iC], Chg, msZ, Err[iP], Par[iP], N_proc, pf, noMatEffPtr);
+      propagateHelixToZMPlex(m_Err[iC], m_Par[iC], m_Chg, msZ, m_Err[iP], m_Par[iP], N_proc, pf, noMatEffPtr);
     }
 
     void propagateTracksToPCAZ(const int N_proc, const PropagationFlags pf) {
       MPlexQF msZ;  // PCA z-coordinate
 #pragma omp simd
       for (int n = 0; n < NN; ++n) {
-        const float slope = std::tan(Par[iC].constAt(n, 5, 0));
-        //      msZ.At(n, 0, 0) = ( Config::beamspotz0 + slope * ( Config::beamspotr0 - std::hypot(Par[iC].constAt(n, 0, 0), Par[iC].constAt(n, 1, 0))) + slope * slope * Par[iC].constAt(n, 2, 0) ) / ( 1+slope*slope); // PCA w.r.t. z0, r0
-        msZ.At(n, 0, 0) = (slope * (slope * Par[iC].constAt(n, 2, 0) -
-                                    std::hypot(Par[iC].constAt(n, 0, 0), Par[iC].constAt(n, 1, 0)))) /
+        const float slope = std::tan(m_Par[iC].constAt(n, 5, 0));
+        //      msZ.At(n, 0, 0) = ( Config::beamspotz0 + slope * ( Config::beamspotr0 - std::hypot(m_Par[iC].constAt(n, 0, 0), m_Par[iC].constAt(n, 1, 0))) + slope * slope * m_Par[iC].constAt(n, 2, 0) ) / ( 1+slope*slope); // PCA w.r.t. z0, r0
+        msZ.At(n, 0, 0) = (slope * (slope * m_Par[iC].constAt(n, 2, 0) -
+                                    std::hypot(m_Par[iC].constAt(n, 0, 0), m_Par[iC].constAt(n, 1, 0)))) /
                           (1 + slope * slope);  // PCA to origin
       }
 
-      propagateHelixToZMPlex(Err[iC], Par[iC], Chg, msZ, Err[iP], Par[iP], N_proc, pf);
+      propagateHelixToZMPlex(m_Err[iC], m_Par[iC], m_Chg, msZ, m_Err[iP], m_Par[iP], N_proc, pf);
     }
+
+    //----------------------------------------------------------------------------
+
+  protected:
+    MPlexLS m_Err[2];
+    MPlexLV m_Par[2];
+    MPlexQI m_Chg;
   };
 
 }  // end namespace mkfit
