@@ -895,23 +895,23 @@ namespace mkfit {
                           bool isBarrel,
                           const MPlexLS &pErr,
                           const MPlexLV &pPar,
-                          const MPlexHS &m_msErr,
-                          const MPlexHV &m_msPar) {
+                          const MPlexHS &msErr,
+                          const MPlexHV &msPar) {
     //check module compatibility via long strip side = L/sqrt(12)
     if (isBarrel) {  //check z direction only
-      const float res = std::abs(m_msPar.constAt(itrack, 2, 0) - pPar.constAt(itrack, 2, 0));
-      const float hitHL = sqrt(m_msErr.constAt(itrack, 2, 2) * 3.f);  //half-length
+      const float res = std::abs(msPar.constAt(itrack, 2, 0) - pPar.constAt(itrack, 2, 0));
+      const float hitHL = sqrt(msErr.constAt(itrack, 2, 2) * 3.f);  //half-length
       const float qErr = sqrt(pErr.constAt(itrack, 2, 2));
       dprint("qCompat " << hitHL << " + " << 3.f * qErr << " vs " << res);
       return hitHL + std::max(3.f * qErr, 0.5f) > res;
     } else {  //project on xy, assuming the strip Length >> Width
-      const float res[2]{m_msPar.constAt(itrack, 0, 0) - pPar.constAt(itrack, 0, 0),
-                         m_msPar.constAt(itrack, 1, 0) - pPar.constAt(itrack, 1, 0)};
-      const float hitT2 = m_msErr.constAt(itrack, 0, 0) + m_msErr.constAt(itrack, 1, 1);
+      const float res[2]{msPar.constAt(itrack, 0, 0) - pPar.constAt(itrack, 0, 0),
+                         msPar.constAt(itrack, 1, 0) - pPar.constAt(itrack, 1, 0)};
+      const float hitT2 = msErr.constAt(itrack, 0, 0) + msErr.constAt(itrack, 1, 1);
       const float hitT2inv = 1.f / hitT2;
-      const float proj[3] = {m_msErr.constAt(itrack, 0, 0) * hitT2inv,
-                             m_msErr.constAt(itrack, 0, 1) * hitT2inv,
-                             m_msErr.constAt(itrack, 1, 1) * hitT2inv};
+      const float proj[3] = {msErr.constAt(itrack, 0, 0) * hitT2inv,
+                             msErr.constAt(itrack, 0, 1) * hitT2inv,
+                             msErr.constAt(itrack, 1, 1) * hitT2inv};
       const float qErr =
           sqrt(std::abs(pErr.constAt(itrack, 0, 0) * proj[0] + 2.f * pErr.constAt(itrack, 0, 1) * proj[1] +
                         pErr.constAt(itrack, 1, 1) * proj[2]));  //take abs to avoid non-pos-def cases
@@ -928,18 +928,18 @@ namespace mkfit {
   //         the corrected qCorr = charge/L_path = charge/(L_normal*p/p_zLocal) = pcm*p_zLocal/p
   //=======================================================
   bool passStripChargePCMfromTrack(
-      int itrack, bool isBarrel, unsigned int pcm, unsigned int pcmMin, const MPlexLV &pPar, const MPlexHS &m_msErr) {
+      int itrack, bool isBarrel, unsigned int pcm, unsigned int pcmMin, const MPlexLV &pPar, const MPlexHS &msErr) {
     //skip the overflow case
     if (pcm >= Hit::maxChargePerCM())
       return true;
 
     float qSF;
     if (isBarrel) {  //project in x,y, assuming zero-error direction is in this plane
-      const float hitT2 = m_msErr.constAt(itrack, 0, 0) + m_msErr.constAt(itrack, 1, 1);
+      const float hitT2 = msErr.constAt(itrack, 0, 0) + msErr.constAt(itrack, 1, 1);
       const float hitT2inv = 1.f / hitT2;
-      const float proj[3] = {m_msErr.constAt(itrack, 0, 0) * hitT2inv,
-                             m_msErr.constAt(itrack, 0, 1) * hitT2inv,
-                             m_msErr.constAt(itrack, 1, 1) * hitT2inv};
+      const float proj[3] = {msErr.constAt(itrack, 0, 0) * hitT2inv,
+                             msErr.constAt(itrack, 0, 1) * hitT2inv,
+                             msErr.constAt(itrack, 1, 1) * hitT2inv};
       const bool detXY_OK =
           std::abs(proj[0] * proj[2] - proj[1] * proj[1]) < 0.1f;  //check that zero-direction is close
       const float cosP = cos(pPar.constAt(itrack, 4, 0));
