@@ -23,7 +23,7 @@
 #include <algorithm>
 
 namespace {
-  constexpr bool isFinite(float x) {
+  bool isFinite(float x) {
 #ifndef MKFIT_STANDALONE
     return edm::isFinite(x);
 #else
