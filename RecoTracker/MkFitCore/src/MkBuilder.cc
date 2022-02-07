@@ -707,24 +707,9 @@ namespace mkfit {
       } else if (w.m_wsr == WSR_Outside) {
         dprintf(" creating extra held back candidate\n");
         tmp_cands[seed_cand_idx[ti].first - start_seed].push_back(cand);
-
-        // This can fire for Standard finding when candidates from a given seed are
-        // split between two iterations of the vecotrized loop over seeds as the
-        // output vector is shared between finding and the outside xtras here.
-        // if (tmp_cands[seed_cand_idx[ti].first - start_seed].size() > m_event_of_comb_cands[seed_cand_idx[ti].first].size())
-        //   printf("XXXXXXX %d %d for seed %d, index %d\n", (int) tmp_cands[seed_cand_idx[ti].first - start_seed].size(), (int) m_event_of_comb_cands[seed_cand_idx[ti].first].size(),
-        //          seed_cand_idx[ti].first, seed_cand_idx[ti].first - start_seed);
       } else if (w.m_wsr == WSR_Edge) {
-        // XXXX-2 Additionally, if I miss/hit by epsilon, here would be a
-        // good place to clone the extra track that goes straight into
-        // the "other" sub-section - ecap/brl (for the transition
-        // region). Here the jump-to-layer-on-miss I wanted to add to
-        // LayerInfo will be needed.
-        // And, stop the track if told to do so !!!
+        // Do nothing special here, this case is handled also in MkFinder:findTracks()
       }
-
-      // XXXX-3 mind the gap - as in w.m_in_gap !!!!
-      // Those don't really need to be taken out ... but think it through.
     }
   }
 
