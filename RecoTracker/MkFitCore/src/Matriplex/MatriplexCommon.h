@@ -72,22 +72,6 @@ inline __m256 FMA(const __m256 &a, const __m256 &b, const __m256 &v) {
 
 #endif
 
-//==============================================================================
-// Intrinsics -- postamble
-//==============================================================================
-
-// #ifdef MPLEX_INTRINSICS
-
-// #undef LD(a, i)
-// #undef ADD(a, b)
-// #undef MUL(a, b)
-// #undef FMA(a, b, v)
-// #undef ST(a, i, r)
-
-// #undef MPLEX_INTRINSICS
-
-// #endif
-
 #ifdef __INTEL_COMPILER
 #define ASSUME_ALIGNED(a, b) __assume_aligned(a, b)
 #else

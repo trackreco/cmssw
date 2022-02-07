@@ -753,11 +753,6 @@ namespace mkfit {
 
     float minChi2[NN];
     int bestHit[NN];
-    // MT: fill_n gave me crap on MIC, NN=8,16, doing in maxSize search below.
-    // Must be a compiler issue.
-    // std::fill_n(minChi2, NN, m_iteration_params->chi2Cut_min);
-    // std::fill_n(bestHit, NN, -1);
-
     int maxSize = 0;
 
     // Determine maximum number of hits for tracks in the collection.
@@ -891,12 +886,8 @@ namespace mkfit {
   //=======================================================
   // isStripQCompatible : check if prop is consistent with the barrel/endcap strip length
   //=======================================================
-  bool isStripQCompatible(int itrack,
-                          bool isBarrel,
-                          const MPlexLS &pErr,
-                          const MPlexLV &pPar,
-                          const MPlexHS &msErr,
-                          const MPlexHV &msPar) {
+  bool isStripQCompatible(
+      int itrack, bool isBarrel, const MPlexLS &pErr, const MPlexLV &pPar, const MPlexHS &msErr, const MPlexHV &msPar) {
     //check module compatibility via long strip side = L/sqrt(12)
     if (isBarrel) {  //check z direction only
       const float res = std::abs(msPar.constAt(itrack, 2, 0) - pPar.constAt(itrack, 2, 0));

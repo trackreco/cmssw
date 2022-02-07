@@ -221,13 +221,10 @@ namespace Matriplex {
     }
 
     // ==================================================================
-    // Super crazy shit for Kalman fit that should probably go elsewhere
+    // Operations specific to Kalman fit in 6 parameter space
     // ==================================================================
 
     void addNoiseIntoUpperLeft3x3(T noise) {
-      // XXXXX Review, cannonize
-      // XXX icc bitch says: loop was not vectorized: cannot vectorize empty simd loop
-
       T* p = fArray;
       ASSUME_ALIGNED(p, 64);
 
@@ -254,8 +251,8 @@ namespace Matriplex {
         const TT c12 = a[3 * N + n] * a[1 * N + n] - a[4 * N + n] * a[0 * N + n];
         const TT c22 = a[0 * N + n] * a[2 * N + n] - a[1 * N + n] * a[1 * N + n];
 
-        const TT det = a[0 * N + n] * c00 + a[1 * N + n] * c01 + a[3 * N + n] * c02;
-
+        // Force determinant calculation in double precision.
+        const double det = (double)a[0 * N + n] * c00 + (double)a[1 * N + n] * c01 + (double)a[3 * N + n] * c02;
         const TT s = TT(1) / det;
 
         a[0 * N + n] = s * c00;
@@ -347,12 +344,14 @@ namespace Matriplex {
 
   template <typename T, idx_t D, idx_t N>
   struct CramerInverterSym {
-    static void invert(MPlexSym<T, D, N>& A) { throw std::runtime_error("general cramer inversion not supported"); }
+    static void invert(MPlexSym<T, D, N>& A, double* determ = nullptr) {
+      throw std::runtime_error("general cramer inversion not supported");
+    }
   };
 
   template <typename T, idx_t N>
   struct CramerInverterSym<T, 2, N> {
-    static void invert(MPlexSym<T, 2, N>& A) {
+    static void invert(MPlexSym<T, 2, N>& A, double* determ = nullptr) {
       typedef T TT;
 
       T* a = A.fArray;
@@ -360,8 +359,10 @@ namespace Matriplex {
 
 #pragma omp simd
       for (idx_t n = 0; n < N; ++n) {
-        //const TT det = a[0*N+n] * a[2*N+n] - a[1*N+n] * a[1*N+n];
+        // Force determinant calculation in double precision.
         const double det = (double)a[0 * N + n] * a[2 * N + n] - (double)a[1 * N + n] * a[1 * N + n];
+        if (determ)
+          determ[n] = det;
 
         const TT s = TT(1) / det;
         const TT tmp = s * a[2 * N + n];
@@ -374,7 +375,7 @@ namespace Matriplex {
 
   template <typename T, idx_t N>
   struct CramerInverterSym<T, 3, N> {
-    static void invert(MPlexSym<T, 3, N>& A) {
+    static void invert(MPlexSym<T, 3, N>& A, double* determ = nullptr) {
       typedef T TT;
 
       T* a = A.fArray;
@@ -389,10 +390,12 @@ namespace Matriplex {
         const TT c12 = a[3 * N + n] * a[1 * N + n] - a[4 * N + n] * a[0 * N + n];
         const TT c22 = a[0 * N + n] * a[2 * N + n] - a[1 * N + n] * a[1 * N + n];
 
-        const TT det = a[0 * N + n] * c00 + a[1 * N + n] * c01 + a[3 * N + n] * c02;
+        // Force determinant calculation in double precision.
+        const double det = (double)a[0 * N + n] * c00 + (double)a[1 * N + n] * c01 + (double)a[3 * N + n] * c02;
+        if (determ)
+          determ[n] = det;
 
         const TT s = TT(1) / det;
-
         a[0 * N + n] = s * c00;
         a[1 * N + n] = s * c01;
         a[2 * N + n] = s * c11;
@@ -404,8 +407,8 @@ namespace Matriplex {
   };
 
   template <typename T, idx_t D, idx_t N>
-  void invertCramerSym(MPlexSym<T, D, N>& A) {
-    CramerInverterSym<T, D, N>::invert(A);
+  void invertCramerSym(MPlexSym<T, D, N>& A, double* determ = nullptr) {
+    CramerInverterSym<T, D, N>::invert(A, determ);
   }
 
   //==============================================================================
@@ -459,10 +462,6 @@ namespace Matriplex {
     CholeskyInverterSym<T, D, N>::invert(A);
   }
 
-  //==============================================================================
-  // End Attic, close namespace Matriplex
-  //==============================================================================
-
-}  // namespace Matriplex
+}  // end namespace Matriplex
 
 #endif

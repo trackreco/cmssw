@@ -47,12 +47,7 @@ namespace mkfit {
 
     template <typename TM>
     void pack(TM& mplex, int base_offset) {
-      assert(m_pos <= NN);
-
-      if (m_pos == 0) {
-        // throw? ... this is probably not expected to happen.
-        return;
-      }
+      assert(m_pos > 0 && m_pos <= NN);
 
 #if defined(GATHER_INTRINSICS)
       GATHER_IDX_LOAD(vi, m_idx);
@@ -97,12 +92,7 @@ namespace mkfit {
 
     template <typename TMerr, typename TMpar>
     void pack(TMerr& err, TMpar& par) {
-      assert(this->m_pos <= NN);
-
-      if (this->m_pos == 0) {
-        // throw? ... this is probably not expected to happen.
-        return;
-      }
+      assert(this->m_pos > 0 && this->m_pos <= NN);
 
 #if defined(GATHER_INTRINSICS)
       GATHER_IDX_LOAD(vi, this->m_idx);

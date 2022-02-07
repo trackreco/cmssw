@@ -139,12 +139,7 @@ namespace Matriplex {
     template <typename U>
     void slurpIn(const T* arr, __m256i& vi, const U&, const int N_proc = N) {
       // Casts to float* needed to "support" also T=HitOnTrack.
-      // Not needed for AVX_512 (?).
-      // This (and AVX_512 version) will be a mess if one uses T with sizeof(T) != 4.
-      // But really, we do not need to use Matriplexes for HitOnTrack vectors
-      // [as well as for some other things in MkFitter/Finder but at least those
-      // do not use SlurpIn].
-      // Do we need specializations for float / double / HitOnTrack?
+      // Note that sizeof(float) == sizeof(HitOnTrack) == 4.
 
       const __m256 src = {0};
 
@@ -167,8 +162,6 @@ namespace Matriplex {
       // Separate N_proc == N case (gains about 7% in fit test).
       if (N_proc == N) {
         for (int i = 0; i < kSize; ++i) {
-          // Next loop vectorizes with "#pragma ivdep", but it runs slower
-          // #pragma ivdep
           for (int j = 0; j < N; ++j) {
             fArray[i * N + j] = *(arr + i + vi[j]);
           }
@@ -204,18 +197,17 @@ namespace Matriplex {
       for (idx_t j = 0; j < D3; ++j) {
         const idx_t ijo = N * (i * D3 + j);
 
+#pragma omp simd
         for (idx_t n = 0; n < N; ++n) {
           C.fArray[ijo + n] = 0;
         }
 
-        //#pragma omp simd collapse(2)
         for (idx_t k = 0; k < D2; ++k) {
           const idx_t iko = N * (i * D2 + k);
           const idx_t kjo = N * (k * D3 + j);
 
 #pragma omp simd
           for (idx_t n = 0; n < N; ++n) {
-            // C.fArray[i, j, n] += A.fArray[i, k, n] * B.fArray[k, j, n];
             C.fArray[ijo + n] += A.fArray[iko + n] * B.fArray[kjo + n];
           }
         }
@@ -374,11 +366,10 @@ namespace Matriplex {
 
 #pragma omp simd
       for (idx_t n = 0; n < N; ++n) {
-        //const TT det = a[0*N+n] * a[3*N+n] - a[2*N+n] * a[1*N+n];
+        // Force determinant calculation in double precision.
         const double det = (double)a[0 * N + n] * a[3 * N + n] - (double)a[2 * N + n] * a[1 * N + n];
-
-        //if (determ)
-        //determ[n] = det;
+        if (determ)
+          determ[n] = det;
 
         const TT s = TT(1) / det;
         const TT tmp = s * a[3 * N + n];
@@ -410,13 +401,12 @@ namespace Matriplex {
         const TT c21 = a[2 * N + n] * a[3 * N + n] - a[0 * N + n] * a[5 * N + n];
         const TT c22 = a[0 * N + n] * a[4 * N + n] - a[1 * N + n] * a[3 * N + n];
 
-        const TT det = a[0 * N + n] * c00 + a[1 * N + n] * c01 + a[2 * N + n] * c02;
-
-        //if (determ)
-        //  *determ[n] = det;
+        // Force determinant calculation in double precision.
+        const double det = (double)a[0 * N + n] * c00 + (double)a[1 * N + n] * c01 + (double)a[2 * N + n] * c02;
+        if (determ)
+          determ[n] = det;
 
         const TT s = TT(1) / det;
-
         a[0 * N + n] = s * c00;
         a[1 * N + n] = s * c10;
         a[2 * N + n] = s * c20;
@@ -432,8 +422,6 @@ namespace Matriplex {
 
   template <typename T, idx_t D, idx_t N>
   void invertCramer(MPlex<T, D, D, N>& A, double* determ = nullptr) {
-    // We don't do general Inverts.
-
     CramerInverter<T, D, N>::invert(A, determ);
   }
 
@@ -448,11 +436,8 @@ namespace Matriplex {
 
   template <typename T, idx_t N>
   struct CholeskyInverter<T, 3, N> {
-    // Remember, this only works on symmetric matrices!
+    // Note: this only works on symmetric matrices.
     // Optimized version for positive definite matrices, no checks.
-    // Also, use as little locals as possible.
-    // This gives: host  x 5.8 (instead of 4.7x)
-    //             mic   x17.7 (instead of 8.5x))
     static void invert(MPlex<T, 3, 3, N>& A) {
       typedef T TT;
 

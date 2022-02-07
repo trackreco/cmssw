@@ -233,11 +233,10 @@ namespace mkfit {
       m_seedMinLastLayer[reg] = std::min(m_seedMinLastLayer[reg], hot.layer);
       m_seedMaxLastLayer[reg] = std::max(m_seedMaxLastLayer[reg], hot.layer);
 
-      // MT-OPTIMIZE-MEM: should delay this and pool-allocate memory for HoTs once
-      // population for each region is known.
       insert_seed(S, reg);
     }
 
+    // Fix min/max layers
     for (int i = 0; i < m_job->num_regions(); ++i) {
       if (m_seedMinLastLayer[i] == 9999)
         m_seedMinLastLayer[i] = -1;
@@ -245,7 +244,6 @@ namespace mkfit {
         m_seedMaxLastLayer[i] = -1;
     }
 
-    // MIMI -- we in principle support any number of regions now.
     dprintf(
         "MkBuilder::import_seeds finished import of %d seeds (last seeding layer min, max):\n"
         "  ec- = %d(%d,%d), t- = %d(%d,%d), brl = %d(%d,%d), t+ = %d(%d,%d), ec+ = %d(%d,%d).\n",
@@ -266,17 +264,11 @@ namespace mkfit {
         m_seedMinLastLayer[4],
         m_seedMaxLastLayer[4]);
 
-    // Sum up region counts to contain actual separator indices, fix min/max layers.
+    // Sum up region counts to contain actual separator indices.
     for (int i = 1; i < m_job->num_regions(); ++i) {
       m_seedEtaSeparators[i] += m_seedEtaSeparators[i - 1];
     }
 
-    // MT-OPTIMIZE-MEM: Allocate mem, assign to CombCands as per region.
-    // reset() that is called in find_tracks_load_seeds() should be called here with additional
-    // information from this seed partition and max expected num-of hits in given iteration / region.
-    // Or, at least estimated from N_max_cands and N_layers in given eta-region.
-
-    //dump seeds
     dcall(print_seeds(m_event_of_comb_cands));
   }
 
@@ -882,23 +874,6 @@ namespace mkfit {
                   if (hm) {
                     tc.addHitIdx(hm->m_hit_idx, curr_layer, hm->m_chi2);
                     tc.incOverlapCount();
-
-                    // --- ROOT text tree dump of all found overlaps
-                    // static bool first = true;
-                    // if (first)
-                    // {
-                    //   // ./mkFit ... | perl -ne 'if (/^ZZZ_EXTRA/) { s/^ZZZ_EXTRA //og; print; }' > extra.rtt
-                    //   printf("ZZZ_EXTRA label/I:can_idx/I:layer/I:pt/F:eta/F:phi/F:"
-                    //          "chi2/F:chi2_extra/F:module/I:module_extra/I:extra_label/I\n");
-                    //   first = false;
-                    // }
-
-                    // const Hit       &h    = layer_of_hits.refHit(tc.getLastHitIdx());
-                    // const MCHitInfo &mchi = m_event->simHitsInfo_[h.mcHitID()];
-                    // // label/I:can_idx/I:layer/I:pt/F:eta/F:phi/F:chi2_orig/F:chi2/F:chi2_extra/F:module/I:module_extra/I
-                    // printf("ZZZ_EXTRA %d %d %d %f %f %f %f %f %u %u %d\n",
-                    //        tc.label(), tc.originIndex(), curr_layer, tc.pT(), tc.posEta(), tc.posPhi(),
-                    //        tc.chi2(), hm->m_chi2, layer_of_hits.refHit(tc.getLastHitIdx()).detIDinLayer(), hm->m_module_id, mchi.mcTrackID());
                   }
                 }
 
@@ -1328,31 +1303,6 @@ namespace mkfit {
 
     for (int icand = start_cand; icand < end_cand; icand += step) {
       int end = std::min(icand + NN, end_cand);
-
-      // Check if we need to fragment this for SlurpIn to work.
-      // Would actually prefer to do memory allocator for HoTNode storage.
-      // This has been "fixed" by copying Cands back into original container, not swapping the contents
-      // with vectors created in another thread (and thus not in the same memory pool, apparently), see
-      // CandCloner::processSeedRange(). Standard building does not have this problem.
-      /*
-    step = NN;
-    {
-       int end_c = icand + 1;
-       while (end_c < end)
-       {
-          // Still crashes with 0x1fffffff and 0x1ffffff, 0x1fffff works (~2000 breaks over 5k high PU events)
-          if (std::abs(&eoccs[icand][0] - &eoccs[end_c][0]) > 0x1fffff)
-          {
-             end  = end_c;
-             step = end - icand;
-             if ( ! m_silent)
-               printf("XXYZZ MkBuilder::fit_cands Breaking up candidates with offset outside of 32-bit range, step=%d.\n", step);
-             break;
-          }
-          ++end_c;
-       }
-    }
-    */
 
 #ifdef DEBUG
       printf("Pre Final fit for %d - %d\n", icand, end);

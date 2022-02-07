@@ -214,7 +214,8 @@ namespace mkfit {
           ++extra_i;
         }
 
-        // ccand.swap(cv); // segfaulting w/ backwards fit input tracks -- using loop below now
+        // Can not use ccand.swap(cv) -- allocations for TrackCand vectors need to be
+        // in the same memory segment for gather operation to work in backward-fit.
         ccand.resize(cv.size());
         for (size_t ii = 0; ii < cv.size(); ++ii) {
           ccand[ii] = cv[ii];
