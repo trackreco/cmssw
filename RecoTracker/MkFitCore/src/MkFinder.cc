@@ -1681,7 +1681,6 @@ namespace mkfit {
 
           const Hit &hit = L.refHit(m_HoTNodeArr[i][m_CurNode[i]].m_hot.index);
 
-          // XXXX
 #ifdef DEBUG_BACKWARD_FIT
           last_hit_ptr[i] = &hit;
 #endif
@@ -1691,7 +1690,6 @@ namespace mkfit {
 
           m_CurNode[i] = m_HoTNodeArr[i][m_CurNode[i]].m_prev_idx;
         } else {
-          // XXXX
 #ifdef DEBUG_BACKWARD_FIT
           last_hit_ptr[i] = nullptr;
 #endif
@@ -1792,36 +1790,7 @@ namespace mkfit {
           );
         }
 #endif
-
-        // XXXX  Remove hit
-        // const float CHI2_BKFIT_CUT = 1000;
-        if (false)  // (std::isnan(tmp_chi2.At(i, 0, 0)) || tmp_chi2.At(i, 0, 0) > CHI2_BKFIT_CUT)
-        {
-          // QQQQQ This is wrong -- cur node already increased: !!!!!
-          // QQQQQ m_HoTNodeArr[ i ][ m_CurNode[i] ].m_hot.index = -4; // XXXX A new value or use -1 ???
-
-          // XXXX Should I reduce num hits in TrackCand?
-
-          m_Par[iC].copySlot(i, m_Par[iP]);
-          m_Err[iC].copySlot(i, m_Err[iP]);
-
-          tmp_chi2.At(i, 0, 0) = 0;
-        }
       }
-
-      // ZZZ If we want to do chi2 rejection during backward fit, either:
-      //     a) Copy pre-parameters over the input here.
-      //     b) Pass no-hit information to kalmanOperation so it can override it.
-      //  b) is probably better as there is less copying involved, 3x3 vs, 6x6.
-      // Nope, can't do ... intermediate results calculated for chi2 are used for update.
-      // So need to do a)
-      //
-      // Then, when we reject a hit, what do we do with it, remove it?
-      // Or replace with some new index, say -4?
-      //   In this case need to check how bad/good hits are counted (this will be like -3). Messy for sure.
-      // What happens with the potential overlap hit?
-      // - Fit it? Ususally there will be a single track. Hmmh.
-      // - Promote it to main hit without fitting.
 
       // update chi2
       m_Chi2.add(tmp_chi2);
