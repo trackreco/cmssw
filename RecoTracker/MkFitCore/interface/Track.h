@@ -271,7 +271,7 @@ namespace mkfit {
     // int  nOverlapHits()  const  { return status_.n_overlaps; }
     // void setNOverlapHits(int n) { status_.n_overlaps = n; }
 
-    /// track algorithm; partial copy from TrackBase.h
+    /// track algorithm; copy from TrackBase.h to keep in standalone builds
     enum class TrackAlgorithm {
       undefAlgorithm = 0,
       ctf = 1,
