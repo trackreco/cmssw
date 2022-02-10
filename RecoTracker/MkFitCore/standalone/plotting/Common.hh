@@ -1,4 +1,3 @@
-// clang-format off
 #ifndef _Common_
 #define _Common_
 
@@ -18,38 +17,37 @@
 #include <vector>
 #include <algorithm>
 
-namespace
-{
-  void setupStyle()
-  {
+namespace {
+  void setupStyle() {
     gStyle->SetOptStat(0);
     gStyle->SetPadTickX(1);
     gStyle->SetPadTickY(1);
   }
-};
+};  // namespace
 
-enum ArchEnum {SNB, KNL, SKL, LNXG, LNXS};
+enum ArchEnum { SNB, KNL, SKL, LNXG, LNXS };
 
-namespace
-{
+namespace {
   ArchEnum ARCH;
-  void setupARCHEnum(const TString & arch)
-  {
-    if      (arch.Contains("SNB")) ARCH = SNB;
-    else if (arch.Contains("KNL")) ARCH = KNL;
-    else if (arch.Contains("SKL")) ARCH = SKL;
-    else if (arch.Contains("LNX-S")) ARCH = LNXS;
-    else if (arch.Contains("LNX-G")) ARCH = LNXG;
-    else 
-    {
+  void setupARCHEnum(const TString& arch) {
+    if (arch.Contains("SNB"))
+      ARCH = SNB;
+    else if (arch.Contains("KNL"))
+      ARCH = KNL;
+    else if (arch.Contains("SKL"))
+      ARCH = SKL;
+    else if (arch.Contains("LNX-S"))
+      ARCH = LNXS;
+    else if (arch.Contains("LNX-G"))
+      ARCH = LNXG;
+    else {
       std::cerr << arch.Data() << " is not an allowed architecture! Exiting... " << std::endl;
       exit(1);
     }
   }
-};
+};  // namespace
 
-struct ArchOpts
-{
+struct ArchOpts {
   Int_t vumin;
   Int_t vumax;
 
@@ -75,19 +73,16 @@ struct ArchOpts
   Double_t thmeifspeedupmax;
 };
 
-namespace 
-{
+namespace {
   ArchOpts arch_opt;
-  void setupArch()
-  {
-    if      (ARCH == SNB)
-    {
+  void setupArch() {
+    if (ARCH == SNB) {
       arch_opt.vumin = 1;
       arch_opt.vumax = 8;
 
       arch_opt.thmin = 1;
       arch_opt.thmax = 24;
-      
+
       arch_opt.vutimemin = 0.;
       arch_opt.vutimemax = 0.5;
 
@@ -105,12 +100,10 @@ namespace
 
       arch_opt.thmeifspeedupmin = 0.;
       arch_opt.thmeifspeedupmax = arch_opt.thmax;
-    }
-    else if (ARCH == KNL)
-    {
+    } else if (ARCH == KNL) {
       arch_opt.vumin = 1;
       arch_opt.vumax = 16;
-      
+
       arch_opt.thmin = 1;
       arch_opt.thmax = 256;
 
@@ -131,12 +124,10 @@ namespace
 
       arch_opt.thmeifspeedupmin = 0.;
       arch_opt.thmeifspeedupmax = arch_opt.thspeedupmax;
-    }
-    else if (ARCH == SKL)
-    {
+    } else if (ARCH == SKL) {
       arch_opt.vumin = 1;
       arch_opt.vumax = 16;
-      
+
       arch_opt.thmin = 1;
       arch_opt.thmax = 64;
 
@@ -157,12 +148,10 @@ namespace
 
       arch_opt.thmeifspeedupmin = 0.;
       arch_opt.thmeifspeedupmax = arch_opt.thspeedupmax;
-    }
-    else if (ARCH == LNXG)
-    {
+    } else if (ARCH == LNXG) {
       arch_opt.vumin = 1;
       arch_opt.vumax = 16;
-      
+
       arch_opt.thmin = 1;
       arch_opt.thmax = 64;
 
@@ -183,12 +172,10 @@ namespace
 
       arch_opt.thmeifspeedupmin = 0.;
       arch_opt.thmeifspeedupmax = arch_opt.thspeedupmax;
-    }
-    else if (ARCH == LNXS)
-    {
+    } else if (ARCH == LNXS) {
       arch_opt.vumin = 1;
       arch_opt.vumax = 16;
-      
+
       arch_opt.thmin = 1;
       arch_opt.thmax = 64;
 
@@ -209,129 +196,109 @@ namespace
 
       arch_opt.thmeifspeedupmin = 0.;
       arch_opt.thmeifspeedupmax = arch_opt.thspeedupmax;
-    }
-    else
-    {
+    } else {
       std::cerr << "How did this happen?? You did not specify one of the allowed ARCHs!" << std::endl;
       exit(1);
     }
   }
-};
+};  // namespace
 
-enum SuiteEnum {full, forPR, forConf, val};
+enum SuiteEnum { full, forPR, forConf, val };
 
-namespace 
-{
+namespace {
   SuiteEnum SUITE;
-  void setupSUITEEnum(const TString & suite)
-  {
-    if      (suite.Contains("full"))    SUITE = full;
-    else if (suite.Contains("forPR"))   SUITE = forPR;
-    else if (suite.Contains("forConf")) SUITE = forConf;
-    else if (suite.Contains("val"))     SUITE = val;
-    else 
-    {
+  void setupSUITEEnum(const TString& suite) {
+    if (suite.Contains("full"))
+      SUITE = full;
+    else if (suite.Contains("forPR"))
+      SUITE = forPR;
+    else if (suite.Contains("forConf"))
+      SUITE = forConf;
+    else if (suite.Contains("val"))
+      SUITE = val;
+    else {
       std::cerr << suite.Data() << " is not an allowed validation suite! Exiting... " << std::endl;
       exit(1);
     }
   }
-};
+};  // namespace
 
-struct BuildOpts
-{
+struct BuildOpts {
   BuildOpts() {}
-  BuildOpts(const TString & name, const Color_t color, const TString & label)
-    : name(name), color(color), label(label) {}
-  
+  BuildOpts(const TString& name, const Color_t color, const TString& label) : name(name), color(color), label(label) {}
+
   TString name;
   Color_t color;
   TString label;
 };
 typedef std::vector<BuildOpts> BOVec;
-typedef std::map<TString,BuildOpts> BOMap;
+typedef std::map<TString, BuildOpts> BOMap;
 
-namespace
-{
+namespace {
   BOVec builds;
   UInt_t nbuilds;
-  void setupBuilds(const Bool_t isBenchmark, const Bool_t includeCMSSW)
-  {
+  void setupBuilds(const Bool_t isBenchmark, const Bool_t includeCMSSW) {
     // tmp map to fill builds vector
     BOMap buildsMap;
-    buildsMap["BH"] = {"BH",kBlue,"Best Hit"};
-    buildsMap["STD"] = {"STD",kGreen+1,"Standard"};
-    buildsMap["CE"] = {"CE",kRed,"Clone Engine"};
-    buildsMap["FV"] = {"FV",kMagenta,"Full Vector"};
-    buildsMap["CMSSW"] = {"CMSSW",kBlack,"CMSSW"};
+    buildsMap["BH"] = {"BH", kBlue, "Best Hit"};
+    buildsMap["STD"] = {"STD", kGreen + 1, "Standard"};
+    buildsMap["CE"] = {"CE", kRed, "Clone Engine"};
+    buildsMap["FV"] = {"FV", kMagenta, "Full Vector"};
+    buildsMap["CMSSW"] = {"CMSSW", kBlack, "CMSSW"};
 
     // KPM: Consult ./xeon_scripts/common-variables.sh to match routines to suite
-    if (SUITE == full)
-    {
+    if (SUITE == full) {
       builds.emplace_back(buildsMap["BH"]);
       builds.emplace_back(buildsMap["STD"]);
       builds.emplace_back(buildsMap["CE"]);
       builds.emplace_back(buildsMap["FV"]);
-    }
-    else if (SUITE == forPR)
-    {
-      if (isBenchmark)
-      {
-	builds.emplace_back(buildsMap["BH"]);
-	builds.emplace_back(buildsMap["CE"]);
+    } else if (SUITE == forPR) {
+      if (isBenchmark) {
+        builds.emplace_back(buildsMap["BH"]);
+        builds.emplace_back(buildsMap["CE"]);
+      } else {
+        builds.emplace_back(buildsMap["STD"]);
+        builds.emplace_back(buildsMap["CE"]);
       }
-      else
-      {
-	builds.emplace_back(buildsMap["STD"]);
-	builds.emplace_back(buildsMap["CE"]);
-      }
-    }
-    else if (SUITE == forConf)
-    {
+    } else if (SUITE == forConf) {
       builds.emplace_back(buildsMap["CE"]);
-      builds.back().label = "mkFit"; // change label in legend for conference
-    }
-    else if (SUITE == val)
-    {
-      if (isBenchmark)
-      {
-        std::cout<<"INFO: val mode has an empty set for isBenchmark" << std::endl;
+      builds.back().label = "mkFit";  // change label in legend for conference
+    } else if (SUITE == val) {
+      if (isBenchmark) {
+        std::cout << "INFO: val mode has an empty set for isBenchmark" << std::endl;
+      } else {
+        builds.emplace_back(buildsMap["STD"]);
+        builds.emplace_back(buildsMap["CE"]);
       }
-      else
-      {
-	builds.emplace_back(buildsMap["STD"]);
-	builds.emplace_back(buildsMap["CE"]);
-      }
-    }
-    else
-    {
+    } else {
       std::cerr << "How did this happen?? You did not specify one of the allowed SUITEs!" << std::endl;
       exit(1);
     }
 
     // always check for adding in CMSSW --> never true for isBenchmark
-    if (includeCMSSW) builds.emplace_back(buildsMap["CMSSW"]);
+    if (includeCMSSW)
+      builds.emplace_back(buildsMap["CMSSW"]);
 
     // set nbuilds
     nbuilds = builds.size();
   }
 
-};
+};  // namespace
 
-void GetMinMaxHist(const TH1F * hist, Double_t & min, Double_t & max)
-{
-  for (auto ibin = 1; ibin <= hist->GetNbinsX(); ibin++)
-  {
+void GetMinMaxHist(const TH1F* hist, Double_t& min, Double_t& max) {
+  for (auto ibin = 1; ibin <= hist->GetNbinsX(); ibin++) {
     const auto content = hist->GetBinContent(ibin);
-    
-    if (content < min && content != 0.0) min = content;
-    if (content > max) max = content;
+
+    if (content < min && content != 0.0)
+      min = content;
+    if (content > max)
+      max = content;
   }
 }
- 
-void SetMinMaxHist(TH1F * hist, const Double_t min, const Double_t max, const Bool_t isLogy)
-{
-  hist->SetMinimum(isLogy?min/2.0:min/1.05);
-  hist->SetMaximum(isLogy?max*2.0:max*1.05);
+
+void SetMinMaxHist(TH1F* hist, const Double_t min, const Double_t max, const Bool_t isLogy) {
+  hist->SetMinimum(isLogy ? min / 2.0 : min / 1.05);
+  hist->SetMaximum(isLogy ? max * 2.0 : max * 1.05);
 }
 
 #endif

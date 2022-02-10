@@ -1,4 +1,3 @@
-// clang-format off
 #include "TClass.h"
 
 #include <string>
@@ -7,13 +6,12 @@
 // Begin AUTO code, some classes commented out.
 
 std::vector<std::string> classes = {
-  // "mkfit::IterationConfig",
-  "mkfit::IterationLayerConfig",
-  "mkfit::IterationParams",
-  // "mkfit::IterationSeedPartition",
-  "mkfit::IterationConfig",
-  "mkfit::IterationsInfo"
-};
+    // "mkfit::IterationConfig",
+    "mkfit::IterationLayerConfig",
+    "mkfit::IterationParams",
+    // "mkfit::IterationSeedPartition",
+    "mkfit::IterationConfig",
+    "mkfit::IterationsInfo"};
 
 // End AUTO code.
 
@@ -30,26 +28,24 @@ std::vector<std::string> classes = {
        Then cut-n-paste NLOHMANN defines into SteeringParams.cc 
 */
 
-void dump_vars()
-{
-    gSystem->Load("libConfigDict.so");
+void dump_vars() {
+  gSystem->Load("libConfigDict.so");
 
-    for (auto &cls : classes)
-    {
-        printf("NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(%s,\n", cls.c_str());
+  for (auto &cls : classes) {
+    printf("NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(%s,\n", cls.c_str());
 
-        TClass *tc = TClass::GetClass(cls.c_str());
-        TList  *ml = tc->GetListOfDataMembers();
-        TIter   it(ml);
-        TDataMember *dm = (TDataMember*) it.Next();
-        while (dm)
-        {
-            // dm->GetTypeName(), dm->GetFullTypeName(), dm->GetTrueTypeName(),
-            printf("  /* %s */   %s", dm->GetTypeName(), dm->GetName());
-            dm = (TDataMember*) it.Next();
-            if (dm) printf(",");
-            printf("\n");
-        }
-        printf(")\n\n");
+    TClass *tc = TClass::GetClass(cls.c_str());
+    TList *ml = tc->GetListOfDataMembers();
+    TIter it(ml);
+    TDataMember *dm = (TDataMember *)it.Next();
+    while (dm) {
+      // dm->GetTypeName(), dm->GetFullTypeName(), dm->GetTrueTypeName(),
+      printf("  /* %s */   %s", dm->GetTypeName(), dm->GetName());
+      dm = (TDataMember *)it.Next();
+      if (dm)
+        printf(",");
+      printf("\n");
     }
+    printf(")\n\n");
+  }
 }
