@@ -24,6 +24,8 @@ namespace mkfit {
     float getRlVal(const int zb, const int rb) const { return mRlgridME[zb][rb]; }
     float getXiVal(const int zb, const int rb) const { return mXigridME[zb][rb]; }
 
+    /// (z,r) grid to material bin/det mapping for Rad length (Rl) and Xi arrays
+    // see https://indico.cern.ch/event/924564/contributions/3885164/attachments/2097314/
     int getDetId(const float zin, const float r) const {
       const float z = std::abs(zin);
 

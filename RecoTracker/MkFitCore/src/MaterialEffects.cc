@@ -3,6 +3,8 @@
 namespace mkfit {
 
   namespace Config {
+    // derivation documented in https://indico.cern.ch/event/924564/contributions/3885164/attachments/2097314/
+    // radiation length array
     constexpr float Rl[136] = {
         0.018, 0.031, 0.017, 0.023, 0.018, 0.028, 0.021, 0.040, 0.066, 0.039, 0.069, 0.040, 0.103, 0.098, 0.028, 0.038,
         0.025, 0.034, 0.037, 0.078, 0.048, 0.064, 0.168, 0.085, 0.144, 0.033, 0.157, 0.078, 0.014, 0.032, 0.052, 0.012,
