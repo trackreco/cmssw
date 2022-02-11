@@ -15,7 +15,6 @@ namespace {
 
 namespace mkfit {
   void createPhase1TrackerGeometry(TrackerInfo &ti, bool verbose) {
-    ti.set_eta_regions(0.9, 1.7, 2.45);
     ti.create_layers(18, 27, 27);
     createPhase1TrackerGeometryAutoGen(ti);
 

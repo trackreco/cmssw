@@ -103,10 +103,6 @@ namespace {
     CylCowWLidsCreator(TrackerInfo& ti) : m_trkinfo(ti) {}
 
     void FillTrackerInfo() {
-      // XXXXXXMT: Hack smaller transition region.
-      // Need better estimate for seeds?
-      // m_trkinfo.set_eta_regions(1.15, 1.4, 2.4);
-      m_trkinfo.set_eta_regions(1.1, 1.3, 2.4);
       m_trkinfo.create_layers(10, 9, 9);
 
       // Actual coverage for tracks with z = 3cm is 2.4

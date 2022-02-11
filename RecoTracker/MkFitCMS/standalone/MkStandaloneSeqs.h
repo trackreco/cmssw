@@ -46,24 +46,6 @@ namespace mkfit {
     void prep_tracks(Event *event, TrackVec &tracks, TrackExtraVec &extras, const bool realigntracks);
     void score_tracks(TrackVec &tracks);  // if track score is not already assigned
 
-    // Carryover from MkBuilder.h
-    //----------------------------
-
-    // void create_seeds_from_sim_tracks();
-    // void find_seeds();
-    // void fit_seeds();
-    // void PrepareSeeds();
-
-    // This one is here mostly to keep code for printing overlap hit truth - DUMP_OVERLAP_RTTS.
-    // quality_store_tracks(const EventOfCombCandidates &eoccs, TrackVec & tracks);
-
-    // Carryover from MkFitter.h
-    //---------------------------
-
-    // void FitTracks(const int N_proc, const Event * ev, const PropagationFlags pflags);
-    // void FitTracksSteered(const bool is_barrel[], const int N_proc, const Event * ev, const PropagationFlags pflags);
-    // void CollectFitValidation(const int hi, const int N_proc, const Event * ev) const;
-
   }  // namespace StdSeq
 
 }  // namespace mkfit

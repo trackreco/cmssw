@@ -125,8 +125,6 @@ namespace mkfit {
 
   class TrackerInfo {
   public:
-    enum AbsEtaRegion_e { AbsReg_Outside = -1, AbsReg_Barrel = 0, AbsReg_Transition = 1, AbsReg_Endcap = 2 };
-
     enum EtaRegion {
       Reg_Begin = 0,
       Reg_Endcap_Neg = 0,
@@ -138,7 +136,6 @@ namespace mkfit {
       Reg_Count = Reg_End
     };
 
-    void set_eta_regions(float tr_beg, float tr_end, float ec_end);
     void reserve_layers(int n_brl, int n_ec_pos, int n_ec_neg);
     void create_layers(int n_brl, int n_ec_pos, int n_ec_neg);
     LayerInfo& new_barrel_layer();
@@ -151,14 +148,6 @@ namespace mkfit {
 
     const LayerInfo& operator[](int l) const { return m_layers[l]; }
 
-    bool is_barrel(float eta) const { return std::abs(eta) < m_eta_trans_beg; }
-
-    bool is_transition(float eta, float safety = 0) const {
-      return std::abs(eta) >= m_eta_trans_beg - safety && std::abs(eta) <= m_eta_trans_end + safety;
-    }
-
-    bool is_endcap(float eta) const { return std::abs(eta) > m_eta_trans_end; }
-
     bool is_stereo(int i) const { return m_layers[i].is_stereo(); }
     bool is_pixb_lyr(int i) const { return m_layers[i].is_pixb_lyr(); }
     bool is_pixe_lyr(int i) const { return m_layers[i].is_pixe_lyr(); }
@@ -167,30 +156,6 @@ namespace mkfit {
     bool is_tob_lyr(int i) const { return m_layers[i].is_tob_lyr(); }
     bool is_tid_lyr(int i) const { return m_layers[i].is_tid_lyr(); }
     bool is_tec_lyr(int i) const { return m_layers[i].is_tec_lyr(); }
-
-    EtaRegion find_eta_region(float eta) const {
-      if (eta < -m_eta_trans_end)
-        return Reg_Endcap_Neg;
-      else if (eta < -m_eta_trans_beg)
-        return Reg_Transition_Neg;
-      else if (eta < m_eta_trans_beg)
-        return Reg_Barrel;
-      else if (eta < m_eta_trans_end)
-        return Reg_Transition_Pos;
-      else
-        return Reg_Endcap_Pos;
-    }
-
-    EtaRegion find_region_of_layer(int l) const {
-      // Assumes layers increase monotonically for barrel / encap.
-      // Never returns Transition region.
-
-      if (l <= m_barrel.back())
-        return Reg_Barrel;
-      if (l <= m_ecap_pos.back())
-        return Reg_Endcap_Pos;
-      return Reg_Endcap_Neg;
-    }
 
     const LayerInfo& outer_barrel_layer() const { return m_layers[m_barrel.back()]; }
 
@@ -202,8 +167,6 @@ namespace mkfit {
     std::vector<int> m_barrel;
     std::vector<int> m_ecap_pos;
     std::vector<int> m_ecap_neg;
-
-    float m_eta_trans_beg, m_eta_trans_end, m_eta_ecap_end;
   };
 
 }  // end namespace mkfit

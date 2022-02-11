@@ -73,7 +73,7 @@ namespace mkfit {
 #ifdef COPY_SORTED_HITS
     if (m_capacity < m_n_hits) {
       free_hits();
-      alloc_hits(1.02 * m_n_hits);
+      alloc_hits(m_n_hits);
     }
 #endif
 
@@ -210,7 +210,7 @@ namespace mkfit {
 #ifdef COPY_SORTED_HITS
     if (m_capacity < m_n_hits) {
       free_hits();
-      alloc_hits(1.02 * m_n_hits);
+      alloc_hits(m_n_hits);
     }
 #endif
 

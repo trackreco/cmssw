@@ -21,12 +21,6 @@ namespace mkfit {
   // TrackerInfo
   //==============================================================================
 
-  void TrackerInfo::set_eta_regions(float tr_beg, float tr_end, float ec_end) {
-    m_eta_trans_beg = tr_beg;
-    m_eta_trans_end = tr_end;
-    m_eta_ecap_end = ec_end;
-  }
-
   void TrackerInfo::reserve_layers(int n_brl, int n_ec_pos, int n_ec_neg) {
     m_layers.reserve(n_brl + n_ec_pos + n_ec_neg);
     m_barrel.reserve(n_brl);
