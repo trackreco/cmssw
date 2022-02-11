@@ -311,9 +311,9 @@ namespace mkfit {
       }
       for (auto itrack = 0U; itrack < ntracks - 1; itrack++) {
         auto &track = tracks[itrack];
-        if (track.algoint() == 9)
-          continue;
-        if (track.algoint() == 10)
+        using Algo = TrackBase::TrackAlgorithm;
+        auto const algo = track.algorithm();
+        if (algo == Algo::pixelLessStep || algo == Algo::tobTecStep)
           continue;
         eta1 = track.momEta();
         phi1 = track.momPhi();
