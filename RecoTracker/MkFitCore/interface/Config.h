@@ -70,14 +70,12 @@ namespace mkfit {
 
   namespace Config {
     // config for fitting
-    constexpr int nLayers = 10;  // default: 10; cmssw tests: 13, 17, 26 (for endcap)
+    constexpr int nLayers = 10;  // default/toy: 10; cms-like: 18 (barrel), 27 (endcap)
 
     // Layer constants for common barrel / endcap.
     // TrackerInfo more or less has all this information.
     constexpr int nMaxTrkHits = 64;  // Used for array sizes in MkFitter/Finder, max hits in toy MC
     constexpr int nAvgSimHits = 32;  // Used for reserve() calls for sim hits/states
-
-    constexpr float cmsDeltaRad = 2.5;  //fixme! using constant 2.5 cm, to be taken from layer properties
 
     // This will become layer dependent (in bits). To be consistent with min_dphi.
     static constexpr int m_nphi = 256;

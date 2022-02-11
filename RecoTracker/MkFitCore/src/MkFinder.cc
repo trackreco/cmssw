@@ -309,28 +309,6 @@ namespace mkfit {
                                         std::tan(m_Par[iI].constAt(itrack, 5, 0)));
         // XXX-NUM-ERR above, m_Err(2,2) gets negative!
 
-        ////// Disable correction - subsumed in window sizes
-        //if (m_prop_config->finding_requires_propagation_to_hit_pos) {
-        //  //now correct for bending and for layer thickness unsing linear approximation
-        //  //fixme! using constant value, to be taken from layer properties
-        //  //XXXXMT4GC should we also increase dz?
-        //  //XXXXMT4GC an we just take half od layer dR?
-        //  const float deltaR = Config::cmsDeltaRad;
-        //  const float r  = std::sqrt(r2);
-        //  //here alpha is the difference between posPhi and momPhi
-        //  const float alpha = phi - m_Par[iP].constAt(itrack, 4, 0);
-        //  float cosA, sinA;
-        //  if (Config::useTrigApprox) {
-        //    sincos4(alpha, sinA, cosA);
-        //  } else {
-        //    cosA = std::cos(alpha);
-        //    sinA = std::sin(alpha);
-        //  }
-        //  //take abs so that we always inflate the window
-        //  const float dist = std::abs(deltaR*sinA/cosA);
-        //  dphi += dist / r;
-        //}
-
         m_XWsrResult[itrack] = L.is_within_z_sensitive_region(z, std::sqrt(dz * dz + edgeCorr * edgeCorr));
         assignbins(itrack, z, dz, phi, dphi, min_dq, max_dq, min_dphi, max_dphi);
       }
@@ -369,21 +347,6 @@ namespace mkfit {
                                              r2);
         const float edgeCorr = std::abs(0.5f * (L.layer_info()->zmax() - L.layer_info()->zmin()) *
                                         std::tan(m_Par[iI].constAt(itrack, 5, 0)));
-
-        ////// Disable correction - subsumed in window sizes
-        //if (m_prop_config->finding_requires_propagation_to_hit_pos) {
-        //  //now correct for bending and for layer thickness unsing linear approximation
-        //  //fixme! using constant value, to be taken from layer properties
-        //  //XXXXMT4GC should we also increase dr?
-        //  //XXXXMT4GC can we just take half of layer dz?
-        //  const float deltaZ = 5;
-        //  float cosT = std::cos(m_Par[iI].constAt(itrack, 5, 0));
-        //  float sinT = std::sin(m_Par[iI].constAt(itrack, 5, 0));
-        //  //here alpha is the helix angular path corresponding to deltaZ
-        //  const float k = m_Chg.constAt(itrack, 0, 0) * 100.f / (-Const::sol*Config::Bfield);
-        //  const float alpha  = deltaZ*sinT*m_Par[iI].constAt(itrack, 3, 0)/(cosT*k);
-        //  dphi += std::abs(alpha);
-        //}
 
         m_XWsrResult[itrack] = L.is_within_r_sensitive_region(r, std::sqrt(dr * dr + edgeCorr * edgeCorr));
         assignbins(itrack, r, dr, phi, dphi, min_dq, max_dq, min_dphi, max_dphi);
