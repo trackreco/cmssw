@@ -36,6 +36,8 @@ namespace mkfit {
                                               const float drth_obarrel,
                                               const float drth_forward);
 
+    // quality filter for n hits with seed hit "penalty" for strip-based seeds
+    //   this implicitly separates triplets and doublet seeds with glued layers
     template <class TRACK>
     bool qfilter_n_hits(const TRACK &t, int nMinHits) {
       int seedHits = t.getNSeedHits();
@@ -43,11 +45,13 @@ namespace mkfit {
       return t.nFoundHits() - seedReduction >= nMinHits;
     }
 
+    // simple hit-count quality filter; used with pixel-based seeds
     template <class TRACK>
     bool qfilter_n_hits_pixseed(const TRACK &t, int nMinHits) {
       return t.nFoundHits() >= nMinHits;
     }
 
+    // layer-dependent quality filter
     template <class TRACK>
     bool qfilter_n_layers(const TRACK &t, const BeamSpot &bspot, const TrackerInfo &trk_inf) {
       int enhits = t.nHitsByTypeEncoded(trk_inf);
@@ -69,16 +73,7 @@ namespace mkfit {
                ((npixlyrs <= 3 && nmatlyrs <= 6) && lastInsidePix && llyr != lplyr && std::abs(d0BS) > d0_max));
     }
 
-    template <class TRACK>
-    bool qfilter_n_layers_pixelLess(const TRACK &t, const BeamSpot &bspot) {
-      int layers = t.nUniqueLayers();
-      int nhits = t.nFoundHits();
-      float d0BS = t.d0BeamSpot(bspot.x, bspot.y);
-      float d0_max = 0.1;  // 1 mm
-
-      return !((nhits <= 6 || layers <= 6) && std::abs(d0BS) > d0_max);
-    }
-
+    /// quality filter tuned for pixelLess iteration during forward search
     template <class TRACK>
     bool qfilter_pixelLessFwd(const TRACK &t, const BeamSpot &bspot, const TrackerInfo &tk_info) {
       float d0BS = t.d0BeamSpot(bspot.x, bspot.y);
@@ -104,6 +99,7 @@ namespace mkfit {
               !((nLyrs <= 4 || nHits <= 4) && std::abs(d0BS) > d0_max && invpt < invptmin));
     }
 
+    /// quality filter tuned for pixelLess iteration during backward search
     template <class TRACK>
     bool qfilter_pixelLessBkwd(const TRACK &t, const BeamSpot &bspot, const TrackerInfo &tk_info) {
       float d0BS = t.d0BeamSpot(bspot.x, bspot.y);
