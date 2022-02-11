@@ -57,6 +57,7 @@ namespace mkfit {
       for (int itrack = 0; itrack < (int)simtracks.size(); ++itrack) {
         // bool debug = true;
         Track track = simtracks[itrack];
+        // simtracks are initially written with label = index; uncomment in case tracks were edited
         // if (track.label() != itrack) {
         //   dprintf("Bad label for simtrack %d -- %d\n", itrack, track.label());
         // }

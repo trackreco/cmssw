@@ -155,7 +155,7 @@ namespace mkfit {
 
       for (int ts = 0; ts < ns; ts++) {
         if (not writetrack[ts])
-          continue;  //FIXME: this speed up prevents transitive masking; check build cost!
+          continue;  // Note: this speed up prevents transitive masking (possibly marginal gain).
 
         const float oldPhi1 = oldPhi[ts];
         const float pos2_first = pos2[ts];
