@@ -391,6 +391,13 @@ for _eraName, _postfix, _era in _relevantEras:
                    locals()["_generalTracksHp"+_postfix],
                    "generalTracksPt09",
                    "cutsRecoTracksBtvLike",
+                   "cutsRecoTracksInitialStepByOriginalAlgo",
+                   "cutsRecoTracksHighPtTripletStepByOriginalAlgo",
+                   "cutsRecoTracksLowPtQuadStepByOriginalAlgo",
+                   "cutsRecoTracksLowPtTripletStepByOriginalAlgo",
+                   "cutsRecoTracksDetachedQuadStepByOriginalAlgo",
+                   "cutsRecoTracksDetachedTripletStepByOriginalAlgo",
+                   "cutsRecoTracksPixelLessStepByOriginalAlgo",
                    "cutsRecoTracksJetCoreRegionalStepByOriginalAlgo",
                ]
     )
@@ -537,7 +544,7 @@ _trackValidatorSeedingBuilding = trackValidator.clone( # common for built tracks
 trackValidatorBuilding = _trackValidatorSeedingBuilding.clone(
     dirName = "Tracking/TrackBuilding/",
     doMVAPlots = True,
-    doResolutionPlotsForLabels = ['jetCoreRegionalStepTracks'],
+    doResolutionPlotsForLabels = ['initialStepTracksPreSplitting','initialStepTracks','highPtTripletStepTracks','lowPtQuadStepTracks','lowPtTripletStepTracks','detachedQuadStepTracks','detachedTripletStepTracks','pixelLessStepTracks','jetCoreRegionalStepTracks'],
 )
 trackValidatorBuildingPreSplitting = trackValidatorBuilding.clone(
     associators = ["quickTrackAssociatorByHitsPreSplitting"],
