@@ -1075,6 +1075,7 @@ namespace mkfit {
                 newcand.setOriginIndex(m_CandIdx(itrack, 0, 0));
 
                 if (chi2 < m_iteration_params->chi2CutOverlap) {
+		  //if (chi2 < max_c2) {
                   CombCandidate &ccand = *newcand.combCandidate();
                   ccand[m_CandIdx(itrack, 0, 0)].considerHitForOverlap(
                       hit_idx, layer_of_hits.refHit(hit_idx).detIDinLayer(), chi2);
@@ -1233,6 +1234,7 @@ namespace mkfit {
 
               // Register hit for overlap consideration, here we apply chi2 cut
               if (chi2 < m_iteration_params->chi2CutOverlap) {
+		//if (chi2 < max_c2) {
                 ccand[m_CandIdx(itrack, 0, 0)].considerHitForOverlap(
                     hit_idx, layer_of_hits.refHit(hit_idx).detIDinLayer(), chi2);
               }
