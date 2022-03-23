@@ -321,6 +321,7 @@ trackingMkFitPixelLessStep.toReplaceWith(pixelLessStepTrackCandidates, mkFitOutp
     seeds = 'pixelLessStepSeeds',
     mkFitSeeds = 'pixelLessStepTrackCandidatesMkFitSeeds',
     tracks = 'pixelLessStepTrackCandidatesMkFit',
+    algo = 9,
 ))
 (pp_on_XeXe_2017 | pp_on_AA).toModify(pixelLessStepTrackCandidatesMkFitConfig, minPt=2.0)
 
