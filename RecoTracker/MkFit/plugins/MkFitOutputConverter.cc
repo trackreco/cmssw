@@ -61,6 +61,9 @@
 #include "TrackingTools/PatternTools/interface/TSCBLBuilderNoMaterial.h"
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
 
+#include "DataFormats/VertexReco/interface/Vertex.h"
+#include "DataFormats/VertexReco/interface/VertexFwd.h"
+
 namespace {
   template <typename T>
   bool isBarrel(T subdet) {
@@ -95,7 +98,7 @@ private:
                                              const TkClonerImpl& hitCloner,
                                              const std::vector<const DetLayer*>& detLayers,
                                              const mkfit::TrackVec& mkFitSeeds,
-                                             const reco::BeamSpot& bs,
+                                             const reco::BeamSpot& bs, const reco::VertexCollection* vertices,
                                              const TransientTrackingRecHitBuilder& theTTRHBuilder, const tensorflow::Session* session) const;
 
   std::pair<TrajectoryStateOnSurface, const GeomDet*> backwardFit(const FreeTrajectoryState& fts,
@@ -111,8 +114,10 @@ private:
                                                                             const Propagator& propagatorAlong,
                                                                             const Propagator& propagatorOpposite) const;
                                                                             
-  float computeTFDNN(const TrackCandidate& tkC, const reco::BeamSpot& bs, const MagneticField& theMF, const TransientTrackingRecHitBuilder& theTTRHBuilder, const tensorflow::Session* session) const;
+  float computeTFDNN(const TrackCandidate& tkC, const reco::BeamSpot& bs, const reco::VertexCollection* vertices, const MagneticField& theMF, const TransientTrackingRecHitBuilder& theTTRHBuilder, const tensorflow::Session* session, int missing, float chi2) const;
 
+  const int flag_;
+  
   const edm::EDGetTokenT<MkFitEventOfHits> eventOfHitsToken_;
   const edm::EDGetTokenT<MkFitClusterIndexToHit> pixelClusterIndexToHitToken_;
   const edm::EDGetTokenT<MkFitClusterIndexToHit> stripClusterIndexToHitToken_;
@@ -120,6 +125,7 @@ private:
   const edm::EDGetTokenT<MkFitOutputWrapper> tracksToken_;
   const edm::EDGetTokenT<edm::View<TrajectorySeed>> seedToken_;
   const edm::EDGetTokenT<reco::BeamSpot> bsToken_;
+  const edm::EDGetTokenT<reco::VertexCollection> vertices_;
   const edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatorAlongToken_;
   const edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatorOppositeToken_;
   const edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> mfToken_;
@@ -142,13 +148,15 @@ private:
 };
 
 MkFitOutputConverter::MkFitOutputConverter(edm::ParameterSet const& iConfig)
-    : eventOfHitsToken_{consumes<MkFitEventOfHits>(iConfig.getParameter<edm::InputTag>("mkFitEventOfHits"))},
+    : flag_{int(iConfig.getParameter<int>("flag"))}, 
+      eventOfHitsToken_{consumes<MkFitEventOfHits>(iConfig.getParameter<edm::InputTag>("mkFitEventOfHits"))},
       pixelClusterIndexToHitToken_{consumes(iConfig.getParameter<edm::InputTag>("mkFitPixelHits"))},
       stripClusterIndexToHitToken_{consumes(iConfig.getParameter<edm::InputTag>("mkFitStripHits"))},
       mkfitSeedToken_{consumes<MkFitSeedWrapper>(iConfig.getParameter<edm::InputTag>("mkFitSeeds"))},
       tracksToken_{consumes<MkFitOutputWrapper>(iConfig.getParameter<edm::InputTag>("tracks"))},
       seedToken_{consumes<edm::View<TrajectorySeed>>(iConfig.getParameter<edm::InputTag>("seeds"))},
       bsToken_(consumes<reco::BeamSpot>(edm::InputTag("offlineBeamSpot"))),
+      vertices_(flag_>0?consumes<reco::VertexCollection>(edm::InputTag("firstStepPrimaryVertices")):edm::EDGetTokenT<reco::VertexCollection>()),
       propagatorAlongToken_{
           esConsumes<Propagator, TrackingComponentsRecord>(iConfig.getParameter<edm::ESInputTag>("propagatorAlong"))},
       propagatorOppositeToken_{esConsumes<Propagator, TrackingComponentsRecord>(
@@ -191,6 +199,7 @@ void MkFitOutputConverter::fillDescriptions(edm::ConfigurationDescriptions& desc
   desc.add<std::string>("tfDnnLabel", "trackSelectionTf");
    
   desc.add<int>("algo", 0)->setComment("algo used to check which iteration");  
+  desc.add<int>("flag", 0)->setComment("flag used to check vtx iter");  
  
   descriptions.addWithDefaultLabel(desc);
 }
@@ -209,7 +218,14 @@ void MkFitOutputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const 
   edm::Handle<reco::BeamSpot> bsHandle;
   iEvent.getByToken(bsToken_, bsHandle);
   const reco::BeamSpot &beamspot = *bsHandle.product();
-  
+ 
+  // Select good primary vertices for use in subsequent track selection
+  const reco::VertexCollection* vertices = nullptr;
+  if(algo_>0 && flag_>0){
+  edm::Handle<reco::VertexCollection> hVtx;
+  iEvent.getByToken(vertices_, hVtx);
+  vertices = hVtx.product();     }
+
   const tensorflow::Session* session = iSetup.getData(tfDnnToken_).getSession(); 
 
   // Convert mkfit presentation back to CMSSW
@@ -225,7 +241,7 @@ void MkFitOutputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const 
                                    tkBuilder->cloner(),
                                    mkFitGeom.detLayers(),
                                    mkfitSeeds.seeds(),
-                                   beamspot,
+                                   beamspot,vertices,
                                    ttrhBuilder, session));
 
   // TODO: SeedStopInfo is currently unfilled
@@ -243,7 +259,7 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
                                                                  const TkClonerImpl& hitCloner,
                                                                  const std::vector<const DetLayer*>& detLayers,
                                                                  const mkfit::TrackVec& mkFitSeeds,
-                                                                 const reco::BeamSpot& bs,
+                                                                 const reco::BeamSpot& bs, const reco::VertexCollection* vertices,
                                                                  const TransientTrackingRecHitBuilder& theTTRHBuilder, const tensorflow::Session* session) const {
   TrackCandidateCollection output;
   const auto& candidates = mkFitOutput.tracks();
@@ -415,7 +431,7 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
     else
     {
     const TrackCandidate cmsswcand = TrackCandidate( recHits, seeds.at(seedIndex), pstate, seeds.refAt(seedIndex),  0,  static_cast<uint8_t>(StopReason::UNINITIALIZED) );
-    float disc = computeTFDNN(cmsswcand, bs, mf, theTTRHBuilder, session);
+    float disc = computeTFDNN(cmsswcand, bs, vertices, mf, theTTRHBuilder, session, cand.nInsideMinusOneHits(), cand.chi2());
     if(disc>-0.8)
     {
       output.push_back(cmsswcand);
@@ -559,7 +575,8 @@ std::pair<TrajectoryStateOnSurface, const GeomDet*> MkFitOutputConverter::conver
   return std::make_pair(tsosDouble.first, det);
 }
 
-float MkFitOutputConverter::computeTFDNN(const TrackCandidate &tkC, const reco::BeamSpot& bs, const MagneticField& theMF, const TransientTrackingRecHitBuilder& theTTRHBuilder, const tensorflow::Session* session) const{
+float MkFitOutputConverter::computeTFDNN(const TrackCandidate &tkC, const reco::BeamSpot& bs, const reco::VertexCollection* vertices, 
+                                         const MagneticField& theMF, const TransientTrackingRecHitBuilder& theTTRHBuilder, const tensorflow::Session* session, int missing, float chi2) const{
   
   TSCBLBuilderNoMaterial tscblBuilder;
 
@@ -573,33 +590,44 @@ float MkFitOutputConverter::computeTFDNN(const TrackCandidate &tkC, const reco::
     return 0;
   }
   
-  GlobalPoint v0 = tsAtClosestApproachTrackCand.trackStateAtPCA().position();
-  GlobalVector p = tsAtClosestApproachTrackCand.trackStateAtPCA().momentum();
-  GlobalPoint v(v0.x() - bs.x0(), v0.y() - bs.y0(), v0.z() - bs.z0());
+  auto const stateAtPCA = tsAtClosestApproachTrackCand.trackStateAtPCA();
+  auto v0 = stateAtPCA.position();
+  auto p = stateAtPCA.momentum();
+  math::XYZPoint pos(v0.x(), v0.y(), v0.z());
+  math::XYZVector mom(p.x(), p.y(), p.z());
 
-  double dxy = (-v.x() * sin(p.phi()) + v.y() * cos(p.phi()));
-
-  double dz = v.z() - (v.x() * p.x() + v.y() * p.y()) / p.perp() * p.z() / p.perp();
+  //pseduo track for access to easy methods
+  reco::Track trk(0, 0, pos, mom, stateAtPCA.charge(), stateAtPCA.curvilinearError());
   
-  tensorflow::Tensor input1(tensorflow::DT_FLOAT, {1, 29});
-  tensorflow::Tensor input2(tensorflow::DT_FLOAT, {1, 1});
+  float dzmin = std::numeric_limits<float>::max();
+  float dxy_zmin=0;
 
-  //count recHits
+  for (auto const& vertex : *vertices) {
+     if (std::abs(trk.dz(vertex.position())) < dzmin ) {dzmin=trk.dz(vertex.position());dxy_zmin=trk.dxy(vertex.position());}
+  }
+
+
   // loop over the RecHits
-
   int ndof=0;
   int pix=0;
   int strip=0;
   for (auto const& recHit : tkC.recHits()) {
-     //std::cout << recHit.geographicalId().subdetId() << " thed det id "<< std::endl;
+     ndof+=recHit.dimension();
+     
      auto const subdet = recHit.geographicalId().subdetId();
-     if(subdet == PixelSubdetector::PixelBarrel || subdet == PixelSubdetector::PixelEndcap ) {pix++;ndof++;ndof++;}
-     else if(subdet == StripSubdetector::TEC || subdet == StripSubdetector::TID ) {strip++;ndof++;}
-     else if(subdet == StripSubdetector::TOB || subdet == StripSubdetector::TIB ) {strip++;ndof++;ndof++;}
+     if(subdet == PixelSubdetector::PixelBarrel || subdet == PixelSubdetector::PixelEndcap ) 
+       pix++;
+     else 
+       strip++;
+     
   }
+  ndof=ndof-5;
 
-  input1.matrix<float>()(0, 0) = sqrt(state.globalMomentum().perp2());
-  input1.matrix<float>()(0, 1) = p.x();
+  tensorflow::Tensor input1(tensorflow::DT_FLOAT, {1, 29});
+  tensorflow::Tensor input2(tensorflow::DT_FLOAT, {1, 1});
+  
+  input1.matrix<float>()(0, 0) = trk.pt();
+  input1.matrix<float>()(0, 1) = p.x(); //here everything is inner, also pt eta phi??
   input1.matrix<float>()(0, 2) = p.y();
   input1.matrix<float>()(0, 3) = p.z();
   input1.matrix<float>()(0, 4) = p.perp();
@@ -607,21 +635,21 @@ float MkFitOutputConverter::computeTFDNN(const TrackCandidate &tkC, const reco::
   input1.matrix<float>()(0, 6) = p.y();
   input1.matrix<float>()(0, 7) = p.z();
   input1.matrix<float>()(0, 8) = p.perp();
-  input1.matrix<float>()(0, 9) = 0.001;//trk.ptError();
-  input1.matrix<float>()(0, 10) = dxy;//trk.dxy(bestVertex);
-  input1.matrix<float>()(0, 11) = dz;//trk.dz(bestVertex);
-  input1.matrix<float>()(0, 12) = dxy;
-  input1.matrix<float>()(0, 13) = dz;
-  input1.matrix<float>()(0, 14) = 0;//trk.dxyError();
-  input1.matrix<float>()(0, 15) = 0;//trk.dzError();
+  input1.matrix<float>()(0, 9) = trk.ptError();
+  input1.matrix<float>()(0, 10) = dxy_zmin;
+  input1.matrix<float>()(0, 11) = dzmin;
+  input1.matrix<float>()(0, 12) = trk.dxy(bs.position());
+  input1.matrix<float>()(0, 13) = trk.dz(bs.position());
+  input1.matrix<float>()(0, 14) = trk.dxyError();
+  input1.matrix<float>()(0, 15) = trk.dzError();
   input1.matrix<float>()(0, 16) = 1.3;
-  input1.matrix<float>()(0, 17) = state.globalPosition().eta();
-  input1.matrix<float>()(0, 18) = state.globalPosition().phi();
-  input1.matrix<float>()(0, 19) = 0.0001;//trk.etaError();
-  input1.matrix<float>()(0, 20) = 0.0001;//trk.phiError();
+  input1.matrix<float>()(0, 17) = trk.eta();
+  input1.matrix<float>()(0, 18) = trk.phi();
+  input1.matrix<float>()(0, 19) = trk.etaError();
+  input1.matrix<float>()(0, 20) = trk.phiError();
   input1.matrix<float>()(0, 21) = pix;//trk.hitPattern().numberOfValidPixelHits();
   input1.matrix<float>()(0, 22) = strip;//trk.hitPattern().numberOfValidStripHits();
-  input1.matrix<float>()(0, 23) = ndof-5;//trk.ndof();
+  input1.matrix<float>()(0, 23) = ndof;//trk.ndof();
   input1.matrix<float>()(0, 24) = 0;
   input1.matrix<float>()(0, 25) = 0;
   input1.matrix<float>()(0, 26) = 0;
