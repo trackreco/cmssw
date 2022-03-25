@@ -322,6 +322,7 @@ trackingMkFitPixelLessStep.toReplaceWith(pixelLessStepTrackCandidates, mkFitOutp
     mkFitSeeds = 'pixelLessStepTrackCandidatesMkFitSeeds',
     tracks = 'pixelLessStepTrackCandidatesMkFit',
     algo = 9,
+    flag = 1,
 ))
 
 import FastSimulation.Tracking.TrackCandidateProducer_cfi
