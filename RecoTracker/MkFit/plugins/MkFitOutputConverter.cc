@@ -444,7 +444,7 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
     {
     const TrackCandidate cmsswcand = TrackCandidate( recHits, seeds.at(seedIndex), pstate, seeds.refAt(seedIndex),  0,  static_cast<uint8_t>(StopReason::UNINITIALIZED) );
     float disc = computeTFDNN(cmsswcand, bs, vertices, mf, theTTRHBuilder, session, cand.nInsideMinusOneHits(), cand.chi2());
-    if(disc>-0.8)
+    if(disc>-0.7)
     {
       output.push_back(cmsswcand);
      //std::cout << " c " <<candidates.size() << " OUTPUT size " <<output.size()<< std::endl; 
