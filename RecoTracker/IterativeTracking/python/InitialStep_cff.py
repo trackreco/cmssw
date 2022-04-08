@@ -247,6 +247,7 @@ initialStepTrackCandidatesMkFitSeeds = mkFitSeedConverter_cfi.mkFitSeedConverter
 initialStepTrackCandidatesMkFitConfig = mkFitIterationConfigESProducer_cfi.mkFitIterationConfigESProducer.clone(
     ComponentName = 'initialStepTrackCandidatesMkFitConfig',
     config = 'RecoTracker/MkFit/data/mkfit-phase1-initialStep.json',
+    minPt = 0.2,
 )
 initialStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
     seeds = 'initialStepTrackCandidatesMkFitSeeds',
@@ -257,6 +258,8 @@ trackingMkFitInitialStep.toReplaceWith(initialStepTrackCandidates, mkFitOutputCo
     mkFitSeeds = 'initialStepTrackCandidatesMkFitSeeds',
     tracks = 'initialStepTrackCandidatesMkFit',
 ))
+(pp_on_XeXe_2017 | pp_on_AA).toModify(initialStepTrackCandidatesMkFitConfig, minPt=0.6)
+highBetaStar_2018.toModify(initialStepTrackCandidatesMkFitConfig, minPt = 0.05)
 
 import FastSimulation.Tracking.TrackCandidateProducer_cfi
 fastSim.toReplaceWith(initialStepTrackCandidates,

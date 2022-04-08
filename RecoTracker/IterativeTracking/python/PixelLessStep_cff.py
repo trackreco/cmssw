@@ -311,6 +311,7 @@ pixelLessStepTrackCandidatesMkFitSeeds = mkFitSeedConverter_cfi.mkFitSeedConvert
 pixelLessStepTrackCandidatesMkFitConfig = mkFitIterationConfigESProducer_cfi.mkFitIterationConfigESProducer.clone(
     ComponentName = 'pixelLessStepTrackCandidatesMkFitConfig',
     config = 'RecoTracker/MkFit/data/mkfit-phase1-pixelLessStep.json',
+    minPt = 0.1,
 )
 pixelLessStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
     seeds = 'pixelLessStepTrackCandidatesMkFitSeeds',
@@ -322,6 +323,7 @@ trackingMkFitPixelLessStep.toReplaceWith(pixelLessStepTrackCandidates, mkFitOutp
     mkFitSeeds = 'pixelLessStepTrackCandidatesMkFitSeeds',
     tracks = 'pixelLessStepTrackCandidatesMkFit',
 ))
+(pp_on_XeXe_2017 | pp_on_AA).toModify(pixelLessStepTrackCandidatesMkFitConfig, minPt=2.0)
 
 import FastSimulation.Tracking.TrackCandidateProducer_cfi
 fastSim.toReplaceWith(pixelLessStepTrackCandidates,

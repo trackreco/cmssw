@@ -259,6 +259,7 @@ lowPtTripletStepTrackCandidatesMkFitSeeds = mkFitSeedConverter_cfi.mkFitSeedConv
 lowPtTripletStepTrackCandidatesMkFitConfig = mkFitIterationConfigESProducer_cfi.mkFitIterationConfigESProducer.clone(
     ComponentName = 'lowPtTripletStepTrackCandidatesMkFitConfig',
     config = 'RecoTracker/MkFit/data/mkfit-phase1-lowPtTripletStep.json',
+    minPt = 0.075,
 )
 lowPtTripletStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
     seeds = 'lowPtTripletStepTrackCandidatesMkFitSeeds',
@@ -270,6 +271,7 @@ trackingMkFitLowPtTripletStep.toReplaceWith(lowPtTripletStepTrackCandidates, mkF
     mkFitSeeds = 'lowPtTripletStepTrackCandidatesMkFitSeeds',
     tracks = 'lowPtTripletStepTrackCandidatesMkFit',
 ))
+(pp_on_XeXe_2017 | pp_on_AA).toModify(lowPtTripletStepTrackCandidatesMkFitConfig, minPt=0.49)
 
 import FastSimulation.Tracking.TrackCandidateProducer_cfi
 fastSim.toReplaceWith(lowPtTripletStepTrackCandidates,

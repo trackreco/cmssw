@@ -634,6 +634,11 @@ namespace mkfit {
                 continue;
               }
             }
+	    // Stop candidates with pT<0.1 GeV
+	    if (ccand[ic].pT() < m_job->m_iter_config.m_params.minPtCut) {
+	      ccand[ic].addHitIdx(-2, layer, 0.0f);
+	      continue;
+	    }
 
             active = true;
             seed_cand_vec.push_back(std::pair<int, int>(iseed, ic));

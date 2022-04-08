@@ -191,6 +191,7 @@ lowPtQuadStepTrackCandidatesMkFitSeeds = mkFitSeedConverter_cfi.mkFitSeedConvert
 lowPtQuadStepTrackCandidatesMkFitConfig = mkFitIterationConfigESProducer_cfi.mkFitIterationConfigESProducer.clone(
     ComponentName = 'lowPtQuadStepTrackCandidatesMkFitConfig',
     config = 'RecoTracker/MkFit/data/mkfit-phase1-lowPtQuadStep.json',
+    minPt = 0.075,
 )
 lowPtQuadStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
     seeds = 'lowPtQuadStepTrackCandidatesMkFitSeeds',
@@ -202,6 +203,7 @@ trackingMkFitLowPtQuadStep.toReplaceWith(lowPtQuadStepTrackCandidates, mkFitOutp
     mkFitSeeds = 'lowPtQuadStepTrackCandidatesMkFitSeeds',
     tracks = 'lowPtQuadStepTrackCandidatesMkFit',
 ))
+(pp_on_XeXe_2017 | pp_on_AA).toModify(lowPtQuadStepTrackCandidatesMkFitConfig, minPt=0.49)
 
 #For FastSim phase1 tracking
 import FastSimulation.Tracking.TrackCandidateProducer_cfi

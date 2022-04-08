@@ -201,6 +201,7 @@ detachedQuadStepTrackCandidatesMkFitSeeds = mkFitSeedConverter_cfi.mkFitSeedConv
 detachedQuadStepTrackCandidatesMkFitConfig = mkFitIterationConfigESProducer_cfi.mkFitIterationConfigESProducer.clone(
     config = 'RecoTracker/MkFit/data/mkfit-phase1-detachedQuadStep.json',
     ComponentName = 'detachedQuadStepTrackCandidatesMkFitConfig',
+    minPt = 0.075,
 )
 detachedQuadStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
     seeds = 'detachedQuadStepTrackCandidatesMkFitSeeds',
@@ -212,6 +213,7 @@ trackingMkFitDetachedQuadStep.toReplaceWith(detachedQuadStepTrackCandidates, mkF
     mkFitSeeds = 'detachedQuadStepTrackCandidatesMkFitSeeds',
     tracks = 'detachedQuadStepTrackCandidatesMkFit',
 ))
+(pp_on_XeXe_2017 | pp_on_AA).toModify(detachedQuadStepTrackCandidatesMkFitConfig, minPt=0.9)
 
 #For FastSim phase1 tracking 
 import FastSimulation.Tracking.TrackCandidateProducer_cfi

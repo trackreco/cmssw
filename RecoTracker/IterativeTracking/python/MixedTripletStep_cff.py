@@ -307,6 +307,7 @@ mixedTripletStepTrackCandidatesMkFitSeeds = mkFitSeedConverter_cfi.mkFitSeedConv
 mixedTripletStepTrackCandidatesMkFitConfig = mkFitIterationConfigESProducer_cfi.mkFitIterationConfigESProducer.clone(
     ComponentName = 'mixedTripletStepTrackCandidatesMkFitConfig',
     config = 'RecoTracker/MkFit/data/mkfit-phase1-mixedTripletStep.json',
+    minPt = 0.1,
 )
 mixedTripletStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
     seeds = 'mixedTripletStepTrackCandidatesMkFitSeeds',
@@ -318,6 +319,8 @@ trackingMkFitMixedTripletStep.toReplaceWith(mixedTripletStepTrackCandidates, mkF
     mkFitSeeds = 'mixedTripletStepTrackCandidatesMkFitSeeds',
     tracks = 'mixedTripletStepTrackCandidatesMkFit',
 ))
+(pp_on_XeXe_2017 | pp_on_AA).toModify(mixedTripletStepTrackCandidatesMkFitConfig, minPt=0.4)
+highBetaStar_2018.toModify(mixedTripletStepTrackCandidatesMkFitConfig,minPt = 0.05)
 
 import FastSimulation.Tracking.TrackCandidateProducer_cfi
 fastSim.toReplaceWith(mixedTripletStepTrackCandidates,

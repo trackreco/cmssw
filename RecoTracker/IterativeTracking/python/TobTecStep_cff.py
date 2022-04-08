@@ -294,6 +294,7 @@ tobTecStepTrackCandidatesMkFitSeeds = mkFitSeedConverter_cfi.mkFitSeedConverter.
 tobTecStepTrackCandidatesMkFitConfig = mkFitIterationConfigESProducer_cfi.mkFitIterationConfigESProducer.clone(
     ComponentName = 'tobTecStepTrackCandidatesMkFitConfig',
     config = 'RecoTracker/MkFit/data/mkfit-phase1-tobTecStep.json',
+    minPt = 0.1,
 )
 tobTecStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
     seeds = 'tobTecStepTrackCandidatesMkFitSeeds',
@@ -305,6 +306,7 @@ trackingMkFitTobTecStep.toReplaceWith(tobTecStepTrackCandidates, mkFitOutputConv
     mkFitSeeds = 'tobTecStepTrackCandidatesMkFitSeeds',
     tracks = 'tobTecStepTrackCandidatesMkFit',
 ))
+(pp_on_XeXe_2017 | pp_on_AA).toModify(tobTecStepTrackCandidatesMkFitConfig, minPt=2.0)
 
 import FastSimulation.Tracking.TrackCandidateProducer_cfi
 fastSim.toReplaceWith(tobTecStepTrackCandidates,

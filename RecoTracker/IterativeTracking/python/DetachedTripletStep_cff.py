@@ -231,6 +231,7 @@ detachedTripletStepTrackCandidatesMkFitSeeds = mkFitSeedConverter_cfi.mkFitSeedC
 detachedTripletStepTrackCandidatesMkFitConfig = mkFitIterationConfigESProducer_cfi.mkFitIterationConfigESProducer.clone(
     ComponentName = 'detachedTripletStepTrackCandidatesMkFitConfig',
     config = 'RecoTracker/MkFit/data/mkfit-phase1-detachedTripletStep.json',
+    minPt = 0.075,
 )
 detachedTripletStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
     seeds = 'detachedTripletStepTrackCandidatesMkFitSeeds',
@@ -242,6 +243,7 @@ trackingMkFitDetachedTripletStep.toReplaceWith(detachedTripletStepTrackCandidate
     mkFitSeeds = 'detachedTripletStepTrackCandidatesMkFitSeeds',
     tracks = 'detachedTripletStepTrackCandidatesMkFit',
 ))
+(pp_on_XeXe_2017 | pp_on_AA).toModify(detachedTripletStepTrackCandidatesMkFitConfig, minPt=0.9)
 
 import FastSimulation.Tracking.TrackCandidateProducer_cfi
 _fastSim_detachedTripletStepTrackCandidates = FastSimulation.Tracking.TrackCandidateProducer_cfi.trackCandidateProducer.clone(

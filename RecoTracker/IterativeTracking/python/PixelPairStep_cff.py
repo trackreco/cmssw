@@ -318,6 +318,7 @@ pixelPairStepTrackCandidatesMkFitSeeds = _mkFitSeedConverter_cfi.mkFitSeedConver
 pixelPairStepTrackCandidatesMkFitConfig = _mkFitIterationConfigESProducer_cfi.mkFitIterationConfigESProducer.clone(
     ComponentName = 'pixelPairStepTrackCandidatesMkFitConfig',
     config = 'RecoTracker/MkFit/data/mkfit-phase1-pixelPairStep.json',
+    minPt = 0.1,
 )
 pixelPairStepTrackCandidatesMkFit = _mkFitProducer_cfi.mkFitProducer.clone(
     seeds = 'pixelPairStepTrackCandidatesMkFitSeeds',
@@ -329,6 +330,7 @@ trackingMkFitPixelPairStep.toReplaceWith(pixelPairStepTrackCandidates, _mkFitOut
     mkFitSeeds = 'pixelPairStepTrackCandidatesMkFitSeeds',
     tracks = 'pixelPairStepTrackCandidatesMkFit',
 ))
+highBetaStar_2018.toModify(pixelPairStepTrackCandidatesMkFitConfig, minPt = 0.05)
 
 trackingPhase2PU140.toModify(pixelPairStepTrackCandidates,
     clustersToSkip = '',

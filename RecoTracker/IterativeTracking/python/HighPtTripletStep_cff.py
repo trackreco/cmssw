@@ -231,6 +231,7 @@ highPtTripletStepTrackCandidatesMkFitSeeds = mkFitSeedConverter_cfi.mkFitSeedCon
 highPtTripletStepTrackCandidatesMkFitConfig = mkFitIterationConfigESProducer_cfi.mkFitIterationConfigESProducer.clone(
     ComponentName = 'highPtTripletStepTrackCandidatesMkFitConfig',
     config = 'RecoTracker/MkFit/data/mkfit-phase1-highPtTripletStep.json',
+    minPt = 0.2,
 )
 highPtTripletStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
     seeds = 'highPtTripletStepTrackCandidatesMkFitSeeds',
@@ -242,6 +243,9 @@ trackingMkFitHighPtTripletStep.toReplaceWith(highPtTripletStepTrackCandidates, m
     mkFitSeeds = 'highPtTripletStepTrackCandidatesMkFitSeeds',
     tracks = 'highPtTripletStepTrackCandidatesMkFit',
 ))
+(pp_on_XeXe_2017 | pp_on_AA).toModify(highPtTripletStepTrackCandidatesMkFitConfig, minPt=0.7)
+highBetaStar_2018.toModify(highPtTripletStepTrackCandidatesMkFitConfig, minPt=0.05)
+
 
 # For Phase2PU140
 from TrackingTools.TrajectoryCleaning.TrajectoryCleanerBySharedHits_cfi import trajectoryCleanerBySharedHits as _trajectoryCleanerBySharedHits
