@@ -1074,7 +1074,8 @@ namespace mkfit {
                 newcand.setScore(getScoreCand(newcand, true /*penalizeTailMissHits*/, true /*inFindCandidates*/));
                 newcand.setOriginIndex(m_CandIdx(itrack, 0, 0));
 
-                if (chi2 < m_iteration_params->chi2CutOverlap) {
+                //if (chi2 < m_iteration_params->chi2CutOverlap) {
+                if (chi2 < max_c2) {
                   CombCandidate &ccand = *newcand.combCandidate();
                   ccand[m_CandIdx(itrack, 0, 0)].considerHitForOverlap(
                       hit_idx, layer_of_hits.refHit(hit_idx).detIDinLayer(), chi2);
@@ -1211,6 +1212,13 @@ namespace mkfit {
                   itrack, layer_of_hits.is_barrel(), charge_pcm[itrack], Hit::minChargePerCM(), propPar, m_msErr);
             }
 
+	    //if (!layer_of_hits.is_pixel()) {
+	    //  if (layer_of_hits.refHit( m_XHitArr.At(itrack, hit_cnt, 0) ).spanRows() > 64) isCompatible = false;
+	    //}
+	    //else {
+	    //  if (layer_of_hits.refHit( m_XHitArr.At(itrack, hit_cnt, 0) ).spanRows() > 64 || layer_of_hits.refHit( m_XHitArr.At(itrack, hit_cnt, 0) ).spanCols() > 64) isCompatible = false;
+	    //}
+
             if (isCompatible) {
               CombCandidate &ccand = cloner.combCandWithOriginalIndex(m_SeedIdx(itrack, 0, 0));
               bool hitExists = false;
@@ -1232,7 +1240,8 @@ namespace mkfit {
               const int hit_idx = m_XHitArr.At(itrack, hit_cnt, 0);
 
               // Register hit for overlap consideration, here we apply chi2 cut
-              if (chi2 < m_iteration_params->chi2CutOverlap) {
+              //if (chi2 < m_iteration_params->chi2CutOverlap) {
+              if (chi2 < max_c2) {
                 ccand[m_CandIdx(itrack, 0, 0)].considerHitForOverlap(
                     hit_idx, layer_of_hits.refHit(hit_idx).detIDinLayer(), chi2);
               }
