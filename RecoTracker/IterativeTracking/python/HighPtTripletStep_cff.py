@@ -241,6 +241,8 @@ trackingMkFitHighPtTripletStep.toReplaceWith(highPtTripletStepTrackCandidates, m
     seeds = 'highPtTripletStepSeeds',
     mkFitSeeds = 'highPtTripletStepTrackCandidatesMkFitSeeds',
     tracks = 'highPtTripletStepTrackCandidatesMkFit',
+    algo = 22,
+    candWP = -0.3,
 ))
 
 # For Phase2PU140
