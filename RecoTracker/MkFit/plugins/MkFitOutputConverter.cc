@@ -41,28 +41,13 @@
 #include "RecoTracker/MkFitCore/interface/Track.h"
 #include "RecoTracker/MkFitCore/interface/HitStructures.h"
 
-//copied from TrackTfClassifier
-//remove as much as possible
-#include "RecoTracker/FinalTrackSelectors/interface/TrackMVAClassifier.h"
-
-#include "FWCore/Framework/interface/EventSetup.h"
-#include "FWCore/Framework/interface/global/EDProducer.h"
-#include "DataFormats/TrackReco/interface/Track.h"
-#include "DataFormats/VertexReco/interface/Vertex.h"
-#include "FWCore/Framework/interface/ConsumesCollector.h"
-#include "RecoTracker/FinalTrackSelectors/interface/getBestVertex.h"
-
+//extra for DNN with cands
 #include "TrackingTools/Records/interface/TfGraphRecord.h"
 #include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
 #include "RecoTracker/FinalTrackSelectors/interface/TfGraphDefWrapper.h"
-
-#include "DataFormats/TrackCandidate/interface/TrackCandidate.h"
-
 #include "TrackingTools/PatternTools/interface/TSCBLBuilderNoMaterial.h"
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
-
 #include "DataFormats/VertexReco/interface/Vertex.h"
-#include "DataFormats/VertexReco/interface/VertexFwd.h"
 
 namespace {
   template <typename T>
@@ -123,10 +108,7 @@ private:
                      const MagneticField& theMF,
                      const TransientTrackingRecHitBuilder& theTTRHBuilder,
                      const tensorflow::Session* session,
-                     int algo,
-                     float chi2) const;
-
-  const int flag_;
+                     const float chi2) const;
 
   const edm::EDGetTokenT<MkFitEventOfHits> eventOfHitsToken_;
   const edm::EDGetTokenT<MkFitClusterIndexToHit> pixelClusterIndexToHitToken_;
@@ -134,8 +116,6 @@ private:
   const edm::EDGetTokenT<MkFitSeedWrapper> mkfitSeedToken_;
   const edm::EDGetTokenT<MkFitOutputWrapper> tracksToken_;
   const edm::EDGetTokenT<edm::View<TrajectorySeed>> seedToken_;
-  const edm::EDGetTokenT<reco::BeamSpot> bsToken_;
-  const edm::EDGetTokenT<reco::VertexCollection> vertices_;
   const edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatorAlongToken_;
   const edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatorOppositeToken_;
   const edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> mfToken_;
@@ -151,22 +131,21 @@ private:
   const float qualityMaxPosErrSq_;
   const bool qualitySignPt_;
 
+  const int algo_;
+  const float algoCandWorkingPoint_;
+  const edm::EDGetTokenT<reco::BeamSpot> bsToken_;
+  const edm::EDGetTokenT<reco::VertexCollection> verticesToken_;
   const std::string tfDnnLabel_;
   const edm::ESGetToken<TfGraphDefWrapper, TfGraphRecord> tfDnnToken_;
-  const int algo_;
 };
 
 MkFitOutputConverter::MkFitOutputConverter(edm::ParameterSet const& iConfig)
-    : flag_{int(iConfig.getParameter<int>("flag"))},
-      eventOfHitsToken_{consumes<MkFitEventOfHits>(iConfig.getParameter<edm::InputTag>("mkFitEventOfHits"))},
+    : eventOfHitsToken_{consumes<MkFitEventOfHits>(iConfig.getParameter<edm::InputTag>("mkFitEventOfHits"))},
       pixelClusterIndexToHitToken_{consumes(iConfig.getParameter<edm::InputTag>("mkFitPixelHits"))},
       stripClusterIndexToHitToken_{consumes(iConfig.getParameter<edm::InputTag>("mkFitStripHits"))},
       mkfitSeedToken_{consumes<MkFitSeedWrapper>(iConfig.getParameter<edm::InputTag>("mkFitSeeds"))},
       tracksToken_{consumes<MkFitOutputWrapper>(iConfig.getParameter<edm::InputTag>("tracks"))},
       seedToken_{consumes<edm::View<TrajectorySeed>>(iConfig.getParameter<edm::InputTag>("seeds"))},
-      bsToken_(consumes<reco::BeamSpot>(edm::InputTag("offlineBeamSpot"))),
-      vertices_(flag_ > 0 ? consumes<reco::VertexCollection>(edm::InputTag("firstStepPrimaryVertices"))
-                          : edm::EDGetTokenT<reco::VertexCollection>()),
       propagatorAlongToken_{
           esConsumes<Propagator, TrackingComponentsRecord>(iConfig.getParameter<edm::ESInputTag>("propagatorAlong"))},
       propagatorOppositeToken_{esConsumes<Propagator, TrackingComponentsRecord>(
@@ -183,9 +162,13 @@ MkFitOutputConverter::MkFitOutputConverter(edm::ParameterSet const& iConfig)
       qualityMaxZ_{float(iConfig.getParameter<double>("qualityMaxZ"))},
       qualityMaxPosErrSq_{float(pow(iConfig.getParameter<double>("qualityMaxPosErr"), 2))},
       qualitySignPt_{iConfig.getParameter<bool>("qualitySignPt")},
+      algo_{int(iConfig.getParameter<int>("algo"))},
+      algoCandWorkingPoint_{float(iConfig.getParameter<double>("candWP"))},
+      bsToken_(consumes<reco::BeamSpot>(edm::InputTag("offlineBeamSpot"))),
+      verticesToken_(algo_ > 0 ? consumes<reco::VertexCollection>(edm::InputTag("firstStepPrimaryVertices"))
+                               : edm::EDGetTokenT<reco::VertexCollection>()),
       tfDnnLabel_(iConfig.getParameter<std::string>("tfDnnLabel")),
-      tfDnnToken_(esConsumes(edm::ESInputTag("", tfDnnLabel_))),
-      algo_{int(iConfig.getParameter<int>("algo"))} {}
+      tfDnnToken_(esConsumes(edm::ESInputTag("", tfDnnLabel_))) {}
 
 void MkFitOutputConverter::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
@@ -208,8 +191,8 @@ void MkFitOutputConverter::fillDescriptions(edm::ConfigurationDescriptions& desc
   desc.add<bool>("qualitySignPt", true)->setComment("check sign of 1/pt for converted tracks");
   desc.add<std::string>("tfDnnLabel", "trackSelectionTf");
 
-  desc.add<int>("algo", 0)->setComment("algo used to check which iteration");
-  desc.add<int>("flag", 0)->setComment("flag used to check vtx iter");
+  desc.add<int>("algo", 0)->setComment("flag used to trigger MVA selection at cand level and store algo number");
+  desc.add<double>("candWP", 0)->setComment("MVA selection at cand level working point");
 
   descriptions.addWithDefaultLabel(desc);
 }
@@ -229,11 +212,11 @@ void MkFitOutputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const 
   iEvent.getByToken(bsToken_, bsHandle);
   const reco::BeamSpot& beamspot = *bsHandle.product();
 
-  // Select good primary vertices for use in subsequent track selection
+  // primary vertices under the algo_ because in initialStepPreSplitting there are no firstStepPrimaryVertices
   const reco::VertexCollection* vertices = nullptr;
-  if (algo_ > 0 && flag_ > 0) {
+  if (algo_ > 0) {
     edm::Handle<reco::VertexCollection> hVtx;
-    iEvent.getByToken(vertices_, hVtx);
+    iEvent.getByToken(verticesToken_, hVtx);
     vertices = hVtx.product();
   }
 
@@ -449,8 +432,8 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
                                                       seeds.refAt(seedIndex),
                                                       0,
                                                       static_cast<uint8_t>(StopReason::UNINITIALIZED));
-      float disc = computeTFDNN(cmsswcand, bs, vertices, mf, theTTRHBuilder, session, algo_, cand.chi2());
-      if (disc > -0.5) {
+      float disc = computeTFDNN(cmsswcand, bs, vertices, mf, theTTRHBuilder, session, cand.chi2());
+      if (disc > algoCandWorkingPoint_) {
         output.push_back(cmsswcand);
       }
     }  //exception
@@ -597,8 +580,7 @@ float MkFitOutputConverter::computeTFDNN(const TrackCandidate& tkC,
                                          const MagneticField& theMF,
                                          const TransientTrackingRecHitBuilder& theTTRHBuilder,
                                          const tensorflow::Session* session,
-                                         int algo,
-                                         float chi2) const {
+                                         const float chi2) const {
   TSCBLBuilderNoMaterial tscblBuilder;
 
   //get parameters and errors from the candidate state
@@ -608,6 +590,7 @@ float MkFitOutputConverter::computeTFDNN(const TrackCandidate& tkC,
       trajectoryStateTransform::transientState(candSS, &(theG->idToDet(candSS.detId())->surface()), &theMF);
   TrajectoryStateClosestToBeamLine tsAtClosestApproachTrackCand =
       tscblBuilder(*state.freeState(), bs);  //as in TrackProducerAlgorithm
+
   if (!(tsAtClosestApproachTrackCand.isValid())) {
     edm::LogVerbatim("TrackBuilding") << "TrajectoryStateClosestToBeamLine not valid";
     return 0;
@@ -619,9 +602,10 @@ float MkFitOutputConverter::computeTFDNN(const TrackCandidate& tkC,
   math::XYZPoint pos(v0.x(), v0.y(), v0.z());
   math::XYZVector mom(p.x(), p.y(), p.z());
 
-  //pseduo track for access to easy methods
+  //pseudo track for access to easy methods
   reco::Track trk(0, 0, pos, mom, stateAtPCA.charge(), stateAtPCA.curvilinearError());
 
+  // get best vertex
   float dzmin = std::numeric_limits<float>::max();
   float dxy_zmin = 0;
 
@@ -638,7 +622,6 @@ float MkFitOutputConverter::computeTFDNN(const TrackCandidate& tkC,
   int strip = 0;
   for (auto const& recHit : tkC.recHits()) {
     ndof += recHit.dimension();
-
     auto const subdet = recHit.geographicalId().subdetId();
     if (subdet == PixelSubdetector::PixelBarrel || subdet == PixelSubdetector::PixelEndcap)
       pix++;
@@ -647,11 +630,12 @@ float MkFitOutputConverter::computeTFDNN(const TrackCandidate& tkC,
   }
   ndof = ndof - 5;
 
+  // tensorflow part
   tensorflow::Tensor input1(tensorflow::DT_FLOAT, {1, 29});
   tensorflow::Tensor input2(tensorflow::DT_FLOAT, {1, 1});
 
-  input1.matrix<float>()(0, 0) = trk.pt();
-  input1.matrix<float>()(0, 1) = p.x();  //here everything is inner, also pt eta phi??
+  input1.matrix<float>()(0, 0) = trk.pt();  //using inner track only
+  input1.matrix<float>()(0, 1) = p.x();
   input1.matrix<float>()(0, 2) = p.y();
   input1.matrix<float>()(0, 3) = p.z();
   input1.matrix<float>()(0, 4) = p.perp();
@@ -680,18 +664,17 @@ float MkFitOutputConverter::computeTFDNN(const TrackCandidate& tkC,
   input1.matrix<float>()(0, 27) = 0;
   input1.matrix<float>()(0, 28) = 0;
 
-  //update later from TrackBase
-  input2.matrix<float>()(0, 0) = algo;
+  input2.matrix<float>()(0, 0) = algo_;
 
+  //inputs finalized
   tensorflow::NamedTensorList inputs;
   inputs.resize(2);
   inputs[0] = tensorflow::NamedTensor("x", input1);
   inputs[1] = tensorflow::NamedTensor("y", input2);
-  std::vector<tensorflow::Tensor> outputs;
 
-  //evaluate the input
+  //eval and rescale
+  std::vector<tensorflow::Tensor> outputs;
   tensorflow::run(const_cast<tensorflow::Session*>(session), inputs, {"Identity"}, &outputs);
-  //scale output to be [-1, 1] due to convention
   float output = 2.0 * outputs[0].matrix<float>()(0, 0) - 1.0;
   return output;
 }
