@@ -439,8 +439,10 @@ namespace mkfit {
             }
 
             if (Config::usePhiQArrays) {
-              if (m_XHitSize[itrack] >= MPlexHitIdxMax)
+              if (m_XHitSize[itrack] >= MPlexHitIdxMax) {
+                // printf("MAX NH Lay=%d, pT=%f\n", L.layer_id(), 1.0f/m_Par[iI].At(itrack, 3, 0));
                 break;
+              }
 
               const float ddq = std::abs(q - L.hit_q(hi));
               const float ddphi = cdist(std::abs(phi - L.hit_phi(hi)));
@@ -631,6 +633,9 @@ namespace mkfit {
               // Avi says we should have *minimal* search windows per layer.
               // Also ... if bins are sufficiently small, we do not need the extra
               // checks, see above.
+              if (hi_orig >= layer_of_hits.hitArraySize())
+                printf("ACHTUNG1 hi_orig=%u max=%u -- hi=%u\n", hi_orig, layer_of_hits.hitArraySize(), hi);
+
               m_XHitArr.At(itrack, m_XHitSize[itrack]++, 0) = hi_orig;
             } else {
               // MT: The following check alone makes more sense with spiral traversal,
@@ -1109,6 +1114,8 @@ namespace mkfit {
 #pragma omp simd
       for (int itrack = 0; itrack < N_proc; ++itrack) {
         if (hit_cnt < m_XHitSize[itrack]) {
+          if (m_XHitArr.At(itrack, hit_cnt, 0) < 0 || m_XHitArr.At(itrack, hit_cnt, 0) >= (int) layer_of_hits.hitArraySize())
+            printf("ACHTUNG2 idx=%d max=%u\n", m_XHitArr.At(itrack, hit_cnt, 0), layer_of_hits.hitArraySize());
           const auto &hit = layer_of_hits.refHit(m_XHitArr.At(itrack, hit_cnt, 0));
           mhp.addInputAt(itrack, hit);
           charge_pcm[itrack] = hit.chargePerCM();

@@ -96,6 +96,7 @@ namespace mkfit {
 #else
     const Hit& refHit(int i) const { return (*m_ext_hits)[i]; }
     const Hit* hitArray() const { return m_ext_hits->data(); }
+    unsigned int hitArraySize() const { return m_ext_hits->size(); }
 #endif
 
     void printBins();
