@@ -132,6 +132,7 @@ private:
   const bool qualitySignPt_;
 
   const int algo_;
+  const bool algoCandSelection_;
   const float algoCandWorkingPoint_;
   const edm::EDGetTokenT<reco::BeamSpot> bsToken_;
   const edm::EDGetTokenT<reco::VertexCollection> verticesToken_;
@@ -162,10 +163,11 @@ MkFitOutputConverter::MkFitOutputConverter(edm::ParameterSet const& iConfig)
       qualityMaxZ_{float(iConfig.getParameter<double>("qualityMaxZ"))},
       qualityMaxPosErrSq_{float(pow(iConfig.getParameter<double>("qualityMaxPosErr"), 2))},
       qualitySignPt_{iConfig.getParameter<bool>("qualitySignPt")},
-      algo_{int(iConfig.getParameter<int>("algo"))},
+      algo_{reco::TrackBase::algoByName(TString(iConfig.getParameter<edm::InputTag>("seeds").label()).ReplaceAll("Seeds", "").Data())},
+      algoCandSelection_{bool(iConfig.getParameter<bool>("candMVASel"))},
       algoCandWorkingPoint_{float(iConfig.getParameter<double>("candWP"))},
       bsToken_(consumes<reco::BeamSpot>(edm::InputTag("offlineBeamSpot"))),
-      verticesToken_(algo_ > 0 ? consumes<reco::VertexCollection>(edm::InputTag("firstStepPrimaryVertices"))
+      verticesToken_(algoCandSelection_ ? consumes<reco::VertexCollection>(edm::InputTag("firstStepPrimaryVertices"))
                                : edm::EDGetTokenT<reco::VertexCollection>()),
       tfDnnLabel_(iConfig.getParameter<std::string>("tfDnnLabel")),
       tfDnnToken_(esConsumes(edm::ESInputTag("", tfDnnLabel_))) {}
@@ -191,7 +193,7 @@ void MkFitOutputConverter::fillDescriptions(edm::ConfigurationDescriptions& desc
   desc.add<bool>("qualitySignPt", true)->setComment("check sign of 1/pt for converted tracks");
   desc.add<std::string>("tfDnnLabel", "trackSelectionTf");
 
-  desc.add<int>("algo", 0)->setComment("flag used to trigger MVA selection at cand level and store algo number");
+  desc.add<bool>("candMVASel", false)->setComment("flag used to trigger MVA selection at cand level");
   desc.add<double>("candWP", 0)->setComment("MVA selection at cand level working point");
 
   descriptions.addWithDefaultLabel(desc);
@@ -214,7 +216,7 @@ void MkFitOutputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const 
 
   // primary vertices under the algo_ because in initialStepPreSplitting there are no firstStepPrimaryVertices
   const reco::VertexCollection* vertices = nullptr;
-  if (algo_ > 0) {
+  if (algoCandSelection_) {
     edm::Handle<reco::VertexCollection> hVtx;
     iEvent.getByToken(verticesToken_, hVtx);
     vertices = hVtx.product();
@@ -414,7 +416,7 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
     // convert to persistent, from CkfTrackCandidateMakerBase
     auto pstate = trajectoryStateTransform::persistentState(tsosDet.first, tsosDet.second->geographicalId().rawId());
 
-    if (algo_ == 0)  //default
+    if (!algoCandSelection_)  //default
     {
       output.emplace_back(
           recHits,

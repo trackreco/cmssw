@@ -241,7 +241,7 @@ trackingMkFitHighPtTripletStep.toReplaceWith(highPtTripletStepTrackCandidates, m
     seeds = 'highPtTripletStepSeeds',
     mkFitSeeds = 'highPtTripletStepTrackCandidatesMkFitSeeds',
     tracks = 'highPtTripletStepTrackCandidatesMkFit',
-    algo = 22,
+    candMVASel = True,
     candWP = -0.3,
 ))
 

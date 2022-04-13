@@ -321,7 +321,7 @@ trackingMkFitPixelLessStep.toReplaceWith(pixelLessStepTrackCandidates, mkFitOutp
     seeds = 'pixelLessStepSeeds',
     mkFitSeeds = 'pixelLessStepTrackCandidatesMkFitSeeds',
     tracks = 'pixelLessStepTrackCandidatesMkFit',
-    algo = 9,
+    candMVASel = True,
     candWP = -0.7,
 ))
 
