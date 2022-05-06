@@ -292,8 +292,6 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
           << "Candidate " << candIndex << " failed state quality checks" << cand.state().parameters;
       continue;
     }
-    
-    chi2.push_back(cand.chi2());
 
     auto state = cand.state();  // copy because have to modify
     state.convertFromCCSToGlbCurvilinear();
@@ -441,6 +439,8 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
         0,                                               // mkFit does not produce loopers, so set nLoops=0
         static_cast<uint8_t>(StopReason::UNINITIALIZED)  // TODO: ignore details of stopping reason as well for now
     );
+    
+     chi2.push_back(cand.chi2());
     
   }
     
