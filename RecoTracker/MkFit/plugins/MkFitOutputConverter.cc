@@ -101,15 +101,14 @@ private:
                                                                             const edm::OwnVector<TrackingRecHit>& hits,
                                                                             const Propagator& propagatorAlong,
                                                                             const Propagator& propagatorOpposite) const;
-                                                                            
-                     
+
   std::vector<float> computeDNNs(TrackCandidateCollection tkCC,
-                     const reco::BeamSpot& bs,
-                     const reco::VertexCollection* vertices,
-                     const MagneticField& theMF,
-                     const TransientTrackingRecHitBuilder& theTTRHBuilder,
-                     const tensorflow::Session* session,
-                     const std::vector<float> chi2) const;
+                                 const reco::BeamSpot& bs,
+                                 const reco::VertexCollection* vertices,
+                                 const MagneticField& theMF,
+                                 const TransientTrackingRecHitBuilder& theTTRHBuilder,
+                                 const tensorflow::Session* session,
+                                 const std::vector<float> chi2) const;
 
   const edm::EDGetTokenT<MkFitEventOfHits> eventOfHitsToken_;
   const edm::EDGetTokenT<MkFitClusterIndexToHit> pixelClusterIndexToHitToken_;
@@ -164,12 +163,13 @@ MkFitOutputConverter::MkFitOutputConverter(edm::ParameterSet const& iConfig)
       qualityMaxZ_{float(iConfig.getParameter<double>("qualityMaxZ"))},
       qualityMaxPosErrSq_{float(pow(iConfig.getParameter<double>("qualityMaxPosErr"), 2))},
       qualitySignPt_{iConfig.getParameter<bool>("qualitySignPt")},
-      algo_{reco::TrackBase::algoByName(TString(iConfig.getParameter<edm::InputTag>("seeds").label()).ReplaceAll("Seeds", "").Data())},
+      algo_{reco::TrackBase::algoByName(
+          TString(iConfig.getParameter<edm::InputTag>("seeds").label()).ReplaceAll("Seeds", "").Data())},
       algoCandSelection_{bool(iConfig.getParameter<bool>("candMVASel"))},
       algoCandWorkingPoint_{float(iConfig.getParameter<double>("candWP"))},
       bsToken_(consumes<reco::BeamSpot>(edm::InputTag("offlineBeamSpot"))),
       verticesToken_(algoCandSelection_ ? consumes<reco::VertexCollection>(edm::InputTag("firstStepPrimaryVertices"))
-                               : edm::EDGetTokenT<reco::VertexCollection>()),
+                                        : edm::EDGetTokenT<reco::VertexCollection>()),
       tfDnnLabel_(iConfig.getParameter<std::string>("tfDnnLabel")),
       tfDnnToken_(esConsumes(edm::ESInputTag("", tfDnnLabel_))) {}
 
@@ -269,7 +269,7 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
   LogTrace("MkFitOutputConverter") << "Number of candidates " << candidates.size();
 
   std::vector<float> chi2;
-  
+
   int candIndex = -1;
   for (const auto& cand : candidates) {
     ++candIndex;
@@ -427,18 +427,18 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
         0,                                               // mkFit does not produce loopers, so set nLoops=0
         static_cast<uint8_t>(StopReason::UNINITIALIZED)  // TODO: ignore details of stopping reason as well for now
     );
-    
-     chi2.push_back(cand.chi2());
-    
+
+    chi2.push_back(cand.chi2());
   }
-    
-  if(algoCandSelection_) {
-    const std::vector<float> DNNscores= computeDNNs (output, bs, vertices, mf, theTTRHBuilder, session, chi2);
-    for (int s=DNNscores.size()-1; s>=0; s--){
-    if(DNNscores[s]<=algoCandWorkingPoint_)  output.erase(output.begin()+s);
+
+  if (algoCandSelection_) {
+    const std::vector<float> DNNscores = computeDNNs(output, bs, vertices, mf, theTTRHBuilder, session, chi2);
+    for (int s = DNNscores.size() - 1; s >= 0; s--) {
+      if (DNNscores[s] <= algoCandWorkingPoint_)
+        output.erase(output.begin() + s);
     }
   }
-  
+
   return output;
 }
 
@@ -575,37 +575,32 @@ std::pair<TrajectoryStateOnSurface, const GeomDet*> MkFitOutputConverter::conver
   return std::make_pair(tsosDouble.first, det);
 }
 
-std::vector<float>MkFitOutputConverter::computeDNNs (TrackCandidateCollection tkCC,
-                                         const reco::BeamSpot& bs,
-                                         const reco::VertexCollection* vertices,
-                                         const MagneticField& theMF,
-                                         const TransientTrackingRecHitBuilder& theTTRHBuilder,
-                                         const tensorflow::Session* session,
-                                         const std::vector<float> chi2) const {
-  
-  
+std::vector<float> MkFitOutputConverter::computeDNNs(TrackCandidateCollection tkCC,
+                                                     const reco::BeamSpot& bs,
+                                                     const reco::VertexCollection* vertices,
+                                                     const MagneticField& theMF,
+                                                     const TransientTrackingRecHitBuilder& theTTRHBuilder,
+                                                     const tensorflow::Session* session,
+                                                     const std::vector<float> chi2) const {
+  int size_in = (int)tkCC.size();
+  int bsize = 16;
+  int nbatches = size_in / bsize;
 
-  int size_in=(int)tkCC.size();
-  int bsize=16;
-  int nbatches=size_in/bsize;
-  
   std::vector<float> output;
   output.resize(size_in);
-  
+
   TSCBLBuilderNoMaterial tscblBuilder;
   auto const& theG = ((TkTransientTrackingRecHitBuilder const*)(&theTTRHBuilder))->geometry();
-  
-  for (auto nb=0; nb<nbatches+1; nb++){
-    
+
+  for (auto nb = 0; nb < nbatches + 1; nb++) {
     // tensorflow part
     tensorflow::Tensor input1(tensorflow::DT_FLOAT, {bsize, 29});
     tensorflow::Tensor input2(tensorflow::DT_FLOAT, {bsize, 1});
-    
-    for (auto nt=0; nt<bsize; nt++)
-    {
-      
-      int itrack=nt+bsize*nb;
-      if (itrack>=size_in) continue;
+
+    for (auto nt = 0; nt < bsize; nt++) {
+      int itrack = nt + bsize * nb;
+      if (itrack >= size_in)
+        continue;
 
       auto const& tkC = tkCC.at(itrack);
       auto const& candSS = tkC.trajectoryStateOnDet();
@@ -652,7 +647,7 @@ std::vector<float>MkFitOutputConverter::computeDNNs (TrackCandidateCollection tk
           strip++;
       }
       ndof = ndof - 5;
-      
+
       input1.matrix<float>()(nt, 0) = trk.pt();  //using inner track only
       input1.matrix<float>()(nt, 1) = p.x();
       input1.matrix<float>()(nt, 2) = p.y();
@@ -669,7 +664,7 @@ std::vector<float>MkFitOutputConverter::computeDNNs (TrackCandidateCollection tk
       input1.matrix<float>()(nt, 13) = trk.dz(bs.position());
       input1.matrix<float>()(nt, 14) = trk.dxyError();
       input1.matrix<float>()(nt, 15) = trk.dzError();
-      input1.matrix<float>()(nt, 16) = chi2[itrack]/ndof;
+      input1.matrix<float>()(nt, 16) = chi2[itrack] / ndof;
       input1.matrix<float>()(nt, 17) = trk.eta();
       input1.matrix<float>()(nt, 18) = trk.phi();
       input1.matrix<float>()(nt, 19) = trk.etaError();
@@ -684,9 +679,8 @@ std::vector<float>MkFitOutputConverter::computeDNNs (TrackCandidateCollection tk
       input1.matrix<float>()(nt, 28) = 0;
 
       input2.matrix<float>()(nt, 0) = algo_;
-
     }
-    
+
     //inputs finalized
     tensorflow::NamedTensorList inputs;
     inputs.resize(2);
@@ -696,17 +690,17 @@ std::vector<float>MkFitOutputConverter::computeDNNs (TrackCandidateCollection tk
     //eval and rescale
     std::vector<tensorflow::Tensor> outputs;
     tensorflow::run(const_cast<tensorflow::Session*>(session), inputs, {"Identity"}, &outputs);
-    
-    for (auto nt=0; nt<bsize; nt++)
-    {        
-        int itrack=nt+bsize*nb;
-        if (itrack>=size_in) continue;
-        
-        float out0 = 2.0 * outputs[0].matrix<float>()(nt, 0) - 1.0;
-        output[itrack]=out0;
+
+    for (auto nt = 0; nt < bsize; nt++) {
+      int itrack = nt + bsize * nb;
+      if (itrack >= size_in)
+        continue;
+
+      float out0 = 2.0 * outputs[0].matrix<float>()(nt, 0) - 1.0;
+      output[itrack] = out0;
     }
   }
-  
+
   return output;
 }
 
