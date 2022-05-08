@@ -103,12 +103,12 @@ private:
                                                                             const Propagator& propagatorOpposite) const;
 
   std::vector<float> computeDNNs(TrackCandidateCollection tkCC,
+                                 std::vector<TrajectoryStateOnSurface> states,
                                  const reco::BeamSpot& bs,
                                  const reco::VertexCollection* vertices,
-                                 const MagneticField& theMF,
-                                 const TransientTrackingRecHitBuilder& theTTRHBuilder,
                                  const tensorflow::Session* session,
-                                 const std::vector<float> chi2) const;
+                                 const std::vector<float> chi2,
+                                 const bool rescaledError) const;
 
   const edm::EDGetTokenT<MkFitEventOfHits> eventOfHitsToken_;
   const edm::EDGetTokenT<MkFitClusterIndexToHit> pixelClusterIndexToHitToken_;
@@ -275,6 +275,7 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
   LogTrace("MkFitOutputConverter") << "Number of candidates " << candidates.size();
 
   std::vector<float> chi2;
+  std::vector<TrajectoryStateOnSurface> states;
 
   int candIndex = -1;
   for (const auto& cand : candidates) {
@@ -441,10 +442,11 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
     );
 
     chi2.push_back(cand.chi2());
+    states.push_back(tsosDet.first);
   }
 
   if (algoCandSelection_) {
-    const std::vector<float> DNNscores = computeDNNs(output, bs, vertices, mf, theTTRHBuilder, session, chi2);
+    const std::vector<float> DNNscores = computeDNNs(output, states, bs, vertices, session, chi2, mkFitOutput.propagatedToFirstLayer() && doErrorRescale_);
     for (int s = DNNscores.size() - 1; s >= 0; s--) {
       if (DNNscores[s] <= algoCandWorkingPoint_)
         output.erase(output.begin() + s);
@@ -588,12 +590,12 @@ std::pair<TrajectoryStateOnSurface, const GeomDet*> MkFitOutputConverter::conver
 }
 
 std::vector<float> MkFitOutputConverter::computeDNNs(TrackCandidateCollection tkCC,
+                                                     std::vector<TrajectoryStateOnSurface> states,
                                                      const reco::BeamSpot& bs,
                                                      const reco::VertexCollection* vertices,
-                                                     const MagneticField& theMF,
-                                                     const TransientTrackingRecHitBuilder& theTTRHBuilder,
                                                      const tensorflow::Session* session,
-                                                     const std::vector<float> chi2) const {
+                                                     const std::vector<float> chi2,
+                                                     const bool rescaledError) const {
   int size_in = (int)tkCC.size();
   int bsize = 16;
   int nbatches = size_in / bsize;
@@ -602,7 +604,6 @@ std::vector<float> MkFitOutputConverter::computeDNNs(TrackCandidateCollection tk
   output.resize(size_in);
 
   TSCBLBuilderNoMaterial tscblBuilder;
-  auto const& theG = ((TkTransientTrackingRecHitBuilder const*)(&theTTRHBuilder))->geometry();
 
   for (auto nb = 0; nb < nbatches + 1; nb++) {
     // tensorflow part
@@ -615,9 +616,11 @@ std::vector<float> MkFitOutputConverter::computeDNNs(TrackCandidateCollection tk
         continue;
 
       auto const& tkC = tkCC.at(itrack);
-      auto const& candSS = tkC.trajectoryStateOnDet();
-      TrajectoryStateOnSurface state =
-          trajectoryStateTransform::transientState(candSS, &(theG->idToDet(candSS.detId())->surface()), &theMF);
+      
+      TrajectoryStateOnSurface state = states.at(itrack);
+          
+      if(rescaledError) state.rescaleError(1/100.f);
+            
       TrajectoryStateClosestToBeamLine tsAtClosestApproachTrackCand =
           tscblBuilder(*state.freeState(), bs);  //as in TrackProducerAlgorithm
 
