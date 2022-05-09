@@ -86,7 +86,6 @@ private:
                                              const mkfit::TrackVec& mkFitSeeds,
                                              const reco::BeamSpot& bs,
                                              const reco::VertexCollection* vertices,
-                                             const TransientTrackingRecHitBuilder& theTTRHBuilder,
                                              const tensorflow::Session* session) const;
 
   std::pair<TrajectoryStateOnSurface, const GeomDet*> backwardFit(const FreeTrajectoryState& fts,
@@ -246,7 +245,6 @@ void MkFitOutputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const 
                                    mkfitSeeds.seeds(),
                                    beamspot,
                                    vertices,
-                                   ttrhBuilder,
                                    session));
 
   // TODO: SeedStopInfo is currently unfilled
@@ -266,7 +264,6 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
                                                                  const mkfit::TrackVec& mkFitSeeds,
                                                                  const reco::BeamSpot& bs,
                                                                  const reco::VertexCollection* vertices,
-                                                                 const TransientTrackingRecHitBuilder& theTTRHBuilder,
                                                                  const tensorflow::Session* session) const {
   TrackCandidateCollection output;
   const auto& candidates = mkFitOutput.tracks();
