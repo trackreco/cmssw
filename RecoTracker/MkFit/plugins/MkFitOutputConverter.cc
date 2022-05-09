@@ -447,10 +447,16 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
   if (algoCandSelection_) {
     const std::vector<float> dnnScores = computeDNNs(
         output, states, bs, vertices, session, chi2, mkFitOutput.propagatedToFirstLayer() && doErrorRescale_);
-    for (int s = dnnScores.size() - 1; s >= 0; s--) {
-      if (dnnScores[s] <= algoCandWorkingPoint_)
-        output.erase(output.begin() + s);
+
+    TrackCandidateCollection reducedOutput;
+    int scoreIndex = 0;
+    for (const auto& score : dnnScores) {
+      if (score > algoCandWorkingPoint_)
+        reducedOutput.push_back(output.at(scoreIndex));
+      scoreIndex++;
     }
+
+    output.swap(reducedOutput);
   }
 
   return output;
