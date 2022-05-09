@@ -102,12 +102,12 @@ private:
                                                                             const Propagator& propagatorAlong,
                                                                             const Propagator& propagatorOpposite) const;
 
-  std::vector<float> computeDNNs(TrackCandidateCollection tkCC,
-                                 std::vector<TrajectoryStateOnSurface> states,
+  std::vector<float> computeDNNs(TrackCandidateCollection const& tkCC,
+                                 const std::vector<TrajectoryStateOnSurface>& states,
                                  const reco::BeamSpot& bs,
                                  const reco::VertexCollection* vertices,
                                  const tensorflow::Session* session,
-                                 const std::vector<float> chi2,
+                                 const std::vector<float>& chi2,
                                  const bool rescaledError) const;
 
   const edm::EDGetTokenT<MkFitEventOfHits> eventOfHitsToken_;
@@ -276,6 +276,8 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
 
   std::vector<float> chi2;
   std::vector<TrajectoryStateOnSurface> states;
+  chi2.reserve(candidates.size());
+  states.reserve(candidates.size());
 
   int candIndex = -1;
   for (const auto& cand : candidates) {
@@ -446,10 +448,10 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
   }
 
   if (algoCandSelection_) {
-    const std::vector<float> DNNscores = computeDNNs(
+    const std::vector<float> dnnScores = computeDNNs(
         output, states, bs, vertices, session, chi2, mkFitOutput.propagatedToFirstLayer() && doErrorRescale_);
-    for (int s = DNNscores.size() - 1; s >= 0; s--) {
-      if (DNNscores[s] <= algoCandWorkingPoint_)
+    for (int s = dnnScores.size() - 1; s >= 0; s--) {
+      if (dnnScores[s] <= algoCandWorkingPoint_)
         output.erase(output.begin() + s);
     }
   }
@@ -590,19 +592,18 @@ std::pair<TrajectoryStateOnSurface, const GeomDet*> MkFitOutputConverter::conver
   return std::make_pair(tsosDouble.first, det);
 }
 
-std::vector<float> MkFitOutputConverter::computeDNNs(TrackCandidateCollection tkCC,
-                                                     std::vector<TrajectoryStateOnSurface> states,
+std::vector<float> MkFitOutputConverter::computeDNNs(TrackCandidateCollection const& tkCC,
+                                                     const std::vector<TrajectoryStateOnSurface>& states,
                                                      const reco::BeamSpot& bs,
                                                      const reco::VertexCollection* vertices,
                                                      const tensorflow::Session* session,
-                                                     const std::vector<float> chi2,
+                                                     const std::vector<float>& chi2,
                                                      const bool rescaledError) const {
   int size_in = (int)tkCC.size();
   int bsize = 16;
   int nbatches = size_in / bsize;
 
-  std::vector<float> output;
-  output.resize(size_in);
+  std::vector<float> output(size_in, 0);
 
   TSCBLBuilderNoMaterial tscblBuilder;
 
@@ -686,9 +687,9 @@ std::vector<float> MkFitOutputConverter::computeDNNs(TrackCandidateCollection tk
       input1.matrix<float>()(nt, 18) = trk.phi();
       input1.matrix<float>()(nt, 19) = trk.etaError();
       input1.matrix<float>()(nt, 20) = trk.phiError();
-      input1.matrix<float>()(nt, 21) = pix;    //trk.hitPattern().numberOfValidPixelHits();
-      input1.matrix<float>()(nt, 22) = strip;  //trk.hitPattern().numberOfValidStripHits();
-      input1.matrix<float>()(nt, 23) = ndof;   //trk.ndof();
+      input1.matrix<float>()(nt, 21) = pix;
+      input1.matrix<float>()(nt, 22) = strip;
+      input1.matrix<float>()(nt, 23) = ndof;
       input1.matrix<float>()(nt, 24) = 0;
       input1.matrix<float>()(nt, 25) = 0;
       input1.matrix<float>()(nt, 26) = 0;
