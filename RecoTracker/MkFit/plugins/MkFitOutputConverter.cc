@@ -132,7 +132,7 @@ private:
   const bool qualitySignPt_;
 
   const bool doErrorRescale_;
-  
+
   const int algo_;
   const bool algoCandSelection_;
   const float algoCandWorkingPoint_;
@@ -446,7 +446,8 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
   }
 
   if (algoCandSelection_) {
-    const std::vector<float> DNNscores = computeDNNs(output, states, bs, vertices, session, chi2, mkFitOutput.propagatedToFirstLayer() && doErrorRescale_);
+    const std::vector<float> DNNscores = computeDNNs(
+        output, states, bs, vertices, session, chi2, mkFitOutput.propagatedToFirstLayer() && doErrorRescale_);
     for (int s = DNNscores.size() - 1; s >= 0; s--) {
       if (DNNscores[s] <= algoCandWorkingPoint_)
         output.erase(output.begin() + s);
@@ -616,11 +617,12 @@ std::vector<float> MkFitOutputConverter::computeDNNs(TrackCandidateCollection tk
         continue;
 
       auto const& tkC = tkCC.at(itrack);
-      
+
       TrajectoryStateOnSurface state = states.at(itrack);
-          
-      if(rescaledError) state.rescaleError(1/100.f);
-            
+
+      if (rescaledError)
+        state.rescaleError(1 / 100.f);
+
       TrajectoryStateClosestToBeamLine tsAtClosestApproachTrackCand =
           tscblBuilder(*state.freeState(), bs);  //as in TrackProducerAlgorithm
 
