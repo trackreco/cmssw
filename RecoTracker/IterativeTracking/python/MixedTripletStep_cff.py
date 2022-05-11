@@ -376,7 +376,7 @@ trackingPhase1.toReplaceWith(mixedTripletStep, mixedTripletStepClassifier1.clone
 from RecoTracker.FinalTrackSelectors.trackTfClassifier_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_CKF_cfi import *
-trackdnn.toReplaceWith(mixedTripletStep, trackTfClassifier.clone(
+trackdnn.toReplaceWith(mixedTripletStep, trackTfClassifierBatch.clone(
     src = 'mixedTripletStepTracks',
     qualityCuts = qualityCutDictionary.MixedTripletStep.value()
 ))
