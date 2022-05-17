@@ -288,7 +288,7 @@ highPtTripletStep = TrackMVAClassifierPrompt.clone(
 from RecoTracker.FinalTrackSelectors.trackTfClassifier_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_CKF_cfi import *
-trackdnn.toReplaceWith(highPtTripletStep, trackTfClassifierBatch.clone(
+trackdnn.toReplaceWith(highPtTripletStep, trackTfClassifier.clone(
     src = 'highPtTripletStepTracks',
     qualityCuts = qualityCutDictionary.HighPtTripletStep.value()
 ))

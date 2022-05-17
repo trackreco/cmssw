@@ -315,7 +315,7 @@ trackingPhase1.toReplaceWith(lowPtTripletStep, lowPtTripletStep.clone(
 from RecoTracker.FinalTrackSelectors.trackTfClassifier_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_CKF_cfi import *
-trackdnn.toReplaceWith(lowPtTripletStep, trackTfClassifierBatch.clone(
+trackdnn.toReplaceWith(lowPtTripletStep, trackTfClassifier.clone(
     src = 'lowPtTripletStepTracks',
     qualityCuts = qualityCutDictionary.LowPtTripletStep.value()
 ))

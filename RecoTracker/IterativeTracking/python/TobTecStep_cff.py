@@ -414,7 +414,7 @@ trackingPhase1.toReplaceWith(tobTecStep, tobTecStepClassifier1.clone(
 from RecoTracker.FinalTrackSelectors.trackTfClassifier_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_CKF_cfi import *
-trackdnn.toReplaceWith(tobTecStep, trackTfClassifierBatch.clone(
+trackdnn.toReplaceWith(tobTecStep, trackTfClassifier.clone(
      src         = 'tobTecStepTracks',
      qualityCuts = qualityCutDictionary.TobTecStep.value()
 ))

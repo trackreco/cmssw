@@ -376,7 +376,7 @@ trackingPhase1.toModify(pixelPairStep, mva=dict(GBRForestLabel = 'MVASelectorPix
 from RecoTracker.FinalTrackSelectors.trackTfClassifier_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_CKF_cfi import *
-trackdnn.toReplaceWith(pixelPairStep, trackTfClassifierBatch.clone(
+trackdnn.toReplaceWith(pixelPairStep, trackTfClassifier.clone(
     src='pixelPairStepTracks',
     qualityCuts=qualityCutDictionary.PixelPairStep.value()
 ))

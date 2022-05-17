@@ -389,7 +389,7 @@ trackingPhase1.toReplaceWith(pixelLessStep, pixelLessStepClassifier1.clone(
 from RecoTracker.FinalTrackSelectors.trackTfClassifier_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_CKF_cfi import *
-trackdnn.toReplaceWith(pixelLessStep, trackTfClassifierBatch.clone(
+trackdnn.toReplaceWith(pixelLessStep, trackTfClassifier.clone(
     src         = 'pixelLessStepTracks',
     qualityCuts = qualityCutDictionary.PixelLessStep.value()
 ))

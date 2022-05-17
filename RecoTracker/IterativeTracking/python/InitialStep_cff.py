@@ -341,7 +341,7 @@ trackingPhase1.toReplaceWith(initialStep, initialStepClassifier1.clone(
 from RecoTracker.FinalTrackSelectors.trackTfClassifier_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_CKF_cfi import *
-trackdnn.toReplaceWith(initialStep, trackTfClassifierBatch.clone(
+trackdnn.toReplaceWith(initialStep, trackTfClassifier.clone(
         src         = 'initialStepTracks',
         qualityCuts = qualityCutDictionary.InitialStep.value()
 ))

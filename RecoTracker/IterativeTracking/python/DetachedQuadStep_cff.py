@@ -245,7 +245,7 @@ detachedQuadStep = TrackMVAClassifierDetached.clone(
 from RecoTracker.FinalTrackSelectors.trackTfClassifier_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_CKF_cfi import *
-trackdnn.toReplaceWith(detachedQuadStep, trackTfClassifierBatch.clone(
+trackdnn.toReplaceWith(detachedQuadStep, trackTfClassifier.clone(
     src = 'detachedQuadStepTracks',
     qualityCuts = qualityCutDictionary.DetachedQuadStep.value()
 ))

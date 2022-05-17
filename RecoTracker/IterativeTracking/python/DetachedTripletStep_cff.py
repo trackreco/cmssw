@@ -292,7 +292,7 @@ trackingPhase1.toReplaceWith(detachedTripletStep, detachedTripletStepClassifier1
 from RecoTracker.FinalTrackSelectors.trackTfClassifier_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_CKF_cfi import *
-trackdnn.toReplaceWith(detachedTripletStep, trackTfClassifierBatch.clone(
+trackdnn.toReplaceWith(detachedTripletStep, trackTfClassifier.clone(
      src = 'detachedTripletStepTracks',
      qualityCuts = qualityCutDictionary.DetachedTripletStep.value()
 ))
