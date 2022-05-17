@@ -39,7 +39,6 @@ namespace {
     std::vector<float> operator()(reco::TrackCollection const& tracks,
                                   reco::BeamSpot const& beamSpot,
                                   reco::VertexCollection const& vertices) const {
-
       int size_in = (int)tracks.size();
       int nbatches = size_in / bsize_;
 
