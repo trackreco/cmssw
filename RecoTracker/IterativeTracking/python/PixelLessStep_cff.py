@@ -393,9 +393,9 @@ from RecoTracker.FinalTrackSelectors.trackTfClassifier_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_CKF_cfi import *
 trackdnn.toReplaceWith(pixelLessStep, trackTfClassifier.clone(
-    #mva         = dict(tfDnnLabel  = 'trackSelectionTf_CKF'),
+    mva         = dict(tfDnnLabel  = 'trackSelectionTf_CKF'),
     src         = 'pixelLessStepTracks',
-    qualityCuts = qualityCutDictionary.PixelLessStep.value()
+    qualityCuts = [-0.81, -0.61, -0.17]
 ))
 (trackdnn & fastSim).toModify(pixelLessStep,vertices = 'firstStepPrimaryVerticesBeforeMixing')
 
