@@ -217,6 +217,30 @@ jetCoreRegionalStepEndcapTrackCandidates = jetCoreRegionalStepTrackCandidates.cl
     #onlyPixelHitsForSeedCleaner = cms.bool(True),
 )
 
+
+from Configuration.ProcessModifiers.trackingMkFitJetCoreRegionalStep_cff import trackingMkFitJetCoreRegionalStep
+import RecoTracker.MkFit.mkFitSeedConverter_cfi as mkFitSeedConverter_cfi
+import RecoTracker.MkFit.mkFitProducer_cfi as mkFitProducer_cfi
+import RecoTracker.MkFit.mkFitIterationConfigESProducer_cfi as mkFitIterationConfigESProducer_cfi
+import RecoTracker.MkFit.mkFitOutputConverter_cfi as mkFitOutputConverter_cfi
+jetCoreRegionalStepTrackCandidatesMkFitSeeds = mkFitSeedConverter_cfi.mkFitSeedConverter.clone(
+    seeds = 'jetCoreRegionalStepSeeds',
+)
+jetCoreRegionalStepTrackCandidatesMkFitConfig = mkFitIterationConfigESProducer_cfi.mkFitIterationConfigESProducer.clone(
+    ComponentName = 'jetCoreRegionalStepTrackCandidatesMkFitConfig',
+    config = 'RecoTracker/MkFit/data/mkfit-phase1-initialStep.json',
+)
+jetCoreRegionalStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
+    seeds = 'jetCoreRegionalStepTrackCandidatesMkFitSeeds',
+    config = ('', 'jetCoreRegionalStepTrackCandidatesMkFitConfig'),
+    #clustersToSkip = 'jetCoreRegionalStepClusters',
+)
+trackingMkFitJetCoreRegionalStep.toReplaceWith(jetCoreRegionalStepTrackCandidates, mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
+    seeds = 'jetCoreRegionalStepSeeds',
+    mkFitSeeds = 'jetCoreRegionalStepTrackCandidatesMkFitSeeds',
+    tracks = 'jetCoreRegionalStepTrackCandidatesMkFit',
+))
+
 # TRACK FITTING
 import RecoTracker.TrackProducer.TrackProducer_cfi
 jetCoreRegionalStepTracks = RecoTracker.TrackProducer.TrackProducer_cfi.TrackProducer.clone(
@@ -355,3 +379,7 @@ seedingDeepCore.toReplaceWith(JetCoreRegionalStepTask, cms.Task(
 fastSim.toReplaceWith(JetCoreRegionalStepTask, 
                       cms.Task(jetCoreRegionalStepTracks,
                                    jetCoreRegionalStep))
+                      
+_JetCoreRegionalStepTask_trackingMkFit = JetCoreRegionalStepTask.copy()
+_JetCoreRegionalStepTask_trackingMkFit.add(jetCoreRegionalStepTrackCandidatesMkFitSeeds, jetCoreRegionalStepTrackCandidatesMkFit, jetCoreRegionalStepTrackCandidatesMkFitConfig)
+trackingMkFitJetCoreRegionalStep.toReplaceWith(JetCoreRegionalStepTask, _JetCoreRegionalStepTask_trackingMkFit)
