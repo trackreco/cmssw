@@ -992,8 +992,11 @@ namespace mkfit {
       if (radL < 1e-13f)
         continue;  //ugly, please fixme
       const float theta = outPar.constAt(n, 5, 0);
-      const float pt = 1.f / outPar.constAt(n, 3, 0);  //fixme, make sure it is positive?
+      const float ipt = outPar.constAt(n, 3, 0);
+      const float pt = 1.f / ipt;
+      const float ipt2 = ipt * ipt;
       const float p = pt / std::sin(theta);
+      const float pz = p * std::cos(theta);
       const float p2 = p * p;
       constexpr float mpi = 0.140;       // m=140 MeV, pion
       constexpr float mpi2 = mpi * mpi;  // m=140 MeV, pion
@@ -1011,8 +1014,9 @@ namespace mkfit {
       // const float thetaMSC2 = thetaMSC*thetaMSC;
       const float thetaMSC = 0.0136f * (1.f + 0.038f * std::log(radL)) / (beta * p);  // eq 32.15
       const float thetaMSC2 = thetaMSC * thetaMSC * radL;
-      outErr.At(n, 4, 4) += thetaMSC2;
-      // outErr.At(n, 4, 5) += thetaMSC2;
+      outErr.At(n, 3, 3) += thetaMSC2 * pz * pz * ipt2 * ipt2;
+      outErr.At(n, 3, 5) -= thetaMSC2 * pz * ipt2;
+      outErr.At(n, 4, 4) += thetaMSC2 * p2 * ipt2;
       outErr.At(n, 5, 5) += thetaMSC2;
       //std::cout << "beta=" << beta << " p=" << p << std::endl;
       //std::cout << "multiple scattering thetaMSC=" << thetaMSC << " thetaMSC2=" << thetaMSC2 << " radL=" << radL << std::endl;
