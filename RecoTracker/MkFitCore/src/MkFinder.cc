@@ -242,13 +242,14 @@ namespace mkfit {
     const float theta = std::abs(m_Par[ipar].At(itrk, 5, 0) - Const::PIOver2);
 
     float max_invpt = invpt;
-    if (invpt > 10.0)
-      max_invpt = 10.0;
+    if (invpt > 10.0f)
+      max_invpt = 10.0f;
 
     float this_c2 = ILC.c_c2_0 * max_invpt + ILC.c_c2_1 * theta + ILC.c_c2_2;
     // In case layer is missing (e.g., seeding layers, or too low stats for training), leave original limits
     if ((ILC.c_c2_sf) * this_c2 > minChi2Cut)
-      return ILC.c_c2_sf * this_c2;
+      //clamp the parametric cut to twice the default
+      return std::min(ILC.c_c2_sf * this_c2, 2.f * minChi2Cut);
     else
       return minChi2Cut;
   }
