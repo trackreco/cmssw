@@ -479,6 +479,11 @@ namespace mkfit {
         }
       }
 
+      printf("prefilter\n");
+      builder.filter_comb_cands([&](const TrackCand &t) { return StdSeq::qfilter_nan_n_silly(t); },
+                                true);
+      printf("postfilter\n");
+
       builder.select_best_comb_cands();
 
       {
@@ -526,7 +531,8 @@ namespace mkfit {
           }
         }
 
-        builder.filter_comb_cands([&](const TrackCand &t) { return StdSeq::qfilter_nan_n_silly(t); });
+        builder.filter_comb_cands([&](const TrackCand &t) { return StdSeq::qfilter_nan_n_silly(t); },
+                                  true);
 
         builder.select_best_comb_cands(true);  // true -> clear m_tracks as they were already filled once above
 

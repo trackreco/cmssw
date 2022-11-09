@@ -300,7 +300,8 @@ namespace mkfit {
 
   //------------------------------------------------------------------------------
 
-  int MkBuilder::filter_comb_cands(std::function<filter_track_cand_foo> filter) {
+  int MkBuilder::filter_comb_cands(std::function<filter_track_cand_foo> filter,
+                                   bool attempt_all_cands) {
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
     int i = 0, place_pos = 0;
 
@@ -308,7 +309,18 @@ namespace mkfit {
 
     std::vector<int> removed_cnts(m_job->num_regions());
     while (i < eoccs.size()) {
-      if (filter(eoccs[i].front())) {
+      bool passed = filter(eoccs[i].front());
+      if (!passed && attempt_all_cands) {
+        for (int j = 1; j < (int) eoccs[i].size(); ++j) {
+          if (filter(eoccs[i][j])) {
+            eoccs[i][0] = eoccs[i][j]; // overwrite front, no need to std::swap() them
+            passed = true;
+            printf("YUH, passed on j=%d; size=%d, i=%d\n", j, (int) eoccs[i].size(), i);
+            break;
+          }
+        }
+      }
+      if (passed) {
         if (place_pos != i)
           std::swap(eoccs[place_pos], eoccs[i]);
         ++place_pos;

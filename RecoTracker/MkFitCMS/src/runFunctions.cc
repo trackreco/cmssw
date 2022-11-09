@@ -75,6 +75,11 @@ namespace mkfit {
     }
 
     if (do_backward_fit) {
+      printf("prefilter\n");
+      builder.filter_comb_cands([&](const TrackCand &t) { return StdSeq::qfilter_nan_n_silly(t); },
+                                true);
+      printf("postfilter\n");
+
       if (itconf.m_backward_search) {
         builder.compactifyHitStorageForBestCand(itconf.m_backward_drop_seed_hits, itconf.m_backward_fit_min_hits);
       }
@@ -99,7 +104,8 @@ namespace mkfit {
       }
     }
 
-    builder.filter_comb_cands([&](const TrackCand &t) { return StdSeq::qfilter_nan_n_silly(t); });
+    builder.filter_comb_cands([&](const TrackCand &t) { return StdSeq::qfilter_nan_n_silly(t); },
+                              true);
 
     builder.export_best_comb_cands(out_tracks, true);
 
