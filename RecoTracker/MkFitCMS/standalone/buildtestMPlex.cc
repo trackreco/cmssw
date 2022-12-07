@@ -476,6 +476,8 @@ namespace mkfit {
         builder.filter_comb_cands(itconf.m_pre_bkfit_filter);
       }
 
+      builder.filter_comb_cands(StdSeq::qfilter_nan_n_silly<TrackCand>, true);
+
       builder.select_best_comb_cands();
 
       {
@@ -518,7 +520,7 @@ namespace mkfit {
           builder.filter_comb_cands(itconf.m_post_bkfit_filter);
         }
 
-        builder.filter_comb_cands(StdSeq::qfilter_nan_n_silly<TrackCand>);
+        builder.filter_comb_cands(StdSeq::qfilter_nan_n_silly<TrackCand>, true);
 
         builder.select_best_comb_cands(true);  // true -> clear m_tracks as they were already filled once above
 

@@ -55,7 +55,7 @@ namespace mkfit {
     void import_seeds(const TrackVec &in_seeds, const bool seeds_sorted, std::function<insert_seed_foo> insert_seed);
 
     // filter for rearranging cands that will / will not do backward search.
-    int filter_comb_cands(IterationConfig::filter_candidates_func filter);
+    int filter_comb_cands(IterationConfig::filter_candidates_func filter, bool attempt_all_cands=false);
 
     void find_min_max_hots_size();
 
