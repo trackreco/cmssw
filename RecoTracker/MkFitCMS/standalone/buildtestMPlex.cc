@@ -392,6 +392,10 @@ namespace mkfit {
   // And if we care about doing too muich work for seeds that will never get processed.
   //==============================================================================
 
+  namespace {
+    constexpr unsigned int algorithms[] = {4, 22, 23, 5, 24, 7, 8, 9, 10, 6};  //9 iterations
+  }
+
   std::vector<double> runBtpCe_MultiIter(Event &ev, const EventOfHits &eoh, MkBuilder &builder, int n) {
     std::vector<double> timevec;
     if (n <= 0)
@@ -402,8 +406,6 @@ namespace mkfit {
 
     TrackVec seeds_used;
     TrackVec seeds1;
-
-    unsigned int algorithms[] = {4, 22, 23, 5, 24, 7, 8, 9, 10, 6};  //9 iterations
 
     if (validation_on) {
       for (auto const &s : ev.seedTracks_) {

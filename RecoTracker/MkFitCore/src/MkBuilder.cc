@@ -314,9 +314,8 @@ namespace mkfit {
       if (!passed && attempt_all_cands) {
         for (int j = 1; j < (int) eoccs[i].size(); ++j) {
           if (filter(eoccs[i][j], *m_job)) {
-            eoccs[i][0] = eoccs[i][j]; // overwrite fron t, no need to std::swap() them
+            eoccs[i][0] = eoccs[i][j]; // overwrite front, no need to std::swap() them
             passed = true;
-            printf("YUH, passed on j=%d; size=%d, i=%d\n", j, (int) eoccs[i].size(), i);
             break;
           }
         }
