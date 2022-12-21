@@ -474,11 +474,18 @@ namespace mkfit {
       if (validation_on)
         seeds_used.insert(seeds_used.end(), seeds.begin(), seeds.end());  //cleaned seeds need to be stored somehow
 
-      if (itconf.m_pre_bkfit_filter) {
-        builder.filter_comb_cands(itconf.m_pre_bkfit_filter);
-      }
-
-      builder.filter_comb_cands(StdSeq::qfilter_nan_n_silly<TrackCand>, true);
+      // Pre backward-fit filtering.
+      // Note -- slightly different logic than run_OneIteration as we always do nan filters for
+      // export for validation.
+      IterationConfig::filter_candidates_func pre_filter;
+      if (itconf.m_pre_bkfit_filter)
+        pre_filter = [&](const TrackCand &tc, const MkJob &jb) -> bool {
+          return itconf.m_pre_bkfit_filter(tc, jb) && StdSeq::qfilter_nan_n_silly<TrackCand>(tc, jb);
+        };
+      else
+        pre_filter = StdSeq::qfilter_nan_n_silly<TrackCand>;
+      // pre_filter is always at least doing nan_n_silly filter.
+      builder.filter_comb_cands(pre_filter, true);
 
       builder.select_best_comb_cands();
 
@@ -506,9 +513,8 @@ namespace mkfit {
         // before reaching seeding region. Ideally, we wouldn't add them in the first place but
         // if we want to export full tracks above we need to hold on to them (alternatively, we could
         // have a pointer to seed track in CombCandidate and copy them from there).
-        if (do_backward_search) {
+        if (do_backward_search)
           builder.compactifyHitStorageForBestCand(itconf.m_backward_drop_seed_hits, itconf.m_backward_fit_min_hits);
-        }
 
         builder.backwardFit();
 
@@ -518,11 +524,21 @@ namespace mkfit {
           builder.endBkwSearch();
         }
 
-        if (itconf.m_post_bkfit_filter) {
-          builder.filter_comb_cands(itconf.m_post_bkfit_filter);
-        }
+        // Post backward-fit filtering.
+        // Note -- slightly different logic than run_OneIteration as we export both pre and post
+        // backward-fit tracks.
+        IterationConfig::filter_candidates_func post_filter;
+        if (itconf.m_post_bkfit_filter)
+          post_filter = [&](const TrackCand &tc, const MkJob &jb) -> bool {
+            return itconf.m_post_bkfit_filter(tc, jb) && StdSeq::qfilter_nan_n_silly<TrackCand>(tc, jb);
+          };
+        else
+          post_filter = StdSeq::qfilter_nan_n_silly<TrackCand>;
+        // post_filter is always at least doing nan_n_silly filter.
+        builder.filter_comb_cands(post_filter, true);
 
-        builder.filter_comb_cands(StdSeq::qfilter_nan_n_silly<TrackCand>, true);
+        if (do_backward_search)
+          builder.endBkwSearch();
 
         builder.select_best_comb_cands(true);  // true -> clear m_tracks as they were already filled once above
 

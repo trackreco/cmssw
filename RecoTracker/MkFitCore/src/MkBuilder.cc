@@ -310,9 +310,14 @@ namespace mkfit {
 
     std::vector<int> removed_cnts(m_job->num_regions());
     while (i < eoccs.size()) {
+      if (eoccs.cands_in_backward_rep())
+        eoccs[i].repackCandPostBkwSearch(0);
       bool passed = filter(eoccs[i].front(), *m_job);
+
       if (!passed && attempt_all_cands) {
         for (int j = 1; j < (int) eoccs[i].size(); ++j) {
+          if (eoccs.cands_in_backward_rep())
+            eoccs[i].repackCandPostBkwSearch(j);
           if (filter(eoccs[i][j], *m_job)) {
             eoccs[i][0] = eoccs[i][j]; // overwrite front, no need to std::swap() them
             passed = true;
