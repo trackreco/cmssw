@@ -74,6 +74,8 @@ namespace mkfit {
     const TrackVec &ref_tracks() const { return m_tracks; }
     TrackVec &ref_tracks_nc() { return m_tracks; }
 
+    const EventOfCombCandidates &ref_eocc() const { return m_event_of_comb_cands; }
+
     // --------
 
     void find_tracks_load_seeds_BH(const TrackVec &in_seeds, const bool seeds_sorted);  // for FindTracksBestHit

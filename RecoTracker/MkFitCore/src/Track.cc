@@ -407,8 +407,10 @@ namespace mkfit {
     std::cout << std::endl;
   }
 
-  void print(std::string label, int itrack, const Track& trk, bool print_hits) {
-    std::cout << std::endl << label << ": " << itrack << " hits: " << trk.nFoundHits() << " State" << std::endl;
+  void print(std::string pfx, int itrack, const Track& trk, bool print_hits) {
+    std::cout << std::endl << pfx << ": " << itrack << " hits: " << trk.nFoundHits()
+       << " label: " << trk.label()
+       << " State" << std::endl;
     print(trk.state());
     if (print_hits) {
       for (int i = 0; i < trk.nTotalHits(); ++i)
@@ -416,8 +418,8 @@ namespace mkfit {
     }
   }
 
-  void print(std::string label, const TrackState& s) {
-    std::cout << label << std::endl;
+  void print(std::string pfx, const TrackState& s) {
+    std::cout << pfx << std::endl;
     print(s);
   }
 

@@ -413,7 +413,7 @@ namespace mkfit {
               << " pT=" << 1. / std::abs(outPar.At(n, 3, 0)) << std::endl);
 
 #ifdef DEBUG
-      if (debug && n < N_proc) {
+      if (debug && g_debug && n < N_proc) {
         dmutex_guard;
         std::cout << n << " jacobian" << std::endl;
         printf("%5f %5f %5f %5f %5f %5f\n",
@@ -508,7 +508,7 @@ namespace mkfit {
     helixAtRFromIterativeCCS(inPar, inChg, msRad, outPar, errorProp, outFailFlag, N_proc, pflags);
 
 #ifdef DEBUG
-    if (debug) {
+    if (debug && g_debug) {
       for (int kk = 0; kk < N_proc; ++kk) {
         dprintf("outErr before prop %d\n", kk);
         for (int i = 0; i < 6; ++i) {
@@ -609,7 +609,7 @@ namespace mkfit {
     helixAtZ(inPar, inChg, msZ, outPar, errorProp, outFailFlag, N_proc, pflags);
 
 #ifdef DEBUG
-    if (debug) {
+    if (debug && g_debug) {
       for (int kk = 0; kk < N_proc; ++kk) {
         dprintf("inErr %d\n", kk);
         for (int i = 0; i < 6; ++i) {
@@ -954,7 +954,7 @@ namespace mkfit {
 #ifdef DEBUG
 #pragma omp simd
     for (int n = 0; n < NN; ++n) {
-      if (debug && n < N_proc) {
+       && g_debug && n < N_proc) {
         dmutex_guard;
         std::cout << n << ": jacobian" << std::endl;
         printf("%5f %5f %5f %5f %5f %5f\n",

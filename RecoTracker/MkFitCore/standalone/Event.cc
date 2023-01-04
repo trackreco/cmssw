@@ -936,6 +936,12 @@ namespace mkfit {
     fwrite(&f_header, sizeof(DataFileHeader), 1, f_fp);
   }
 
+  void DataFile::rewind() {
+    std::lock_guard<std::mutex> readlock(f_next_ev_mutex);
+    f_pos = sizeof(DataFileHeader);
+    fseek(f_fp, f_pos, SEEK_SET);
+  }
+
   int DataFile::advancePosToNextEvent(FILE *fp) {
     int evsize;
 
@@ -982,6 +988,30 @@ namespace mkfit {
       fwrite(&f_header, sizeof(DataFileHeader), 1, f_fp);
     }
     close();
+  }
+
+  //==============================================================================
+  // Misc debug / printout
+  //==============================================================================
+
+  void print(std::string pfx, int itrack, const Track& trk, const Event &ev) {
+    std::cout << std::endl << pfx << ": " << itrack << " hits: " << trk.nFoundHits()
+      << " label: " << trk.label()
+      << " State:" << std::endl;
+    print(trk.state());
+
+    for (int i = 0; i < trk.nTotalHits(); ++i)
+    {
+      auto hot = trk.getHitOnTrack(i);
+      printf("  %2d: lyr %2d idx %5d", i, hot.layer, hot.index);
+      if (hot.index >= 0) {
+        auto &h = ev.layerHits_[hot.layer][hot.index];
+        int hl = ev.simHitsInfo_[h.mcHitID()].mcTrackID_;
+        printf("  %4d  %8.3f %8.3f %8.3f  r=%.3f\n", hl, h.x(), h.y(), h.z(), h.r());
+      } else {
+        printf("\n");
+      }
+    }
   }
 
 }  // end namespace mkfit

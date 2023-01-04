@@ -462,7 +462,7 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
 
 #ifdef DEBUG
   for (int n = nmin; n < nmax; ++n) {
-    if (debug && n < N_proc) {
+     if (debug && g_debug && n < N_proc) {
       dmutex_guard;
       std::cout << n << ": jacobian" << std::endl;
       printf("%5f %5f %5f %5f %5f %5f\n",
