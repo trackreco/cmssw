@@ -676,8 +676,8 @@ namespace mkfit {
   }
 
   void print(const TrackState& s);
-  void print(std::string label, int itrack, const Track& trk, bool print_hits = false);
-  void print(std::string label, const TrackState& s);
+  void print(std::string pfx, int itrack, const Track& trk, bool print_hits = false);
+  void print(std::string pfx, const TrackState& s);
 
 }  // end namespace mkfit
 #endif

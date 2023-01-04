@@ -1774,6 +1774,7 @@ namespace mkfit {
 
 #if defined(DEBUG_BACKWARD_FIT)
       // clang-format off
+      bool debug = true;
       const char beg_cur_sep = '/'; // set to ' ' root parsable printouts
       for (int i = 0; i < N_proc; ++i) {
         if (chiDebug && last_hit_ptr[i]) {
@@ -1785,14 +1786,14 @@ namespace mkfit {
 #if defined(MKFIT_STANDALONE)
           const MCHitInfo &mchi = m_event->simHitsInfo_[last_hit_ptr[i]->mcHitID()];
 
-          printf("BKF_OVERLAP %d %d %d %d %d %d %d "
-                 "%f%c%f %f %f%c%f %f %f %f %d %d %d %d "
-                 "%f %f %f %f %f\n",
+          dprintf("BKF_OVERLAP %d %d %d %d %d %d %d "
+                  "%f%c%f %f %f%c%f %f %f %f %d %d %d %d "
+                  "%f %f %f %f %f\n",
               m_event->evtID(),
 #else
-          printf("BKF_OVERLAP %d %d %d %d %d %d "
-                 "%f%c%f %f %f%c%f %f %f %f %d %d %d "
-                 "%f %f %f %f %f\n",
+          dprintf("BKF_OVERLAP %d %d %d %d %d %d "
+                  "%f%c%f %f %f%c%f %f %f %f %d %d %d "
+                  "%f %f %f %f %f\n",
 #endif
               bb.label(), (int)bb.prodType(), bb.isFindable(),
               layer, L.is_stereo(), L.is_barrel(),
