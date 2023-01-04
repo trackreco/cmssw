@@ -147,7 +147,7 @@ namespace {
     }
   }
 
-  void print_seeds(const EventOfCombCandidates &event_of_comb_cands) {
+  [[maybe_unused]] void print_seeds(const EventOfCombCandidates &event_of_comb_cands) {
     for (int iseed = 0; iseed < event_of_comb_cands.size(); iseed++) {
       print_seed2(event_of_comb_cands[iseed].front());
     }
@@ -1174,10 +1174,18 @@ namespace mkfit {
   // BackwardFit
   //==============================================================================
 
-  // MT-RATS - eta separators can be screwed after copy out with possibly empty CombCands.
-  // I added asserts to two applicable places above (both here in MkBuilder.cc).
-  // One could also re-calculate / adjust m_seedEtaSeparators, during export iself, probably.
-  // Or use separate seed / track vectors for every region -- which would be prettier.
+#ifdef DEBUG_FINAL_FIT
+  namespace {
+    // clang-format off
+    void dprint_tcand(const TrackCand &t, int i) {
+      dprintf("  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f"
+              " nHits=%2d  label=%4d findable=%d\n",
+              i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(),
+              t.nFoundHits(), t.label(), t.isFindable());
+      }
+      // clang-format on
+  }
+#endif
 
   void MkBuilder::backwardFitBH() {
     tbb::parallel_for_each(m_job->regions_begin(), m_job->regions_end(), [&](int region) {
@@ -1203,28 +1211,16 @@ namespace mkfit {
     const PropagationConfig &prop_config = PropagationConfig::get_default();
 #ifdef DEBUG_FINAL_FIT
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
+    bool debug = true;
 #endif
 
     for (int icand = start_cand; icand < end_cand; icand += NN) {
       const int end = std::min(icand + NN, end_cand);
 
 #ifdef DEBUG_FINAL_FIT
-      printf("Pre Final fit for %d - %d\n", icand, end);
+      dprintf("Pre Final fit for %d - %d\n", icand, end);
       for (int i = icand; i < end; ++i) {
-        const TrackCand &t = eoccs[i][0];
-        printf(
-            "  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
-            i,
-            t.charge(),
-            t.chi2(),
-            t.pT(),
-            t.momEta(),
-            t.x(),
-            t.y(),
-            t.z(),
-            t.nFoundHits(),
-            t.label(),
-            t.isFindable());
+        dprint_tcand(eoccs[i][0], i);
       }
 #endif
 
@@ -1258,32 +1254,16 @@ namespace mkfit {
                icand,
                1.0f / mkfndr->m_Par[MkBase::iP].At(0, 3, 0),
                mkfndr->m_Chi2(0, 0, 0) / (eoccs[icand][0].nFoundHits() * 3 - 6));
-        printf(
-            "CHIHDR %3s %10s %10s %10s %10s %10s %11s %11s %11s %10s %10s %10s %10s %11s %11s %11s %10s %10s %10s %10s "
-            "%10s %11s %11s\n",
-            "lyr",
-            "chi2",
-            "x_h",
-            "y_h",
-            "z_h",
-            "r_h",
-            "sx_h",
-            "sy_h",
-            "sz_h",
-            "x_t",
-            "y_t",
-            "z_t",
-            "r_t",
-            "sx_t",
-            "sy_t",
-            "sz_t",
-            "pt",
-            "phi",
-            "theta",
-            "phi_h",
-            "phi_t",
-            "d_xy",
-            "d_z");
+        // clang-format off
+        printf("CHIHDR %3s %10s"
+              " %10s %10s %10s %10s %11s %11s %11s"
+              " %10s %10s %10s %10s %11s %11s %11s"
+              " %10s %10s %10s %10s %10s %11s %11s\n",
+              "lyr", "chi2",
+              "x_h", "y_h", "z_h", "r_h", "sx_h", "sy_h", "sz_h",
+              "x_t", "y_t", "z_t", "r_t", "sx_t", "sy_t", "sz_t",
+              "pt", "phi", "theta", "phi_h", "phi_t", "d_xy", "d_z");
+        // clang-format on
         goto redo_fit;
       }
 #endif
@@ -1292,22 +1272,9 @@ namespace mkfit {
       mkfndr->bkFitOutputTracks(m_tracks, icand, end, prop_config.backward_fit_to_pca);
 
 #ifdef DEBUG_FINAL_FIT
-      printf("Post Final fit for %d - %d\n", icand, end);
+      dprintf("Post Final fit for %d - %d\n", icand, end);
       for (int i = icand; i < end; ++i) {
-        const TrackCand &t = eoccs[i][0];
-        printf(
-            "  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
-            i,
-            t.charge(),
-            t.chi2(),
-            t.pT(),
-            t.momEta(),
-            t.x(),
-            t.y(),
-            t.z(),
-            t.nFoundHits(),
-            t.label(),
-            t.isFindable());
+        dprint_tcand(eoccs[i][0], i);
       }
 #endif
     }
@@ -1344,36 +1311,21 @@ namespace mkfit {
     for (int icand = start_cand; icand < end_cand; icand += step) {
       int end = std::min(icand + NN, end_cand);
 
-#ifdef DEBUG_FINAL_FIT
-      printf("Pre Final fit for %d - %d\n", icand, end);
-      for (int i = icand; i < end; ++i) {
-        const TrackCand &t = eoccs[i][0];
-        printf(
-            "  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
-            i,
-            t.charge(),
-            t.chi2(),
-            t.pT(),
-            t.momEta(),
-            t.x(),
-            t.y(),
-            t.z(),
-            t.nFoundHits(),
-            t.label(),
-            t.isFindable());
-      }
-#endif
-
       bool chi_debug = false;
-#ifdef DEBUG_BACKWARD_FIT
+
+#ifdef DEBUG_FINAL_FIT
+      bool debug = true;
+      dprintf("Pre Final fit for %d - %d\n", icand, end);
+      for (int i = icand; i < end; ++i) {
+        dprint_tcand(eoccs[i][0], i);
+      }
       chi_debug = true;
       static bool first = true;
       if (first) {
         // ./mkFit ... | perl -ne 'if (/^BKF_OVERLAP/) { s/^BKF_OVERLAP //og; print; }' > bkf_ovlp.rtt
-        printf(
-            "BKF_OVERLAP event/I:label/I:prod_type/I:is_findable/I:layer/I:is_stereo/I:is_barrel/I:"
-            "pt/F:pt_cur/F:eta/F:phi/F:phi_cur/F:r_cur/F:z_cur/F:chi2/F:isnan/I:isfin/I:gtzero/I:hit_label/I:"
-            "sx_t/F:sy_t/F:sz_t/F:d_xy/F:d_z/F\n");
+        dprintf("BKF_OVERLAP event/I:label/I:prod_type/I:is_findable/I:layer/I:is_stereo/I:is_barrel/I:"
+                "pt/F:pt_cur/F:eta/F:phi/F:phi_cur/F:r_cur/F:z_cur/F:chi2/F:isnan/I:isfin/I:gtzero/I:hit_label/I:"
+                "sx_t/F:sy_t/F:sz_t/F:d_xy/F:d_z/F\n");
         first = false;
       }
       mkfndr->m_event = m_event;
@@ -1393,22 +1345,9 @@ namespace mkfit {
       mkfndr->bkFitOutputTracks(eoccs, icand, end, prop_config.backward_fit_to_pca);
 
 #ifdef DEBUG_FINAL_FIT
-      printf("Post Final fit for %d - %d\n", icand, end);
+      dprintf("Post Final fit for %d - %d\n", icand, end);
       for (int i = icand; i < end; ++i) {
-        const TrackCand &t = eoccs[i][0];
-        printf(
-            "  %4d with q=%+d chi2=%7.3f pT=%7.3f eta=% 7.3f x=%.3f y=%.3f z=%.3f nHits=%2d  label=%4d findable=%d\n",
-            i,
-            t.charge(),
-            t.chi2(),
-            t.pT(),
-            t.momEta(),
-            t.x(),
-            t.y(),
-            t.z(),
-            t.nFoundHits(),
-            t.label(),
-            t.isFindable());
+        dprint_tcand(eoccs[i][0], i);
       }
 #endif
     }
