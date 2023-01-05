@@ -1348,7 +1348,7 @@ namespace mkfit {
   }
 
   //==============================================================================
-  // UpdateWithLastHit
+  // UpdateWithLoadedHit
   //==============================================================================
 
   void MkFinder::updateWithLoadedHit(int N_proc, const FindingFoos &fnd_foos) {
@@ -1369,7 +1369,7 @@ namespace mkfit {
 
     for (int i = 0; i < N_proc; ++i) {
       if (m_FailFlag[i]) {
-        printf("XXXXXXX fail in update, recovering ...\n");
+        dprintf("MkFinder::updateWithLoadedHit fail in update, recovering.\n");
         m_Err[iC].copySlot(i, m_Err[iP]);
         m_Par[iC].copySlot(i, m_Par[iP]);
       }
@@ -1757,11 +1757,11 @@ namespace mkfit {
           // Endcap errors are immaterial here (relevant for fwd search), with prop error codes
           // one could do other things.
           // Are there also fail conditions in KalmanUpdate?
-          printf("YYYYYYYYY prop fail in bk-fit, recovering ...\n");
+          dprintf("MkFinder::bkFitFitTracks prop fail in bk-fit, recovering.\n");
           m_Err[iC].copySlot(i, m_Err[iP]);
           m_Par[iC].copySlot(i, m_Par[iP]);
         } else if (tmp_chi2[i] > 200 || tmp_chi2[i] < 0) {
-          printf("YYYYYYYYY chi2 fail in bk-fit, recovering ...\n");
+          dprintf("MkFinder::bkFitFitTracks chi2 fail in bk-fit, recovering.\n");
           // Go back to propagated state (at the current hit, the previous one is lost).
           m_Err[iC].copySlot(i, m_Err[iP]);
           m_Par[iC].copySlot(i, m_Par[iP]);
