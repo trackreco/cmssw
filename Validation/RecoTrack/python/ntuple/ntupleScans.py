@@ -1,5 +1,5 @@
 import math
-def scanTC(ta, tb, minSimPt=0., nEv=10, iteration=9):
+def scanTC(ta, tb, minSimPt=0., nEv=10, iteration=9, minSimFrac=0.75):
   for iE in range(ta.GetEntries()):
     if iE > nEv: continue
     nb = ta.GetEntry(iE)
@@ -19,10 +19,10 @@ def scanTC(ta, tb, minSimPt=0., nEv=10, iteration=9):
           iST = ta.trk_seedIdx[iT]
           if ta.see_tcandIdx[iST] != i: continue
           if not ta.trk_isHP[iT]: continue
-          if ta.tcand_bestSimTrkShareFrac[i] < 1: continue
-          print(iE,"tc ",i," sim ",v," only in a")
+          if ta.tcand_bestSimTrkShareFrac[i] < minSimFrac: continue
           t = ta
           if t.sim_pt[v] < minSimPt: continue
+          print(iE,"tc ",i," sim ",v," only in a")
           algLast = -1
           iLab = -1
           for iis,alg in enumerate(ta.see_algo):
@@ -77,5 +77,6 @@ def scanTC(ta, tb, minSimPt=0., nEv=10, iteration=9):
                 print(f'S {iS:4d} {t.str_subdet[iS]:2d} {t.str_layer[iS]:3d} {t.str_isStereo[iS]:2d} ({t.str_x[iS]: 6.2f} {t.str_y[iS]: 6.2f} {t.str_z[iS]: 6.2f}) cm {sh:4d}  ({shr[0]: 6.2f} {shr[1]: 6.2f} {shr[2]: 6.2f}) {shp[0]: 5d} ({shp[1]: 6.2f} {shp[2]: 6.2f}) extra')
     for i,v in l9b:
       if v not in v9a:
-        if tb.sim_trkIdx[v].size()>0:
+        # a placeholder, effectively disabled
+        if tb.sim_trkIdx[v].size()>100:
           print(iE,"tc ",i," sim ",v," only in B")
