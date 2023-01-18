@@ -749,7 +749,7 @@ namespace mkfit {
       float penalty = Config::missingHitPenalty_;
       float tailPenalty = Config::tailMissingHitPenalty_;
       float overlapBonus = Config::overlapHitBonus_;
-      if (pt < 0.9) {
+      if (!isFinite(pt) || pt < 0.9) {
         penalty *= inFindCandidates ? 1.7f : 1.5f;
         bonus = std::min(bonus * (inFindCandidates ? 0.9f : 1.0f), maxBonus);
       }
