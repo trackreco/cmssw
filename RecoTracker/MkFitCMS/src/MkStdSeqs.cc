@@ -737,6 +737,7 @@ namespace mkfit {
     // Track scoring
     //=========================================================================
 
+    __attribute__((optimize("-ffast-math")))
     float trackScoreDefault(const int nfoundhits,
                             const int ntailholes,
                             const int noverlaphits,

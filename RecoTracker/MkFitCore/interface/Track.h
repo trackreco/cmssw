@@ -7,6 +7,8 @@
 #include "RecoTracker/MkFitCore/interface/Hit.h"
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 
+#include "RecoTracker/MkFitCore/interface/cms_common_macros.h"
+
 #include <vector>
 #include <map>
 
@@ -604,6 +606,40 @@ namespace mkfit {
     return -1e16;  // somewhat arbitrary value, used for handling of best short track during finding (will try to take it out)
   }
 
+  inline float xxxScoreCalc(const int nfoundhits,
+                            const int ntailholes,
+                            const int noverlaphits,
+                            const int nmisshits,
+                            const float chi2,
+                            const float pt,
+                            const bool inFindCandidates = false) {
+    //// Do not allow for chi2<0 in score calculation
+    // if(chi2<0) chi2=0.f;
+
+    float maxBonus = 8.0;
+    float bonus = Config::validHitSlope_ * nfoundhits + Config::validHitBonus_;
+    float penalty = Config::missingHitPenalty_;
+    float tailPenalty = Config::tailMissingHitPenalty_;
+    float overlapBonus = Config::overlapHitBonus_;
+    if (pt < 0.9) {
+      penalty *= inFindCandidates ? 1.7f : 1.5f;
+      bonus = std::min(bonus * (inFindCandidates ? 0.9f : 1.0f), maxBonus);
+    }
+    float score_ =
+        bonus * nfoundhits + overlapBonus * noverlaphits - penalty * nmisshits - tailPenalty * ntailholes - chi2;
+    return score_;
+  }
+
+  inline void xxxComp(float n, float o, float pt, float chi2, const char *from) {
+    if (std::abs(n-o) > 0.0005f*(std::abs(n) + std::abs(o)) ||
+        !isFinite(pt) || !isFinite(chi2)) {
+      fprintf(stderr,
+             "xxxComp difference in %s: n=%.6g, o=%.6g, n-o=%.6g pt=%g chi2=%g;"
+             " isFinite(pt)=%d, isFinite(chi2)=%d, std::isfinite(pt)=%d, std::isnan(pt)=%d, pt<0.9=%d, pt<0.9f=%d\n",
+             from, n, o, n-o, pt, chi2, isFinite(pt), isFinite(chi2), std::isfinite(pt), std::isnan(pt), (pt < 0.9), (pt < 0.9f));
+    }
+  }
+
   inline float getScoreCand(const track_score_func& score_func,
                             const Track& cand1,
                             bool penalizeTailMissHits = false,
@@ -617,6 +653,11 @@ namespace mkfit {
     // Do not allow for chi2<0 in score calculation
     if (chi2 < 0)
       chi2 = 0.f;
+
+    xxxComp(score_func(nfoundhits, ntailmisshits, noverlaphits, nmisshits, chi2, pt, inFindCandidates),
+            xxxScoreCalc(nfoundhits, ntailmisshits, noverlaphits, nmisshits, chi2, pt, inFindCandidates),
+            pt, chi2, "Track");
+
     return score_func(nfoundhits, ntailmisshits, noverlaphits, nmisshits, chi2, pt, inFindCandidates);
   }
 
@@ -630,6 +671,11 @@ namespace mkfit {
     // Do not allow for chi2<0 in score calculation
     if (chi2 < 0)
       chi2 = 0.f;
+
+    xxxComp(score_func(nfoundhits, ntailholes, noverlaphits, nmisshits, chi2, pt, true),
+            xxxScoreCalc(nfoundhits, ntailholes, noverlaphits, nmisshits, chi2, pt, true),
+            pt, chi2, "Struct");
+
     return score_func(nfoundhits, ntailholes, noverlaphits, nmisshits, chi2, pt, true /*inFindCandidates*/);
   }
 
