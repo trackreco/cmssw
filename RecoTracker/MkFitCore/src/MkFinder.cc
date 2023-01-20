@@ -8,7 +8,7 @@
 
 #include "MatriplexPackers.h"
 
-//#define DEBUG
+#define DEBUG
 #include "Debug.h"
 
 #if (defined(DUMPHITWINDOW) || defined(DEBUG_BACKWARD_FIT)) && defined(MKFIT_STANDALONE)
@@ -1653,6 +1653,22 @@ namespace mkfit {
 
   //------------------------------------------------------------------------------
 
+  void MkFinder::print_par_err(int corp, int mslot) const {
+#ifdef DEBUG
+    printf("Parameters:\n");
+    for (int i = 0; i < 6; ++i) {
+      printf("  %12.4g", m_Par[corp].constAt(mslot, i, 0));
+    }
+    printf("\nError matrix\n");
+    for (int i = 0; i < 6; ++i) {
+      for (int j = 0; j < 6; ++j) {
+        printf("  %12.4g", m_Err[corp].constAt(mslot, i, j));
+      }
+      printf("\n");
+    }
+#endif
+  }
+
   void MkFinder::bkFitFitTracks(const EventOfHits &eventofhits,
                                 const SteeringParams &st_par,
                                 const int N_proc,
@@ -1662,6 +1678,8 @@ namespace mkfit {
     //
     // Layers should be collected during track finding and list all layers that have actual hits.
     // Then we could avoid checking which layers actually do have hits.
+
+    bool debug = true;
 
     MPlexQF tmp_chi2;
     MPlexQI no_mat_effs;
@@ -1767,11 +1785,23 @@ namespace mkfit {
           // Endcap errors are immaterial here (relevant for fwd search), with prop error codes
           // one could do other things.
           // Are there also fail conditions in KalmanUpdate?
-          dprintf("MkFinder::bkFitFitTracks prop fail in bk-fit, recovering.\n");
+#ifdef DEBUG
+          if (debug && g_debug) {
+            dprintf("MkFinder::bkFitFitTracks prop fail: chi2=%f, layer=%d, label=%d. Recovering.\n",
+                    tmp_chi2[i], LI.layer_id(), m_Label[i]);
+            print_par_err(iC, i);
+          }
+#endif
           m_Err[iC].copySlot(i, m_Err[iP]);
           m_Par[iC].copySlot(i, m_Par[iP]);
         } else if (tmp_chi2[i] > 200 || tmp_chi2[i] < 0) {
-          dprintf("MkFinder::bkFitFitTracks chi2 fail in bk-fit, recovering.\n");
+#ifdef DEBUG
+          if (debug && g_debug) {
+            dprintf("MkFinder::bkFitFitTracks chi2 fail: chi2=%f, layer=%d, label=%d. Recovering.\n",
+                    tmp_chi2[i], LI.layer_id(), m_Label[i]);
+            print_par_err(iC, i);
+          }
+#endif
           // Go back to propagated state (at the current hit, the previous one is lost).
           m_Err[iC].copySlot(i, m_Err[iP]);
           m_Par[iC].copySlot(i, m_Par[iP]);
