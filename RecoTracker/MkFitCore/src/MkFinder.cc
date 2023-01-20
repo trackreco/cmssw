@@ -8,7 +8,7 @@
 
 #include "MatriplexPackers.h"
 
-#define DEBUG
+//#define DEBUG
 #include "Debug.h"
 
 #if (defined(DUMPHITWINDOW) || defined(DEBUG_BACKWARD_FIT)) && defined(MKFIT_STANDALONE)
@@ -1669,7 +1669,7 @@ namespace mkfit {
     // Layers should be collected during track finding and list all layers that have actual hits.
     // Then we could avoid checking which layers actually do have hits.
 
-    bool debug = true;
+    // bool debug = true;
 
     MPlexQF tmp_chi2;
     MPlexQI no_mat_effs;
