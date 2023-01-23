@@ -1,41 +1,100 @@
 import math
 # match from t to tO(ther)
-def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=0.75, pSeeds = True, pCHits = True):
+def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=0.75, pSeeds = True, pCHits = True, matchToSignal = False):
   nGood = 0
-  nNotMatched2O = 0
+  nNotMatchedToO = 0
+  nNotMatched0p5ToO = 0
+  nNotMatched0p3ToO = 0
   for iE in range(t.GetEntries()):
     nGood_Ev = 0
-    nNotMatched2O_Ev = 0
+    nNotMatchedToO_Ev = 0
+    nNotMatched0p5ToO_Ev = 0
+    nNotMatched0p3ToO_Ev = 0
     if iE >= nEv: continue
     nb = t.GetEntry(iE)
     nb = tO.GetEntry(iE)
     tAlg = t.tcand_algo
     tAlgO = tO.tcand_algo
+    iAlgo = [i for i,v in enumerate(tAlg) if v==iteration]
+    iAlgoO = [i for i,v in enumerate(tAlgO) if v==iteration]
     tSim = t.tcand_bestSimTrkIdx
     tSimO = tO.tcand_bestSimTrkIdx
     # list of cand idx,simIdx with a match and iteration
     lSel = [(i,v) for i,v in enumerate(tSim) if v>=0 and tAlg[i]==iteration]
     lSelO = [(i,v) for i,v in enumerate(tSimO) if v>=0 and tAlgO[i]==iteration]
+    # default reco2sim requires 0.75; recompute here
+    lSelAllO = [None]*len(tSimO)
+    simsSelAllDictO = {}
+    for i in iAlgoO:
+      lSelAllO[i] = {}
+      sims = {}
+      nh = len(tO.tcand_hitType[i])
+      ihs = tO.tcand_hitIdx[i]
+      for h,ht in enumerate(tO.tcand_hitType[i]):
+        if (ht == 0):
+          for sh in tO.pix_simHitIdx[ihs[h]]:
+            isim = tO.simhit_simTrkIdx[sh]
+            if isim not in sims: sims[isim] = 0
+            sims[isim] = sims[isim] + 1
+        elif (ht == 1):
+          for sh in tO.str_simHitIdx[ihs[h]]:
+            isim = tO.simhit_simTrkIdx[sh]
+            if isim not in sims: sims[isim] = 0
+            sims[isim] = sims[isim] + 1
+        else: print('Did not expect hit type',ht)
+      for isim in sims:
+        lSelAllO[i][isim] = sims[isim]/nh
+        # print(" DEBUG: ",isim,"filled for",i,sims[isim],nh,len(lSelAllO[i]),len(tSimO))
+        if not isim in simsSelAllDictO:
+          simsSelAllDictO[isim] = []
+        simsSelAllDictO[isim].append(i)
+    # print("  Other stats:",len(iAlgoO),"cands in algo; found sims matching to the cands via hits",
+    #      len(simsSelAllDictO),":",simsSelAllDictO)
+
     # list of simIdx that have a cand in the selected iteration
     simsSel = [v for i,v in lSel]
     simsSelO = [v for i,v in lSelO]
+
     for i,iSim in lSel:
-      # select good cand
+      # select good cand (tcand does not map to trk, match via sim)
       for iT in t.sim_trkIdx[iSim]:
         # there is no direct map to tcand except from see
         iST = t.trk_seedIdx[iT]
         if t.see_tcandIdx[iST] != i: continue
         if not t.trk_isHP[iT]: continue
         if t.tcand_bestSimTrkShareFrac[i] < minSimFrac: continue
+        if t.trk_bestSimTrkShareFrac[iT] < minSimFrac: continue
         if t.sim_pt[iSim] < minSimPt or t.sim_pt[iSim] > maxSimPt: continue
+        if matchToSignal and t.sim_event[iSim] != 0: continue
         nGood = nGood + 1
         nGood_Ev = nGood_Ev + 1
-      
+
         if iSim not in simsSelO:
           print(iE,"tc ",i," sim ",iSim," not found in Other")
-          nNotMatched2O = nNotMatched2O + 1
-          nNotMatched2O_Ev = nNotMatched2O_Ev + 1
-          
+          nNotMatchedToO = nNotMatchedToO + 1
+          nNotMatchedToO_Ev = nNotMatchedToO_Ev + 1
+          nNotMatched0p5ToO = nNotMatched0p5ToO + 1
+          nNotMatched0p5ToO_Ev = nNotMatched0p5ToO_Ev + 1
+          nNotMatched0p3ToO = nNotMatched0p3ToO + 1
+          nNotMatched0p3ToO_Ev = nNotMatched0p3ToO_Ev + 1
+
+          if iSim in simsSelAllDictO:
+            tcandsO = simsSelAllDictO[iSim]
+            print("   ",iSim,"partly matches to",len(tcandsO),"candidate in Other")
+            match0p5 = False
+            match0p3 = False
+            for iO in tcandsO:
+              if lSelAllO[iO][iSim] > 0.5: match0p5 = True
+              if lSelAllO[iO][iSim] > 0.3:
+                match0p3 = True
+                print("   ",iO,f"frac {lSelAllO[iO][iSim]:4.3f} of {len(tO.tcand_hitIdx[iO]):3d}")
+            if match0p5:
+              nNotMatched0p5ToO = nNotMatched0p5ToO - 1
+              nNotMatched0p5ToO_Ev = nNotMatched0p5ToO_Ev - 1
+            if match0p3:
+              nNotMatched0p3ToO = nNotMatched0p3ToO - 1
+              nNotMatched0p3ToO_Ev = nNotMatched0p3ToO_Ev - 1
+
           # get seed label in a given iteration
           iLab = -1
           algLast = -1
@@ -91,10 +150,14 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
                 print(f'P {iS:4d} {t.pix_subdet[iS]: 2d} {t.pix_layer[iS]: 3d} ({t.pix_x[iS]: 6.2f} {t.pix_y[iS]: 6.2f} {t.pix_z[iS]: 6.2f}) cm {sh: 4d} ({shr[0]: 6.2f} {shr[1]: 6.2f} {shr[2]: 6.2f}) {shp[0]: 5d} ({shp[1]: 6.2f} {shp[2]: 6.2f})  extra')
               if (ht == 1) and pCHits:
                 print(f'S {iS:4d} {t.str_subdet[iS]:2d} {t.str_layer[iS]:3d} {t.str_isStereo[iS]:2d} ({t.str_x[iS]: 6.2f} {t.str_y[iS]: 6.2f} {t.str_z[iS]: 6.2f}) cm {sh:4d}  ({shr[0]: 6.2f} {shr[1]: 6.2f} {shr[2]: 6.2f}) {shp[0]: 5d} ({shp[1]: 6.2f} {shp[2]: 6.2f}) extra')
-    if nGood_Ev > 0: print(iE,"summary: nGood",nGood_Ev,"missed",nNotMatched2O_Ev,f"frac {nNotMatched2O_Ev/nGood_Ev:6.3f}")
+    if nGood_Ev > 0: print(iE,"summary: nGood",nGood_Ev,"missed",nNotMatchedToO_Ev,f"frac {nNotMatchedToO_Ev/nGood_Ev:6.3f}",
+                           "missed 50%",nNotMatched0p5ToO_Ev,f"frac {nNotMatched0p5ToO_Ev/nGood_Ev:6.3f}",
+                           "missed 30%",nNotMatched0p3ToO_Ev,f"frac {nNotMatched0p3ToO_Ev/nGood_Ev:6.3f}")
     for i,iSim in lSelO:
       if iSim not in simsSel:
         # a placeholder, effectively disabled
         if tO.sim_trkIdx[iSim].size()>100:
           print(iE,"tc ",i," sim ",iSim," only in tO(ther)")
-  if nGood > 0: print("summary for ",nEv,": nGood",nGood,"missed",nNotMatched2O,f"frac {nNotMatched2O/nGood:6.3f}")
+  if nGood > 0: print("summary for ",nEv,": nGood",nGood,"missed",nNotMatchedToO,f"frac {nNotMatchedToO/nGood:6.3f}",
+                      "missed 50%",nNotMatched0p5ToO,f"frac {nNotMatched0p5ToO/nGood:6.3f}",
+                      "missed 30%",nNotMatched0p3ToO,f"frac {nNotMatched0p3ToO/nGood:6.3f}")
