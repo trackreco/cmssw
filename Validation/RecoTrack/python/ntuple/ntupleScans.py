@@ -1,6 +1,6 @@
 import math
 # match from t to tO(ther)
-def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=0.75, pSeeds = True, pCHits = True, matchToSignal = False):
+def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=0.75, pSeeds = True, pCHits = True, matchToSignal = False, matchTK = False):
   nGood = 0
   nNotMatchedToO = 0
   nNotMatched0p5ToO = 0
@@ -13,20 +13,31 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
     if iE >= nEv: continue
     nb = t.GetEntry(iE)
     nb = tO.GetEntry(iE)
-    tAlg = t.tcand_algo
-    tAlgO = tO.tcand_algo
-    iAlgo = [i for i,v in enumerate(tAlg) if v==iteration]
-    iAlgoO = [i for i,v in enumerate(tAlgO) if v==iteration]
-    tSim = t.tcand_bestSimTrkIdx
-    tSimO = tO.tcand_bestSimTrkIdx
+    # c,t,s (c[andidate] t[rack] s[eed]) are used as a prefix below
+    cAlg = t.tcand_algo
+    cAlgO = tO.tcand_algo
+    tAlgO = tO.trk_originalAlgo
+    sAlg = t.see_algo
+    sAlgO = tO.see_algo
+    iCAlgo = [i for i,v in enumerate(cAlg) if v==iteration]
+    iCAlgoO = [i for i,v in enumerate(cAlgO) if v==iteration]
+    cSim = t.tcand_bestSimTrkIdx
+    cSimO = tO.tcand_bestSimTrkIdx
+    sSim = t.see_bestSimTrkIdx
+    sSimO = tO.see_bestSimTrkIdx
+    tSimO = tO.trk_bestSimTrkIdx
     # list of cand idx,simIdx with a match and iteration
-    lSel = [(i,v) for i,v in enumerate(tSim) if v>=0 and tAlg[i]==iteration]
-    lSelO = [(i,v) for i,v in enumerate(tSimO) if v>=0 and tAlgO[i]==iteration]
+    lCSel = [(i,v) for i,v in enumerate(cSim) if v>=0 and cAlg[i]==iteration]
+    lCSelO = [(i,v) for i,v in enumerate(cSimO) if v>=0 and cAlgO[i]==iteration]
+    lSSel = [(i,v) for i,v in enumerate(sSim) if v>=0 and sAlg[i]==iteration]
+    lSSelO = [(i,v) for i,v in enumerate(sSimO) if v>=0 and sAlgO[i]==iteration]
+    # same with tracks
+    lTSelO = [(i,v) for i,v in enumerate(tSimO) if v>=0 and tAlgO[i]==iteration]
     # default reco2sim requires 0.75; recompute here
-    lSelAllO = [None]*len(tSimO)
-    simsSelAllDictO = {}
-    for i in iAlgoO:
-      lSelAllO[i] = {}
+    lCSelAllO = [None]*len(cSimO)
+    simsCSelAllDictO = {}
+    for i in iCAlgoO:
+      lCSelAllO[i] = {}
       sims = {}
       nh = len(tO.tcand_hitType[i])
       ihs = tO.tcand_hitIdx[i]
@@ -43,19 +54,20 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
             sims[isim] = sims[isim] + 1
         else: print('Did not expect hit type',ht)
       for isim in sims:
-        lSelAllO[i][isim] = sims[isim]/nh
-        # print(" DEBUG: ",isim,"filled for",i,sims[isim],nh,len(lSelAllO[i]),len(tSimO))
-        if not isim in simsSelAllDictO:
-          simsSelAllDictO[isim] = []
-        simsSelAllDictO[isim].append(i)
-    # print("  Other stats:",len(iAlgoO),"cands in algo; found sims matching to the cands via hits",
-    #      len(simsSelAllDictO),":",simsSelAllDictO)
+        lCSelAllO[i][isim] = sims[isim]/nh
+        # print(" DEBUG: ",isim,"filled for",i,sims[isim],nh,len(lCSelAllO[i]),len(cSimO))
+        if not isim in simsCSelAllDictO:
+          simsCSelAllDictO[isim] = []
+        simsCSelAllDictO[isim].append(i)
+    # print("  Other stats:",len(iCAlgoO),"cands in algo; found sims matching to the cands via hits",
+    #      len(simsCSelAllDictO),":",simsCSelAllDictO)
 
     # list of simIdx that have a cand in the selected iteration
-    simsSel = [v for i,v in lSel]
-    simsSelO = [v for i,v in lSelO]
+    simsCSel = [v for i,v in lCSel]
+    simsCSelO = [v for i,v in lCSelO]
+    simsTSelO = [v for i,v in lTSelO]
 
-    for i,iSim in lSel:
+    for i,iSim in lCSel:
       # select good cand (tcand does not map to trk, match via sim)
       for iT in t.sim_trkIdx[iSim]:
         # there is no direct map to tcand except from see
@@ -69,7 +81,7 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
         nGood = nGood + 1
         nGood_Ev = nGood_Ev + 1
 
-        if iSim not in simsSelO:
+        if (iSim not in simsCSelO) or (matchTK and iSim not in simsTSelO):
           print(iE,"tc ",i," sim ",iSim," not found in Other")
           nNotMatchedToO = nNotMatchedToO + 1
           nNotMatchedToO_Ev = nNotMatchedToO_Ev + 1
@@ -78,16 +90,16 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
           nNotMatched0p3ToO = nNotMatched0p3ToO + 1
           nNotMatched0p3ToO_Ev = nNotMatched0p3ToO_Ev + 1
 
-          if iSim in simsSelAllDictO:
-            tcandsO = simsSelAllDictO[iSim]
+          if iSim in simsCSelAllDictO:
+            tcandsO = simsCSelAllDictO[iSim]
             print("   ",iSim,"partly matches to",len(tcandsO),"candidate in Other")
             match0p5 = False
             match0p3 = False
             for iO in tcandsO:
-              if lSelAllO[iO][iSim] > 0.5: match0p5 = True
-              if lSelAllO[iO][iSim] > 0.3:
+              if lCSelAllO[iO][iSim] > 0.5: match0p5 = True
+              if lCSelAllO[iO][iSim] > 0.3:
                 match0p3 = True
-                print("   ",iO,f"frac {lSelAllO[iO][iSim]:4.3f} of {len(tO.tcand_hitIdx[iO]):3d}")
+                print("   ",iO,f"frac {lCSelAllO[iO][iSim]:4.3f} of {len(tO.tcand_hitIdx[iO]):3d}")
             if match0p5:
               nNotMatched0p5ToO = nNotMatched0p5ToO - 1
               nNotMatched0p5ToO_Ev = nNotMatched0p5ToO_Ev - 1
@@ -153,8 +165,8 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
     if nGood_Ev > 0: print(iE,"summary: nGood",nGood_Ev,"missed",nNotMatchedToO_Ev,f"frac {nNotMatchedToO_Ev/nGood_Ev:6.3f}",
                            "missed 50%",nNotMatched0p5ToO_Ev,f"frac {nNotMatched0p5ToO_Ev/nGood_Ev:6.3f}",
                            "missed 30%",nNotMatched0p3ToO_Ev,f"frac {nNotMatched0p3ToO_Ev/nGood_Ev:6.3f}")
-    for i,iSim in lSelO:
-      if iSim not in simsSel:
+    for i,iSim in lCSelO:
+      if iSim not in simsCSel:
         # a placeholder, effectively disabled
         if tO.sim_trkIdx[iSim].size()>100:
           print(iE,"tc ",i," sim ",iSim," only in tO(ther)")
