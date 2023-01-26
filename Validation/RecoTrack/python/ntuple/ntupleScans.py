@@ -5,6 +5,20 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
   nNotMatchedToO = 0
   nNotMatched0p5ToO = 0
   nNotMatched0p3ToO = 0
+  # eta ranges Ba 0.8 Tr 1.6 Ec
+  nSims_S = {"all":0, "Ba":0, "Tr":0, "Ec":0}
+  nSims_C = {"all":0, "Ba":0, "Tr":0, "Ec":0}
+  nSims_T = {"all":0, "Ba":0, "Tr":0, "Ec":0}
+  nSims_Thp = {"all":0, "Ba":0, "Tr":0, "Ec":0}
+  nSims_S_O = {"all":0, "Ba":0, "Tr":0, "Ec":0}
+  nSims_C_O = {"all":0, "Ba":0, "Tr":0, "Ec":0}
+  nSims_T_O = {"all":0, "Ba":0, "Tr":0, "Ec":0}
+  nSims_Thp_O = {"all":0, "Ba":0, "Tr":0, "Ec":0}
+  # both
+  nSims_S_Ob = {"all":0, "Ba":0, "Tr":0, "Ec":0}
+  nSims_C_Ob = {"all":0, "Ba":0, "Tr":0, "Ec":0}
+  nSims_T_Ob = {"all":0, "Ba":0, "Tr":0, "Ec":0}
+  nSims_Thp_Ob = {"all":0, "Ba":0, "Tr":0, "Ec":0}
   for iE in range(t.GetEntries()):
     nGood_Ev = 0
     nNotMatchedToO_Ev = 0
@@ -16,6 +30,7 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
     # c,t,s (c[andidate] t[rack] s[eed]) are used as a prefix below
     cAlg = t.tcand_algo
     cAlgO = tO.tcand_algo
+    tAlg = t.trk_originalAlgo
     tAlgO = tO.trk_originalAlgo
     sAlg = t.see_algo
     sAlgO = tO.see_algo
@@ -25,6 +40,7 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
     cSimO = tO.tcand_bestSimTrkIdx
     sSim = t.see_bestSimTrkIdx
     sSimO = tO.see_bestSimTrkIdx
+    tSim = t.trk_bestSimTrkIdx
     tSimO = tO.trk_bestSimTrkIdx
     # list of cand idx,simIdx with a match and iteration
     lCSel = [(i,v) for i,v in enumerate(cSim) if v>=0 and cAlg[i]==iteration]
@@ -32,7 +48,10 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
     lSSel = [(i,v) for i,v in enumerate(sSim) if v>=0 and sAlg[i]==iteration]
     lSSelO = [(i,v) for i,v in enumerate(sSimO) if v>=0 and sAlgO[i]==iteration]
     # same with tracks
+    lTSel = [(i,v) for i,v in enumerate(tSim) if v>=0 and tAlg[i]==iteration]
     lTSelO = [(i,v) for i,v in enumerate(tSimO) if v>=0 and tAlgO[i]==iteration]
+    lThpSel = [(i,v) for i,v in enumerate(tSim) if v>=0 and tAlg[i]==iteration and t.trk_isHP[i]]
+    lThpSelO = [(i,v) for i,v in enumerate(tSimO) if v>=0 and tAlgO[i]==iteration and tO.trk_isHP[i]]
     # default reco2sim requires 0.75; recompute here
     lCSelAllO = [None]*len(cSimO)
     simsCSelAllDictO = {}
@@ -62,22 +81,76 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
     # print("  Other stats:",len(iCAlgoO),"cands in algo; found sims matching to the cands via hits",
     #      len(simsCSelAllDictO),":",simsCSelAllDictO)
 
-    # list of simIdx that have a cand in the selected iteration
-    simsCSel = [v for i,v in lCSel]
-    simsCSelO = [v for i,v in lCSelO]
-    simsTSelO = [v for i,v in lTSelO]
+    # set (unique elements) of simIdx that have a seed/cand/track in the selected iteration
+    simsSSel = {v for i,v in lSSel}
+    simsSSelO = {v for i,v in lSSelO}
+    simsCSel = {v for i,v in lCSel}
+    simsCSelO = {v for i,v in lCSelO}
+    simsTSel = {v for i,v in lTSel}
+    simsTSelO = {v for i,v in lTSelO}
+    simsThpSel = {v for i,v in lThpSel}
+    simsThpSelO = {v for i,v in lThpSelO}
+
+    simsMTVpt = {i for i,v in enumerate(t.sim_bunchCrossing) if v==0 and t.sim_pt[i]>=minSimPt and t.sim_pt[i]<=maxSimPt
+                 and t.sim_q[i]!=0 and (not (matchToSignal and t.sim_event[i] != 0))
+                 and abs(t.sim_eta[i])<=3
+                 and t.sim_parentVtxIdx[i]>=0 and abs(t.simvtx_z[t.sim_parentVtxIdx[i]])<=30
+                 and math.hypot(t.simvtx_x[t.sim_parentVtxIdx[i]],t.simvtx_y[t.sim_parentVtxIdx[i]])<=2.5}
+
+    for iSim in simsMTVpt:
+
+      simEta = abs(t.sim_eta[iSim])
+      catEta = "Ec"
+      if simEta<0.8: catEta = "Ba"
+      elif simEta<1.6: catEta = "Tr"
+      cats = ["all", catEta]
+      if iSim in simsSSel:
+        for c in cats: nSims_S[c] = nSims_S[c] + 1
+      if iSim in simsCSel:
+        for c in cats: nSims_C[c] = nSims_C[c] + 1
+      if iSim in simsTSel:
+        for c in cats: nSims_T[c] = nSims_T[c] + 1
+      if iSim in simsThpSel:
+        # print ("with HP",iSim)
+        for c in cats: nSims_Thp[c] = nSims_Thp[c] + 1
+
+      if iSim in simsSSelO:
+        for c in cats: nSims_S_O[c] = nSims_S_O[c] + 1
+        if iSim in simsSSel:
+          for c in cats: nSims_S_Ob[c] = nSims_S_Ob[c] + 1
+      if iSim in simsCSelO:
+        for c in cats: nSims_C_O[c] = nSims_C_O[c] + 1
+        if iSim in simsCSel:
+          for c in cats: nSims_C_Ob[c] = nSims_C_Ob[c] + 1
+      if iSim in simsTSelO:
+        for c in cats: nSims_T_O[c] = nSims_T_O[c] + 1
+        if iSim in simsTSel:
+          for c in cats: nSims_T_Ob[c] = nSims_T_Ob[c] + 1
+      if iSim in simsThpSelO:
+        for c in cats: nSims_Thp_O[c] = nSims_Thp_O[c] + 1
+        if iSim in simsThpSel:
+          for c in cats: nSims_Thp_Ob[c] = nSims_Thp_Ob[c] + 1
+
 
     for i,iSim in lCSel:
+      if t.sim_pt[iSim] < minSimPt or t.sim_pt[iSim] > maxSimPt: continue
+      if matchToSignal and t.sim_event[iSim] != 0: continue
+      if t.sim_q[iSim] == 0: continue
+      if t.sim_bunchCrossing[iSim] != 0: continue
+
+
       # select good cand (tcand does not map to trk, match via sim)
       for iT in t.sim_trkIdx[iSim]:
         # there is no direct map to tcand except from see
         iST = t.trk_seedIdx[iT]
-        if t.see_tcandIdx[iST] != i: continue
         if not t.trk_isHP[iT]: continue
+        # print("with Cand HP",iSim)
+        if t.see_tcandIdx[iST] != i: continue
+        # print("with Cand HP seeC",iSim)
         if t.tcand_bestSimTrkShareFrac[i] < minSimFrac: continue
+        # print("with Cand HP seeC cSim",iSim)
         if t.trk_bestSimTrkShareFrac[iT] < minSimFrac: continue
-        if t.sim_pt[iSim] < minSimPt or t.sim_pt[iSim] > maxSimPt: continue
-        if matchToSignal and t.sim_event[iSim] != 0: continue
+        # print("with Cand GOOD",iSim)
         nGood = nGood + 1
         nGood_Ev = nGood_Ev + 1
 
@@ -173,3 +246,7 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
   if nGood > 0: print("summary for ",nEv,": nGood",nGood,"missed",nNotMatchedToO,f"frac {nNotMatchedToO/nGood:6.3f}",
                       "missed 50%",nNotMatched0p5ToO,f"frac {nNotMatched0p5ToO/nGood:6.3f}",
                       "missed 30%",nNotMatched0p3ToO,f"frac {nNotMatched0p3ToO/nGood:6.3f}")
+  for c in nSims_S:
+    if nSims_S[c] > 0:    print(f"  sim summary      {c}: S {nSims_S[c]} C {nSims_C[c]} {nSims_C[c]/nSims_S[c]:6.3f} T {nSims_T[c]}/{nSims_T[c]/nSims_C[c]:6.3f} {nSims_T[c]/nSims_S[c]:6.3f} Thp {nSims_Thp[c]}/{nSims_Thp[c]/nSims_T[c]:6.3f} {nSims_Thp[c]/nSims_S[c]:6.3f}")
+    if nSims_S_O[c] > 0:  print(f"  sim O summary    {c}: S {nSims_S_O[c]} C {nSims_C_O[c]} {nSims_C_O[c]/nSims_S_O[c]:6.3f} T {nSims_T_O[c]}/{nSims_T_O[c]/nSims_C_O[c]:6.3f} {nSims_T_O[c]/nSims_S_O[c]:6.3f} Thp {nSims_Thp_O[c]}/{nSims_Thp_O[c]/nSims_T_O[c]:6.3f} {nSims_Thp_O[c]/nSims_S_O[c]:6.3f}")
+    if nSims_S_Ob[c] > 0: print(f"  sim both summary {c}: S {nSims_S_Ob[c]} C {nSims_C_Ob[c]} {nSims_C_Ob[c]/nSims_S_Ob[c]:6.3f} T {nSims_T_Ob[c]}/{nSims_T_Ob[c]/nSims_C_Ob[c]:6.3f} {nSims_T_Ob[c]/nSims_S_Ob[c]:6.3f} Thp {nSims_Thp_Ob[c]}/{nSims_Thp_Ob[c]/nSims_T_Ob[c]:6.3f} {nSims_Thp_Ob[c]/nSims_S_Ob[c]:6.3f}")
