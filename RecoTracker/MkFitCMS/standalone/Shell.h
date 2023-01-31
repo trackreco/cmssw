@@ -15,6 +15,8 @@ namespace mkfit {
 
   class Shell {
   public:
+    enum SeedSelect_e { SS_UseAll = 0, SS_Label, SS_IndexPreCleaning, SS_IndexPostCleaning };
+
     Shell(std::vector<DeadVec> &dv, const std::string &in_file, int start_ev);
     void Run();
 
@@ -22,7 +24,7 @@ namespace mkfit {
 
     void GoToEvent(int eid);
     void NextEvent(int skip = 1);
-    void ProcessEvent(int single_seed=-1);
+    void ProcessEvent(SeedSelect_e seed_select=SS_UseAll, int selected_seed=-1, int count=1);
 
     void SelectIterationIndex(int itidx);
     void SelectIterationAlgo(int algo);

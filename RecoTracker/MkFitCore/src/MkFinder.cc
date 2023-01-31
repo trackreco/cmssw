@@ -1689,6 +1689,12 @@ namespace mkfit {
     auto barrel_pf(m_prop_config->backward_fit_pflags);
     barrel_pf.copy_input_state_on_fail = true;
 
+#if defined(DEBUG_PROP_UPDATE)
+    const int DSLOT = 0;
+    printf("bkfit entry, track in slot %d\n", DSLOT);
+    print_par_err(iC, DSLOT);
+#endif
+
     for (auto lp_iter = st_par.make_iterator(SteeringParams::IT_BkwFit); lp_iter.is_valid(); ++lp_iter) {
       const int layer = lp_iter.layer();
 
@@ -1777,6 +1783,14 @@ namespace mkfit {
                               tmp_chi2,
                               N_proc);
       }
+
+#if defined(DEBUG_PROP_UPDATE)
+      printf("\nbkfit at layer %d, track in slot %d -- fail=%d, had hit=%d (%g, %g, %g)\n",
+             LI.layer_id(), DSLOT, m_FailFlag[DSLOT], 1 - no_mat_effs[DSLOT],
+             m_msPar(DSLOT,0,0), m_msPar(DSLOT,1,0), m_msPar(DSLOT,2,0));
+      printf("Propagated:\n"); print_par_err(iP, DSLOT);
+      printf("Updated:\n"); print_par_err(iC, DSLOT);
+#endif
 
       //fixup for failed propagation or invpt sign and charge
       for (int i = 0; i < N_proc; ++i) {
