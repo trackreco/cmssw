@@ -649,7 +649,7 @@ namespace mkfit {
           if (ccand[ic].getLastHitIdx() != -2) {
             // Stop candidates with pT<X GeV
             if (ccand[ic].pT() < iter_params.minPtCut) {
-              ccand[ic].addHitIdx(-2, layer, 0.0f);
+              ccand.stopCandAndConsiderItForBestShortTrack(ic, layer);
               continue;
             }
             // Check if the candidate is close to it's max_r, pi/2 - 0.2 rad (11.5 deg)
@@ -658,7 +658,7 @@ namespace mkfit {
               if (ccand[ic].posRsq() > 625.f && dphi > 1.371f && dphi < 4.512f) {
                 // printf("Stopping cand at r=%f, posPhi=%.1f momPhi=%.2f pt=%.2f emomEta=%.2f\n",
                 //        ccand[ic].posR(), ccand[ic].posPhi(), ccand[ic].momPhi(), ccand[ic].pT(), ccand[ic].momEta());
-                ccand[ic].addHitIdx(-2, layer, 0.0f);
+                ccand.stopCandAndConsiderItForBestShortTrack(ic, layer);
                 continue;
               }
             }

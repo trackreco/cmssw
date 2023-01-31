@@ -173,9 +173,7 @@ namespace mkfit {
           tc.setScore(h2a.score);
 
           if (h2a.hitIdx == -2) {
-            if (h2a.score > ccand.refBestShortCand().score()) {
-              ccand.setBestShortCand(tc);
-            }
+            ccand.considerForBestShortTrack(tc);
             continue;
           }
 

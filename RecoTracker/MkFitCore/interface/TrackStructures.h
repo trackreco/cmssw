@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
 
 namespace mkfit {
 
@@ -233,7 +234,7 @@ namespace mkfit {
     Track exportTrack(bool remove_missing_hits = false) const;
 
     void resetShortTrack() {
-      score_ = getScoreWorstPossible();
+      score_ = -std::numeric_limits<float>::max();
       m_comb_candidate = nullptr;
     }
 
@@ -361,7 +362,7 @@ namespace mkfit {
       m_trk_cands.swap(tmp);
       m_trk_cands.reserve(max_cands_per_seed);  // we *must* never exceed this
 
-      m_best_short_cand.setScore(getScoreWorstPossible());
+      m_best_short_cand.resetShortTrack();
 
       // state and pickup_layer set in importSeed.
 
@@ -399,8 +400,21 @@ namespace mkfit {
     // Direct access into array for vectorized code in MkFinder
     const HoTNode* hotsData() const { return m_hots.data(); }
 
+    bool hasBestShortCand() const { return m_best_short_cand.combCandidate() != nullptr; }
     const TrackCand& refBestShortCand() const { return m_best_short_cand; }
     void setBestShortCand(const TrackCand& tc) { m_best_short_cand = tc; }
+    bool considerForBestShortTrack(TrackCand &tc) {
+      if (!hasBestShortCand() || tc.score() > refBestShortCand().score()) {
+        setBestShortCand(tc);
+        return true;
+      } else {
+        return false;
+      }
+    }
+    void stopCandAndConsiderItForBestShortTrack(int ic, int layer) {
+      m_trk_cands[ic].addHitIdx(-2, layer, 0.0f);
+      considerForBestShortTrack(m_trk_cands[ic]);
+    }
 
     SeedState_e state() const { return m_state; }
     void setState(SeedState_e ss) { m_state = ss; }

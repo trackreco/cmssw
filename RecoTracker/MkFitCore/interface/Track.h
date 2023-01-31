@@ -600,10 +600,6 @@ namespace mkfit {
     return cand1.score > cand2.score;
   }
 
-  inline float getScoreWorstPossible() {
-    return -1e16;  // somewhat arbitrary value, used for handling of best short track during finding (will try to take it out)
-  }
-
   inline float getScoreCand(const track_score_func& score_func,
                             const Track& cand1,
                             bool penalizeTailMissHits = false,
