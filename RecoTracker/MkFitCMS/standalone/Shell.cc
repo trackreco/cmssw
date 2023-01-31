@@ -117,7 +117,10 @@ namespace mkfit {
     GoToEvent(m_event->evtID() + skip);
   }
 
-  void Shell::ProcessEvent(int single_seed) {
+  void Shell::ProcessEvent(SeedSelect_e seed_select, int selected_seed, int count) {
+    // count is only used for SS_IndexPreCleaning and SS_IndexPostCleaning.
+    //       There are no checks for upper bounds, ie, if requested seeds beyond the first one exist.
+
     const IterationConfig &itconf = Config::ItrInfo[m_it_index];
     IterationMaskIfc mask_ifc;
     m_event->fill_hitmask_bool_vectors(itconf.m_track_algorithm, mask_ifc.m_mask_vector);
@@ -129,29 +132,26 @@ namespace mkfit {
       int n_algo = 0; // seeds are grouped by algo
       for (auto &s : m_event->seedTracks_) {
         if (s.algoint() == itconf.m_track_algorithm) {
-          ++n_algo;
-          if (single_seed < 0) {
+          if (seed_select == SS_UseAll || seed_select == SS_IndexPostCleaning) {
             m_seeds.push_back(s);
-          } else if (s.label() == single_seed) {
+          } else if (seed_select == SS_Label && s.label() == selected_seed) {
             m_seeds.push_back(s);
             break;
+          } else if (seed_select == SS_IndexPreCleaning && n_algo >= selected_seed) {
+            m_seeds.push_back(s);
+            if (--count <= 0)
+              break;
           }
+          ++n_algo;
         } else if (n_algo > 0)
           break;
-      }
-      if (m_seeds.empty()) {
-        if (single_seed >=0 && n_algo > 0)
-          printf("Shell::ProcessEvent requested label %d not found among seeds of the selected iteration\n",
-                 single_seed);
-        else
-          printf("Shell::ProcessEvent no seeds found\n");
-        return;
       }
     }
 
     printf("Shell::ProcessEvent running over %d seeds\n", (int) m_seeds.size());
 
-    // Equivalent to run_OneIteration(...) without MkBuilder::release_memory()
+    // Equivalent to run_OneIteration(...) without MkBuilder::release_memory().
+    // If seed_select == SS_IndexPostCleaning the given seed is picked after cleaning.
     {
       const TrackerInfo &trackerInfo = Config::TrkInfo;
       const EventOfHits &eoh = *m_eoh;
@@ -176,6 +176,24 @@ namespace mkfit {
       // Check nans in seeds -- this should not be needed when Slava fixes
       // the track parameter coordinate transformation.
       builder.seed_post_cleaning(seeds);
+
+      if (seed_select == SS_IndexPostCleaning) {
+        if (selected_seed >= 0 && selected_seed < (int)seeds.size()) {
+          for (int i = 0; i < count; ++i)
+            seeds[i] = seeds[selected_seed + i];
+          seeds.resize(count);
+        } else {
+          seeds.clear();
+        }
+      }
+
+      if (seeds.empty()) {
+        if (seed_select != SS_UseAll)
+          printf("Shell::ProcessEvent requested seed not found among seeds of the selected iteration.\n");
+        else
+          printf("Shell::ProcessEvent no seeds found.\n");
+        return;
+      }
 
       if (itconf.m_requires_seed_hit_sorting) {
         for (auto &s : seeds)

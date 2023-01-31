@@ -952,9 +952,8 @@ namespace mkfit {
     }
 
 #ifdef DEBUG
-#pragma omp simd
-    for (int n = 0; n < NN; ++n) {
-       && g_debug && n < N_proc) {
+    if (debug && g_debug) {
+      for (int n = 0; n < N_proc; ++n) {
         dmutex_guard;
         std::cout << n << ": jacobian" << std::endl;
         printf("%5f %5f %5f %5f %5f %5f\n",

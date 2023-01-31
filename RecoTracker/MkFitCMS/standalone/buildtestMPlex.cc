@@ -521,7 +521,6 @@ namespace mkfit {
         if (do_backward_search) {
           builder.beginBkwSearch();
           builder.findTracksCloneEngine(SteeringParams::IT_BkwSearch);
-          builder.endBkwSearch();
         }
 
         // Post backward-fit filtering.

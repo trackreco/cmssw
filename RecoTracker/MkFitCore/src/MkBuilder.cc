@@ -25,9 +25,6 @@
 #include "oneapi/tbb/parallel_for.h"
 #include "oneapi/tbb/parallel_for_each.h"
 
-// Set this to select a single track for deep debugging:
-//#define SELECT_SEED_LABEL -494
-
 namespace mkfit {
 
   //==============================================================================
@@ -306,7 +303,7 @@ namespace mkfit {
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
     int i = 0, place_pos = 0;
 
-    dprintf("MkBuilder::filter_comb_cands Entering filter size eoccsm_size=%d\n", eoccs.size());
+    dprintf("MkBuilder::filter_comb_cands Entering filter size eoccs.size=%d\n", eoccs.size());
 
     std::vector<int> removed_cnts(m_job->num_regions());
     while (i < eoccs.size()) {
@@ -352,7 +349,7 @@ namespace mkfit {
 
     eoccs.resizeAfterFiltering(n_removed);
 
-    dprintf("MkBuilder::filter_comb_cands n_removed = %d, eoccsm_size=%d\n", n_removed, eoccs.size());
+    dprintf("MkBuilder::filter_comb_cands n_removed = %d, eoccs.size=%d\n", n_removed, eoccs.size());
 
     return n_removed;
   }
@@ -412,25 +409,6 @@ namespace mkfit {
   //------------------------------------------------------------------------------
 
   void MkBuilder::seed_post_cleaning(TrackVec &tv) {
-#ifdef SELECT_SEED_LABEL
-    {  // Select seed with the defined label for detailed debugging.
-      for (int i = 0; i < (int)tv.size(); ++i) {
-        if (tv[i].label() == SELECT_SEED_LABEL) {
-          printf("Preselect seed with label %d - found on pos %d\n", SELECT_SEED_LABEL, i);
-          if (i != 0)
-            tv[0] = tv[i];
-          tv.resize(1);
-          print("Label", tv[0].label(), tv[0], true);
-          break;
-        }
-      }
-      if (tv.size() != 1) {
-        printf("Preselect seed with label %d - NOT FOUND. Cleaning out seeds.\n", SELECT_SEED_LABEL);
-        tv.clear();
-      }
-    }
-#endif
-
     if (Const::nan_n_silly_check_seeds) {
       int count = 0;
 
@@ -1003,8 +981,6 @@ namespace mkfit {
     cloner.begin_eta_bin(&eoccs, &seed_cand_update_idx, &extra_cands, start_seed, n_seeds);
 
     // Loop over layers, starting from after the seed.
-    // Note that we do a final pass with curr_layer = -1 to update parameters
-    // and output final tracks.
 
     auto layer_plan_it = st_par.make_iterator(iteration_dir);
 

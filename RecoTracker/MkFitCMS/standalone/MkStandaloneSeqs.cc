@@ -187,11 +187,6 @@ namespace mkfit {
         // printf("FOUND_LABEL %6d  pT_mc= %8.2f eta_mc= %8.2f event= %d\n", label, pTmc, etamc, event->evtID());
       }
 
-#ifdef SELECT_SEED_LABEL
-      if (label == SELECT_SEED_LABEL)
-        track_print(tkcand, "MkBuilder::quality_process SELECT_SEED_LABEL:");
-#endif
-
       float pTcmssw = 0.f, etacmssw = 0.f, phicmssw = 0.f;
       int nfoundcmssw = -1;
       if (Config::dumpForPlots && Config::readCmsswTracks) {
