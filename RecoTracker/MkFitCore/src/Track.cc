@@ -1,3 +1,4 @@
+#include "RecoTracker/MkFitCore/interface/cms_common_macros.h"
 #include "RecoTracker/MkFitCore/interface/Track.h"
 #include "Matrix.h"
 
@@ -177,7 +178,7 @@ namespace mkfit {
     bool is_silly = false;
     for (int i = 0; i < LL; ++i) {
       for (int j = 0; j <= i; ++j) {
-        if ((i == j && state_.errors.At(i, j) < 0) || !std::isfinite(state_.errors.At(i, j))) {
+        if ((i == j && state_.errors.At(i, j) < 0) || !isFinite(state_.errors.At(i, j))) {
           is_silly = true;
           return is_silly;
         }
