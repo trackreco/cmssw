@@ -386,9 +386,6 @@ namespace mkfit {
     const EventOfCombCandidates &eoccs = m_event_of_comb_cands;
     out_vec.reserve(out_vec.size() + eoccs.size());
     for (int i = 0; i < eoccs.size(); i++) {
-      // See MT-RATS comment below.
-      assert(!eoccs[i].empty() && "BackwardFitBH requires output tracks to align with seeds.");
-
       // Take the first candidate, if it exists.
       if (!eoccs[i].empty()) {
         const TrackCand &bcand = eoccs[i].front();
