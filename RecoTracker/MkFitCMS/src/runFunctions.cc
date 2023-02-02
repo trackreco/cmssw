@@ -62,7 +62,7 @@ namespace mkfit {
     builder.findTracksCloneEngine();
 
     // Pre backward-fit filtering.
-    IterationConfig::filter_candidates_func pre_filter;
+    filter_candidates_func pre_filter;
     if (do_backward_fit && itconf.m_pre_bkfit_filter)
       pre_filter = [&](const TrackCand &tc, const MkJob &jb) -> bool {
         return itconf.m_pre_bkfit_filter(tc, jb) && StdSeq::qfilter_nan_n_silly<TrackCand>(tc, jb);
@@ -91,7 +91,7 @@ namespace mkfit {
     }
 
     // Post backward-fit filtering.
-    IterationConfig::filter_candidates_func post_filter;
+    filter_candidates_func post_filter;
     if (do_backward_fit && itconf.m_post_bkfit_filter)
       post_filter = [&](const TrackCand &tc, const MkJob &jb) -> bool {
         return itconf.m_post_bkfit_filter(tc, jb) && StdSeq::qfilter_nan_n_silly<TrackCand>(tc, jb);

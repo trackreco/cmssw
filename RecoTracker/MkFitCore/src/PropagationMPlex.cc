@@ -577,14 +577,16 @@ namespace mkfit {
      }
    */
 
-    if (pflags.copy_input_state_on_fail) {
+    // PROP-FAIL-ENABLE To keep physics changes minimal, we always restore the
+    // state to input when propagation fails -- as was the default before.
+    // if (pflags.copy_input_state_on_fail) {
       for (int i = 0; i < N_proc; ++i) {
         if (outFailFlag(i, 0, 0)) {
           outPar.copySlot(i, inPar);
           outErr.copySlot(i, inErr);
         }
       }
-    }
+    // }
   }
 
   //==============================================================================
@@ -664,14 +666,16 @@ namespace mkfit {
     MultHelixPropEndcap(errorProp, outErr, temp);
     MultHelixPropTranspEndcap(errorProp, temp, outErr);
 
-    if (pflags.copy_input_state_on_fail) {
+    // PROP-FAIL-ENABLE To keep physics changes minimal, we always restore the
+    // state to input when propagation fails -- as was the default before.
+    // if (pflags.copy_input_state_on_fail) {
       for (int i = 0; i < N_proc; ++i) {
         if (outFailFlag(i, 0, 0)) {
           outPar.copySlot(i, inPar);
           outErr.copySlot(i, inErr);
         }
       }
-    }
+    // }
 
     // This dump is now out of its place as similarity is done with matriplex ops.
     /*
@@ -932,6 +936,9 @@ namespace mkfit {
               << " pT=" << 1. / std::abs(outPar.At(n, 3, 0)) << std::endl);
     }
 
+    // PROP-FAIL-ENABLE Disabled to keep physics changes minimal.
+    // To be reviewed, enabled and processed accordingly elsewhere.
+    /*
     // Check for errors, set fail-flag.
     for (int n = 0; n < NN; ++n) {
       // We propagate for alpha: mark fail when prop angle more than pi/2
@@ -950,6 +957,7 @@ namespace mkfit {
         }
       }
     }
+    */
 
 #ifdef DEBUG
     if (debug && g_debug) {

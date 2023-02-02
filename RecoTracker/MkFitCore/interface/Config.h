@@ -86,7 +86,7 @@ namespace mkfit {
 
     // Config for propagation - could/should enter into PropagationFlags?!
     constexpr int Niter = 5;
-    constexpr bool useTrigApprox = false;
+    constexpr bool useTrigApprox = true;
 
     // Config for Bfield. Note: for now the same for CMS-phase1 and CylCowWLids.
     constexpr float Bfield = 3.8112;

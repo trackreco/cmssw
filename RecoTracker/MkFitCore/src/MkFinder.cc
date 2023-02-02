@@ -405,11 +405,13 @@ namespace mkfit {
     //#pragma omp simd
     for (int itrack = 0; itrack < N_proc; ++itrack) {
 
-      if (m_FailFlag[itrack]) {
-        m_XWsrResult[itrack].m_wsr = WSR_Failed;
-        m_XHitSize[itrack] = -1;
-        continue;
-      }
+      // PROP-FAIL-ENABLE The following to be enabled when propagation failure
+      // detection is properly implemented in propagate-to-R/Z.
+      // if (m_FailFlag[itrack]) {
+      //   m_XWsrResult[itrack].m_wsr = WSR_Failed;
+      //   m_XHitSize[itrack] = -1;
+      //   continue;
+      // }
 
       if (m_XWsrResult[itrack].m_wsr == WSR_Outside) {
         m_XHitSize[itrack] = -1;
@@ -1228,7 +1230,9 @@ namespace mkfit {
         // We can be in failed state from the initial propagation before selectHitIndices
         // and there hit_count for track is set to -1 and WSR state to Failed, handled below.
         // Or we might have hit it here in propagate-to-hit.
-        if (!m_FailFlag[itrack] && hit_cnt < m_XHitSize[itrack]) {
+        // PROP-FAIL-ENABLE FailFlag check to be enabled when propagation failure
+        // detection is properly implemented in propagate-to-R/Z.
+        if (/*!m_FailFlag[itrack] &&*/ hit_cnt < m_XHitSize[itrack]) {
           // make sure the hit was in the compatiblity window for the candidate
           const float max_c2 = getHitSelDynamicChi2Cut(itrack, iP);
           const float chi2 = std::abs(outChi2[itrack]);  //fixme negative chi2 sometimes...
@@ -1334,10 +1338,12 @@ namespace mkfit {
         fake_hit_idx = Hit::kHitMaxClusterIdx;
       }
 
-      // Override for failed propagation, this trumps all other cases.
-      if (m_XWsrResult[itrack].m_wsr == WSR_Failed) {
-        fake_hit_idx = Hit::kHitStopIdx;
-      }
+      // PROP-FAIL-ENABLE The following to be enabled when propagation failure
+      // detection is properly implemented in propagate-to-R/Z.
+      // // Override for failed propagation, this trumps all other cases.
+      // if (m_XWsrResult[itrack].m_wsr == WSR_Failed) {
+      //   fake_hit_idx = Hit::kHitStopIdx;
+      // }
 
       IdxChi2List tmpList;
       tmpList.trkIdx = m_CandIdx(itrack, 0, 0);
@@ -1377,13 +1383,15 @@ namespace mkfit {
                                    m_prop_config->finding_inter_layer_pflags,
                                    m_prop_config->finding_requires_propagation_to_hit_pos);
 
-    for (int i = 0; i < N_proc; ++i) {
-      if (m_FailFlag[i]) {
-        dprintf("MkFinder::updateWithLoadedHit fail in update, recovering.\n");
-        m_Err[iC].copySlot(i, m_Err[iP]);
-        m_Par[iC].copySlot(i, m_Par[iP]);
-      }
-    }
+    // PROP-FAIL-ENABLE The following to be enabled when propagation failure
+    // detection is properly implemented in propagate-to-R/Z.
+    // for (int i = 0; i < N_proc; ++i) {
+    //   if (m_FailFlag[i]) {
+    //     dprintf("MkFinder::updateWithLoadedHit fail in update, recovering.\n");
+    //     m_Err[iC].copySlot(i, m_Err[iP]);
+    //     m_Par[iC].copySlot(i, m_Par[iP]);
+    //   }
+    // }
   }
 
   //==============================================================================
@@ -1686,9 +1694,6 @@ namespace mkfit {
     float tmp_err[6] = {666, 0, 666, 0, 0, 666};
     float tmp_pos[3];
 
-    auto barrel_pf(m_prop_config->backward_fit_pflags);
-    barrel_pf.copy_input_state_on_fail = true;
-
 #if defined(DEBUG_PROP_UPDATE)
     const int DSLOT = 0;
     printf("bkfit entry, track in slot %d\n", DSLOT);
@@ -1758,8 +1763,10 @@ namespace mkfit {
 
       clearFailFlag();
 
+      // PROP-FAIL-ENABLE Once always "copy input to output on fail" is removed from
+      // propagateToR one might want to enable this for barrel or endcap or both.
       if (LI.is_barrel()) {
-        propagateTracksToHitR(m_msPar, N_proc, barrel_pf, &no_mat_effs);
+        propagateTracksToHitR(m_msPar, N_proc, m_prop_config->backward_fit_pflags, &no_mat_effs);
 
         kalmanOperation(KFO_Calculate_Chi2 | KFO_Update_Params | KFO_Local_Cov,
                         m_Err[iP],
@@ -1792,8 +1799,15 @@ namespace mkfit {
       printf("Updated:\n"); print_par_err(iC, DSLOT);
 #endif
 
-      //fixup for failed propagation or invpt sign and charge
+      // Fixup for failed propagation or invpt sign and charge.
       for (int i = 0; i < N_proc; ++i) {
+        // PROP-FAIL-ENABLE The following to be enabled when propagation failure
+        // detection is properly implemented in propagate-to-R/Z.
+        // 1. The following code was only expecting barrel state to be restored.
+        //      auto barrel_pf(m_prop_config->backward_fit_pflags);
+        //      barrel_pf.copy_input_state_on_fail = true;
+        // 2. There is also check on chi2, commented out to keep physics changes minimal.
+        /*
         if (m_FailFlag[i] && LI.is_barrel()) {
           // Barrel pflags are set to include PF_copy_input_state_on_fail.
           // Endcap errors are immaterial here (relevant for fwd search), with prop error codes
@@ -1820,6 +1834,8 @@ namespace mkfit {
           m_Err[iC].copySlot(i, m_Err[iP]);
           m_Par[iC].copySlot(i, m_Par[iP]);
         }
+        */
+        // Fixup invpt sign and charge.
         if (m_Par[iC].At(i, 3, 0) < 0) {
           m_Chg.At(i, 0, 0) = -m_Chg.At(i, 0, 0);
           m_Par[iC].At(i, 3, 0) = -m_Par[iC].At(i, 3, 0);
