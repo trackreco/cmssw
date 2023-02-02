@@ -1,6 +1,7 @@
 import math
 def printTCand(t, i, iSim, pSeeds, pCHits):
   iST = t.tcand_seedIdx[i]
+  iteration = t.see_algo[iST]
 
   # get seed label in a given iteration
   iLab = -1
@@ -15,7 +16,7 @@ def printTCand(t, i, iSim, pSeeds, pCHits):
   tkFr = -1
   if iSTk >=0: tkFr = t.trk_bestSimTrkShareFrac[iSTk]
   if pSeeds: print(f'see {iST:3d} {iLab:3d} {t.see_pt[iST]: 6.4f} {t.see_eta[iST]: 6.4f} {t.see_phi[iST]: 6.4f} {t.see_nValid[iST]:2d} {t.see_stateTrajGlbX[iST]: 6.4f} {t.see_stateTrajGlbY[iST]: 6.4f} {t.see_stateTrajGlbZ[iST]: 6.4f} {t.see_stateTrajGlbPx[iST]: 6.4f} {t.see_stateTrajGlbPy[iST]: 6.4f} {t.see_stateTrajGlbPz[iST]: 6.4f} {t.see_bestSimTrkIdx[iST]} {t.see_bestSimTrkShareFrac[iST]:4.2f} tk {t.see_trkIdx[iST]} {tkFr:4.2f}')
-  for iSO in (iiSO for iiSO in t.sim_seedIdx[iSim] if iiSO!=iST):
+  for iSO in (iiSO for iiSO,alg in enumerate(t.see_algo) if alg==iteration and t.see_bestSimTrkIdx[iiSO]==iSim and iiSO!=iST):
     if pSeeds: print(f'seeO {iSO:3d} {t.see_pt[iSO]: 6.4f} {t.see_eta[iSO]: 6.4f} {t.see_phi[iSO]: 6.4f} {t.see_nValid[iSO]:2d} {t.see_stateTrajGlbX[iSO]: 6.4f} {t.see_stateTrajGlbY[iSO]: 6.4f} {t.see_stateTrajGlbZ[iSO]: 6.4f} {t.see_stateTrajGlbPx[iSO]: 6.4f} {t.see_stateTrajGlbPy[iSO]: 6.4f} {t.see_stateTrajGlbPz[iSO]: 6.4f} {t.see_bestSimTrkIdx[iSO]} {t.see_bestSimTrkShareFrac[iSO]:4.2f}')
   sehs = []
   for (ih,ht) in enumerate(t.see_hitType[iST]):
