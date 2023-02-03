@@ -389,7 +389,6 @@ namespace mkfit {
     // Vectorizing this makes it run slower!
     //#pragma omp simd
     for (int itrack = 0; itrack < N_proc; ++itrack) {
-
       // PROP-FAIL-ENABLE The following to be enabled when propagation failure
       // detection is properly implemented in propagate-to-R/Z.
       // if (m_FailFlag[itrack]) {
@@ -1778,10 +1777,17 @@ namespace mkfit {
 
 #if defined(DEBUG_PROP_UPDATE)
       printf("\nbkfit at layer %d, track in slot %d -- fail=%d, had hit=%d (%g, %g, %g)\n",
-             LI.layer_id(), DSLOT, m_FailFlag[DSLOT], 1 - no_mat_effs[DSLOT],
-             m_msPar(DSLOT,0,0), m_msPar(DSLOT,1,0), m_msPar(DSLOT,2,0));
-      printf("Propagated:\n"); print_par_err(iP, DSLOT);
-      printf("Updated:\n"); print_par_err(iC, DSLOT);
+             LI.layer_id(),
+             DSLOT,
+             m_FailFlag[DSLOT],
+             1 - no_mat_effs[DSLOT],
+             m_msPar(DSLOT, 0, 0),
+             m_msPar(DSLOT, 1, 0),
+             m_msPar(DSLOT, 2, 0));
+      printf("Propagated:\n");
+      print_par_err(iP, DSLOT);
+      printf("Updated:\n");
+      print_par_err(iC, DSLOT);
 #endif
 
       // Fixup for failed propagation or invpt sign and charge.

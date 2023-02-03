@@ -121,7 +121,7 @@ namespace mkfit {
     void CloseWrite(int n_written);  //override nevents in the header and close
   };
 
-  void print(std::string pfx, int itrack, const Track& trk, const Event &ev);
+  void print(std::string pfx, int itrack, const Track &trk, const Event &ev);
 
 }  // end namespace mkfit
 #endif

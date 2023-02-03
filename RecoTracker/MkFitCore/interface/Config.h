@@ -3,8 +3,12 @@
 
 namespace mkfit {
 
-  enum PropagationFlagsEnum { PF_none = 0, PF_use_param_b_field = 0x1, PF_apply_material = 0x2,
-                              PF_copy_input_state_on_fail = 0x4 };
+  enum PropagationFlagsEnum {
+    PF_none = 0,
+    PF_use_param_b_field = 0x1,
+    PF_apply_material = 0x2,
+    PF_copy_input_state_on_fail = 0x4
+  };
 
   struct PropagationFlags {
     bool use_param_b_field : 1;
@@ -17,8 +21,8 @@ namespace mkfit {
 
     PropagationFlags(int pfe)
         : use_param_b_field(pfe & PF_use_param_b_field),
-        apply_material(pfe & PF_apply_material),
-        copy_input_state_on_fail(pfe & PF_copy_input_state_on_fail) {}
+          apply_material(pfe & PF_apply_material),
+          copy_input_state_on_fail(pfe & PF_copy_input_state_on_fail) {}
   };
 
   class PropagationConfig {

@@ -580,12 +580,12 @@ namespace mkfit {
     // PROP-FAIL-ENABLE To keep physics changes minimal, we always restore the
     // state to input when propagation fails -- as was the default before.
     // if (pflags.copy_input_state_on_fail) {
-      for (int i = 0; i < N_proc; ++i) {
-        if (outFailFlag(i, 0, 0)) {
-          outPar.copySlot(i, inPar);
-          outErr.copySlot(i, inErr);
-        }
+    for (int i = 0; i < N_proc; ++i) {
+      if (outFailFlag(i, 0, 0)) {
+        outPar.copySlot(i, inPar);
+        outErr.copySlot(i, inErr);
       }
+    }
     // }
   }
 
@@ -669,12 +669,12 @@ namespace mkfit {
     // PROP-FAIL-ENABLE To keep physics changes minimal, we always restore the
     // state to input when propagation fails -- as was the default before.
     // if (pflags.copy_input_state_on_fail) {
-      for (int i = 0; i < N_proc; ++i) {
-        if (outFailFlag(i, 0, 0)) {
-          outPar.copySlot(i, inPar);
-          outErr.copySlot(i, inErr);
-        }
+    for (int i = 0; i < N_proc; ++i) {
+      if (outFailFlag(i, 0, 0)) {
+        outPar.copySlot(i, inPar);
+        outErr.copySlot(i, inErr);
       }
+    }
     // }
 
     // This dump is now out of its place as similarity is done with matriplex ops.

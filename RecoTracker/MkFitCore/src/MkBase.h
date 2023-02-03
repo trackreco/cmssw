@@ -46,7 +46,8 @@ namespace mkfit {
         msRad.At(n, 0, 0) = std::hypot(par.constAt(n, 0, 0), par.constAt(n, 1, 0));
       }
 
-      propagateHelixToRMPlex(m_Err[iC], m_Par[iC], m_Chg, msRad, m_Err[iP], m_Par[iP], m_FailFlag, N_proc, pf, noMatEffPtr);
+      propagateHelixToRMPlex(
+          m_Err[iC], m_Par[iC], m_Chg, msRad, m_Err[iP], m_Par[iP], m_FailFlag, N_proc, pf, noMatEffPtr);
     }
 
     //----------------------------------------------------------------------------
@@ -71,7 +72,8 @@ namespace mkfit {
         msZ.At(n, 0, 0) = par.constAt(n, 2, 0);
       }
 
-      propagateHelixToZMPlex(m_Err[iC], m_Par[iC], m_Chg, msZ, m_Err[iP], m_Par[iP], m_FailFlag, N_proc, pf, noMatEffPtr);
+      propagateHelixToZMPlex(
+          m_Err[iC], m_Par[iC], m_Chg, msZ, m_Err[iP], m_Par[iP], m_FailFlag, N_proc, pf, noMatEffPtr);
     }
 
     void propagateTracksToPCAZ(const int N_proc, const PropagationFlags pf) {

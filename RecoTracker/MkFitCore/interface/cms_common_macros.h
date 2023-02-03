@@ -23,6 +23,6 @@ namespace mkfit {
 #endif
   }
 
-} // namespace
+}  // namespace mkfit
 
 #endif

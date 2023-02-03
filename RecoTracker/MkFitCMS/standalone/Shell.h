@@ -24,7 +24,7 @@ namespace mkfit {
 
     void GoToEvent(int eid);
     void NextEvent(int skip = 1);
-    void ProcessEvent(SeedSelect_e seed_select=SS_UseAll, int selected_seed=-1, int count=1);
+    void ProcessEvent(SeedSelect_e seed_select = SS_UseAll, int selected_seed = -1, int count = 1);
 
     void SelectIterationIndex(int itidx);
     void SelectIterationAlgo(int algo);
@@ -38,7 +38,7 @@ namespace mkfit {
 
     Event *event() { return m_event; }
     EventOfHits *eoh() { return m_eoh; }
-    MkBuilder *builder() {return m_builder; }
+    MkBuilder *builder() { return m_builder; }
 
     // --------------------------------------------------------
     // Analysis helpers
@@ -52,7 +52,7 @@ namespace mkfit {
     // Analysis drivers / main functions / Comparators
 
     void Compare();
-  
+
   private:
     std::vector<DeadVec> &m_deadvectors;
     DataFile *m_data_file = nullptr;
@@ -68,12 +68,12 @@ namespace mkfit {
     TrackVec m_seeds;
     TrackVec m_tracks;
 
-    using map_t = std::map<int, Track*>;
+    using map_t = std::map<int, Track *>;
     using map_i = map_t::iterator;
 
-    std::map<int, Track*> m_ckf_map, m_sim_map, m_seed_map, m_mkf_map;
+    std::map<int, Track *> m_ckf_map, m_sim_map, m_seed_map, m_mkf_map;
   };
 
-}
+}  // namespace mkfit
 
 #endif

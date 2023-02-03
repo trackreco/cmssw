@@ -602,7 +602,7 @@ namespace mkfit {
   }
 
   inline float getScoreWorstPossible() {
-    return -std::numeric_limits<float>::max(); // used for handling of best short track during finding
+    return -std::numeric_limits<float>::max();  // used for handling of best short track during finding
   }
 
   inline float getScoreCand(const track_score_func& score_func,

@@ -207,7 +207,8 @@ void listOpts(const U& g_opt_map) {
 
 void test_standard() {
   printf("Running test_standard(), operation=\"%s\", best_out_of=%d\n",
-        g_operation.c_str(), Config::finderReportBestOutOfN);
+         g_operation.c_str(),
+         Config::finderReportBestOutOfN);
 
   if (Config::seedInput == cmsswSeeds)
     printf("- reading seeds from file\n");

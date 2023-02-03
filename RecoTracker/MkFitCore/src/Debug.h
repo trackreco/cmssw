@@ -62,21 +62,21 @@ namespace mkfit {
     dmutex_guard;                             \
     std::cout << n << ": " << x << std::endl; \
   }
-#define dcall(x)  \
+#define dcall(x)          \
   if (debug && g_debug) { \
-    dmutex_guard; \
-    x;            \
+    dmutex_guard;         \
+    x;                    \
   }
-#define dprintf(...)     \
-  if (debug && g_debug) {\
-    dmutex_guard;        \
-    printf(__VA_ARGS__); \
+#define dprintf(...)      \
+  if (debug && g_debug) { \
+    dmutex_guard;         \
+    printf(__VA_ARGS__);  \
   }
-#define dprintf_np(n, ...)   \
+#define dprintf_np(n, ...)              \
   if (debug && g_debug && n < N_proc) { \
-    dmutex_guard;            \
-    std::cout << n << ": ";  \
-    printf(__VA_ARGS__);     \
+    dmutex_guard;                       \
+    std::cout << n << ": ";             \
+    printf(__VA_ARGS__);                \
   }
 
 namespace {

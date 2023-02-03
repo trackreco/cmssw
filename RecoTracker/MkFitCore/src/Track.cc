@@ -409,9 +409,9 @@ namespace mkfit {
   }
 
   void print(std::string pfx, int itrack, const Track& trk, bool print_hits) {
-    std::cout << std::endl << pfx << ": " << itrack << " hits: " << trk.nFoundHits()
-       << " label: " << trk.label()
-       << " State" << std::endl;
+    std::cout << std::endl
+              << pfx << ": " << itrack << " hits: " << trk.nFoundHits() << " label: " << trk.label() << " State"
+              << std::endl;
     print(trk.state());
     if (print_hits) {
       for (int i = 0; i < trk.nTotalHits(); ++i)

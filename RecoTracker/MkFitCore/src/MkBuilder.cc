@@ -298,8 +298,7 @@ namespace mkfit {
 
   //------------------------------------------------------------------------------
 
-  int MkBuilder::filter_comb_cands(filter_candidates_func filter,
-                                   bool attempt_all_cands) {
+  int MkBuilder::filter_comb_cands(filter_candidates_func filter, bool attempt_all_cands) {
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
     int i = 0, place_pos = 0;
 
@@ -312,11 +311,11 @@ namespace mkfit {
       bool passed = filter(eoccs[i].front(), *m_job);
 
       if (!passed && attempt_all_cands) {
-        for (int j = 1; j < (int) eoccs[i].size(); ++j) {
+        for (int j = 1; j < (int)eoccs[i].size(); ++j) {
           if (eoccs.cands_in_backward_rep())
             eoccs[i].repackCandPostBkwSearch(j);
           if (filter(eoccs[i][j], *m_job)) {
-            eoccs[i][0] = eoccs[i][j]; // overwrite front, no need to std::swap() them
+            eoccs[i][0] = eoccs[i][j];  // overwrite front, no need to std::swap() them
             passed = true;
             break;
           }
@@ -1156,8 +1155,8 @@ namespace mkfit {
               i, t.charge(), t.chi2(), t.pT(), t.momEta(), t.x(), t.y(), t.z(),
               t.nFoundHits(), t.label(), t.isFindable());
       }
-      // clang-format on
-  }
+    // clang-format on
+  }  // namespace
 #endif
 
   void MkBuilder::backwardFitBH() {
@@ -1296,9 +1295,10 @@ namespace mkfit {
       static bool first = true;
       if (first) {
         // ./mkFit ... | perl -ne 'if (/^BKF_OVERLAP/) { s/^BKF_OVERLAP //og; print; }' > bkf_ovlp.rtt
-        dprintf("BKF_OVERLAP event/I:label/I:prod_type/I:is_findable/I:layer/I:is_stereo/I:is_barrel/I:"
-                "pt/F:pt_cur/F:eta/F:phi/F:phi_cur/F:r_cur/F:z_cur/F:chi2/F:isnan/I:isfin/I:gtzero/I:hit_label/I:"
-                "sx_t/F:sy_t/F:sz_t/F:d_xy/F:d_z/F\n");
+        dprintf(
+            "BKF_OVERLAP event/I:label/I:prod_type/I:is_findable/I:layer/I:is_stereo/I:is_barrel/I:"
+            "pt/F:pt_cur/F:eta/F:phi/F:phi_cur/F:r_cur/F:z_cur/F:chi2/F:isnan/I:isfin/I:gtzero/I:hit_label/I:"
+            "sx_t/F:sy_t/F:sz_t/F:d_xy/F:d_z/F\n");
         first = false;
       }
       mkfndr->m_event = m_event;

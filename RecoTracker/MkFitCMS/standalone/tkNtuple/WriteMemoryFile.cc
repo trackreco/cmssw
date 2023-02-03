@@ -55,7 +55,8 @@ void printHelp(const char* av0) {
       "  --write-all-events        write all events (def: skip events with 0 simtracks or seeds)\n"
       "  --write-rec-tracks        write rec tracks (def: not written)\n"
       "  --apply-ccc               apply cluster charge cut to strip hits (def: false)\n"
-      "  --all-seeds               write all seeds from the input file, not only initialStep and hltIter0 (def: false)\n",
+      "  --all-seeds               write all seeds from the input file, not only initialStep and hltIter0 (def: "
+      "false)\n",
       av0);
 }
 

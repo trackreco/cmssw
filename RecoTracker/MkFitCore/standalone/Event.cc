@@ -995,14 +995,13 @@ namespace mkfit {
   // Misc debug / printout
   //==============================================================================
 
-  void print(std::string pfx, int itrack, const Track& trk, const Event &ev) {
-    std::cout << std::endl << pfx << ": " << itrack << " hits: " << trk.nFoundHits()
-      << " label: " << trk.label()
-      << " State:" << std::endl;
+  void print(std::string pfx, int itrack, const Track &trk, const Event &ev) {
+    std::cout << std::endl
+              << pfx << ": " << itrack << " hits: " << trk.nFoundHits() << " label: " << trk.label()
+              << " State:" << std::endl;
     print(trk.state());
 
-    for (int i = 0; i < trk.nTotalHits(); ++i)
-    {
+    for (int i = 0; i < trk.nTotalHits(); ++i) {
       auto hot = trk.getHitOnTrack(i);
       printf("  %2d: lyr %2d idx %5d", i, hot.layer, hot.index);
       if (hot.index >= 0) {
