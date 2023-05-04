@@ -12,11 +12,14 @@
 #include "DataFormats/GeometrySurface/interface/RectangularPlaneBounds.h"
 #include "DataFormats/GeometrySurface/interface/TrapezoidalPlaneBounds.h"
 
+#include "DataFormats/SiStripDetId/interface/SiStripEnums.h"
+
 // mkFit includes
 #include "RecoTracker/MkFit/interface/MkFitGeometry.h"
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 #include "RecoTracker/MkFitCore/interface/IterationConfig.h"
 #include "RecoTracker/MkFitCMS/interface/LayerNumberConverter.h"
+#include "RecoTracker/MkFitCore/interface/Config.h"
 
 #include <sstream>
 
@@ -64,6 +67,12 @@ private:
   void addTOBGeometry(mkfit::TrackerInfo &trk_info);
   void addTIDGeometry(mkfit::TrackerInfo &trk_info);
   void addTECGeometry(mkfit::TrackerInfo &trk_info);
+
+  void findRZBox(const GlobalPoint &gp, float &rmin, float &rmax, float &zmin, float &zmax);
+  void aggregateMaterialInfo(mkfit::TrackerInfo &trk_info);
+  void fillLayers(mkfit::TrackerInfo &trk_info);
+  std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat];
+  int neighbor_map[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat];
 
   edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> geomToken_;
   edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> ttopoToken_;
@@ -237,6 +246,7 @@ void MkFitGeometryESProducer::fillShapeAndPlacement(const GeomDet *det,
   if (lgc_map) {
     (*lgc_map)[lay].reset_current();
   }
+  float zbox_min = 1000, zbox_max = 0, rbox_min = 1000, rbox_max = 0;
   for (int i = 0; i < 4; ++i) {
     Local3DPoint lp1(xy[i][0], xy[i][1], -dz);
     Local3DPoint lp2(xy[i][0], xy[i][1], dz);
@@ -244,6 +254,8 @@ void MkFitGeometryESProducer::fillShapeAndPlacement(const GeomDet *det,
     GlobalPoint gp2 = det->surface().toGlobal(lp2);
     considerPoint(gp1, layer_info);
     considerPoint(gp2, layer_info);
+    findRZBox(gp1, rbox_min, rbox_max, zbox_min, zbox_max);
+    findRZBox(gp2, rbox_min, rbox_max, zbox_min, zbox_max);
     if (lgc_map) {
       (*lgc_map)[lay].extend_current(gp1.perp2());
       (*lgc_map)[lay].extend_current(gp2.perp2());
@@ -261,6 +273,33 @@ void MkFitGeometryESProducer::fillShapeAndPlacement(const GeomDet *det,
   layer_info.set_subdet(detid.subdetId());
   layer_info.set_is_pixel(detid.subdetId() <= 2);
   layer_info.set_is_stereo(trackerTopo_->isStereo(detid));
+
+  bool doubleSide = false;  //double modules have double material
+  if (detid.subdetId() == SiStripSubdetector::TIB)
+    doubleSide = trackerTopo_->tibIsDoubleSide(detid);
+  else if (detid.subdetId() == SiStripSubdetector::TID)
+    doubleSide = trackerTopo_->tidIsDoubleSide(detid);
+  else if (detid.subdetId() == SiStripSubdetector::TOB)
+    doubleSide = trackerTopo_->tobIsDoubleSide(detid);
+  else if (detid.subdetId() == SiStripSubdetector::TEC)
+    doubleSide = trackerTopo_->tecIsDoubleSide(detid);
+
+  if (!doubleSide)  //fill material
+  {
+    //module material
+    float bbxi = det->surface().mediumProperties().xi();
+    float radL = det->surface().mediumProperties().radLen();
+    //loop over bins to fill histogram with bbxi, radL and their weight, which the overlap surface in r-z with the cmsquare of a bin
+    for (unsigned int i = 0; i < mkfit::Config::nBinsZMat; i++) {
+      for (unsigned int j = 0; j < mkfit::Config::nBinsRMat; j++) {
+        float iF = i, jF = j;
+        float overlap = std::max(0.f, std::min(jF + 1, rbox_max) - std::max(jF, rbox_min)) *
+                        std::max(0.f, std::min(iF + 1, zbox_max) - std::max(iF, zbox_min));
+        if (overlap > 0)
+          material_histogram[i][j].push_back(std::make_tuple(overlap, bbxi, radL));
+      }
+    }
+  }
 }
 
 //==============================================================================
@@ -345,6 +384,95 @@ void MkFitGeometryESProducer::addTECGeometry(mkfit::TrackerInfo &trk_info) {
   edm::LogVerbatim("MkFitGeometryESProducer") << ostr.str();
 }
 
+void MkFitGeometryESProducer::findRZBox(const GlobalPoint &gp, float &rmin, float &rmax, float &zmin, float &zmax) {
+  float r = gp.perp(), z = gp.z();
+  if (std::fabs(r) > rmax)
+    rmax = std::fabs(r);
+  if (std::fabs(r) < rmin)
+    rmin = std::fabs(r);
+  if (std::fabs(z) > zmax)
+    zmax = std::fabs(z);
+  if (std::fabs(z) < zmin)
+    zmin = std::fabs(z);
+}
+
+void MkFitGeometryESProducer::aggregateMaterialInfo(mkfit::TrackerInfo &trk_info) {
+  //from histogram (vector of tuples) to grid
+  for (unsigned int i = 0; i < mkfit::Config::nBinsZMat; i++) {
+    for (unsigned int j = 0; j < mkfit::Config::nBinsRMat; j++) {
+      float materialXi = 0;
+      float materialRadl = 0;
+      float sumW = 0;
+      for (auto tuple : material_histogram[i][j]) {
+        materialXi += std::get<0>(tuple) * std::get<1>(tuple);
+        materialRadl += std::get<0>(tuple) * std::get<2>(tuple);
+        sumW += std::get<0>(tuple);
+      }
+      if (sumW > 0) {
+        trk_info.material_bbxi[i][j] = materialXi / sumW;
+        trk_info.material_radl[i][j] = materialRadl / sumW;
+      } else {
+        trk_info.material_bbxi[i][j] = 0;
+        trk_info.material_radl[i][j] = 0;
+      }
+    }
+  }
+}
+
+void MkFitGeometryESProducer::fillLayers(mkfit::TrackerInfo &trk_info) {
+  for (int im = 0; im < trk_info.n_layers(); ++im) {
+    const mkfit::LayerInfo &li = trk_info.layer(im);
+    if (li.zmin() < 0 and li.zmax() < 0)
+      continue;  //neg endcap covered by pos
+    unsigned int rin, rout, zmin, zmax;
+    rin = int(abs(li.rin()));
+    rout = int(abs(li.rout())) + 1;
+    if (li.is_barrel()) {
+      zmin = 0;
+      zmax = std::max(int(abs(li.zmax())), int(abs(li.zmin()))) + 1;
+    } else {
+      zmin = int(abs(li.zmin()));
+      zmax = int(abs(li.zmax())) + 1;
+    }
+    for (unsigned int i = zmin; i < zmax; i++) {
+      for (unsigned int j = rin; j < rout; j++) {
+        if (trk_info.material_bbxi[i][j] == 0) {
+          float distance = 1000;
+          for (unsigned int i2 = zmin; i2 < zmax; i2++) {
+            for (unsigned int j2 = rin; j2 < rout; j2++) {
+              if (j == j2 && i == i2)
+                continue;
+              float mydist = std::hypot((float)i - i2, (float)j - j2);
+              if (mydist < distance && trk_info.material_radl[i2][j2] > 0) {
+                distance = mydist;
+                neighbor_map[i][j] = i2 * 1000 + j2;
+              }
+            }
+          }
+        }
+      }
+    }
+    for (unsigned int i = zmin; i < zmax; i++) {
+      for (unsigned int j = rin; j < rout; j++) {
+        if (trk_info.material_bbxi[i][j] == 0) {
+          int iN = (int)neighbor_map[i][j] / 1000;
+          int jN = (int)neighbor_map[i][j] % 1000;
+          trk_info.material_bbxi[i][j] = trk_info.material_bbxi[iN][jN];
+          trk_info.material_radl[i][j] = trk_info.material_radl[iN][jN];
+        }
+      }
+    }
+  }  //module loop
+
+  for (unsigned int i = 0; i < mkfit::Config::nBinsZMat; i++) {
+    std::cout << "[";
+    for (unsigned int j = 0; j < mkfit::Config::nBinsRMat; j++) {
+      std::cout << trk_info.material_radl[i][j] << ", ";
+    }
+    std::cout << "]," << std::endl;
+  }  //print loop
+}
+
 //------------------------------------------------------------------------------
 // clang-format off
 namespace {
@@ -422,9 +550,10 @@ std::unique_ptr<MkFitGeometry> MkFitGeometryESProducer::produce(const TrackerRec
     assert(maxsid < 1u << 13);
     assert(n_mod > 0);
   }
-  
+
   // Material grid
-  //aggregateMaterialInfo(*trackerInfo);  
+  aggregateMaterialInfo(*trackerInfo);
+  fillLayers(*trackerInfo);
 
   // Propagation configuration
   {

@@ -478,7 +478,7 @@ namespace mkfit {
                                 MPlexLL& errorProp,
                                 MPlexQI& outFailFlag,
                                 const int N_proc,
-                                const PropagationFlags &pflags) {
+                                const PropagationFlags& pflags) {
     errorProp.setVal(0.f);
     outFailFlag.setVal(0.f);
 
@@ -493,7 +493,7 @@ namespace mkfit {
                               MPlexLV& outPar,
                               MPlexQI& outFailFlag,
                               const int N_proc,
-                              const PropagationFlags &pflags,
+                              const PropagationFlags& pflags,
                               const MPlexQI* noMatEffPtr) {
     // bool debug = true;
 
@@ -604,7 +604,7 @@ namespace mkfit {
                               MPlexLV& outPar,
                               MPlexQI& outFailFlag,
                               const int N_proc,
-                              const PropagationFlags &pflags,
+                              const PropagationFlags& pflags,
                               const MPlexQI* noMatEffPtr) {
     // debug = true;
 
@@ -720,7 +720,7 @@ namespace mkfit {
                 MPlexLL& errorProp,
                 MPlexQI& outFailFlag,
                 const int N_proc,
-                const PropagationFlags &pflags) {
+                const PropagationFlags& pflags) {
     errorProp.setVal(0.f);
 
 #pragma omp simd
