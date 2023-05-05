@@ -1,7 +1,8 @@
 #include "FWCore/Utilities/interface/CMSUnrollLoop.h"
 #include "RecoTracker/MkFitCore/interface/PropagationConfig.h"
+#include "RecoTracker/MkFitCore/interface/Config.h"
+#include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 
-#include "MaterialEffects.h"
 #include "PropagationMPlex.h"
 
 //#define DEBUG
@@ -544,13 +545,13 @@ namespace mkfit {
           hitsRl(n, 0, 0) = 0.f;
           hitsXi(n, 0, 0) = 0.f;
         } else {
-          const int zbin = Config::materialEff.getZbin(outPar(n, 2, 0));
-          const int rbin = Config::materialEff.getRbin(msRad(n, 0, 0));
-          hitsRl(n, 0, 0) = (zbin >= 0 && zbin < Config::nBinsZME && rbin >= 0 && rbin < Config::nBinsRME)
-                                ? Config::materialEff.getRlVal(zbin, rbin)
+          const int zbin = outPar(n, 2, 0) * Config::nBinsZMat / mkfit::Config::rangeZMat;
+          const int rbin = msRad(n, 0, 0) * Config::nBinsRMat / mkfit::Config::rangeRMat;
+          hitsRl(n, 0, 0) = (zbin >= 0 && zbin < Config::nBinsZMat && rbin >= 0 && rbin < Config::nBinsRMat)
+                                ? pflags.tracker_info->material_radl[zbin][rbin]
                                 : 0.f;  // protect against crazy propagations
-          hitsXi(n, 0, 0) = (zbin >= 0 && zbin < Config::nBinsZME && rbin >= 0 && rbin < Config::nBinsRME)
-                                ? Config::materialEff.getXiVal(zbin, rbin)
+          hitsXi(n, 0, 0) = (zbin >= 0 && zbin < Config::nBinsZMat && rbin >= 0 && rbin < Config::nBinsRMat)
+                                ? pflags.tracker_info->material_bbxi[zbin][rbin]
                                 : 0.f;  // protect against crazy propagations
         }
         const float r0 = hipo(inPar(n, 0, 0), inPar(n, 1, 0));
@@ -650,13 +651,13 @@ namespace mkfit {
           hitsRl(n, 0, 0) = 0.f;
           hitsXi(n, 0, 0) = 0.f;
         } else {
-          const int zbin = Config::materialEff.getZbin(msZ(n, 0, 0));
-          const int rbin = Config::materialEff.getRbin(std::hypot(outPar(n, 0, 0), outPar(n, 1, 0)));
-          hitsRl(n, 0, 0) = (zbin >= 0 && zbin < Config::nBinsZME && rbin >= 0 && rbin < Config::nBinsRME)
-                                ? Config::materialEff.getRlVal(zbin, rbin)
+          const int zbin = msZ(n, 0, 0) * Config::nBinsZMat / mkfit::Config::rangeZMat;
+          const int rbin = std::hypot(outPar(n, 0, 0), outPar(n, 1, 0)) * Config::nBinsRMat / mkfit::Config::rangeRMat;
+          hitsRl(n, 0, 0) = (zbin >= 0 && zbin < Config::nBinsZMat && rbin >= 0 && rbin < Config::nBinsRMat)
+                                ? pflags.tracker_info->material_radl[zbin][rbin]
                                 : 0.f;  // protect against crazy propagations
-          hitsXi(n, 0, 0) = (zbin >= 0 && zbin < Config::nBinsZME && rbin >= 0 && rbin < Config::nBinsRME)
-                                ? Config::materialEff.getXiVal(zbin, rbin)
+          hitsXi(n, 0, 0) = (zbin >= 0 && zbin < Config::nBinsZMat && rbin >= 0 && rbin < Config::nBinsRMat)
+                                ? pflags.tracker_info->material_bbxi[zbin][rbin]
                                 : 0.f;  // protect against crazy propagations
         }
         const float zout = msZ.constAt(n, 0, 0);

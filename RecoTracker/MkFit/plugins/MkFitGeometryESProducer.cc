@@ -292,7 +292,10 @@ void MkFitGeometryESProducer::fillShapeAndPlacement(const GeomDet *det,
     //loop over bins to fill histogram with bbxi, radL and their weight, which the overlap surface in r-z with the cmsquare of a bin
     for (unsigned int i = 0; i < mkfit::Config::nBinsZMat; i++) {
       for (unsigned int j = 0; j < mkfit::Config::nBinsRMat; j++) {
-        float iF = i, jF = j;
+        float iBin = mkfit::Config::nBinsZMat / mkfit::Config::rangeZMat;
+        float jBin = mkfit::Config::nBinsRMat / mkfit::Config::rangeRMat;
+        float iF = i * iBin;
+        float jF = j * jBin;
         float overlap = std::max(0.f, std::min(jF + 1, rbox_max) - std::max(jF, rbox_min)) *
                         std::max(0.f, std::min(iF + 1, zbox_max) - std::max(iF, zbox_min));
         if (overlap > 0)
@@ -425,14 +428,15 @@ void MkFitGeometryESProducer::fillLayers(mkfit::TrackerInfo &trk_info) {
     if (li.zmin() < 0 and li.zmax() < 0)
       continue;  //neg endcap covered by pos
     unsigned int rin, rout, zmin, zmax;
-    rin = int(abs(li.rin()));
-    rout = int(abs(li.rout())) + 1;
+    rin = int(abs(li.rin()) * mkfit::Config::nBinsRMat / mkfit::Config::rangeRMat);
+    rout = int(abs(li.rout()) * mkfit::Config::nBinsRMat / mkfit::Config::rangeRMat) + 1;
     if (li.is_barrel()) {
       zmin = 0;
-      zmax = std::max(int(abs(li.zmax())), int(abs(li.zmin()))) + 1;
+      zmax =
+          std::max(int(abs(li.zmax())), int(abs(li.zmin()))) * mkfit::Config::nBinsZMat / mkfit::Config::rangeZMat + 1;
     } else {
-      zmin = int(abs(li.zmin()));
-      zmax = int(abs(li.zmax())) + 1;
+      zmin = int(abs(li.zmin()) * mkfit::Config::nBinsZMat / mkfit::Config::rangeZMat);
+      zmax = int(abs(li.zmax()) * mkfit::Config::nBinsZMat / mkfit::Config::rangeZMat) + 1;
     }
     for (unsigned int i = zmin; i < zmax; i++) {
       for (unsigned int j = rin; j < rout; j++) {
