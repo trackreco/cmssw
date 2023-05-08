@@ -452,7 +452,7 @@ void MkFitGeometryESProducer::fillLayers(mkfit::TrackerInfo &trk_info) {
                 neighbor_map[i][j] = i2 * 1000 + j2;
               }
             }
-          }
+          } // can work on speedup here
         }
       }
     }
@@ -467,14 +467,6 @@ void MkFitGeometryESProducer::fillLayers(mkfit::TrackerInfo &trk_info) {
       }
     }
   }  //module loop
-
-  for (unsigned int i = 0; i < mkfit::Config::nBinsZMat; i++) {
-    std::cout << "[";
-    for (unsigned int j = 0; j < mkfit::Config::nBinsRMat; j++) {
-      std::cout << trk_info.material_radl[i][j] << ", ";
-    }
-    std::cout << "]," << std::endl;
-  }  //print loop
 }
 
 //------------------------------------------------------------------------------
