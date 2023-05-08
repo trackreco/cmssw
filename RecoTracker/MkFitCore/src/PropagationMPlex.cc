@@ -545,8 +545,8 @@ namespace mkfit {
           hitsRl(n, 0, 0) = 0.f;
           hitsXi(n, 0, 0) = 0.f;
         } else {
-          const int zbin = outPar(n, 2, 0) * Config::nBinsZMat / mkfit::Config::rangeZMat;
-          const int rbin = msRad(n, 0, 0) * Config::nBinsRMat / mkfit::Config::rangeRMat;
+          const int zbin = (std::abs(outPar(n, 2, 0)) * Config::nBinsZMat) / Config::rangeZMat;
+          const int rbin = (msRad(n, 0, 0) * Config::nBinsRMat) / Config::rangeRMat;
           hitsRl(n, 0, 0) = (zbin >= 0 && zbin < Config::nBinsZMat && rbin >= 0 && rbin < Config::nBinsRMat)
                                 ? pflags.tracker_info->material_radl[zbin][rbin]
                                 : 0.f;  // protect against crazy propagations
@@ -651,8 +651,12 @@ namespace mkfit {
           hitsRl(n, 0, 0) = 0.f;
           hitsXi(n, 0, 0) = 0.f;
         } else {
-          const int zbin = msZ(n, 0, 0) * Config::nBinsZMat / mkfit::Config::rangeZMat;
-          const int rbin = std::hypot(outPar(n, 0, 0), outPar(n, 1, 0)) * Config::nBinsRMat / mkfit::Config::rangeRMat;
+          const float hypo = std::hypot(outPar(n, 0, 0), outPar(n, 1, 0));
+          const int zbin = (std::abs(msZ(n, 0, 0)) * Config::nBinsZMat) / Config::rangeZMat;
+          const int rbin =
+              (hypo <= Config::rangeRMat)
+                  ? (std::hypot(outPar(n, 0, 0), outPar(n, 1, 0)) * Config::nBinsRMat) / (Config::rangeRMat)
+                  : -1;
           hitsRl(n, 0, 0) = (zbin >= 0 && zbin < Config::nBinsZMat && rbin >= 0 && rbin < Config::nBinsRMat)
                                 ? pflags.tracker_info->material_radl[zbin][rbin]
                                 : 0.f;  // protect against crazy propagations
