@@ -452,7 +452,7 @@ void MkFitGeometryESProducer::fillLayers(mkfit::TrackerInfo &trk_info) {
                 neighbor_map[i][j] = i2 * 1000 + j2;
               }
             }
-          } // can work on speedup here
+          }  // can work on speedup here
         }
       }
     }
