@@ -58,18 +58,24 @@ private:
     Interval m_current;
   };
   typedef std::unordered_map<int, GapCollector> layer_gap_map_t;
+  using MaterialHistogram =
+      std::array<std::array<std::vector<std::tuple<float, float, float>>, mkfit::Config::nBinsRMat>,
+                 mkfit::Config::nBinsZMat>;
 
   void considerPoint(const GlobalPoint &gp, mkfit::LayerInfo &lay_info);
-  void fillShapeAndPlacement(const GeomDet *det, mkfit::TrackerInfo &trk_info, std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat], layer_gap_map_t *lgc_map = nullptr);
-  void addPixBGeometry(mkfit::TrackerInfo &trk_info, std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat]);
-  void addPixEGeometry(mkfit::TrackerInfo &trk_info, std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat]);
-  void addTIBGeometry(mkfit::TrackerInfo &trk_info, std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat]);
-  void addTOBGeometry(mkfit::TrackerInfo &trk_info, std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat]);
-  void addTIDGeometry(mkfit::TrackerInfo &trk_info, std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat]);
-  void addTECGeometry(mkfit::TrackerInfo &trk_info, std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat]);
+  void fillShapeAndPlacement(const GeomDet *det,
+                             mkfit::TrackerInfo &trk_info,
+                             MaterialHistogram &material_histogram,
+                             layer_gap_map_t *lgc_map = nullptr);
+  void addPixBGeometry(mkfit::TrackerInfo &trk_info, MaterialHistogram &material_histogram);
+  void addPixEGeometry(mkfit::TrackerInfo &trk_info, MaterialHistogram &material_histogram);
+  void addTIBGeometry(mkfit::TrackerInfo &trk_info, MaterialHistogram &material_histogram);
+  void addTOBGeometry(mkfit::TrackerInfo &trk_info, MaterialHistogram &material_histogram);
+  void addTIDGeometry(mkfit::TrackerInfo &trk_info, MaterialHistogram &material_histogram);
+  void addTECGeometry(mkfit::TrackerInfo &trk_info, MaterialHistogram &material_histogram);
 
   void findRZBox(const GlobalPoint &gp, float &rmin, float &rmax, float &zmin, float &zmax);
-  void aggregateMaterialInfo(mkfit::TrackerInfo &trk_info, std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat]);
+  void aggregateMaterialInfo(mkfit::TrackerInfo &trk_info, MaterialHistogram &material_histogram);
   void fillLayers(mkfit::TrackerInfo &trk_info);
 
   edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> geomToken_;
@@ -180,7 +186,7 @@ void MkFitGeometryESProducer::considerPoint(const GlobalPoint &gp, mkfit::LayerI
 
 void MkFitGeometryESProducer::fillShapeAndPlacement(const GeomDet *det,
                                                     mkfit::TrackerInfo &trk_info,
-						    std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat],
+                                                    MaterialHistogram &material_histogram,
                                                     layer_gap_map_t *lgc_map) {
   DetId detid = det->geographicalId();
 
@@ -315,7 +321,7 @@ void MkFitGeometryESProducer::fillShapeAndPlacement(const GeomDet *det,
 //
 // See python/dumpMkFitGeometry.py and dumpMkFitGeometryPhase2.py
 
-void MkFitGeometryESProducer::addPixBGeometry(mkfit::TrackerInfo &trk_info, std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat]) {
+void MkFitGeometryESProducer::addPixBGeometry(mkfit::TrackerInfo &trk_info, MaterialHistogram &material_histogram) {
 #ifdef DUMP_MKF_GEO
   printf("\n*** addPixBGeometry\n\n");
 #endif
@@ -324,7 +330,7 @@ void MkFitGeometryESProducer::addPixBGeometry(mkfit::TrackerInfo &trk_info, std:
   }
 }
 
-void MkFitGeometryESProducer::addPixEGeometry(mkfit::TrackerInfo &trk_info, std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat]) {
+void MkFitGeometryESProducer::addPixEGeometry(mkfit::TrackerInfo &trk_info, MaterialHistogram &material_histogram) {
 #ifdef DUMP_MKF_GEO
   printf("\n*** addPixEGeometry\n\n");
 #endif
@@ -333,7 +339,7 @@ void MkFitGeometryESProducer::addPixEGeometry(mkfit::TrackerInfo &trk_info, std:
   }
 }
 
-void MkFitGeometryESProducer::addTIBGeometry(mkfit::TrackerInfo &trk_info, std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat]) {
+void MkFitGeometryESProducer::addTIBGeometry(mkfit::TrackerInfo &trk_info, MaterialHistogram &material_histogram) {
 #ifdef DUMP_MKF_GEO
   printf("\n*** addTIBGeometry\n\n");
 #endif
@@ -342,7 +348,7 @@ void MkFitGeometryESProducer::addTIBGeometry(mkfit::TrackerInfo &trk_info, std::
   }
 }
 
-void MkFitGeometryESProducer::addTOBGeometry(mkfit::TrackerInfo &trk_info, std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat]) {
+void MkFitGeometryESProducer::addTOBGeometry(mkfit::TrackerInfo &trk_info, MaterialHistogram &material_histogram) {
 #ifdef DUMP_MKF_GEO
   printf("\n*** addTOBGeometry\n\n");
 #endif
@@ -351,7 +357,7 @@ void MkFitGeometryESProducer::addTOBGeometry(mkfit::TrackerInfo &trk_info, std::
   }
 }
 
-void MkFitGeometryESProducer::addTIDGeometry(mkfit::TrackerInfo &trk_info, std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat]) {
+void MkFitGeometryESProducer::addTIDGeometry(mkfit::TrackerInfo &trk_info, MaterialHistogram &material_histogram) {
 #ifdef DUMP_MKF_GEO
   printf("\n*** addTIDGeometry\n\n");
 #endif
@@ -360,7 +366,7 @@ void MkFitGeometryESProducer::addTIDGeometry(mkfit::TrackerInfo &trk_info, std::
   }
 }
 
-void MkFitGeometryESProducer::addTECGeometry(mkfit::TrackerInfo &trk_info, std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat]) {
+void MkFitGeometryESProducer::addTECGeometry(mkfit::TrackerInfo &trk_info, MaterialHistogram &material_histogram) {
 #ifdef DUMP_MKF_GEO
   printf("\n*** addTECGeometry\n\n");
 #endif
@@ -398,7 +404,8 @@ void MkFitGeometryESProducer::findRZBox(const GlobalPoint &gp, float &rmin, floa
     zmin = std::fabs(z);
 }
 
-void MkFitGeometryESProducer::aggregateMaterialInfo(mkfit::TrackerInfo &trk_info, std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat]) {
+void MkFitGeometryESProducer::aggregateMaterialInfo(mkfit::TrackerInfo &trk_info,
+                                                    MaterialHistogram &material_histogram) {
   //from histogram (vector of tuples) to grid
   for (unsigned int i = 0; i < mkfit::Config::nBinsZMat; i++) {
     for (unsigned int j = 0; j < mkfit::Config::nBinsRMat; j++) {
@@ -526,7 +533,7 @@ std::unique_ptr<MkFitGeometry> MkFitGeometryESProducer::produce(const TrackerRec
     li.reserve_modules(256);
   }
 
-  std::vector<std::tuple<float, float, float>> material_histogram[mkfit::Config::nBinsZMat][mkfit::Config::nBinsRMat];
+  MaterialHistogram material_histogram;
 
   // This is sort of CMS-phase1 specific ... but fireworks code uses it for PhaseII as well.
   addPixBGeometry(*trackerInfo, material_histogram);
