@@ -91,11 +91,6 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
   float cosah[nmax - nmin];
   float sinah[nmax - nmin];
 
-//#pragma omp simd
-  //for (int n = nmin; n < nmax; ++n) {
-    //D[n - nmin] = 0.;
-  //}
-
   //no trig approx here, phi can be large
   float cosPorT[nmax - nmin];
   float sinPorT[nmax - nmin];
