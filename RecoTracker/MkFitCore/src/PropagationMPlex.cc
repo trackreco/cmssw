@@ -581,14 +581,6 @@ namespace mkfit {
 
     squashPhiMPlex(outPar, N_proc);  // ensure phi is between |pi|
 
-    // Matriplex version of:
-    // result.errors = ROOT::Math::Similarity(errorProp, outErr);
-
-    // MultHelixProp can be optimized for CCS coordinates, see GenMPlexOps.pl
-    // MPlexLL temp;
-    // MultHelixProp(errorProp, outErr, temp);
-    // MultHelixPropTransp(errorProp, temp, outErr);
-
     /*
      // To be used with: MPT_DIM = 1
      if (fabs(sqrt(outPar[0]*outPar[0]+outPar[1]*outPar[1]) - msRad[0]) > 0.0001)
