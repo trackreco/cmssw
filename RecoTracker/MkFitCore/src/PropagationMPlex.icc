@@ -201,7 +201,7 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
     dadphi[n - nmin] = dDdphi[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
   }
 
-if constexpr (Config::useTrigApprox) {
+  if constexpr (Config::useTrigApprox) {
 #if !defined(__INTEL_COMPILER)
 #pragma omp simd
 #endif
