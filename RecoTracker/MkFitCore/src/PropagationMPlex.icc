@@ -86,16 +86,15 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
     kinv[n - nmin] = 1.f / k[n - nmin];
     pt[n - nmin] = 1.f / ipt[n - nmin];
   }
-  float D[nmax - nmin];
   float cosa[nmax - nmin];
   float sina[nmax - nmin];
   float cosah[nmax - nmin];
   float sinah[nmax - nmin];
 
-#pragma omp simd
-  for (int n = nmin; n < nmax; ++n) {
-    D[n - nmin] = 0.;
-  }
+//#pragma omp simd
+  //for (int n = nmin; n < nmax; ++n) {
+    //D[n - nmin] = 0.;
+  //}
 
   //no trig approx here, phi can be large
   float cosPorT[nmax - nmin];
@@ -131,10 +130,16 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
   // - Can / should we come up with a better approximation?
   // - Can / should take +/- curvature into account?
 
+  float D[nmax - nmin];
   float oodotp[nmax - nmin];
+  float tmp[nmax - nmin];
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    oodotp[n - nmin] = r0[n - nmin] * pt[n - nmin] / (pxin[n - nmin] * outPar(n, 0, 0) + pyin[n - nmin] * outPar(n, 1, 0));
+    tmp[n - nmin] = 1.f / ( xin[n - nmin] * cosPorT[n - nmin] + yin[n - nmin] * sinPorT[n - nmin] );
+  }
+#pragma omp simd
+  for (int n = nmin; n < nmax; ++n) {
+    oodotp[n - nmin] = r0[n - nmin] * tmp[n - nmin];
   }
 
 #pragma omp simd
@@ -148,7 +153,6 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
   float dDdy[nmax - nmin];
   float dDdipt[nmax - nmin];
   float dDdphi[nmax - nmin];
-  float myTmp[nmax - nmin];
 
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
@@ -156,19 +160,15 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
   }
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    myTmp[n - nmin] = 1.f / ( xin[n - nmin] * cosPorT[n - nmin] + yin[n - nmin] * sinPorT[n - nmin] );
+    dDdphi[n - nmin] = tmp[n - nmin] * tmp[n - nmin] * r0[n - nmin] * (r[n - nmin] - r0[n - nmin]) * ( xin[n - nmin] * sinPorT[n - nmin] - yin[n - nmin] * cosPorT[n - nmin] );
   }
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    dDdphi[n - nmin] = myTmp[n - nmin] * myTmp[n - nmin] * r0[n - nmin] * (r[n - nmin] - r0[n - nmin]) * ( xin[n - nmin] * sinPorT[n - nmin] - yin[n - nmin] * cosPorT[n - nmin] );
+    dDdx[n - nmin] = r0[n - nmin] > 0.f ? (tmp[n - nmin] * ( xin[n - nmin] * (r[n - nmin] - r0[n - nmin]) / r0[n - nmin] - cosPorT[n - nmin] * r0[n - nmin] * (r[n - nmin] - r0[n - nmin]) * tmp[n - nmin] - xin[n - nmin] ) ) : 0.f;
   }
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    dDdx[n - nmin] = r0[n - nmin] > 0.f ? (myTmp[n - nmin] * ( xin[n - nmin] * (r[n - nmin] - r0[n - nmin]) / r0[n - nmin] - cosPorT[n - nmin] * r0[n - nmin] * (r[n - nmin] - r0[n - nmin]) * myTmp[n - nmin] - xin[n - nmin] ) ) : 0.f;
-  }
-#pragma omp simd
-  for (int n = nmin; n < nmax; ++n) {
-    dDdy[n - nmin] = r0[n - nmin] > 0.f ? (myTmp[n - nmin] * ( yin[n - nmin] * (r[n - nmin] - r0[n - nmin]) / r0[n - nmin] - sinPorT[n - nmin] * r0[n - nmin] * (r[n - nmin] - r0[n - nmin]) * myTmp[n - nmin] - yin[n - nmin] ) ) : 0.f;
+    dDdy[n - nmin] = r0[n - nmin] > 0.f ? (tmp[n - nmin] * ( yin[n - nmin] * (r[n - nmin] - r0[n - nmin]) / r0[n - nmin] - sinPorT[n - nmin] * r0[n - nmin] * (r[n - nmin] - r0[n - nmin]) * tmp[n - nmin] - yin[n - nmin] ) ) : 0.f;
   }
 
 #pragma omp simd
@@ -177,25 +177,18 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
     {
       outFailFlag(n, 0, 0) = 1;
       oodotp[n - nmin] = 0.0f;
+      D[n - nmin] = 0.0f;
     } else if (r[n - nmin] - r0[n - nmin] < 0.0f && pt[n - nmin] < 1.0f) {
       // Scale down the correction for low-pT ingoing tracks.
       oodotp[n - nmin] = 1.0f + (oodotp[n - nmin] - 1.0f) * pt[n - nmin];
       D[n - nmin] = (r[n - nmin] - r0[n - nmin]) * oodotp[n - nmin];
-      // And update derivatives (here oodotp is just used as a temp variable)
-      oodotp[n - nmin] = ( r0[n - nmin] * myTmp[n - nmin] - 1.f );
-      dDdipt[n - nmin] = (r[n - nmin] - r0[n - nmin]) * oodotp[n - nmin];
-      dDdphi[n - nmin] = ipt[n - nmin] * r0[n - nmin] * (r[n - nmin] - r0[n - nmin]) * ( xin[n - nmin] * sinPorT[n - nmin] - yin[n - nmin] * cosPorT[n - nmin] ) * myTmp[n - nmin] * myTmp[n - nmin];
-      oodotp[n - nmin] = 1.f + oodotp[n - nmin] * ipt[n - nmin];
-      dDdx[n - nmin] = ipt[n - nmin] * (r[n - nmin] - r0[n - nmin]) * ( xin[n - nmin] * myTmp[n - nmin] / r0[n - nmin] - cosPorT[n - nmin] * r0[n - nmin] * myTmp[n - nmin] * myTmp[n - nmin] ) - xin[n - nmin] * ( oodotp[n - nmin] )/r0[n - nmin];
-      dDdy[n - nmin] = ipt[n - nmin] * (r[n - nmin] - r0[n - nmin]) * ( yin[n - nmin] * myTmp[n - nmin] / r0[n - nmin] - sinPorT[n - nmin] * r0[n - nmin] * myTmp[n - nmin] * myTmp[n - nmin] ) - yin[n - nmin] * ( oodotp[n - nmin] )/r0[n - nmin];
+      // And update derivatives
+      dDdipt[n - nmin] = (r[n - nmin] - r0[n - nmin]) * ( r0[n - nmin] * tmp[n - nmin] - 1.f );
+      dDdphi[n - nmin] = ipt[n - nmin] * r0[n - nmin] * (r[n - nmin] - r0[n - nmin]) * ( xin[n - nmin] * sinPorT[n - nmin] - yin[n - nmin] * cosPorT[n - nmin] ) * tmp[n - nmin] * tmp[n - nmin];
+      dDdx[n - nmin] = ipt[n - nmin] * (r[n - nmin] - r0[n - nmin]) * ( xin[n - nmin] * tmp[n - nmin] / r0[n - nmin] - cosPorT[n - nmin] * r0[n - nmin] * tmp[n - nmin] * tmp[n - nmin] ) - xin[n - nmin] * ( oodotp[n - nmin] )/r0[n - nmin];
+      dDdy[n - nmin] = ipt[n - nmin] * (r[n - nmin] - r0[n - nmin]) * ( yin[n - nmin] * tmp[n - nmin] / r0[n - nmin] - sinPorT[n - nmin] * r0[n - nmin] * tmp[n - nmin] * tmp[n - nmin] ) - yin[n - nmin] * ( oodotp[n - nmin] )/r0[n - nmin];
     }
   }
-
-  float dadipt[nmax - nmin];
-  float dadx[nmax - nmin];
-  float dady[nmax - nmin];
-  float dadphi[nmax - nmin];
-  float pxinold[nmax - nmin];
 
   if constexpr (Config::useTrigApprox) {
 #if !defined(__INTEL_COMPILER)
@@ -233,6 +226,7 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
                   << " dir_cos(rad,pT)=" << 1.0f / oodotp[n]);
   }
 
+  float pxinold[nmax - nmin];
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
     //update parameters
@@ -251,7 +245,10 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
   }
 
   float alpha[nmax - nmin];
-  //float dadphi[nmax - nmin];
+  float dadx[nmax - nmin];
+  float dady[nmax - nmin];
+  float dadipt[nmax - nmin];
+  float dadphi[nmax - nmin];
 
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
