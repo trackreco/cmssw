@@ -2,10 +2,15 @@
 #define RecoTracker_MkFitCore_interface_TrackerInfo_h
 
 #include "RecoTracker/MkFitCore/interface/MatrixSTypes.h"
+#include "RecoTracker/MkFitCore/interface/PropagationConfig.h"
+#include "RecoTracker/MkFitCore/interface/Config.h"
 #include <string>
 #include <vector>
 
 namespace mkfit {
+
+  //==============================================================================
+  // WSR -- WithinSensitiveRegion state
 
   enum WithinSensitiveRegion_e { WSR_Undef = -1, WSR_Inside = 0, WSR_Edge, WSR_Outside, WSR_Failed };
 
@@ -172,9 +177,15 @@ namespace mkfit {
     const std::vector<int>& endcap_pos_layers() const { return m_ecap_pos; }
     const std::vector<int>& endcap_neg_layers() const { return m_ecap_neg; }
 
+    const PropagationConfig& prop_config() const { return m_prop_config; }
+    PropagationConfig& prop_config_nc() { return m_prop_config; }
+
     void write_bin_file(const std::string& fname) const;
     void read_bin_file(const std::string& fname);
     void print_tracker(int level) const;
+
+    float material_bbxi[Config::nBinsZMat][Config::nBinsRMat];
+    float material_radl[Config::nBinsZMat][Config::nBinsRMat];
 
   private:
     int new_layer(LayerInfo::LayerType_e type);
@@ -184,6 +195,8 @@ namespace mkfit {
     std::vector<int> m_barrel;
     std::vector<int> m_ecap_pos;
     std::vector<int> m_ecap_neg;
+
+    PropagationConfig m_prop_config;
   };
 
 }  // end namespace mkfit
