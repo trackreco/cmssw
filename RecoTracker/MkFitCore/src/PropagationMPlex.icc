@@ -86,10 +86,6 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
     kinv[n - nmin] = 1.f / k[n - nmin];
     pt[n - nmin] = 1.f / ipt[n - nmin];
   }
-  float cosa[nmax - nmin];
-  float sina[nmax - nmin];
-  float cosah[nmax - nmin];
-  float sinah[nmax - nmin];
 
   //no trig approx here, phi can be large
   float cosPorT[nmax - nmin];
@@ -191,6 +187,10 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
   float dady[nmax - nmin];
   float dadipt[nmax - nmin];
   float dadphi[nmax - nmin];
+  float cosa[nmax - nmin];
+  float sina[nmax - nmin];
+  float cosah[nmax - nmin];
+  float sinah[nmax - nmin];
 
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
