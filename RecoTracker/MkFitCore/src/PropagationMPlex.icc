@@ -185,20 +185,36 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
     }
   }
 
-  if constexpr (Config::useTrigApprox) {
+
+  float alpha[nmax - nmin];
+  float dadx[nmax - nmin];
+  float dady[nmax - nmin];
+  float dadipt[nmax - nmin];
+  float dadphi[nmax - nmin];
+
+#pragma omp simd
+  for (int n = nmin; n < nmax; ++n) {
+    alpha[n - nmin] = D[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
+    dadx[n - nmin] = dDdx[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
+    dady[n - nmin] = dDdy[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
+    dadipt[n - nmin] = (ipt[n - nmin] * dDdipt[n - nmin] + D[n - nmin]) * kinv[n - nmin];
+    dadphi[n - nmin] = dDdphi[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
+  }
+
+if constexpr (Config::useTrigApprox) {
 #if !defined(__INTEL_COMPILER)
 #pragma omp simd
 #endif
     for (int n = nmin; n < nmax; ++n) {
-      sincos4(D[n - nmin] * ipt[n - nmin] * kinv[n - nmin] * 0.5f, sinah[n - nmin], cosah[n - nmin]);
+      sincos4(alpha[n - nmin] * 0.5f, sinah[n - nmin], cosah[n - nmin]);
     }
   } else {
 #if !defined(__INTEL_COMPILER)
 #pragma omp simd
 #endif
     for (int n = nmin; n < nmax; ++n) {
-      cosah[n - nmin] = std::cos(D[n - nmin] * ipt[n - nmin] * kinv[n - nmin] * 0.5f);
-      sinah[n - nmin] = std::sin(D[n - nmin] * ipt[n - nmin] * kinv[n - nmin] * 0.5f);
+      cosah[n - nmin] = std::cos(alpha[n - nmin] * 0.5f);
+      sinah[n - nmin] = std::sin(alpha[n - nmin] * 0.5f);
     }
   }
 
@@ -221,53 +237,10 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
                   << " dir_cos(rad,pT)=" << 1.0f / oodotp[n]);
   }
 
-  float pxinold[nmax - nmin];
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    //update parameters
-    outPar(n, 0, 0) = outPar(n, 0, 0) + 2.f * k[n - nmin] * sinah[n - nmin] *
+    outPar(n, 0, 0) = inPar(n, 0, 0) + 2.f * k[n - nmin] * sinah[n - nmin] *
                                             (pxin[n - nmin] * cosah[n - nmin] - pyin[n - nmin] * sinah[n - nmin]);
-    outPar(n, 1, 0) = outPar(n, 1, 0) + 2.f * k[n - nmin] * sinah[n - nmin] *
-                                            (pyin[n - nmin] * cosah[n - nmin] + pxin[n - nmin] * sinah[n - nmin]);
-    pxinold[n - nmin] = pxin[n - nmin];  //copy before overwriting
-    pxin[n - nmin] = pxin[n - nmin] * cosa[n - nmin] - pyin[n - nmin] * sina[n - nmin];
-    pyin[n - nmin] = pyin[n - nmin] * cosa[n - nmin] + pxinold[n - nmin] * sina[n - nmin];
-  }
-  for (int n = nmin; n < nmax; ++n) {
-    dprint_np(n,
-              "outPar(n, 0, 0)=" << outPar(n, 0, 0) << " outPar(n, 1, 0)=" << outPar(n, 1, 0)
-                                 << " pxin=" << pxin[n - nmin] << " pyin=" << pyin[n - nmin]);
-  }
-
-  float alpha[nmax - nmin];
-  float dadx[nmax - nmin];
-  float dady[nmax - nmin];
-  float dadipt[nmax - nmin];
-  float dadphi[nmax - nmin];
-
-#pragma omp simd
-  for (int n = nmin; n < nmax; ++n) {
-    alpha[n - nmin] = D[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
-    dadx[n - nmin] = dDdx[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
-    dady[n - nmin] = dDdy[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
-    dadipt[n - nmin] = (ipt[n - nmin] * dDdipt[n - nmin] + D[n - nmin]) * kinv[n - nmin];
-    dadphi[n - nmin] = dDdphi[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
-  }
-
-  if constexpr (Config::useTrigApprox) {
-#pragma omp simd
-    for (int n = nmin; n < nmax; ++n) {
-      sincos4(alpha[n - nmin], sina[n - nmin], cosa[n - nmin]);
-    }
-  } else {
-#pragma omp simd
-    for (int n = nmin; n < nmax; ++n) {
-      cosa[n - nmin] = std::cos(alpha[n - nmin]);
-      sina[n - nmin] = std::sin(alpha[n - nmin]);
-    }
-  }
-#pragma omp simd
-  for (int n = nmin; n < nmax; ++n) {
     errorProp(n, 0, 0) = 1.f + k[n - nmin] * dadx[n - nmin] *
                                    (cosPorT[n - nmin] * cosa[n - nmin] - sinPorT[n - nmin] * sina[n - nmin]) *
                                    pt[n - nmin];
@@ -289,6 +262,8 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
 
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
+    outPar(n, 1, 0) = inPar(n, 1, 0) + 2.f * k[n - nmin] * sinah[n - nmin] *
+                                            (pyin[n - nmin] * cosah[n - nmin] + pxin[n - nmin] * sinah[n - nmin]);
     errorProp(n, 1, 0) = k[n - nmin] * dadx[n - nmin] *
                          (sinPorT[n - nmin] * cosa[n - nmin] + cosPorT[n - nmin] * sina[n - nmin]) * pt[n - nmin];
     errorProp(n, 1, 1) = 1.f + k[n - nmin] * dady[n - nmin] *
