@@ -99,18 +99,10 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
     sinPorT[n - nmin] = std::sin(phiin[n - nmin]);
   }
 
-  float pxin[nmax - nmin];
-  float pyin[nmax - nmin];
-#pragma omp simd
-  for (int n = nmin; n < nmax; ++n) {
-    pxin[n - nmin] = cosPorT[n - nmin] * pt[n - nmin];
-    pyin[n - nmin] = sinPorT[n - nmin] * pt[n - nmin];
-  }
-
   for (int n = nmin; n < nmax; ++n) {
     dprint_np(n,
-              "k=" << std::setprecision(9) << k[n - nmin] << " pxin=" << std::setprecision(9) << pxin[n - nmin]
-                   << " pyin=" << std::setprecision(9) << pyin[n - nmin] << " cosPorT=" << std::setprecision(9)
+              "k=" << std::setprecision(9) << k[n - nmin] << " pxin=" << std::setprecision(9) << cosPorT[n - nmin] * pt[n - nmin]
+                   << " pyin=" << std::setprecision(9) << sinPorT[n - nmin] * pt[n - nmin] << " cosPorT=" << std::setprecision(9)
                    << cosPorT[n - nmin] << " sinPorT=" << std::setprecision(9) << sinPorT[n - nmin]
                    << " pt=" << std::setprecision(9) << pt[n - nmin]);
   }
@@ -123,21 +115,30 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
 
   float D[nmax - nmin];
   float oodotp[nmax - nmin];
-  float tmp[nmax - nmin];
+  float oor0[nmax - nmin];
+  float dr[nmax - nmin];
+  float oodr[nmax - nmin];
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    tmp[n - nmin] = 1.f / ( xin[n - nmin] * cosPorT[n - nmin] + yin[n - nmin] * sinPorT[n - nmin] );
+    oodotp[n - nmin] = r0[n - nmin] / ( xin[n - nmin] * cosPorT[n - nmin] + yin[n - nmin] * sinPorT[n - nmin] );
   }
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    oodotp[n - nmin] = r0[n - nmin] * tmp[n - nmin];
+    oor0[n - nmin] = 1.f / r0[n - nmin];
   }
-
+#pragma omp simd
+  for (int n = nmin; n < nmax; ++n) {
+    dr[n - nmin] = r[n - nmin] - r0[n - nmin];
+  }
+#pragma omp simd
+  for (int n = nmin; n < nmax; ++n) {
+    oodr[n - nmin] = 1.f / dr[n - nmin];
+  }
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
     // Can we come up with a better approximation?
     // Should take +/- curvature into account.
-    D[n - nmin] = (r[n - nmin] - r0[n - nmin]) * oodotp[n - nmin];
+    D[n - nmin] = dr[n - nmin] * oodotp[n - nmin];
   }
 
   float dDdx[nmax - nmin];
@@ -151,15 +152,15 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
   }
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    dDdphi[n - nmin] = tmp[n - nmin] * tmp[n - nmin] * r0[n - nmin] * (r[n - nmin] - r0[n - nmin]) * ( xin[n - nmin] * sinPorT[n - nmin] - yin[n - nmin] * cosPorT[n - nmin] );
+    dDdphi[n - nmin] = D[n - nmin] * ( xin[n - nmin] * sinPorT[n - nmin] - yin[n - nmin] * cosPorT[n - nmin] ) * oor0[n - nmin] * oodotp[n - nmin];
   }
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    dDdx[n - nmin] = r0[n - nmin] > 0.f ? (tmp[n - nmin] * ( xin[n - nmin] * (r[n - nmin] - r0[n - nmin]) / r0[n - nmin] - cosPorT[n - nmin] * r0[n - nmin] * (r[n - nmin] - r0[n - nmin]) * tmp[n - nmin] - xin[n - nmin] ) ) : 0.f;
+    dDdx[n - nmin] = r0[n - nmin] > 0.f ? D[n - nmin] * oor0[n - nmin] * ( xin[n - nmin] * oor0[n - nmin] - cosPorT[n - nmin] * oodotp[n - nmin] - xin[n - nmin] * oodr[n - nmin] ) : 0.f;
   }
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    dDdy[n - nmin] = r0[n - nmin] > 0.f ? (tmp[n - nmin] * ( yin[n - nmin] * (r[n - nmin] - r0[n - nmin]) / r0[n - nmin] - sinPorT[n - nmin] * r0[n - nmin] * (r[n - nmin] - r0[n - nmin]) * tmp[n - nmin] - yin[n - nmin] ) ) : 0.f;
+    dDdy[n - nmin] = r0[n - nmin] > 0.f ? D[n - nmin] * oor0[n - nmin] * ( yin[n - nmin] * oor0[n - nmin] - sinPorT[n - nmin] * oodotp[n - nmin] - yin[n - nmin] * oodr[n - nmin] ) : 0.f;
   }
 
 #pragma omp simd
@@ -169,18 +170,16 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
       outFailFlag(n, 0, 0) = 1;
       oodotp[n - nmin] = 0.0f;
       D[n - nmin] = 0.0f;
-    } else if (r[n - nmin] - r0[n - nmin] < 0.0f && pt[n - nmin] < 1.0f) {
-      // Scale down the correction for low-pT ingoing tracks.
-      oodotp[n - nmin] = 1.0f + (oodotp[n - nmin] - 1.0f) * pt[n - nmin];
-      D[n - nmin] = (r[n - nmin] - r0[n - nmin]) * oodotp[n - nmin];
+    } else if (dr[n - nmin] < 0.0f && pt[n - nmin] < 1.0f) {
+      // Recompute the distance with scale down the correction for low-pT ingoing tracks.
+      D[n - nmin] = dr[n - nmin] * (1.0f + (oodotp[n - nmin] - 1.0f) * pt[n - nmin]);
       // And update derivatives
-      dDdipt[n - nmin] = (r[n - nmin] - r0[n - nmin]) * ( r0[n - nmin] * tmp[n - nmin] - 1.f );
-      dDdphi[n - nmin] = ipt[n - nmin] * r0[n - nmin] * (r[n - nmin] - r0[n - nmin]) * ( xin[n - nmin] * sinPorT[n - nmin] - yin[n - nmin] * cosPorT[n - nmin] ) * tmp[n - nmin] * tmp[n - nmin];
-      dDdx[n - nmin] = ipt[n - nmin] * (r[n - nmin] - r0[n - nmin]) * ( xin[n - nmin] * tmp[n - nmin] / r0[n - nmin] - cosPorT[n - nmin] * r0[n - nmin] * tmp[n - nmin] * tmp[n - nmin] ) - xin[n - nmin] * ( oodotp[n - nmin] )/r0[n - nmin];
-      dDdy[n - nmin] = ipt[n - nmin] * (r[n - nmin] - r0[n - nmin]) * ( yin[n - nmin] * tmp[n - nmin] / r0[n - nmin] - sinPorT[n - nmin] * r0[n - nmin] * tmp[n - nmin] * tmp[n - nmin] ) - yin[n - nmin] * ( oodotp[n - nmin] )/r0[n - nmin];
+      dDdipt[n - nmin] = - dr[n - nmin] * ( oodotp[n - nmin] - 1.f ) * pt[n - nmin] * pt[n - nmin];
+      dDdphi[n - nmin] = pt[n - nmin] * dr[n - nmin] * ( xin[n - nmin] * sinPorT[n - nmin] - yin[n - nmin] * cosPorT[n - nmin] ) * oor0[n - nmin] * oodotp[n - nmin] * oodotp[n - nmin];
+      dDdx[n - nmin] = pt[n - nmin] * dr[n - nmin] * oor0[n - nmin] * oodotp[n - nmin] * ( xin[n - nmin] * oor0[n - nmin] - cosPorT[n - nmin] * oodotp[n - nmin] ) - xin[n - nmin] * oor0[n - nmin] * D[n - nmin] * oodr[n - nmin];
+      dDdx[n - nmin] = pt[n - nmin] * dr[n - nmin] * oor0[n - nmin] * oodotp[n - nmin] * ( yin[n - nmin] * oor0[n - nmin] - sinPorT[n - nmin] * oodotp[n - nmin] ) - yin[n - nmin] * oor0[n - nmin] * D[n - nmin] * oodr[n - nmin];
     }
   }
-
 
   float alpha[nmax - nmin];
   float dadx[nmax - nmin];
@@ -229,18 +228,18 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
               "Attempt propagation from r="
                   << r0[n - nmin] << " to r=" << r[n - nmin] << std::endl
                   << "   x=" << xin[n - nmin] << " y=" << yin[n - nmin] << " z=" << inPar(n, 2, 0)
-                  << " px=" << pxin[n - nmin] << " py=" << pyin[n - nmin]
+                  << " px=" << cosPorT[n - nmin] * pt[n - nmin] << " py=" << sinPorT[n - nmin] * pt[n - nmin]
                   << " pz=" << pt[n - nmin] * std::tan(theta[n - nmin]) << " q=" << inChg(n, 0, 0) << std::endl
                   << "   r=" << std::setprecision(9) << r[n - nmin] << " r0=" << std::setprecision(9) << r0[n - nmin]
                   << " D=" << std::setprecision(9) << D[n - nmin] << " dr=" << std::setprecision(9)
-                  << r[n - nmin] - r0[n - nmin] << " cosa=" << cosa[n - nmin] << " sina=" << sina[n - nmin]
+                  << dr[n - nmin] << " cosa=" << cosa[n - nmin] << " sina=" << sina[n - nmin]
                   << " dir_cos(rad,pT)=" << 1.0f / oodotp[n]);
   }
 
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    outPar(n, 0, 0) = inPar(n, 0, 0) + 2.f * k[n - nmin] * sinah[n - nmin] *
-                                            (pxin[n - nmin] * cosah[n - nmin] - pyin[n - nmin] * sinah[n - nmin]);
+    outPar(n, 0, 0) = inPar(n, 0, 0) + 2.f * k[n - nmin] * sinah[n - nmin] * pt[n - nmin] *
+                                            (cosPorT[n - nmin] * cosah[n - nmin] - sinPorT[n - nmin] * sinah[n - nmin]);
     errorProp(n, 0, 0) = 1.f + k[n - nmin] * dadx[n - nmin] *
                                    (cosPorT[n - nmin] * cosa[n - nmin] - sinPorT[n - nmin] * sina[n - nmin]) *
                                    pt[n - nmin];
@@ -262,8 +261,8 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
 
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    outPar(n, 1, 0) = inPar(n, 1, 0) + 2.f * k[n - nmin] * sinah[n - nmin] *
-                                            (pyin[n - nmin] * cosah[n - nmin] + pxin[n - nmin] * sinah[n - nmin]);
+    outPar(n, 1, 0) = inPar(n, 1, 0) + 2.f * k[n - nmin] * sinah[n - nmin] * pt[n - nmin] *
+                                            (sinPorT[n - nmin] * cosah[n - nmin] + cosPorT[n - nmin] * sinah[n - nmin]);
     errorProp(n, 1, 0) = k[n - nmin] * dadx[n - nmin] *
                          (sinPorT[n - nmin] * cosa[n - nmin] + cosPorT[n - nmin] * sina[n - nmin]) * pt[n - nmin];
     errorProp(n, 1, 1) = 1.f + k[n - nmin] * dady[n - nmin] *
