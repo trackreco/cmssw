@@ -117,7 +117,6 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
   float oodotp[nmax - nmin];
   float oor0[nmax - nmin];
   float dr[nmax - nmin];
-  float oodr[nmax - nmin];
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
     oodotp[n - nmin] = r0[n - nmin] / ( xin[n - nmin] * cosPorT[n - nmin] + yin[n - nmin] * sinPorT[n - nmin] );
@@ -129,10 +128,6 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
     dr[n - nmin] = r[n - nmin] - r0[n - nmin];
-  }
-#pragma omp simd
-  for (int n = nmin; n < nmax; ++n) {
-    oodr[n - nmin] = 1.f / dr[n - nmin];
   }
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
@@ -156,11 +151,11 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
   }
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    dDdx[n - nmin] = r0[n - nmin] > 0.f ? D[n - nmin] * oor0[n - nmin] * ( xin[n - nmin] * oor0[n - nmin] - cosPorT[n - nmin] * oodotp[n - nmin] - xin[n - nmin] * oodr[n - nmin] ) : 0.f;
+    dDdx[n - nmin] = r0[n - nmin] > 0.f ? oor0[n - nmin] * ( D[n - nmin] * xin[n - nmin] * oor0[n - nmin] - D[n - nmin] * cosPorT[n - nmin] * oodotp[n - nmin] - xin[n - nmin] * oodotp[n - nmin] ) : 0.f;
   }
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    dDdy[n - nmin] = r0[n - nmin] > 0.f ? D[n - nmin] * oor0[n - nmin] * ( yin[n - nmin] * oor0[n - nmin] - sinPorT[n - nmin] * oodotp[n - nmin] - yin[n - nmin] * oodr[n - nmin] ) : 0.f;
+    dDdy[n - nmin] = r0[n - nmin] > 0.f ? oor0[n - nmin] * ( D[n - nmin] * yin[n - nmin] * oor0[n - nmin] - D[n - nmin] * sinPorT[n - nmin] * oodotp[n - nmin] - yin[n - nmin] * oodotp[n - nmin] ) : 0.f;
   }
 
 #pragma omp simd
@@ -176,8 +171,8 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
       // And update derivatives
       dDdipt[n - nmin] = - dr[n - nmin] * ( oodotp[n - nmin] - 1.f ) * pt[n - nmin] * pt[n - nmin];
       dDdphi[n - nmin] = pt[n - nmin] * dr[n - nmin] * ( xin[n - nmin] * sinPorT[n - nmin] - yin[n - nmin] * cosPorT[n - nmin] ) * oor0[n - nmin] * oodotp[n - nmin] * oodotp[n - nmin];
-      dDdx[n - nmin] = pt[n - nmin] * dr[n - nmin] * oor0[n - nmin] * oodotp[n - nmin] * ( xin[n - nmin] * oor0[n - nmin] - cosPorT[n - nmin] * oodotp[n - nmin] ) - xin[n - nmin] * oor0[n - nmin] * D[n - nmin] * oodr[n - nmin];
-      dDdx[n - nmin] = pt[n - nmin] * dr[n - nmin] * oor0[n - nmin] * oodotp[n - nmin] * ( yin[n - nmin] * oor0[n - nmin] - sinPorT[n - nmin] * oodotp[n - nmin] ) - yin[n - nmin] * oor0[n - nmin] * D[n - nmin] * oodr[n - nmin];
+      dDdx[n - nmin] = pt[n - nmin] * dr[n - nmin] * oor0[n - nmin] * oodotp[n - nmin] * ( xin[n - nmin] * oor0[n - nmin] - cosPorT[n - nmin] * oodotp[n - nmin] ) - xin[n - nmin] * oor0[n - nmin] * (1.0f + (oodotp[n - nmin] - 1.0f) * pt[n - nmin]);
+      dDdx[n - nmin] = pt[n - nmin] * dr[n - nmin] * oor0[n - nmin] * oodotp[n - nmin] * ( yin[n - nmin] * oor0[n - nmin] - sinPorT[n - nmin] * oodotp[n - nmin] ) - yin[n - nmin] * oor0[n - nmin] * (1.0f + (oodotp[n - nmin] - 1.0f) * pt[n - nmin]);
     }
   }
 
