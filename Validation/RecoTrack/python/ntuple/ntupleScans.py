@@ -3,75 +3,86 @@ def printTCand(t, i, iSim, pSeeds, pCHits):
   iST = t.tcand_seedIdx[i]
   iteration = t.see_algo[iST]
 
-  # get seed label in a given iteration
-  iLab = -1
-  algLast = -1
-  for iis,alg in enumerate(t.see_algo):
-    if alg != algLast:
-      algLast = alg
-      iLab = -1
-    iLab = iLab + 1
-    if iis == iST: break
-  iSTk = t.see_trkIdx[iST]
-  tkFr = -1
-  if iSTk >=0: tkFr = t.trk_bestSimTrkShareFrac[iSTk]
-  if pSeeds: print(f'see {iST:3d} {iLab:3d} {t.see_pt[iST]: 6.4f} {t.see_eta[iST]: 6.4f} {t.see_phi[iST]: 6.4f} {t.see_nValid[iST]:2d} {t.see_stateTrajGlbX[iST]: 6.4f} {t.see_stateTrajGlbY[iST]: 6.4f} {t.see_stateTrajGlbZ[iST]: 6.4f} {t.see_stateTrajGlbPx[iST]: 6.4f} {t.see_stateTrajGlbPy[iST]: 6.4f} {t.see_stateTrajGlbPz[iST]: 6.4f} {t.see_bestSimTrkIdx[iST]} {t.see_bestSimTrkShareFrac[iST]:4.2f} tk {t.see_trkIdx[iST]} {tkFr:4.2f}')
-  for iSO in (iiSO for iiSO,alg in enumerate(t.see_algo) if alg==iteration and t.see_bestSimTrkIdx[iiSO]==iSim and iiSO!=iST):
-    if pSeeds: print(f'seeO {iSO:3d} {t.see_pt[iSO]: 6.4f} {t.see_eta[iSO]: 6.4f} {t.see_phi[iSO]: 6.4f} {t.see_nValid[iSO]:2d} {t.see_stateTrajGlbX[iSO]: 6.4f} {t.see_stateTrajGlbY[iSO]: 6.4f} {t.see_stateTrajGlbZ[iSO]: 6.4f} {t.see_stateTrajGlbPx[iSO]: 6.4f} {t.see_stateTrajGlbPy[iSO]: 6.4f} {t.see_stateTrajGlbPz[iSO]: 6.4f} {t.see_bestSimTrkIdx[iSO]} {t.see_bestSimTrkShareFrac[iSO]:4.2f}')
-  sehs = []
-  for (ih,ht) in enumerate(t.see_hitType[iST]):
-    iS = t.see_hitIdx[iST][ih]
-    sehs.append(iS)
-    if (ht == 0) and pSeeds: print(f'P {iS:4d} {t.pix_subdet[iS]: 2d} {t.pix_layer[iS]: 3d} ({t.pix_x[iS]: 6.2f} {t.pix_y[iS]: 6.2f} {t.pix_z[iS]: 6.2f}) cm')
-    elif (ht == 1) and pSeeds: print(f'S {iS:4d} {t.str_subdet[iS]:2d} {t.str_layer[iS]:3d} {t.str_isStereo[iS]:2d} ({t.str_x[iS]: 6.2f} {t.str_y[iS]: 6.2f} {t.str_z[iS]: 6.2f}) cm')
-    elif (ht == 2) and pSeeds:
-      sh=t.glu_stereoIdx[iS]
-      mh=t.glu_monoIdx[iS]
-      sehs.append(sh)
-      sehs.append(mh)
-      print(f'g {iS:4d} {t.glu_subdet[iS]:2d} {t.glu_layer[iS]:3d} ({t.glu_x[iS]: 6.2f} {t.glu_y[iS]: 6.2f} {t.glu_z[iS]: 6.2f}) cm {t.glu_xx[iS]: 6.2e} {t.glu_xy[iS]: 6.2e} {t.glu_yy[iS]: 6.2e} m {mh:4d} ({t.str_x[mh]: 6.2f} {t.str_y[mh]: 6.2f} {t.str_z[mh]: 6.2f}) s {sh:4d} ({t.str_x[sh]: 6.2f} {t.str_y[sh]: 6.2f} {t.str_z[sh]: 6.2f})')
+  if pSeeds:
+    # get seed label in a given iteration
+    iLab = -1
+    algLast = -1
+    for iis,alg in enumerate(t.see_algo):
+      if alg != algLast:
+        algLast = alg
+        iLab = -1
+      iLab = iLab + 1
+      if iis == iST: break
+    iSTk = t.see_trkIdx[iST]
+    tkFr = -1
+    tkNh = -1
+    if iSTk >=0:
+      tkFr = t.trk_bestSimTrkShareFrac[iSTk]
+      tkNh = t.trk_nValid[iSTk]
+    print(f'see {iST:3d} {iLab:3d} {t.see_pt[iST]: 6.4f} {t.see_eta[iST]: 6.4f} {t.see_phi[iST]: 6.4f} {t.see_nValid[iST]:2d} {t.see_stateTrajGlbX[iST]: 6.4f} {t.see_stateTrajGlbY[iST]: 6.4f} {t.see_stateTrajGlbZ[iST]: 6.4f} {t.see_stateTrajGlbPx[iST]: 6.4f} {t.see_stateTrajGlbPy[iST]: 6.4f} {t.see_stateTrajGlbPz[iST]: 6.4f} {t.see_bestSimTrkIdx[iST]} {t.see_bestSimTrkShareFrac[iST]:4.2f} tk {t.see_trkIdx[iST]} {tkNh} {tkFr:4.2f}')
+    for iSO in (iiSO for iiSO,alg in enumerate(t.see_algo) if alg==iteration and t.see_bestSimTrkIdx[iiSO]==iSim and iiSO!=iST):
+      print(f'seeO {iSO:3d} {t.see_pt[iSO]: 6.4f} {t.see_eta[iSO]: 6.4f} {t.see_phi[iSO]: 6.4f} {t.see_nValid[iSO]:2d} {t.see_stateTrajGlbX[iSO]: 6.4f} {t.see_stateTrajGlbY[iSO]: 6.4f} {t.see_stateTrajGlbZ[iSO]: 6.4f} {t.see_stateTrajGlbPx[iSO]: 6.4f} {t.see_stateTrajGlbPy[iSO]: 6.4f} {t.see_stateTrajGlbPz[iSO]: 6.4f} {t.see_bestSimTrkIdx[iSO]} {t.see_bestSimTrkShareFrac[iSO]:4.2f}')
+    sehs = []
+    for (ih,ht) in enumerate(t.see_hitType[iST]):
+      iS = t.see_hitIdx[iST][ih]
+      sehs.append(iS)
+      if (ht == 0): print(f'P {iS:4d} {t.pix_subdet[iS]: 2d} {t.pix_layer[iS]: 3d} ({t.pix_x[iS]: 6.2f} {t.pix_y[iS]: 6.2f} {t.pix_z[iS]: 6.2f}) cm')
+      elif (ht == 1): print(f'S {iS:4d} {t.str_subdet[iS]:2d} {t.str_layer[iS]:3d} {t.str_isStereo[iS]:2d} ({t.str_x[iS]: 6.2f} {t.str_y[iS]: 6.2f} {t.str_z[iS]: 6.2f}) cm')
+      elif (ht == 2):
+        sh=t.glu_stereoIdx[iS]
+        mh=t.glu_monoIdx[iS]
+        sehs.append(sh)
+        sehs.append(mh)
+        print(f'g {iS:4d} {t.glu_subdet[iS]:2d} {t.glu_layer[iS]:3d} ({t.glu_x[iS]: 6.2f} {t.glu_y[iS]: 6.2f} {t.glu_z[iS]: 6.2f}) cm {t.glu_xx[iS]: 6.2e} {t.glu_xy[iS]: 6.2e} {t.glu_yy[iS]: 6.2e} m {mh:4d} ({t.str_x[mh]: 6.2f} {t.str_y[mh]: 6.2f} {t.str_z[mh]: 6.2f}) s {sh:4d} ({t.str_x[sh]: 6.2f} {t.str_y[sh]: 6.2f} {t.str_z[sh]: 6.2f})')
 
-  print(f'tcand {i:4d} {iST:4d} {t.tcand_x[i]: 6.4f} {t.tcand_y[i]: 6.4f} {t.tcand_pca_pt[i]:6.4f} {t.tcand_pca_eta[i]: 6.4f} {t.tcand_pca_phi[i]: 6.4f} {t.tcand_nValid[i]:2d} {t.tcand_nPixel[i]:2d} {t.tcand_bestSimTrkIdx[i]:3d} {t.sim_pdgId[iSim]: 5d} {t.sim_parentVtxIdx[iSim]:3d} {t.tcand_bestSimTrkShareFrac[i]:4.3f} {t.sim_pt[iSim]:6.4f} {t.sim_eta[iSim]: 6.4f}')
+  print(f'tcand {i:4d} {iST:4d} {t.tcand_x[i]: 6.4f} {t.tcand_y[i]: 6.4f} {t.tcand_z[i]: 6.4f} {t.tcand_pca_pt[i]:6.4f} {t.tcand_pca_eta[i]: 6.4f} {t.tcand_pca_phi[i]: 6.4f} {t.tcand_nValid[i]:2d} {t.tcand_nPixel[i]:2d} {t.tcand_bestSimTrkIdx[i]:3d} {t.sim_pdgId[iSim]: 5d} {t.sim_parentVtxIdx[iSim]:3d} {t.tcand_bestSimTrkShareFrac[i]:4.3f} {t.sim_pt[iSim]:6.4f} {t.sim_eta[iSim]: 6.4f}')
   tchs = []
-  iSimHits = t.sim_simHitIdx[iSim]
-  for (ih,ht) in enumerate(t.tcand_hitType[i]):
-    iS = t.tcand_hitIdx[i][ih]
-    sehSt = "SH" if iS in sehs else ""
-    tchs.append([ht,iS])
-    if (ht == 0) and pCHits:
-      shs = [s for s in t.pix_simHitIdx[iS] if s in iSimHits]
-      sh = -1 if len(shs)==0 else shs[0]
-      if sh == -1 and len(t.pix_simHitIdx[iS])>0:
-        sh = [s for s in t.pix_simHitIdx[iS] if s not in iSimHits][0]
-        sehSt=sehSt+" unmatched"
-      shr = [0, 0, 0] if sh == -1 else [t.simhit_x[sh], t.simhit_y[sh], t.simhit_z[sh]]
-      shp = [0, 0, 0] if sh == -1 else [t.simhit_particle[sh], math.sqrt(t.simhit_px[sh]*t.simhit_px[sh]+t.simhit_py[sh]*t.simhit_py[sh]), t.simhit_pz[sh]]
-      print(f'P {iS:4d} {t.pix_subdet[iS]: 2d} {t.pix_layer[iS]: 3d} ({t.pix_x[iS]: 6.2f} {t.pix_y[iS]: 6.2f} {t.pix_z[iS]: 6.2f}) cm {sh: 4d} ({shr[0]: 6.2f} {shr[1]: 6.2f} {shr[2]: 6.2f}) {shp[0]: 5d} ({shp[1]: 6.2f} {shp[2]: 6.2f}) {sehSt}')
-    elif (ht == 1) and pCHits:
-      shs = [s for s in t.str_simHitIdx[iS] if s in iSimHits]
-      sh = -1 if len(shs)==0 else shs[0]
-      if sh == -1 and len(t.str_simHitIdx[iS])>0:
-        sh = [s for s in t.str_simHitIdx[iS] if s not in iSimHits][0]
-        sehSt=sehSt+" unmatched"
-      shr = [0, 0, 0] if sh == -1 else [t.simhit_x[sh], t.simhit_y[sh], t.simhit_z[sh]]
-      shp = [0, 0, 0] if sh == -1 else [t.simhit_particle[sh], math.sqrt(t.simhit_px[sh]*t.simhit_px[sh]+t.simhit_py[sh]*t.simhit_py[sh]), t.simhit_pz[sh]]
-      print(f'S {iS:4d} {t.str_subdet[iS]:2d} {t.str_layer[iS]:3d} {t.str_isStereo[iS]:2d} ({t.str_x[iS]: 6.2f} {t.str_y[iS]: 6.2f} {t.str_z[iS]: 6.2f}) cm {sh:4d}  ({shr[0]: 6.2f} {shr[1]: 6.2f} {shr[2]: 6.2f}) {shp[0]: 5d} ({shp[1]: 6.2f} {shp[2]: 6.2f}) {sehSt}')
+  tkhs = []
+  tkIdx = t.see_trkIdx[iST]
+  if pCHits:
+    if tkIdx >= 0:
+      for (ih,ht) in enumerate(t.trk_hitType[tkIdx]):
+        tkhs.append([ht,t.trk_hitIdx[tkIdx][ih]])
+    iSimHits = t.sim_simHitIdx[iSim]
+    for (ih,ht) in enumerate(t.tcand_hitType[i]):
+      iS = t.tcand_hitIdx[i][ih]
+      sehSt = "SH" if iS in sehs else ""
+      tchs.append([ht,iS])
+      if [ht,iS] in tkhs: sehSt = sehSt+" T"
+      if (ht == 0):
+        shs = [s for s in t.pix_simHitIdx[iS] if s in iSimHits]
+        sh = -1 if len(shs)==0 else shs[0]
+        if sh == -1 and len(t.pix_simHitIdx[iS])>0:
+          sh = [s for s in t.pix_simHitIdx[iS] if s not in iSimHits][0]
+          sehSt=sehSt+" unmatched"
+        shr = [0, 0, 0] if sh == -1 else [t.simhit_x[sh], t.simhit_y[sh], t.simhit_z[sh]]
+        shp = [0, 0, 0] if sh == -1 else [t.simhit_particle[sh], math.sqrt(t.simhit_px[sh]*t.simhit_px[sh]+t.simhit_py[sh]*t.simhit_py[sh]), t.simhit_pz[sh]]
+        print(f'P {iS:4d} {t.pix_subdet[iS]: 2d} {t.pix_layer[iS]: 3d} ({t.pix_x[iS]: 6.2f} {t.pix_y[iS]: 6.2f} {t.pix_z[iS]: 6.2f}) cm {sh: 4d} ({shr[0]: 6.2f} {shr[1]: 6.2f} {shr[2]: 6.2f}) {shp[0]: 5d} ({shp[1]: 6.2f} {shp[2]: 6.2f}) {sehSt}')
+      elif (ht == 1):
+        shs = [s for s in t.str_simHitIdx[iS] if s in iSimHits]
+        sh = -1 if len(shs)==0 else shs[0]
+        if sh == -1 and len(t.str_simHitIdx[iS])>0:
+          sh = [s for s in t.str_simHitIdx[iS] if s not in iSimHits][0]
+          sehSt=sehSt+" unmatched"
+        shr = [0, 0, 0] if sh == -1 else [t.simhit_x[sh], t.simhit_y[sh], t.simhit_z[sh]]
+        shp = [0, 0, 0] if sh == -1 else [t.simhit_particle[sh], math.sqrt(t.simhit_px[sh]*t.simhit_px[sh]+t.simhit_py[sh]*t.simhit_py[sh]), t.simhit_pz[sh]]
+        print(f'S {iS:4d} {t.str_subdet[iS]:2d} {t.str_layer[iS]:3d} {t.str_isStereo[iS]:2d} ({t.str_x[iS]: 6.2f} {t.str_y[iS]: 6.2f} {t.str_z[iS]: 6.2f}) cm {sh:4d}  ({shr[0]: 6.2f} {shr[1]: 6.2f} {shr[2]: 6.2f}) {shp[0]: 5d} ({shp[1]: 6.2f} {shp[2]: 6.2f}) {sehSt}')
 
-  for sh in iSimHits:
-    shr = [t.simhit_x[sh], t.simhit_y[sh], t.simhit_z[sh]]
-    shp = [t.simhit_particle[sh], math.sqrt(t.simhit_px[sh]*t.simhit_px[sh]+t.simhit_py[sh]*t.simhit_py[sh]), t.simhit_pz[sh]]
-    if (shp[1]<0.05): continue
-    for (ih,ht) in enumerate(t.simhit_hitType[sh]):
-      iS = t.simhit_hitIdx[sh][ih]
-      if ([ht,iS] in tchs): continue
-      if (ht == 0) and pCHits:
-        print(f'P {iS:4d} {t.pix_subdet[iS]: 2d} {t.pix_layer[iS]: 3d} ({t.pix_x[iS]: 6.2f} {t.pix_y[iS]: 6.2f} {t.pix_z[iS]: 6.2f}) cm {sh: 4d} ({shr[0]: 6.2f} {shr[1]: 6.2f} {shr[2]: 6.2f}) {shp[0]: 5d} ({shp[1]: 6.2f} {shp[2]: 6.2f})  extra')
-      elif (ht == 1) and pCHits:
-        print(f'S {iS:4d} {t.str_subdet[iS]:2d} {t.str_layer[iS]:3d} {t.str_isStereo[iS]:2d} ({t.str_x[iS]: 6.2f} {t.str_y[iS]: 6.2f} {t.str_z[iS]: 6.2f}) cm {sh:4d}  ({shr[0]: 6.2f} {shr[1]: 6.2f} {shr[2]: 6.2f}) {shp[0]: 5d} ({shp[1]: 6.2f} {shp[2]: 6.2f}) extra')
+    for sh in iSimHits:
+      shr = [t.simhit_x[sh], t.simhit_y[sh], t.simhit_z[sh]]
+      shp = [t.simhit_particle[sh], math.sqrt(t.simhit_px[sh]*t.simhit_px[sh]+t.simhit_py[sh]*t.simhit_py[sh]), t.simhit_pz[sh]]
+      if (shp[1]<0.05): continue
+      for (ih,ht) in enumerate(t.simhit_hitType[sh]):
+        iS = t.simhit_hitIdx[sh][ih]
+        if ([ht,iS] in tchs): continue
+        if (ht == 0):
+          print(f'P {iS:4d} {t.pix_subdet[iS]: 2d} {t.pix_layer[iS]: 3d} ({t.pix_x[iS]: 6.2f} {t.pix_y[iS]: 6.2f} {t.pix_z[iS]: 6.2f}) cm {sh: 4d} ({shr[0]: 6.2f} {shr[1]: 6.2f} {shr[2]: 6.2f}) {shp[0]: 5d} ({shp[1]: 6.2f} {shp[2]: 6.2f})  extra')
+        elif (ht == 1):
+          print(f'S {iS:4d} {t.str_subdet[iS]:2d} {t.str_layer[iS]:3d} {t.str_isStereo[iS]:2d} ({t.str_x[iS]: 6.2f} {t.str_y[iS]: 6.2f} {t.str_z[iS]: 6.2f}) cm {sh:4d}  ({shr[0]: 6.2f} {shr[1]: 6.2f} {shr[2]: 6.2f}) {shp[0]: 5d} ({shp[1]: 6.2f} {shp[2]: 6.2f}) extra')
 
 
 # match from t to tO(ther)
-def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=0.75, pSeeds = True, pCHits = True, matchToSignal = False, matchTK = False, debug = False, pSimsMTV = False):
+def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, nSkip=0, iteration=9, minSimFrac=0.75, pSeeds = True, pCHits = True, matchToSignal = False, matchTK = False, debug = False, pSimsMTV = False):
   nGood = 0
   nNotMatchedToO = 0
   nNotMatched0p5ToO = 0
@@ -95,7 +106,8 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
     nNotMatchedToO_Ev = 0
     nNotMatched0p5ToO_Ev = 0
     nNotMatched0p3ToO_Ev = 0
-    if iE >= nEv: continue
+    if iE >= nEv+nSkip: continue
+    if iE < nSkip: continue
     nb = t.GetEntry(iE)
     nb = tO.GetEntry(iE)
     # c,t,s (c[andidate] t[rack] s[eed]) are used as a prefix below
@@ -175,7 +187,7 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
                  and t.sim_q[i]!=0 and (not (matchToSignal and t.sim_event[i] != 0))
                  and abs(t.sim_eta[i])<=3
                  and t.sim_parentVtxIdx[i]>=0 and abs(t.simvtx_z[t.sim_parentVtxIdx[i]])<=30
-                 and math.hypot(t.simvtx_x[t.sim_parentVtxIdx[i]],t.simvtx_y[t.sim_parentVtxIdx[i]])<=2.5}
+                 and math.hypot(t.simvtx_x[t.sim_parentVtxIdx[i]],t.simvtx_y[t.sim_parentVtxIdx[i]])>2.5}
 
     for iSim in simsMTVpt:
 
@@ -207,16 +219,16 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
         for c in cats: nSims_C_O[c] = nSims_C_O[c] + 1
         if iSim in simsCSelMinFr:
           for c in cats: nSims_C_Ob[c] = nSims_C_Ob[c] + 1
-          if pSimsMTV and iSim not in simsTSelMinFrO and iSim in simsTSelMinFr:
-            print(f"IN {iE} FOUND {iSim} with cands in both and track in ref but not the other")
-            for i,iS in lCSel:
-              if iS==iSim:
-                print("REFERENCE:")
-                printTCand(t, i, iSim, True, True)
-            for i,iS in lCSelO:
-              if iS==iSim:
-                print("OTHER:")
-                printTCand(tO, i, iSim, True, True)
+          # if pSimsMTV and iSim not in simsTSelMinFrO and iSim in simsTSelMinFr:
+          #   print(f"IN {iE} FOUND {iSim} with cands in both and track in ref but not the other")
+          #   for i,iS in lCSel:
+          #     if iS==iSim:
+          #       print("REFERENCE:")
+          #       printTCand(t, i, iSim, True, True)
+          #   for i,iS in lCSelO:
+          #     if iS==iSim:
+          #       print("OTHER:")
+          #       printTCand(tO, i, iSim, True, True)
       if iSim in simsTSelMinFrO:
         for c in cats: nSims_T_O[c] = nSims_T_O[c] + 1
         if iSim in simsTSelMinFr:
@@ -225,7 +237,15 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
         for c in cats: nSims_Thp_O[c] = nSims_Thp_O[c] + 1
         if iSim in simsThpSelMinFr:
           for c in cats: nSims_Thp_Ob[c] = nSims_Thp_Ob[c] + 1
-
+      if pSimsMTV and "Ec" in cats and iSim in simsCSelO and iSim not in simsTSelMinFrO:
+        print(f"IN {iE} FOUND {iSim} in Ec OTHER with a cand without matching track")
+        for i,iS in lCSelO:
+          if iS==iSim:
+            printTCand(tO, i, iSim, True, True)
+        for i,iS in lCSel:
+          if iS==iSim:
+            print("REFERENCE:")
+            printTCand(t, i, iSim, True, True)
 
     for i,iSim in lCSel:
       if t.sim_pt[iSim] < minSimPt or t.sim_pt[iSim] > maxSimPt: continue
@@ -242,9 +262,9 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
         # print("with Cand HP",iSim)
         if t.see_tcandIdx[iST] != i: continue
         # print("with Cand HP seeC",iSim)
-        if t.tcand_bestSimTrkShareFrac[i] < minSimFrac: continue
+        if t.tcand_bestSimTrkShareFrac[i] <= minSimFrac: continue
         # print("with Cand HP seeC cSim",iSim)
-        if t.trk_bestSimTrkShareFrac[iT] < minSimFrac: continue
+        if t.trk_bestSimTrkShareFrac[iT] <= minSimFrac: continue
         # print("with Cand GOOD",iSim)
         nGood = nGood + 1
         nGood_Ev = nGood_Ev + 1
@@ -263,6 +283,7 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
         if (not inSimsCSelMinFrO) or (matchTK and iSim not in simsTSelO):
           if not inSimsCSelMinFrO:
             print(iE,"tc ",i," sim ",iSim," not found in Other")
+            # printTCand(t, i, iSim, pSeeds, pCHits)
             nNotMatchedToO = nNotMatchedToO + 1
             nNotMatchedToO_Ev = nNotMatchedToO_Ev + 1
             nNotMatched0p5ToO = nNotMatched0p5ToO + 1
@@ -276,6 +297,7 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
               match0p5 = False
               match0p3 = False
               for iO in tcandsO:
+                # printTCand(tO, iO, iSim, pSeeds, pCHits)
                 if lCSelAllO[iO][iSim] > 0.5: match0p5 = True
                 if lCSelAllO[iO][iSim] > 0.3:
                   match0p3 = True
@@ -286,22 +308,22 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, iteration=9, minSimFrac=
               if match0p3:
                 nNotMatched0p3ToO = nNotMatched0p3ToO - 1
                 nNotMatched0p3ToO_Ev = nNotMatched0p3ToO_Ev - 1
-          if matchTK:
+          if matchTK and iSim not in simsTSelO:
             if inSimsCSelO:
               print("MATCH BOTH BUT NO Tk in Other. Good ref cand:")
-              # printTCand(t, i, iSim, pSeeds, pCHits)
+              printTCand(t, i, iSim, pSeeds, pCHits)
               print("Other cands:",len(simsCSelAllDictO[iSim]))
               for iO in simsCSelAllDictO[iSim]:
                 if lCSelAllO[iO][iSim] > minSimFrac:
-                  #printTCand(tO, i, iSim, pSeeds, pCHits)
+                  printTCand(tO, i, iSim, pSeeds, pCHits)
                   print(iO)
                 else:
                   print("weak match to ",iO,"with ",lCSelAllO[iO][iSim])
               for iO,iSimO in lCSelO:
                 if iSimO == iSim:
                   print("match to",iO)
-          else:
-            printTCand(t, i, iSim, pSeeds, pCHits)
+          #else:
+            # printTCand(t, i, iSim, pSeeds, pCHits)
 
 
 
