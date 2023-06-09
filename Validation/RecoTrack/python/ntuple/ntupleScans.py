@@ -82,7 +82,7 @@ def printTCand(t, i, iSim, pSeeds, pCHits):
 
 
 # match from t to tO(ther)
-def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, nSkip=0, iteration=9, minSimFrac=0.75, pSeeds = True, pCHits = True, matchToSignal = False, matchTK = False, debug = False, pSimsMTV = False):
+def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, minSimVT = -1, maxSimVT = 2.5, nEv=10, nSkip=0, iteration=9, minSimFrac=0.75, pSeeds = True, pCHits = True, matchToSignal = False, matchTK = False, debug = False, pSimsMTV = False):
   nGood = 0
   nNotMatchedToO = 0
   nNotMatched0p5ToO = 0
@@ -183,11 +183,13 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, nEv=10, nSkip=0, iteration=9, mi
     simsThpSelMinFr = {v for i,v in lThpSel if t.trk_bestSimTrkShareFrac[i]>minSimFrac}
     simsThpSelMinFrO = {v for i,v in lThpSelO if tO.trk_bestSimTrkShareFrac[i]>minSimFrac}
 
-    simsMTVpt = {i for i,v in enumerate(t.sim_bunchCrossing) if v==0 and t.sim_pt[i]>=minSimPt and t.sim_pt[i]<=maxSimPt
+    simsMTVpt = {i for i,v in enumerate(t.sim_parentVtxIdx) if t.sim_bunchCrossing[i]==0
+                 and t.sim_pt[i]>=minSimPt and t.sim_pt[i]<=maxSimPt
                  and t.sim_q[i]!=0 and (not (matchToSignal and t.sim_event[i] != 0))
                  and abs(t.sim_eta[i])<=3
-                 and t.sim_parentVtxIdx[i]>=0 and abs(t.simvtx_z[t.sim_parentVtxIdx[i]])<=30
-                 and math.hypot(t.simvtx_x[t.sim_parentVtxIdx[i]],t.simvtx_y[t.sim_parentVtxIdx[i]])>2.5}
+                 and v>=0 and abs(t.simvtx_z[v])<=30
+                 and math.hypot(t.simvtx_x[v],t.simvtx_y[v])>minSimVT
+                 and math.hypot(t.simvtx_x[v],t.simvtx_y[v])<maxSimVT}
 
     for iSim in simsMTVpt:
 
