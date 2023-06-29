@@ -61,9 +61,22 @@ namespace mkfit {
 
   //==============================================================================
 
+  void LayerOfHits::reset() {
+    m_hit_infos.clear();
+    m_ext_idcs.clear();
+    m_min_ext_idx = std::numeric_limits<unsigned int>::max();
+    m_max_ext_idx = std::numeric_limits<unsigned int>::min();
+    m_n_hits = 0;
+    m_binnor.reset_contents();
+  }
+
+  //==============================================================================
+
   void LayerOfHits::suckInHits(const HitVec &hitv) {
-    m_n_hits = hitv.size();
     m_ext_hits = &hitv;
+    m_n_hits = hitv.size();
+
+    m_binnor.begin_registration(m_n_hits);
 
 #ifdef COPY_SORTED_HITS
     if (m_capacity < m_n_hits) {
@@ -77,9 +90,6 @@ namespace mkfit {
       hinfos.reserve(m_n_hits);
       m_hit_infos.reserve(m_n_hits);
     }
-
-    m_binnor.reset_contents();
-    m_binnor.begin_registration(m_n_hits);
 
     for (unsigned int i = 0; i < m_n_hits; ++i) {
       const Hit &h = hitv[i];
@@ -140,14 +150,8 @@ namespace mkfit {
 
   void LayerOfHits::beginRegistrationOfHits(const HitVec &hitv) {
     m_ext_hits = &hitv;
-
     m_n_hits = 0;
-    m_hit_infos.clear();
-    m_ext_idcs.clear();
-    m_min_ext_idx = std::numeric_limits<unsigned int>::max();
-    m_max_ext_idx = std::numeric_limits<unsigned int>::min();
 
-    m_binnor.reset_contents();
     m_binnor.begin_registration(128);  // initial reserve for cons vectors
   }
 

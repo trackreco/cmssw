@@ -52,7 +52,7 @@ namespace mkfit {
     // Setup and filling
     //-------------------
 
-    void reset() {}
+    void reset();
 
     // Get in all hits from given hit-vec
     void suckInHits(const HitVec& hitv);
