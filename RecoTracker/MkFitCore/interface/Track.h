@@ -193,10 +193,19 @@ namespace mkfit {
     void setLabel(int lbl) { label_ = lbl; }
 
     bool hasSillyValues(bool dump, bool fix, const char* pref = "");
-
     bool hasNanNSillyValues() const;
 
+    // ------------------------------------------------------------------------
+
     float d0BeamSpot(const float x_bs, const float y_bs, bool linearize = false) const;
+
+    // used for swimming cmssw rec tracks to mkFit position
+    float swimPhiToR(const float x, const float y) const;
+
+    bool canReachRadius(float R) const;
+    float maxReachRadius() const;
+    float zAtR(float R, float* r_reached = nullptr) const;
+    float rAtZ(float Z) const;
 
     // ------------------------------------------------------------------------
 
@@ -387,15 +396,7 @@ namespace mkfit {
 
     Track(const Track& t) : TrackBase(t), hitsOnTrk_(t.hitsOnTrk_) {}
 
-    // used for swimming cmssw rec tracks to mkFit position
-    float swimPhiToR(const float x, const float y) const;
-
-    bool canReachRadius(float R) const;
-    float maxReachRadius() const;
-    float zAtR(float R, float* r_reached = nullptr) const;
-    float rAtZ(float Z) const;
-
-    //this function is very inefficient, use only for debug and validation!
+    // This function is very inefficient, use only for debug and validation!
     HitVec hitsVector(const std::vector<HitVec>& globalHitVec) const {
       HitVec hitsVec;
       for (int ihit = 0; ihit < Config::nMaxTrkHits; ++ihit) {
