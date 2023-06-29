@@ -82,7 +82,7 @@ def printTCand(t, i, iSim, pSeeds, pCHits):
 
 
 # match from t to tO(ther)
-def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, minSimVT = -1, maxSimVT = 2.5, nEv=10, nSkip=0, iteration=9, minSimFrac=0.75, pSeeds = True, pCHits = True, matchToSignal = False, matchTK = False, debug = False, pSimsMTV = False):
+def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, minSimVT = -1, maxSimVT = 2.5, nEv=10, nSkip=0, iteration=9, minSimFrac=0.75, pSeeds = True, pCHits = True, matchToSignal = False, matchTK = False, debug = False, pSimsMTV = False, pNCandLost = 0):
   nGood = 0
   nNotMatchedToO = 0
   nNotMatched0p5ToO = 0
@@ -219,6 +219,15 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, minSimVT = -1, maxSimVT = 2.5, n
           for c in cats: nSims_S_Ob[c] = nSims_S_Ob[c] + 1
       if iSim in simsCSelMinFrO:
         for c in cats: nSims_C_O[c] = nSims_C_O[c] + 1
+        if (iSim not in simsTSelMinFrO) and (iSim in simsTSelMinFr):
+          print(f"IN {iE} FOUND {iSim} with cand match and no matching track (present in ref)")
+          for i,iS in lCSelO:
+            if iS==iSim:
+              printTCand(tO, i, iSim, pSeeds, pCHits)
+              for j,jS in lCSel:
+                if jS==iSim:
+                  print("IN REFERENCE", j)
+                  printTCand(t, j, iSim, pSeeds, pCHits)
         if iSim in simsCSelMinFr:
           for c in cats: nSims_C_Ob[c] = nSims_C_Ob[c] + 1
           # if pSimsMTV and iSim not in simsTSelMinFrO and iSim in simsTSelMinFr:
@@ -284,8 +293,8 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, minSimVT = -1, maxSimVT = 2.5, n
         inSimsCSelMinFrO = inSimsCSelO and fracBestO>minSimFrac
         if (not inSimsCSelMinFrO) or (matchTK and iSim not in simsTSelO):
           if not inSimsCSelMinFrO:
-            print(iE,"tc ",i," sim ",iSim," not found in Other")
-            # printTCand(t, i, iSim, pSeeds, pCHits)
+            print(iE,"tc ",i,"nH",len(t.tcand_hitIdx[i]),"fr",f"{t.tcand_bestSimTrkShareFrac[i]:4.3f}"," sim ",iSim," not found in Other")
+            if pNCandLost > 0: printTCand(t, i, iSim, pSeeds*(pNCandLost>1), pCHits*(pNCandLost>2))
             nNotMatchedToO = nNotMatchedToO + 1
             nNotMatchedToO_Ev = nNotMatchedToO_Ev + 1
             nNotMatched0p5ToO = nNotMatched0p5ToO + 1
@@ -299,11 +308,11 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, minSimVT = -1, maxSimVT = 2.5, n
               match0p5 = False
               match0p3 = False
               for iO in tcandsO:
-                # printTCand(tO, iO, iSim, pSeeds, pCHits)
                 if lCSelAllO[iO][iSim] > 0.5: match0p5 = True
                 if lCSelAllO[iO][iSim] > 0.3:
                   match0p3 = True
-                  # print("   ",iO,f"frac {lCSelAllO[iO][iSim]:4.3f} of {len(tO.tcand_hitIdx[iO]):3d}")
+                print("   ",iO,f"frac {lCSelAllO[iO][iSim]:4.3f} of {len(tO.tcand_hitIdx[iO]):3d}")
+                if pNCandLost > 0: printTCand(tO, iO, iSim, pSeeds*(pNCandLost>1), pCHits*(pNCandLost>2))
               if match0p5:
                 nNotMatched0p5ToO = nNotMatched0p5ToO - 1
                 nNotMatched0p5ToO_Ev = nNotMatched0p5ToO_Ev - 1
