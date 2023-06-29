@@ -127,7 +127,7 @@ namespace {
 
   bool g_run_fit_std = false;
 
-  bool g_run_build_all = true;
+  bool g_run_build_default = true;
   bool g_run_build_cmssw = false;
   bool g_run_build_bh = false;
   bool g_run_build_std = false;
@@ -333,14 +333,14 @@ void test_standard() {
             int maxLayer_thisthread = 0;
             for (int b = 0; b < Config::finderReportBestOutOfN; ++b) {
               t_cur[0] = 0;  // t_cur[0] = (g_run_fit_std) ? runFittingTestPlex(ev, plex_tracks) : 0;
-              t_cur[1] = (g_run_build_all || g_run_build_bh) ? runBuildingTestPlexBestHit(ev, eoh, mkb) : 0;
-              t_cur[3] = (g_run_build_all || g_run_build_ce) ? runBuildingTestPlexCloneEngine(ev, eoh, mkb) : 0;
-              if (g_run_build_all || g_run_build_mimi)
+              t_cur[1] = (g_run_build_bh) ? runBuildingTestPlexBestHit(ev, eoh, mkb) : 0;
+              t_cur[2] = (g_run_build_default || g_run_build_std) ? runBuildingTestPlexStandard(ev, eoh, mkb) : 0;
+              t_cur[3] = (g_run_build_default || g_run_build_ce) ? runBuildingTestPlexCloneEngine(ev, eoh, mkb) : 0;
+              if (g_run_build_mimi)
                 t_cur_iter = runBtpCe_MultiIter(ev, eoh, mkb, Config::nItersCMSSW);
-              t_cur[4] = (g_run_build_all || g_run_build_mimi) ? t_cur_iter[Config::nItersCMSSW] : 0;
-              if (g_run_build_all || g_run_build_cmssw)
+              t_cur[4] = (g_run_build_mimi) ? t_cur_iter[Config::nItersCMSSW] : 0;
+              if (g_run_build_cmssw)
                 runBuildingTestPlexDumbCMSSW(ev, eoh, mkb);
-              t_cur[2] = (g_run_build_all || g_run_build_std) ? runBuildingTestPlexStandard(ev, eoh, mkb) : 0;
               if (g_run_build_ce || g_run_build_mimi) {
                 ncands_thisthread = mkb.total_cands();
                 auto const& ln = mkb.max_hits_layer(eoh);
@@ -387,7 +387,7 @@ void test_standard() {
               if (evt > 0)
                 for (int i = 0; i < NT; ++i)
                   t_skip[i] += t_best[i];
-              if (g_run_build_all || g_run_build_mimi) {
+              if (g_run_build_mimi) {
                 for (int i = 0; i < Config::nItersCMSSW; ++i)
                   t_sum_iter[i] += t_cur_iter[i];
                 if (evt > 0)
@@ -427,7 +427,7 @@ void test_standard() {
          maxHits_all.load(),
          maxLayer_all.load());
   //fflush(stdout);
-  if (g_run_build_all || g_run_build_mimi) {
+  if (g_run_build_mimi) {
     printf("================================================================\n");
     for (int i = 0; i < Config::nItersCMSSW; ++i)
       std::cout << " Iteration " << i << " build time = " << t_sum_iter[i] << " \n";
@@ -537,7 +537,6 @@ int main(int argc, const char* argv[]) {
           "\n\n"
           "FittingTestMPlex options\n\n"
           "  --fit-std                run standard fitting test (def: %s)\n"
-          "  --fit-std-only           run only standard fitting test (def: %s)\n"
           "  --cf-fitting             enable conformal fit before fitting tracks to get initial estimate of track "
           "parameters and errors (def: %s)\n"
           "  --fit-val                enable ROOT based validation for fittingMPlex  (def: %s)\n"
@@ -697,16 +696,14 @@ int main(int argc, const char* argv[]) {
           Config::numHitsPerTask,
 
           b2a(g_run_fit_std),
-          b2a(g_run_fit_std &&
-              !(g_run_build_all || g_run_build_cmssw || g_run_build_bh || g_run_build_std || g_run_build_ce)),
           b2a(Config::cf_fitting),
           b2a(Config::fit_val),
 
-          b2a(g_run_build_all || g_run_build_cmssw),
-          b2a(g_run_build_all || g_run_build_bh),
-          b2a(g_run_build_all || g_run_build_std),
-          b2a(g_run_build_all || g_run_build_ce),
-          b2a(g_run_build_all || g_run_build_mimi),
+          b2a(g_run_build_cmssw),
+          b2a(g_run_build_bh),
+          b2a(g_run_build_default || g_run_build_std),
+          b2a(g_run_build_default || g_run_build_ce),
+          b2a(g_run_build_mimi),
 
           getOpt(Config::seedInput, g_seed_opts).c_str(),
           getOpt(Config::seedCleaning, g_clean_opts).c_str(),
@@ -835,47 +832,26 @@ int main(int argc, const char* argv[]) {
       next_arg_or_die(mArgs, i);
       Config::numHitsPerTask = atoi(i->c_str());
     } else if (*i == "--fit-std") {
+      g_run_build_default = false;
       g_run_fit_std = true;
-    } else if (*i == "--fit-std-only") {
-      g_run_fit_std = true;
-      g_run_build_all = false;
-      g_run_build_bh = false;
-      g_run_build_std = false;
-      g_run_build_ce = false;
     } else if (*i == "--cf-fitting") {
       Config::cf_fitting = true;
     } else if (*i == "--fit-val") {
       Config::fit_val = true;
     } else if (*i == "--build-cmssw") {
-      g_run_build_all = false;
+      g_run_build_default = false;
       g_run_build_cmssw = true;
-      g_run_build_bh = false;
-      g_run_build_std = false;
-      g_run_build_ce = false;
     } else if (*i == "--build-bh") {
-      g_run_build_all = false;
-      g_run_build_cmssw = false;
+      g_run_build_default = false;
       g_run_build_bh = true;
-      g_run_build_std = false;
-      g_run_build_ce = false;
     } else if (*i == "--build-std") {
-      g_run_build_all = false;
-      g_run_build_cmssw = false;
-      g_run_build_bh = false;
+      g_run_build_default = false;
       g_run_build_std = true;
-      g_run_build_ce = false;
     } else if (*i == "--build-ce") {
-      g_run_build_all = false;
-      g_run_build_cmssw = false;
-      g_run_build_bh = false;
-      g_run_build_std = false;
+      g_run_build_default = false;
       g_run_build_ce = true;
     } else if (*i == "--build-mimi") {
-      g_run_build_all = false;
-      g_run_build_cmssw = false;
-      g_run_build_bh = false;
-      g_run_build_std = false;
-      g_run_build_ce = false;
+      g_run_build_default = false;
       g_run_build_mimi = true;
       if (Config::nItersCMSSW == 0)
         Config::nItersCMSSW = 3;
