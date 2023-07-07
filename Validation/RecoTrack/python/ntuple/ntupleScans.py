@@ -82,7 +82,7 @@ def printTCand(t, i, iSim, pSeeds, pCHits):
 
 
 # match from t to tO(ther)
-def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, minSimVT = -1, maxSimVT = 2.5, nEv=10, nSkip=0, iteration=9, minSimFrac=0.75, pSeeds = True, pCHits = True, matchToSignal = False, matchTK = False, debug = False, pSimsMTV = False, pNCandLost = 0):
+def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, minSimAEta = -1, maxSimAEta = 3, minSimVT = -1, maxSimVT = 2.5, nEv=10, nSkip=0, iteration=9, minSimFrac=0.75, pSeeds = True, pCHits = True, matchToSignal = False, matchTK = False, debug = False, pSimsMTV = False, pNCandLost = 0, pNTkLost = 0):
   nGood = 0
   nNotMatchedToO = 0
   nNotMatched0p5ToO = 0
@@ -186,7 +186,7 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, minSimVT = -1, maxSimVT = 2.5, n
     simsMTVpt = {i for i,v in enumerate(t.sim_parentVtxIdx) if t.sim_bunchCrossing[i]==0
                  and t.sim_pt[i]>=minSimPt and t.sim_pt[i]<=maxSimPt
                  and t.sim_q[i]!=0 and (not (matchToSignal and t.sim_event[i] != 0))
-                 and abs(t.sim_eta[i])<=3
+                 and abs(t.sim_eta[i])>=minSimAEta and abs(t.sim_eta[i])<=maxSimAEta
                  and v>=0 and abs(t.simvtx_z[v])<=30
                  and math.hypot(t.simvtx_x[v],t.simvtx_y[v])>minSimVT
                  and math.hypot(t.simvtx_x[v],t.simvtx_y[v])<maxSimVT}
@@ -209,6 +209,16 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, minSimVT = -1, maxSimVT = 2.5, n
             if v==iSim: print(f"T-match {iSim} {i} {t.trk_bestSimTrkShareFrac[i]:4.2f}")
           for i,v in lCSel:
             if v==iSim: print(f"  with C-match {iSim} {i} {t.tcand_bestSimTrkShareFrac[i]:4.2f}")
+        if iSim not in simsTSelMinFrO and pNTkLost > 0:
+          print(f"IN {iE} FOUND {iSim} no matching track (present in ref)")
+          for i,v in lCSelO:
+            if v==iSim:
+              print(f"  with COther-match {iSim} {i} {tO.tcand_bestSimTrkShareFrac[i]:4.2f}")
+              printTCand(tO, i, iSim, pSeeds*(pNTkLost>1), pCHits*(pNTkLost>2))
+          for i,v in lCSel:
+            if v==iSim:
+              print(f"  with CRef-match {iSim} {i} {t.tcand_bestSimTrkShareFrac[i]:4.2f}")
+              printTCand(t, i, iSim, pSeeds*(pNTkLost>1), pCHits*(pNTkLost>2))
       if iSim in simsThpSelMinFr:
         # print ("with HP",iSim)
         for c in cats: nSims_Thp[c] = nSims_Thp[c] + 1
@@ -260,6 +270,7 @@ def scanTC(t, tO, minSimPt=0., maxSimPt = 1e33, minSimVT = -1, maxSimVT = 2.5, n
 
     for i,iSim in lCSel:
       if t.sim_pt[iSim] < minSimPt or t.sim_pt[iSim] > maxSimPt: continue
+      if abs(t.sim_eta[iSim]) < minSimAEta or abs(t.sim_eta[iSim]) > maxSimAEta: continue
       if matchToSignal and t.sim_event[iSim] != 0: continue
       if t.sim_q[iSim] == 0: continue
       if t.sim_bunchCrossing[iSim] != 0: continue
