@@ -764,6 +764,10 @@ namespace mkfit {
       // loop over seeds
       tbb::parallel_for(rosi.tbb_blk_rng_std(adaptiveSPT), [&](const tbb::blocked_range<int> &seeds) {
         auto mkfndr = g_exe_ctx.m_finders.makeOrGet();
+#ifdef DUMPHITWINDOW
+        mkfndr->m_event = m_event;
+#endif
+
 
         const int start_seed = seeds.begin();
         const int end_seed = seeds.end();
@@ -941,6 +945,10 @@ namespace mkfit {
       tbb::parallel_for(rosi.tbb_blk_rng_std(adaptiveSPT), [&](const tbb::blocked_range<int> &seeds) {
         auto cloner = g_exe_ctx.m_cloners.makeOrGet();
         auto mkfndr = g_exe_ctx.m_finders.makeOrGet();
+#ifdef DUMPHITWINDOW
+        mkfndr->m_event = m_event;
+#endif
+
 
         cloner->setup(m_job->params());
 
@@ -1073,10 +1081,6 @@ namespace mkfit {
             layer_info.propagate_to(), end - itrack, prop_config.finding_inter_layer_pflags);
 
         dprint("now get hit range");
-
-#ifdef DUMPHITWINDOW
-        mkfndr->m_event = m_event;
-#endif
 
         mkfndr->selectHitIndices(layer_of_hits, end - itrack);
 

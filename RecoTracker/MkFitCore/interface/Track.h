@@ -421,6 +421,16 @@ namespace mkfit {
       }
     }
 
+    int mcHitIDofFirstHit(const std::vector<HitVec>& globalHitVec,
+                           const MCHitInfoVec& globalMCHitInfo) const {
+      const HitOnTrack& hot = hitsOnTrk_[0];
+      if ((hot.index >= 0) && (static_cast<size_t>(hot.index) < globalHitVec[hot.layer].size())) {
+        return globalHitVec[hot.layer][hot.index].mcTrackID(globalMCHitInfo);
+      } else {
+        return hot.index;
+      }
+    }
+
     // The following 2 (well, 3) funcs to be fixed once we move lastHitIdx_ and nFoundHits_
     // out of TrackBase. If we do it.
     void reserveHits(int nHits) { hitsOnTrk_.reserve(nHits); }
