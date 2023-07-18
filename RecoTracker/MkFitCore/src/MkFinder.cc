@@ -6,6 +6,7 @@
 #include "FindingFoos.h"
 #include "KalmanUtilsMPlex.h"
 #include "MatriplexPackers.h"
+#include "MiniPropagators.h"
 
 //#define DEBUG
 #include "Debug.h"
@@ -15,6 +16,7 @@
 #endif
 
 #include <algorithm>
+#include <queue>
 
 namespace mkfit {
 
@@ -124,7 +126,7 @@ namespace mkfit {
 
 #ifdef DUMPHITWINDOW
       m_SeedAlgo(imp, 0, 0) = tracks[idxs[i].seed_idx].seed_algo();
-      m_SeedLabel(imp, 0, 0) = tracks[idxs[i].seed_idx.seed_label();
+      m_SeedLabel(imp, 0, 0) = tracks[idxs[i].seed_idx].seed_label();
 #endif
 
       m_SeedIdx(imp, 0, 0) = idxs[i].seed_idx;
@@ -391,6 +393,14 @@ namespace mkfit {
       }
     }
 
+    struct PQE { float score; unsigned int hit_index; };
+    auto pqe_cmp = [](const PQE &a, const PQE &b) { return a.score < b.score; };
+    std::priority_queue<PQE, std::vector<PQE>, decltype(pqe_cmp)> pqueue(pqe_cmp);
+    int pqueue_size = 0;
+
+    const bool NEW_SELECTION = true;
+    const int  NEW_MAX_HIT = 6;
+
     // Vectorizing this makes it run slower!
     //#pragma omp simd
     for (int itrack = 0; itrack < N_proc; ++itrack) {
@@ -429,6 +439,9 @@ namespace mkfit {
       // Or, set them up so I can always take 3x3 array around the intersection.
 
 #if defined(DUMPHITWINDOW) && defined(MKFIT_STANDALONE)
+      const auto ngr = [](float f) { return isFinite(f) ? f : -999.0f; };
+
+      const Track *seed_ptr = nullptr;
       int thisseedmcid = -999999;
       {
         int seedlabel = m_SeedLabel(itrack, 0, 0);
@@ -438,20 +451,29 @@ namespace mkfit {
           auto &thisseed = seedtracks[i];
           if (thisseed.label() == seedlabel) {
             thisidx = i;
+            seed_ptr = &thisseed;
             break;
           }
         }
         if (thisidx > -999999) {
           auto &seedtrack = m_event->seedTracks_[thisidx];
-          std::vector<int> thismcHitIDs;
-          seedtrack.mcHitIDsVec(m_event->layerHits_, m_event->simHitsInfo_, thismcHitIDs);
-          if (std::adjacent_find(thismcHitIDs.begin(), thismcHitIDs.end(), std::not_equal_to<>()) ==
-              thismcHitIDs.end()) {
-            thisseedmcid = thismcHitIDs.at(0);
-          }
+          thisseedmcid = seedtrack.mcHitIDofFirstHit(m_event->layerHits_, m_event->simHitsInfo_);
         }
       }
 #endif
+#if defined(DUMP_HIT_PRESEL) && defined(MKFIT_STANDALONE)
+      int sim_lbl = m_Label(itrack, 0, 0);
+      int hit_out_idx = 0;
+      // Per-cand-cumulant vars for RTT
+      int pcc_all_hits = 0, pcc_matced_hits = 0;
+      int pcc_acc_old = 0, pcc_acc_matched_old = 0, pcc_acc_new = 0, pcc_acc_matched_new = 0;
+      // phi-sorted position of matched hits
+      struct pos_match { float dphi, chi2; int idx; bool matched; };
+      std::vector<pos_match> pos_match_vec;
+#endif
+
+      mini_propagators::InitialState mp_is(m_Par[iI], m_Chg, itrack);
+      mini_propagators::State mp_s;
 
       for (bidx_t qi = qb1; qi != qb2; ++qi) {
         for (bidx_t pi = pb1; pi != pb2; pi = L.phiMaskApply(pi + 1)) {
@@ -474,7 +496,7 @@ namespace mkfit {
           for (bcnt_t hi = pbi.begin(); hi < pbi.end(); ++hi) {
             // MT: Access into m_hit_zs and m_hit_phis is 1% run-time each.
 
-            unsigned int hi_orig = L.getOriginalHitIndex(hi);
+            const unsigned int hi_orig = L.getOriginalHitIndex(hi);
 
             if (m_iteration_hit_mask && (*m_iteration_hit_mask)[hi_orig]) {
               dprintf(
@@ -489,7 +511,29 @@ namespace mkfit {
               const float ddq = std::abs(q - L.hit_q(hi));
               const float ddphi = cdist(std::abs(phi - L.hit_phi(hi)));
 
+              // clang-format off
+              dprintf("     SHI %3u %4u %5u  %6.3f %6.3f %6.4f %7.5f   %s\n",
+                      qi, pi, hi, L.hit_q(hi), L.hit_phi(hi),
+                      ddq, ddphi, (ddq < dq && ddphi < dphi) ? "PASS" : "FAIL");
+              // clang-format on
+
+              float new_q, new_phi, new_ddphi, new_ddq;
+              bool prop_ok;
+              if (NEW_SELECTION) {
+                if (L.is_barrel()) {
+                  prop_ok = mp_is.propagate_to_r(mini_propagators::PA_Exact, L.hit_qbar(hi), mp_s, true);
+                  new_q = mp_s.z;
+                } else {
+                  prop_ok = mp_is.propagate_to_z(mini_propagators::PA_Exact, L.hit_qbar(hi), mp_s, true);
+                  new_q = std::hypot(mp_s.x, mp_s.y);
+                }
+                new_phi = getPhi(mp_s.x, mp_s.y);
+                new_ddphi = cdist(std::abs(new_phi - L.hit_phi(hi)));
+                new_ddq = std::abs(new_q - L.hit_q(hi));
+              }
+
 #if defined(DUMPHITWINDOW) && defined(MKFIT_STANDALONE)
+              MPlexQF thisOutChi2;
               {
                 const MCHitInfo &mchinfo = m_event->simHitsInfo_[L.refHit(hi).mcHitID()];
                 int mchid = mchinfo.mcTrackID();
@@ -517,11 +561,11 @@ namespace mkfit {
                   st_z = simtrack.z();
                 }
 
-                const Hit &thishit = L.refHit(hi);
+                const Hit &thishit = L.refHit(hi_orig);
                 m_msErr.copyIn(itrack, thishit.errArray());
                 m_msPar.copyIn(itrack, thishit.posArray());
 
-                MPlexQF thisOutChi2;
+                MPlexQI propFail;
                 MPlexLV tmpPropPar;
                 const FindingFoos &fnd_foos = FindingFoos::get_finding_foos(L.is_barrel());
                 (*fnd_foos.m_compute_chi2_foo)(m_Err[iI],
@@ -531,6 +575,7 @@ namespace mkfit {
                                                m_msPar,
                                                thisOutChi2,
                                                tmpPropPar,
+                                               propFail,
                                                N_proc,
                                                m_prop_config->finding_intra_layer_pflags,
                                                m_prop_config->finding_requires_propagation_to_hit_pos);
@@ -540,53 +585,29 @@ namespace mkfit {
                 float hz = thishit.z();
                 float hr = std::hypot(hx, hy);
                 float hphi = std::atan2(hy, hx);
-                float hex = std::sqrt(thishit.exx());
-                if (std::isnan(hex))
-                  hex = -999.;
-                float hey = std::sqrt(thishit.eyy());
-                if (std::isnan(hey))
-                  hey = -999.;
-                float hez = std::sqrt(thishit.ezz());
-                if (std::isnan(hez))
-                  hez = -999.;
-                float her = std::sqrt(
+                float hex = ngr( std::sqrt(thishit.exx()) );
+                float hey = ngr( std::sqrt(thishit.eyy()) );
+                float hez = ngr( std::sqrt(thishit.ezz()) );
+                float her = ngr( std::sqrt(
                     (hx * hx * thishit.exx() + hy * hy * thishit.eyy() + 2.0f * hx * hy * m_msErr.At(itrack, 0, 1)) /
-                    (hr * hr));
-                if (std::isnan(her))
-                  her = -999.;
-                float hephi = std::sqrt(thishit.ephi());
-                if (std::isnan(hephi))
-                  hephi = -999.;
-                float hchi2 = thisOutChi2[itrack];
-                if (std::isnan(hchi2))
-                  hchi2 = -999.;
+                    (hr * hr)) );
+                float hephi = ngr( std::sqrt(thishit.ephi()) );
+                float hchi2 = ngr( thisOutChi2[itrack] );
                 float tx = m_Par[iI].At(itrack, 0, 0);
                 float ty = m_Par[iI].At(itrack, 1, 0);
                 float tz = m_Par[iI].At(itrack, 2, 0);
                 float tr = std::hypot(tx, ty);
                 float tphi = std::atan2(ty, tx);
-                float tchi2 = m_Chi2(itrack, 0, 0);
-                if (std::isnan(tchi2))
-                  tchi2 = -999.;
-                float tex = std::sqrt(m_Err[iI].At(itrack, 0, 0));
-                if (std::isnan(tex))
-                  tex = -999.;
-                float tey = std::sqrt(m_Err[iI].At(itrack, 1, 1));
-                if (std::isnan(tey))
-                  tey = -999.;
-                float tez = std::sqrt(m_Err[iI].At(itrack, 2, 2));
-                if (std::isnan(tez))
-                  tez = -999.;
-                float ter = std::sqrt(
+                // float tchi2 = ngr( m_Chi2(itrack, 0, 0) ); // unused
+                float tex = ngr( std::sqrt(m_Err[iI].At(itrack, 0, 0)) );
+                float tey = ngr( std::sqrt(m_Err[iI].At(itrack, 1, 1)) );
+                float tez = ngr( std::sqrt(m_Err[iI].At(itrack, 2, 2)) );
+                float ter = ngr( std::sqrt(
                     (tx * tx * tex * tex + ty * ty * tey * tey + 2.0f * tx * ty * m_Err[iI].At(itrack, 0, 1)) /
-                    (tr * tr));
-                if (std::isnan(ter))
-                  ter = -999.;
-                float tephi = std::sqrt(
+                    (tr * tr)) );
+                float tephi = ngr( std::sqrt(
                     (ty * ty * tex * tex + tx * tx * tey * tey - 2.0f * tx * ty * m_Err[iI].At(itrack, 0, 1)) /
-                    (tr * tr * tr * tr));
-                if (std::isnan(tephi))
-                  tephi = -999.;
+                    (tr * tr * tr * tr)) );
                 float ht_dxy = std::hypot(hx - tx, hy - ty);
                 float ht_dz = hz - tz;
                 float ht_dphi = cdist(std::abs(hphi - tphi));
@@ -639,7 +660,7 @@ namespace mkfit {
                          "%6.3f"
                          "\n",
                          m_event->evtID(),
-                         L.layer_id(), L.is_barrel(), L.getOriginalHitIndex(hi),
+                         L.layer_id(), L.is_barrel(), hi_orig,
                          itrack, m_CandIdx(itrack, 0, 0), m_Label(itrack, 0, 0),
                          1.0f / m_Par[iI].At(itrack, 3, 0), getEta(m_Par[iI].At(itrack, 5, 0)), m_Par[iI].At(itrack, 4, 0), m_Chi2(itrack, 0, 0),
                          m_NFoundHits(itrack, 0, 0),
@@ -660,22 +681,121 @@ namespace mkfit {
               }
 #endif
 
-              if (ddq >= dq)
-                continue;
-              if (ddphi >= dphi)
-                continue;
-              // clang-format off
-              dprintf("     SHI %3u %4u %5u  %6.3f %6.3f %6.4f %7.5f   %s\n",
-                      qi, pi, hi, L.hit_q(hi), L.hit_phi(hi),
-                      ddq, ddphi, (ddq < dq && ddphi < dphi) ? "PASS" : "FAIL");
-              // clang-format on
+#if defined(DUMP_HIT_PRESEL) && defined(MKFIT_STANDALONE)
+              if (sim_lbl >= 0) {
+                const MCHitInfo &mchinfo = m_event->simHitsInfo_[L.refHit(hi_orig).mcHitID()];
+                int hit_lbl = mchinfo.mcTrackID();
+                bool  old_dec = (ddq < dq) && (ddphi < dphi);
+                bool  new_dec = (new_ddq < dq) && (new_ddphi < dphi);
+  #if defined(DEBUG)
+                const char *judge = "N/A";
+                if (sim_lbl == hit_lbl) {
+                  if (old_dec == new_dec)
+                    judge = "SAME";
+                  else if (old_dec)
+                    judge = "WORSE";
+                  else
+                    judge = "BETTER";
+                } else {
+                  if (old_dec == new_dec)
+                    judge = "EQF";
+                  else if (old_dec)
+                    judge = "REJECT_B";
+                  else
+                    judge = "ACCEPT_B";
+                }
+                const char* prop_str = L.is_barrel() ? "propToR" : "propToZ";
+                const auto b2a = [&](bool b) { return b ? "true" : "false"; };
+                dprintf("       %s %.3f -> %7.3f, %7.3f, %7.3f; n_q=%6.3f n_phi=%6.3f dq=%6.4f q_hfsz=%6.4f dphi=%7.5f"
+                        " : %s %s "
+                        " -- %s -- %s %s -- %s\n",
+                  prop_str, L.hit_qbar(hi), mp_s.x, mp_s.y, mp_s.z, new_q, new_phi,
+                  new_ddq, L.hit_q_half_length(hi), new_ddphi,
+                  b2a(new_ddq < dq), b2a(new_ddphi < dphi),
+                  sim_lbl == hit_lbl ? "MATCH" : "OTHER", b2a(old_dec), b2a(new_dec), judge
+                );
+  #endif
+                static bool firstp = true;
+                if (firstp) {
+                  firstp = false;
+                  printf("XXH_HIT "
+                /* 1 */ "event/I:layer:sim_lbl:hit_lbl:match:seed_lbl:"
+                        "sim_pt/F:sim_eta:seed_pt:seed_eta:"
+                        "c_x/F:c_y:c_z:c_px:c_py:c_pz:" // c_ for center layer (i.e., origin)
+                        "h_x/F:h_y:h_z:h_px:h_py:h_pz:" // h_ for at hit (i.e., new)
+                        "dq/F:dphi:"
+                        "c_ddq/F:c_ddphi:c_accept/I:" // (1 dq, 2 dphi, 3 both)
+                        "h_ddq/F:h_ddphi:h_accept/I:" // (1 dq, 2 dphi, 3 both)
+                        "hit_q/F:hit_qhalflen:hit_qbar:hit_phi:"
+                        "c_prop_ok/I:h_prop_ok/I:chi2/F"
+                        "\n");
+                }
+                auto &S = m_event->simTracks_[sim_lbl];
+                int c_acc = (ddq < dq ? 1 : 0) + (ddphi < dphi ? 2 : 0);
+                int h_acc = (new_ddq < dq ? 1 : 0) + (new_ddphi < dphi ? 2 : 0);
+                printf("XXH_HIT "
+               /* 1 */ "%d %d %d %d %d %d "
+                       "%f %f %f %f "
+                       "%f %f %f %f %f %f "
+                       "%f %f %f %f %f %f "
+                       "%f %f "
+                       "%f %f %d "
+                       "%f %f %d "
+                       "%f %f %f %f "
+                       "%d %d %f"
+                       "\n",
+               /* 1 */ m_event->evtID(), L.layer_id(), sim_lbl, hit_lbl, sim_lbl == hit_lbl, thisseedmcid,
+                       S.pT(), S.momEta(), (seed_ptr ? seed_ptr->pT() : -999), (seed_ptr ? seed_ptr->momEta() : -999),
+                       ngr(mp_is.x), ngr(mp_is.y), ngr(mp_is.z), ngr(mp_is.px), ngr(mp_is.py), ngr(mp_is.pz),
+                       ngr(mp_s.x), ngr(mp_s.y), ngr(mp_s.z), ngr(mp_s.px), ngr(mp_s.py), ngr(mp_s.pz),
+                       dq, dphi,
+                       ngr(ddq), ngr(ddphi), c_acc,
+                       ngr(new_ddq), ngr(new_ddphi), h_acc,
+                       ngr(q), L.hit_q_half_length(hi), L.hit_qbar(hi), ngr(phi),
+                       (m_FailFlag[itrack] == 0 ? 1 : 0), prop_ok, ngr(thisOutChi2[itrack])
+                      );
 
-              // MT: Removing extra check gives full efficiency ...
-              //     and means our error estimations are wrong!
-              // Avi says we should have *minimal* search windows per layer.
-              // Also ... if bins are sufficiently small, we do not need the extra
-              // checks, see above.
-              m_XHitArr.At(itrack, m_XHitSize[itrack]++, 0) = hi_orig;
+                ++pcc_all_hits;
+                if (sim_lbl == hit_lbl) {
+                  ++pcc_matced_hits;
+                  if (old_dec) ++pcc_acc_matched_old;
+                  if (new_dec) ++pcc_acc_matched_new;
+                }
+                if (old_dec) ++pcc_acc_old;
+                if (new_dec) ++pcc_acc_new;
+                if (new_ddq < dq)
+                  pos_match_vec.emplace_back(pos_match{ new_ddphi, thisOutChi2[itrack], hit_out_idx++,
+                                                        sim_lbl == hit_lbl });
+              } // if sim_lbl valild
+#endif
+
+              if (NEW_SELECTION) {
+                if (!prop_ok)
+                  continue;
+                if (new_ddq >= dq) // !!!! TO BE IMPROVED
+                  continue;
+                if (new_ddphi >= 1.2f * dphi) // !!!! ALSO, TO BE IMPROVED, just scaling up a bit
+                  continue;
+                if (pqueue_size < NEW_MAX_HIT) {
+                  pqueue.push({ new_ddphi, hi_orig });
+                  ++pqueue_size;
+                } else if (new_ddphi < pqueue.top().score) {
+                  pqueue.pop();
+                  pqueue.push({ new_ddphi, hi_orig });
+                }
+              } else {
+                if (ddq >= dq)
+                  continue;
+                if (ddphi >= dphi)
+                  continue;
+
+                // MT: Removing extra check gives full efficiency ...
+                //     and means our error estimations are wrong!
+                // Avi says we should have *minimal* search windows per layer.
+                // Also ... if bins are sufficiently small, we do not need the extra
+                // checks, see above.
+                m_XHitArr.At(itrack, m_XHitSize[itrack]++, 0) = hi_orig;
+              }
             } else {
               // MT: The following check alone makes more sense with spiral traversal,
               // we'd be taking in closest hits first.
@@ -691,6 +811,74 @@ namespace mkfit {
           }  //hi
         }    //pi
       }      //qi
+
+      if (NEW_SELECTION) {
+        dprintf(" ORDUNG (%d)", pqueue_size);
+        // Reverse hits so best dphis/scores come first in the hit-index list.
+        m_XHitSize[itrack] = pqueue_size;
+        while (pqueue_size) {
+          --pqueue_size;
+          m_XHitArr.At(itrack, pqueue_size, 0) = pqueue.top().hit_index;
+          dprintf("   %d: %f %d", pqueue_size, pqueue.top().score, pqueue.top().hit_index);
+          pqueue.pop();
+        }
+        dprintf("\n");
+      }
+
+#if defined(DUMP_HIT_PRESEL) && defined(MKFIT_STANDALONE)
+      if (sim_lbl >= 0) {
+        // Find ord number of matched hits.
+        std::sort(pos_match_vec.begin(), pos_match_vec.end(),
+                  [](auto &a, auto &b){return a.dphi < b.dphi;});
+        int pmvs = pos_match_vec.size();
+        int oi = 0;
+        int pcc_pos[4] = { -1, -1, -1, -1 };
+        for (int i = 0; i < pmvs && oi < 4; ++i) {
+          if (pos_match_vec[i].matched)
+            pcc_pos[oi++] = i;
+        }
+
+        static bool firstp = true;
+        if (firstp) {
+          firstp = false;
+          printf("XXH_CND "
+                 "event/I:layer:sim_lbl:"
+                 "sim_pt/F:sim_eta:"
+                 "all_hits/I:matched_hits:"
+                 "acc_old/I:acc_new:acc_matched_old:acc_matched_new:"
+                 "pos0/I:pos1:pos2:pos3:"
+                 "dphi0/F:dphi1:dphi2:dphi3:"
+                 "chi20/F:chi21:chi22:chi23:"
+                 "idx0/I:idx1:idx2:idx3"
+                 "\n");
+        }
+        auto &S = m_event->simTracks_[sim_lbl];
+        pos_match dflt { -999.9f, -999.9f, -999, false };
+        pos_match &pmr0 = pcc_pos[0] >=0 ? pos_match_vec[pcc_pos[0]] : dflt,
+                              &pmr1 = pcc_pos[1] >=0 ? pos_match_vec[pcc_pos[1]] : dflt,
+                              &pmr2 = pcc_pos[2] >=0 ? pos_match_vec[pcc_pos[2]] : dflt,
+                              &pmr3 = pcc_pos[3] >=0 ? pos_match_vec[pcc_pos[3]] : dflt;
+        printf("XXH_CND "
+               "%d %d %d "
+               "%f %f "
+               "%d %d "
+               "%d %d %d %d "
+               "%d %d %d %d "
+               "%f %f %f %f "
+               "%f %f %f %f "
+               "%d %d %d %d "
+               "\n",
+               m_event->evtID(), L.layer_id(), sim_lbl,
+               S.pT(), S.momEta(),
+               pcc_all_hits, pcc_matced_hits,
+               pcc_acc_old, pcc_acc_new, pcc_acc_matched_old, pcc_acc_matched_new,
+               pcc_pos[0], pcc_pos[1], pcc_pos[2], pcc_pos[3],
+               pmr0.dphi, pmr1.dphi, pmr2.dphi, pmr3.dphi,
+               pmr0.chi2, pmr1.chi2, pmr2.chi2, pmr3.chi2,
+               pmr0.idx, pmr1.idx, pmr2.idx, pmr3.idx
+              );
+      }
+#endif
     }        //itrack
   }
 

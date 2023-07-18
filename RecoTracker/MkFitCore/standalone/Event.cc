@@ -333,8 +333,10 @@ namespace mkfit {
     }
 #endif
 #ifdef DUMP_LAYER_HITS
+    // clang-format off
     printf("Read %i layers\n", nl);
     int total_hits = 0;
+    float min_delta = 100, max_delta = -100;
     for (int il = 0; il < nl; il++) {
       if (layerHits_[il].empty())
         continue;
@@ -343,18 +345,29 @@ namespace mkfit {
       total_hits += layerHits_[il].size();
       for (int ih = 0; ih < (int)layerHits_[il].size(); ih++) {
         const Hit &hit = layerHits_[il][ih];
-        printf("  mcHitID=%5d r=%10g x=%10g y=%10g z=%10g  sx=%10.4g sy=%10.4e sz=%10.4e\n",
-               hit.mcHitID(),
-               hit.r(),
-               hit.x(),
-               hit.y(),
-               hit.z(),
-               std::sqrt(hit.exx()),
-               std::sqrt(hit.eyy()),
-               std::sqrt(hit.ezz()));
+        const LayerInfo &linfo = Config::TrkInfo[il];
+        unsigned int mid = hit.detIDinLayer();
+        const ModuleInfo &mi = linfo.module_info(mid);
+
+        if ( ! linfo.is_pixel() && ! linfo.is_barrel()) {
+          float delta = mi.half_length - std::sqrt(3)*std::sqrt(hit.exx() + hit.eyy());
+          min_delta = std::min(min_delta, delta);
+          max_delta = std::max(max_delta, delta);
+        }
+        // continue;
+
+        printf("  mcHitID=%5d r=%10g x=%10g y=%10g z=%10g"
+               "  sx=%10.4g sy=%10.4e sz=%10.4e sxy=%10.4e, mhl=%10.4e, delta=%10.4e\n",
+               hit.mcHitID(), hit.r(), hit.x(), hit.y(), hit.z(),
+               std::sqrt(hit.exx()), std::sqrt(hit.eyy()), std::sqrt(hit.ezz()),
+               std::sqrt(hit.exx() + hit.eyy()),
+               mi.half_length,
+               mi.half_length - std::sqrt(3)*std::sqrt(hit.exx() + hit.eyy()));
       }
     }
-    printf("Total hits in all layers = %d\n", total_hits);
+    printf("Total hits in all layers = %d; endcap strips: min_delta=%.5f  max_delta=%.5f\n",
+           total_hits, min_delta, max_delta);
+    // clang-format on
 #endif
 #ifdef DUMP_REC_TRACKS
     printf("Read %i rectracks\n", nert);
