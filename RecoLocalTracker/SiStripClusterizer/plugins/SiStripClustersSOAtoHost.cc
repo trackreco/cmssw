@@ -14,28 +14,37 @@
 
 #include "HeterogeneousCore/CUDACore/interface/ScopedContext.h"
 
-#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersSoADevice.h"
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersSoAHost.h"
 
 #include <memory>
 
 class SiStripSOAtoHost {
 public:
   SiStripSOAtoHost() = default;
-  void makeAsync(const SiStripClustersCUDADevice& clusters_d, cudaStream_t stream) {
-    hostView_ = std::make_unique<SiStripClustersCUDAHost>(clusters_d, stream);
+  void makeAsync(const SiStripClustersSoADevice& clusters_d, cudaStream_t stream) {
+    maxClusters_ = clusters_d.maxClusters();
+    clusters_h_ = SiStripClustersSoAHost(maxClusters_, stream);
+    cudaCheck(cudaMemcpyAsync(clusters_h_.buffer().get(),
+                              clusters_d.const_buffer().get(),
+                              clusters_d.bufferSize(),
+                              cudaMemcpyDeviceToHost,
+                              stream));  // Copy data from Device to Host
   }
-  std::unique_ptr<SiStripClustersCUDAHost> getResults() { return std::move(hostView_); }
+
+  SiStripClustersSoAHost getResults() { return std::move(clusters_h_); }
 
 private:
-  std::unique_ptr<SiStripClustersCUDAHost> hostView_;
+  SiStripClustersSoAHost clusters_h_;
+  uint32_t maxClusters_;
 };
 
 class SiStripClustersSOAtoHost final : public edm::stream::EDProducer<edm::ExternalWork> {
 public:
   explicit SiStripClustersSOAtoHost(const edm::ParameterSet& conf)
       : inputToken_(
-            consumes<cms::cuda::Product<SiStripClustersCUDADevice>>(conf.getParameter<edm::InputTag>("ProductLabel"))),
-        outputToken_(produces<SiStripClustersCUDAHost>()) {}
+            consumes<cms::cuda::Product<SiStripClustersSoADevice>>(conf.getParameter<edm::InputTag>("ProductLabel"))),
+        outputToken_(produces<SiStripClustersSoAHost>()) {}
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
@@ -63,13 +72,13 @@ private:
     // waitingTaskHolder when the queued asynchronous work has finished
   }
 
-  void produce(edm::Event& ev, const edm::EventSetup& es) override { ev.put(gpuAlgo_.getResults()); }
+  void produce(edm::Event& ev, const edm::EventSetup& es) override { ev.emplace(outputToken_, gpuAlgo_.getResults()); }
 
 private:
   SiStripSOAtoHost gpuAlgo_;
 
-  edm::EDGetTokenT<cms::cuda::Product<SiStripClustersCUDADevice>> inputToken_;
-  edm::EDPutTokenT<SiStripClustersCUDAHost> outputToken_;
+  edm::EDGetTokenT<cms::cuda::Product<SiStripClustersSoADevice>> inputToken_;
+  edm::EDPutTokenT<SiStripClustersSoAHost> outputToken_;
 };
 
 #include "FWCore/Framework/interface/MakerMacros.h"
