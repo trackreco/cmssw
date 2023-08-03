@@ -150,7 +150,7 @@ __global__ static void setStripIndexGPU(StripDataView *sst_data_d) {
 
 __global__ static void findLeftRightBoundaryGPU(const StripDataView *sst_data_d,
                                                 const ConditionsDeviceView *conditions,
-                                                SiStripClustersCUDADevice::DeviceView *clust_data_d) {
+                                                SiStripClustersView clust_data_d) {
   const int nStrips = sst_data_d->nStrips;
   const int *__restrict__ seedStripsNCIndex = sst_data_d->seedStripsNCIndex;
   const auto __restrict__ chanlocs = sst_data_d->chanlocs;
@@ -163,11 +163,11 @@ __global__ static void findLeftRightBoundaryGPU(const StripDataView *sst_data_d,
   const float clusterThresholdSquared = sst_data_d->clusterThresholdSquared;
   const int clusterSizeLimit = sst_data_d->clusterSizeLimit;
 
-  auto __restrict__ clusterIndexLeft = clust_data_d->clusterIndex_;
-  auto __restrict__ clusterSize = clust_data_d->clusterSize_;
-  auto __restrict__ clusterDetId = clust_data_d->clusterDetId_;
-  auto __restrict__ firstStrip = clust_data_d->firstStrip_;
-  auto __restrict__ trueCluster = clust_data_d->trueCluster_;
+  auto __restrict__ clusterIndexLeft = clust_data_d.clusterIndex();
+  auto __restrict__ clusterSize = clust_data_d.clusterSize();
+  auto __restrict__ clusterDetId = clust_data_d.clusterDetId();
+  auto __restrict__ firstStrip = clust_data_d.firstStrip();
+  auto __restrict__ trueCluster = clust_data_d.trueCluster();
 
   const int tid = threadIdx.x;
   const int bid = blockIdx.x;
@@ -273,26 +273,26 @@ __global__ static void findLeftRightBoundaryGPU(const StripDataView *sst_data_d,
         (noiseSquared_i * clusterThresholdSquared <= adcSum_i * adcSum_i) and (clusterSize[i] <= clusterSizeLimit);
   }  // i < nSeedStripsNC
   if (first == 0) {
-    clust_data_d->nClusters_ = nSeedStripsNC;
+    clust_data_d.nClusters() = nSeedStripsNC;
   }
 }
 
 __global__ static void checkClusterConditionGPU(StripDataView *sst_data_d,
                                                 const ConditionsDeviceView *conditions,
-                                                SiStripClustersCUDADevice::DeviceView *clust_data_d) {
+                                                SiStripClustersView clust_data_d) {
   const uint16_t *__restrict__ stripId = sst_data_d->stripId;
   const auto __restrict__ chanlocs = sst_data_d->chanlocs;
   const uint16_t *__restrict__ channels = sst_data_d->channel;
   const uint8_t *__restrict__ adc = sst_data_d->adc;
   const float minGoodCharge = sst_data_d->minGoodCharge;  //1620.0;
-  const auto nSeedStripsNC = clust_data_d->nClusters_;
-  const auto __restrict__ clusterIndexLeft = clust_data_d->clusterIndex_;
+  const auto nSeedStripsNC = clust_data_d.nClusters();
+  const auto __restrict__ clusterIndexLeft = clust_data_d.clusterIndex();
 
-  auto __restrict__ clusterSize = clust_data_d->clusterSize_;
-  auto __restrict__ clusterADCs = clust_data_d->clusterADCs_;
-  auto __restrict__ trueCluster = clust_data_d->trueCluster_;
-  auto __restrict__ barycenter = clust_data_d->barycenter_;
-  auto __restrict__ charge = clust_data_d->charge_;
+  auto __restrict__ clusterSize = clust_data_d.clusterSize();
+  auto __restrict__ clusterADCs = clust_data_d.clusterADCs();
+  auto __restrict__ trueCluster = clust_data_d.trueCluster();
+  auto __restrict__ barycenter = clust_data_d.barycenter();
+  auto __restrict__ charge = clust_data_d.charge();
 
   constexpr uint16_t stripIndexMask = 0x7FFF;
 
@@ -341,7 +341,7 @@ __global__ static void checkClusterConditionGPU(StripDataView *sst_data_d,
                   (charge > charge_high_saturation ? adc_high_saturation
                                                    : (charge > charge_low_saturation ? adc_low_saturation : charge));
             }
-            clusterADCs[j * nSeedStripsNC + i] = adc_j;
+            clusterADCs[i][j] = adc_j;
 
             adcSum += static_cast<float>(adc_j);
             sumx += j * adc_j;
@@ -431,18 +431,15 @@ namespace stripgpu {
 #endif
 
     auto clust_data_d = clusters_d_.view();
+
     findLeftRightBoundaryGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_.get(), conditions, clust_data_d);
+
     cudaCheck(cudaGetLastError());
+
 #ifdef GPU_CHECK
     cudaDeviceSynchronize();
     cudaCheck(cudaGetLastError());
 #endif
-
-    cudaCheck(cudaMemcpyAsync(clusters_d_.nClustersPtr(),
-                              &(clust_data_d->nClusters_),
-                              sizeof(clust_data_d->nClusters_),
-                              cudaMemcpyDeviceToHost,
-                              stream));
 
     checkClusterConditionGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_.get(), conditions, clust_data_d);
     cudaCheck(cudaGetLastError());
@@ -450,37 +447,6 @@ namespace stripgpu {
 #ifdef GPU_CHECK
     cudaDeviceSynchronize();
     cudaCheck(cudaGetLastError());
-#endif
-
-#ifdef GPU_DEBUG
-    cudaStreamSynchronize(stream);
-    auto clust_data = std::make_unique<SiStripClustersCUDAHost>(clusters_d_, stream);
-    cudaStreamSynchronize(stream);
-
-    const auto clusterIndexLeft = clust_data->clusterIndex().get();
-    const auto clusterSize = clust_data->clusterSize().get();
-    const auto trueCluster = clust_data->trueCluster().get();
-    const auto clusterADCs = clust_data->clusterADCs().get();
-    const auto detids = clust_data->clusterDetId().get();
-    const auto charge = clust_data->charge().get();
-
-    const auto nSeedStripsNC = clusters_d_.nClusters();
-    std::cout << "findClusterGPU nSeedStripsNC=" << nSeedStripsNC << std::endl;
-
-    for (auto i = 0U; i < nSeedStripsNC; i++) {
-      if (trueCluster[i]) {
-        int left = clusterIndexLeft[i];
-        uint32_t size = clusterSize[i];
-        const auto detid = detids[i];
-        std::cout << "i=" << i << " detId " << detid << " left " << left << " size " << size << " charge " << charge[i]
-                  << ": ";
-        size = std::min(size, maxClusterSize_);
-        for (uint32_t j = 0; j < size; j++) {
-          std::cout << (unsigned int)clusterADCs[j * nSeedStripsNC + i] << " ";
-        }
-        std::cout << std::endl;
-      }
-    }
 #endif
   }
 

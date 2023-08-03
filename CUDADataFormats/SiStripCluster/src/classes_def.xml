@@ -1,6 +1,13 @@
 <lcgdict>
-  <class name="cms::cuda::Product<SiStripClustersCUDADevice>" persistent="false"/>
-  <class name="edm::Wrapper<cms::cuda::Product<SiStripClustersCUDADevice>>" persistent="false"/>
-  <class name="SiStripClustersCUDAHost" persistent="false"/>
-  <class name="edm::Wrapper<SiStripClustersCUDAHost>" persistent="false"/>
+  <class name="SiStripClustersSoADevice" persistent="false"/>
+  <class name="edm::Wrapper<SiStripClustersSoADevice>" persistent="false"/>
+
+  <class name="cms::cuda::Product<SiStripClustersSoADevice>" persistent="false"/>
+  <class name="edm::Wrapper<cms::cuda::Product<SiStripClustersSoADevice>>" persistent="false"/>
+
+  <class name="SiStripClustersSoAHost" persistent="false"/>
+  <class name="edm::Wrapper<SiStripClustersSoAHost>"  persistent="false"/>
+
+  <class name="cms::cuda::Product<SiStripClustersSoAHost>" persistent="false"/>
+  <class name="edm::Wrapper<cms::cuda::Product<SiStripClustersSoAHost>>" persistent="false"/>
 </lcgdict>
