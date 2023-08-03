@@ -1,7 +1,6 @@
 #ifndef RecoLocalTracker_SiStripClusterizer_plugins_StripDataView_h
 #define RecoLocalTracker_SiStripClusterizer_plugins_StripDataView_h
 
-#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
 #include "FWCore/Utilities/interface/HostDeviceConstant.h"
 
 #include <cstdint>

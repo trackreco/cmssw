@@ -6,6 +6,8 @@
 
 #include "SiStripRawToClusterGPUKernel.h"
 
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersSoADevice.h"
+
 #include "CalibFormats/SiStripObjects/interface/SiStripClusterizerConditionsGPU.h"
 #include "ChannelLocsGPU.h"
 #include "StripDataView.h"
@@ -126,6 +128,7 @@ namespace stripgpu {
     const auto& condGPU = conditions.getGPUProductAsync(stream);
 
     unpackChannelsGPU(condGPU.deviceView(), stream);
+
 #ifdef GPU_CHECK
     cudaCheck(cudaStreamSynchronize(stream));
 #endif
@@ -166,13 +169,13 @@ namespace stripgpu {
     allocateSSTDataGPU(n_strips, stream);
     setSeedStripsNCIndexGPU(condGPU.deviceView(), stream);
 
-    clusters_d_ = SiStripClustersCUDADevice(kMaxSeedStrips, maxClusterSize_, stream);
+    clusters_d_ = SiStripClustersSoADevice(kMaxSeedStrips, stream);
     findClusterGPU(condGPU.deviceView(), stream);
 
     stripdata_.reset();
   }
 
-  SiStripClustersCUDADevice SiStripRawToClusterGPUKernel::getResults(cudaStream_t stream) {
+  SiStripClustersSoADevice SiStripRawToClusterGPUKernel::getResults(cudaStream_t stream) {
     reset();
 
     return std::move(clusters_d_);
