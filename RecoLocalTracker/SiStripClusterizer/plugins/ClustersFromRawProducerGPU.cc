@@ -104,7 +104,7 @@ private:
     // OutputData to cms::cuda::Product<OutputData>. cms::cuda::Product<T> stores also
     // the current device and the CUDA stream since those will be needed
     // in the consumer side.
-    ctx.emplace(ev, outputToken_, gpuAlgo_.getResults(ctx.stream()));
+    ctx.emplace(ev, outputToken_, std::move(gpuAlgo_.getResults(ctx.stream())));
 
     for (auto& buf : buffers_)
       buf.reset(nullptr);

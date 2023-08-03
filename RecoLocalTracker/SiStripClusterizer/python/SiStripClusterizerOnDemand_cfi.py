@@ -7,7 +7,7 @@ from RecoLocalTracker.SiStripClusterizer.DefaultClusterizer_cff import *
 from RecoLocalTracker.SiStripZeroSuppression.DefaultAlgorithms_cff import *
 
 from RecoLocalTracker.SiStripClusterizer.siStripClusterizerFromRawGPU_cfi import siStripClusterizerFromRawGPU
-from RecoLocalTracker.SiStripClusterizer.siStripClustersSOAtoHost_cfi import siStripClustersSOAtoHost
+#from RecoLocalTracker.SiStripClusterizer.siStripClustersSOAtoHost_cfi import siStripClustersSOAtoHost
 from RecoLocalTracker.SiStripClusterizer.siStripClustersFromSOA_cfi import siStripClustersFromSOA
 from RecoLocalTracker.SiStripClusterizer.SiStripClusterizerConditionsGPUESProducer_cfi import SiStripClusterizerConditionsGPUESProducer
 
@@ -45,7 +45,7 @@ gpu.toReplaceWith(siStripClustersTaskCUDA, cms.Task(
     # reconstruct the strip clusters on the gpu
     siStripClusterizerFromRawGPU,
     # copy clusters from GPU to pinned host memory
-    siStripClustersSOAtoHost,
+    #siStripClustersSOAtoHost,
 ))
 
 gpu.toReplaceWith(siStripClustersTask, cms.Task(

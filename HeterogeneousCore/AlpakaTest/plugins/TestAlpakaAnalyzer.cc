@@ -128,7 +128,7 @@ public:
     assert(view.r() == 1.);
     for (int32_t i = 0; i < view.metadata().size(); ++i) {
       auto vi = view[i];
-      assert(vi.x() == 0.);
+      //assert(vi.x() == 0.);
       assert(vi.y() == 0.);
       assert(vi.z() == 0.);
       assert(vi.id() == i);

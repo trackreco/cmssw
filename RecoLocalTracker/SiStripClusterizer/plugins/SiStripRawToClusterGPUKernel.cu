@@ -150,7 +150,7 @@ __global__ static void setStripIndexGPU(StripDataView *sst_data_d) {
 
 __global__ static void findLeftRightBoundaryGPU(const StripDataView *sst_data_d,
                                                 const ConditionsDeviceView *conditions,
-                                                SiStripClustersCUDADevice::DeviceView *clust_data_d) {
+                                                SiStripClustersSoAView *clust_data_d) {
   const int nStrips = sst_data_d->nStrips;
   const int *__restrict__ seedStripsNCIndex = sst_data_d->seedStripsNCIndex;
   const auto __restrict__ chanlocs = sst_data_d->chanlocs;
@@ -163,11 +163,11 @@ __global__ static void findLeftRightBoundaryGPU(const StripDataView *sst_data_d,
   const float clusterThresholdSquared = sst_data_d->clusterThresholdSquared;
   const int clusterSizeLimit = sst_data_d->clusterSizeLimit;
 
-  auto __restrict__ clusterIndexLeft = clust_data_d->clusterIndex_;
-  auto __restrict__ clusterSize = clust_data_d->clusterSize_;
-  auto __restrict__ clusterDetId = clust_data_d->clusterDetId_;
-  auto __restrict__ firstStrip = clust_data_d->firstStrip_;
-  auto __restrict__ trueCluster = clust_data_d->trueCluster_;
+  auto __restrict__ clusterIndexLeft = clust_data_d->clusterIndex();
+  auto __restrict__ clusterSize = clust_data_d->clusterSize();
+  auto __restrict__ clusterDetId = clust_data_d->clusterDetId();
+  auto __restrict__ firstStrip = clust_data_d->firstStrip();
+  auto __restrict__ trueCluster = clust_data_d->trueCluster();
 
   const int tid = threadIdx.x;
   const int bid = blockIdx.x;
@@ -273,26 +273,26 @@ __global__ static void findLeftRightBoundaryGPU(const StripDataView *sst_data_d,
         (noiseSquared_i * clusterThresholdSquared <= adcSum_i * adcSum_i) and (clusterSize[i] <= clusterSizeLimit);
   }  // i < nSeedStripsNC
   if (first == 0) {
-    clust_data_d->nClusters_ = nSeedStripsNC;
+    clust_data_d->nClusters() = nSeedStripsNC;
   }
 }
 
 __global__ static void checkClusterConditionGPU(StripDataView *sst_data_d,
                                                 const ConditionsDeviceView *conditions,
-                                                SiStripClustersCUDADevice::DeviceView *clust_data_d) {
+                                                SiStripClustersSoAView *clust_data_d) {
   const uint16_t *__restrict__ stripId = sst_data_d->stripId;
   const auto __restrict__ chanlocs = sst_data_d->chanlocs;
   const uint16_t *__restrict__ channels = sst_data_d->channel;
   const uint8_t *__restrict__ adc = sst_data_d->adc;
   const float minGoodCharge = sst_data_d->minGoodCharge;  //1620.0;
-  const auto nSeedStripsNC = clust_data_d->nClusters_;
-  const auto __restrict__ clusterIndexLeft = clust_data_d->clusterIndex_;
+  const auto nSeedStripsNC = clust_data_d->nClusters();
+  const auto __restrict__ clusterIndexLeft = clust_data_d->clusterIndex();
 
-  auto __restrict__ clusterSize = clust_data_d->clusterSize_;
-  auto __restrict__ clusterADCs = clust_data_d->clusterADCs_;
-  auto __restrict__ trueCluster = clust_data_d->trueCluster_;
-  auto __restrict__ barycenter = clust_data_d->barycenter_;
-  auto __restrict__ charge = clust_data_d->charge_;
+  auto __restrict__ clusterSize = clust_data_d->clusterSize();
+  auto __restrict__ clusterADCs = clust_data_d->clusterADCs();
+  auto __restrict__ trueCluster = clust_data_d->trueCluster();
+  auto __restrict__ barycenter = clust_data_d->barycenter();
+  auto __restrict__ charge = clust_data_d->charge();
 
   constexpr uint16_t stripIndexMask = 0x7FFF;
 
@@ -430,21 +430,23 @@ namespace stripgpu {
     }
 #endif
 
+	//SiStripClustersSoAView clust_data_d;
     auto clust_data_d = clusters_d_.view();
-    findLeftRightBoundaryGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_.get(), conditions, clust_data_d);
+	
+    findLeftRightBoundaryGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_.get(), conditions, &clust_data_d);
     cudaCheck(cudaGetLastError());
 #ifdef GPU_CHECK
     cudaDeviceSynchronize();
     cudaCheck(cudaGetLastError());
 #endif
 
-    cudaCheck(cudaMemcpyAsync(clusters_d_.nClustersPtr(),
-                              &(clust_data_d->nClusters_),
-                              sizeof(clust_data_d->nClusters_),
+    cudaCheck(cudaMemcpyAsync(&(clust_data_d.nClusters()),
+                              &(clust_data_d.nClusters()),
+                              sizeof(clust_data_d.nClusters()),
                               cudaMemcpyDeviceToHost,
                               stream));
 
-    checkClusterConditionGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_.get(), conditions, clust_data_d);
+    checkClusterConditionGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_.get(), conditions, &clust_data_d);
     cudaCheck(cudaGetLastError());
 
 #ifdef GPU_CHECK

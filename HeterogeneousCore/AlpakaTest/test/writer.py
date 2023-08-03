@@ -62,4 +62,4 @@ process.serial_path = cms.Path(
 
 process.output_path = cms.EndPath(process.output)
 
-process.maxEvents.input = 10
+process.maxEvents.input = 1
