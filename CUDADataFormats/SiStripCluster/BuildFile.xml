@@ -1,6 +1,7 @@
 <use name="DataFormats/Common"/>
 <use name="CUDADataFormats/Common"/>
 <use name="HeterogeneousCore/CUDAUtilities"/>
+<use name="DataFormats/SoATemplate" source_only="1"/>
 <use name="cuda"/>
 <use name="rootcore"/>
 

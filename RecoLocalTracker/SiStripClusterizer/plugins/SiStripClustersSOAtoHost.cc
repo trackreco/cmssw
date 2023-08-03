@@ -15,6 +15,7 @@
 #include "HeterogeneousCore/CUDACore/interface/ScopedContext.h"
 
 #include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDAHost.h"
 
 #include <memory>
 
@@ -22,12 +23,13 @@ class SiStripSOAtoHost {
 public:
   SiStripSOAtoHost() = default;
   void makeAsync(const SiStripClustersCUDADevice& clusters_d, cudaStream_t stream) {
-    hostView_ = std::make_unique<SiStripClustersCUDAHost>(clusters_d, stream);
+    host_ = SiStripClustersCUDAHost(clusters_d->maxClusterSize(), stream);
   }
-  std::unique_ptr<SiStripClustersCUDAHost> getResults() { return std::move(hostView_); }
+
+  SiStripClustersCUDAHost getResults() { return std::move(host_); }
 
 private:
-  std::unique_ptr<SiStripClustersCUDAHost> hostView_;
+  SiStripClustersCUDAHost host_;
 };
 
 class SiStripClustersSOAtoHost final : public edm::stream::EDProducer<edm::ExternalWork> {
@@ -63,7 +65,7 @@ private:
     // waitingTaskHolder when the queued asynchronous work has finished
   }
 
-  void produce(edm::Event& ev, const edm::EventSetup& es) override { ev.put(gpuAlgo_.getResults()); }
+  void produce(edm::Event& ev, const edm::EventSetup& es) override { ev.emplace(outputToken_, gpuAlgo_.getResults()); }
 
 private:
   SiStripSOAtoHost gpuAlgo_;
