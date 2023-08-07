@@ -430,9 +430,9 @@ namespace stripgpu {
     }
 #endif
 
-	//SiStripClustersSoAView clust_data_d;
+    //SiStripClustersSoAView clust_data_d;
     auto clust_data_d = clusters_d_.view();
-	
+
     findLeftRightBoundaryGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_.get(), conditions, &clust_data_d);
     cudaCheck(cudaGetLastError());
 #ifdef GPU_CHECK

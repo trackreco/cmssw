@@ -14,13 +14,16 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
 #include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDAHost.h"
 
 #include "CUDADataFormats/Common/interface/Product.h"
 #include "FWCore/Framework/interface/ConsumesCollector.h"
-
+#include <iostream>
 #include <memory>
 
 class SiStripClustersFromSOA final : public edm::stream::EDProducer<> {
+
+
 public:
   //SiStripClustersSoAView view;
   explicit SiStripClustersFromSOA(const edm::ParameterSet& conf)
@@ -29,8 +32,8 @@ public:
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
-
-    desc.add("ProductLabel", edm::InputTag("siStripClusterizerFromRawGPU"));
+	
+    desc.add("ProductLabel", edm::InputTag("siStripClustersSOAtoHost"));
     descriptions.addWithDefaultLabel(desc);
   }
 
@@ -81,7 +84,7 @@ private:
   }
 
 private:
-  edm::EDGetTokenT<SiStripClustersCUDADevice> inputToken_;
+  edm::EDGetTokenT<SiStripClustersCUDAHost> inputToken_;
   edm::EDPutTokenT<edmNew::DetSetVector<SiStripCluster>> outputToken_;
 };
 
