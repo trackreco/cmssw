@@ -341,7 +341,7 @@ __global__ static void checkClusterConditionGPU(StripDataView *sst_data_d,
                   (charge > charge_high_saturation ? adc_high_saturation
                                                    : (charge > charge_low_saturation ? adc_low_saturation : charge));
             }
-            clusterADCs[j * nSeedStripsNC + i] = adc_j;
+            clusterADCs[i][j] = adc_j;
 
             adcSum += static_cast<float>(adc_j);
             sumx += j * adc_j;

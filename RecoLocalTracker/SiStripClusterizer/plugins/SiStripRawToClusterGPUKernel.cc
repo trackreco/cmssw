@@ -166,7 +166,7 @@ namespace stripgpu {
     allocateSSTDataGPU(n_strips, stream);
     setSeedStripsNCIndexGPU(condGPU.deviceView(), stream);
 
-    clusters_d_ = SiStripClustersCUDADevice(kMaxSeedStrips, maxClusterSize_, stream);
+    clusters_d_ = SiStripClustersCUDADevice(kMaxSeedStrips, stream);
     findClusterGPU(condGPU.deviceView(), stream);
 
     stripdata_.reset();

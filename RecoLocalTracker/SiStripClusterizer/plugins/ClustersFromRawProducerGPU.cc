@@ -71,7 +71,7 @@ public:
         outputToken_(produces<cms::cuda::Product<SiStripClustersCUDADevice>>()),
         conditionsToken_(esConsumes(edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")})),
         cpuConditionsToken_(esConsumes(edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")})) {
-    //std::cout << "1inProduce ------" << std::endl;
+
   }
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
@@ -82,26 +82,27 @@ private:
                edm::WaitingTaskWithArenaHolder waitingTaskHolder) override {
     const auto& conditions = es.getData(conditionsToken_);        //these need to be GPU conditions
     const auto& cpuConditions = es.getData(cpuConditionsToken_);  //CPU conditions
-    //std::cout << "2inProduce ------" << std::endl;
+
     // Sets the current device and creates a CUDA stream
     cms::cuda::ScopedContextAcquire ctx{ev.streamID(), std::move(waitingTaskHolder), ctxState_};
-    //std::cout << "3inProduce ------" << std::endl;
+
     // get raw data
     auto const& rawData = ev.get(inputToken_);
     run(rawData, cpuConditions);
 
     // Queues asynchronous data transfers and kernels to the CUDA stream
     // returned by cms::cuda::ScopedContextAcquire::stream()
-    gpuAlgo_.makeAsync(raw_, buffers_, conditions, ctx.stream());
-
+    
+	gpuAlgo_.makeAsync(raw_, buffers_, conditions, ctx.stream());
+	std::cout << "after algo ------------------------" << std::endl;
     // Destructor of ctx queues a callback to the CUDA stream notifying
     // waitingTaskHolder when the queued asynchronous work has finished
   }
 
   void produce(edm::Event& ev, const edm::EventSetup& es) override {
-    cms::cuda::ScopedContextProduce ctx{ctxState_};
-
-    //std::cout << "4inProduce ------" << std::endl;
+    std::cout << "produce ------------------------" << std::endl;
+	cms::cuda::ScopedContextProduce ctx{ctxState_};
+	std::cout << "produce ------------------------" << std::endl;
 
     // Now getResult() returns data in GPU memory that is passed to the
     // constructor of OutputData. cms::cuda::ScopedContextProduce::emplace() wraps the
@@ -133,7 +134,7 @@ private:
 
 void SiStripClusterizerFromRawGPU::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
-  //std::cout << "5inProduce ------" << std::endl;
+
   desc.add("ProductLabel", edm::InputTag("rawDataCollector"));
   desc.add<std::string>("ConditionsLabel", "");
 
@@ -146,7 +147,7 @@ void SiStripClusterizerFromRawGPU::fillDescriptions(edm::ConfigurationDescriptio
 
 void SiStripClusterizerFromRawGPU::run(const FEDRawDataCollection& rawColl,
                                        const SiStripClusterizerConditions& conditions) {
-  //std::cout << "6inProduce ------" << std::endl;
+
   // loop over good det in cabling
   for (auto idet : conditions.allDetIds()) {
     fill(idet, rawColl, conditions);
@@ -156,7 +157,7 @@ void SiStripClusterizerFromRawGPU::run(const FEDRawDataCollection& rawColl,
 void SiStripClusterizerFromRawGPU::fill(uint32_t idet,
                                         const FEDRawDataCollection& rawColl,
                                         const SiStripClusterizerConditions& conditions) {
-  //std::cout << "7inProduce ------" << std::endl;
+
   auto const& det = conditions.findDetId(idet);
   if (!det.valid())
     return;

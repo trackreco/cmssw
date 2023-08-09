@@ -25,7 +25,7 @@ class SiStripClustersFromSOA final : public edm::stream::EDProducer<> {
 
 
 public:
-  //SiStripClustersSoAView view;
+
   explicit SiStripClustersFromSOA(const edm::ParameterSet& conf)
       : inputToken_(consumes(conf.getParameter<edm::InputTag>("ProductLabel"))),
         outputToken_(produces<edmNew::DetSetVector<SiStripCluster>>()) {}
@@ -40,8 +40,6 @@ public:
 private:
   void produce(edm::Event& ev, const edm::EventSetup& es) override {
     const auto& clust_data = ev.get(inputToken_);
-
-    // ev.get(inputToken_) view;
 
     const int nSeedStripsNC = clust_data->nClusters();
     const auto clusterSize = clust_data->clusterSize();
@@ -71,7 +69,7 @@ private:
           adcs.reserve(size);
 
           for (uint32_t j = 0; j < size; ++j) {
-            adcs.push_back(clusterADCs[i + j * nSeedStripsNC]);
+            adcs.push_back(clusterADCs[i][j]);
           }
           record.push_back(SiStripCluster(firstStrip, std::move(adcs)));
         }
