@@ -6,6 +6,9 @@
 
 #include "SiStripRawToClusterGPUKernel.h"
 
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDAHost.h"
+
 #include "CalibFormats/SiStripObjects/interface/SiStripClusterizerConditionsGPU.h"
 #include "ChannelLocsGPU.h"
 #include "StripDataView.h"
@@ -34,7 +37,8 @@ namespace stripgpu {
                                                const std::vector<std::unique_ptr<sistrip::FEDBuffer>>& buffers,
                                                const SiStripClusterizerConditionsGPU& conditions,
                                                cudaStream_t stream) {
-    size_t totalSize{0};
+    
+	size_t totalSize{0};
     for (const auto& buff : buffers) {
       if (buff != nullptr) {
         totalSize += buff->bufferSize();
@@ -70,6 +74,7 @@ namespace stripgpu {
       }
     }
     // send rawdata to GPU
+	std::cout << "app ---------------------------------" << std::endl;
     cms::cuda::copyAsync(fedRawDataGPU, fedRawDataHost, totalSize, stream);
 
     const auto& detmap = conditions.detToFeds();
@@ -117,7 +122,7 @@ namespace stripgpu {
 
     sst_data_d_ = cms::cuda::make_host_unique<StripDataView>(stream);
     sst_data_d_->nStrips = n_strips;
-
+	
     chanlocsGPU_ = std::make_unique<ChannelLocsGPU>(detmap.size(), stream);
     chanlocsGPU_->setVals(chanlocs.get(), std::move(inputGPU), stream);
 
@@ -126,8 +131,10 @@ namespace stripgpu {
     const auto& condGPU = conditions.getGPUProductAsync(stream);
 
     unpackChannelsGPU(condGPU.deviceView(), stream);
+	
+	cudaCheck(cudaStreamSynchronize(stream));
 #ifdef GPU_CHECK
-    cudaCheck(cudaStreamSynchronize(stream));
+    //cudaCheck(cudaStreamSynchronize(stream));
 #endif
 
 #ifdef EDM_ML_DEBUG
@@ -166,8 +173,18 @@ namespace stripgpu {
     allocateSSTDataGPU(n_strips, stream);
     setSeedStripsNCIndexGPU(condGPU.deviceView(), stream);
 
+	//cudaStream_t stream1;
+
     clusters_d_ = SiStripClustersCUDADevice(kMaxSeedStrips, stream);
-    findClusterGPU(condGPU.deviceView(), stream);
+    std::cout << "paa -----------------------------" << std::endl;
+	std::cout << clusters_d_.view()->nClusters() << std::endl;
+	std::cout << clusters_d_->maxClusterSize() << std::endl;
+	std::cout << "paaw -----------------------------" << std::endl;
+	for(uint32_t i=0; i < clusters_d_->nClusters();i++){
+		std::cout << clusters_d_->clusterSize()[i] << std::endl;
+	}
+	std::cout << "paa -----------------------------" << std::endl;
+	findClusterGPU(condGPU.deviceView(), stream);
 
     stripdata_.reset();
   }

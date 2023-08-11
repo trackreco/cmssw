@@ -12,28 +12,23 @@
 
 #include <cuda_runtime.h>
 
-class SiStripClustersCUDADevice : public cms::cuda::PortableDeviceCollection<SiStripClustersSoA> {
-
+class SiStripClustersCUDADevice : public cms::cuda::PortableDeviceCollection<stripTest::SiStripClustersSoA> {
 public:
   SiStripClustersCUDADevice() = default;
   ~SiStripClustersCUDADevice() = default;
-  
-  using cms::cuda::PortableDeviceCollection<SiStripClustersSoA>::view;
-  using cms::cuda::PortableDeviceCollection<SiStripClustersSoA>::const_view;
-  using cms::cuda::PortableDeviceCollection<SiStripClustersSoA>::buffer;
-  using cms::cuda::PortableDeviceCollection<SiStripClustersSoA>::bufferSize;
-  
- 
-  explicit SiStripClustersCUDADevice(uint32_t maxClusters, cudaStream_t stream) 
-  : cms::cuda::PortableDeviceCollection<SiStripClustersSoA>(maxClusters, stream) {};
-	 
 
- 
+  using cms::cuda::PortableDeviceCollection<stripTest::SiStripClustersSoA>::view;
+  using cms::cuda::PortableDeviceCollection<stripTest::SiStripClustersSoA>::const_view;
+  using cms::cuda::PortableDeviceCollection<stripTest::SiStripClustersSoA>::buffer;
+  using cms::cuda::PortableDeviceCollection<stripTest::SiStripClustersSoA>::bufferSize;
+
+  explicit SiStripClustersCUDADevice(uint32_t maxClusters, cudaStream_t stream)
+      : cms::cuda::PortableDeviceCollection<stripTest::SiStripClustersSoA>(maxClusters, stream){};
+
   SiStripClustersCUDADevice(SiStripClustersCUDADevice &&) = default;
   SiStripClustersCUDADevice &operator=(SiStripClustersCUDADevice &&) = default;
 
 private:
-  
 };
 
 #endif

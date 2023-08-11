@@ -70,9 +70,7 @@ public:
         inputToken_(consumes(conf.getParameter<edm::InputTag>("ProductLabel"))),
         outputToken_(produces<cms::cuda::Product<SiStripClustersCUDADevice>>()),
         conditionsToken_(esConsumes(edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")})),
-        cpuConditionsToken_(esConsumes(edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")})) {
-
-  }
+        cpuConditionsToken_(esConsumes(edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")})) {}
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
@@ -92,17 +90,17 @@ private:
 
     // Queues asynchronous data transfers and kernels to the CUDA stream
     // returned by cms::cuda::ScopedContextAcquire::stream()
-    
-	gpuAlgo_.makeAsync(raw_, buffers_, conditions, ctx.stream());
-	std::cout << "after algo ------------------------" << std::endl;
+
+    gpuAlgo_.makeAsync(raw_, buffers_, conditions, ctx.stream());
+    std::cout << "after algo ------------------------" << std::endl;
     // Destructor of ctx queues a callback to the CUDA stream notifying
     // waitingTaskHolder when the queued asynchronous work has finished
   }
 
   void produce(edm::Event& ev, const edm::EventSetup& es) override {
     std::cout << "produce ------------------------" << std::endl;
-	cms::cuda::ScopedContextProduce ctx{ctxState_};
-	std::cout << "produce ------------------------" << std::endl;
+    cms::cuda::ScopedContextProduce ctx{ctxState_};
+    std::cout << "produce ------------------------" << std::endl;
 
     // Now getResult() returns data in GPU memory that is passed to the
     // constructor of OutputData. cms::cuda::ScopedContextProduce::emplace() wraps the
@@ -147,7 +145,6 @@ void SiStripClusterizerFromRawGPU::fillDescriptions(edm::ConfigurationDescriptio
 
 void SiStripClusterizerFromRawGPU::run(const FEDRawDataCollection& rawColl,
                                        const SiStripClusterizerConditions& conditions) {
-
   // loop over good det in cabling
   for (auto idet : conditions.allDetIds()) {
     fill(idet, rawColl, conditions);
@@ -157,7 +154,6 @@ void SiStripClusterizerFromRawGPU::run(const FEDRawDataCollection& rawColl,
 void SiStripClusterizerFromRawGPU::fill(uint32_t idet,
                                         const FEDRawDataCollection& rawColl,
                                         const SiStripClusterizerConditions& conditions) {
-
   auto const& det = conditions.findDetId(idet);
   if (!det.valid())
     return;

@@ -10,7 +10,6 @@
 #include "CUDADataFormats/Common/interface/PortableHostCollection.h"
 #include "CUDADataFormats/SiStripCluster/interface/SiStripUtilities.h"
 
-
 #include <cuda_runtime.h>
 
 class SiStripClustersCUDAHost : public cms::cuda::PortableHostCollection<SiStripClustersSoA> {
@@ -30,8 +29,6 @@ public:
   SiStripClustersCUDAHost &operator=(SiStripClustersCUDAHost &&) = default;
 
 private:
-  
 };
-
 
 #endif

@@ -23,9 +23,20 @@ class SiStripSOAtoHost {
 public:
   SiStripSOAtoHost() = default;
   void makeAsync(const SiStripClustersCUDADevice& clusters_d, cudaStream_t stream) {
-    
-	hostView_ = SiStripClustersCUDAHost(clusters_d->maxClusterSize(), stream);
-	//hostView_ = tempView;
+    std::cout << clusters_d->nClusters() << std::endl;
+    std::cout << clusters_d->maxClusterSize() << std::endl;
+    for (uint32_t i = 0; i < clusters_d->nClusters(); i++) {
+      std::cout << clusters_d->clusterSize()[i] << std::endl;
+    }
+    hostView_ = SiStripClustersCUDAHost(clusters_d->maxClusterSize(), stream);
+
+    std::cout << hostView_->nClusters() << std::endl;
+    std::cout << hostView_->maxClusterSize() << std::endl;
+
+    for (uint32_t i = 0; i < hostView_->nClusters(); i++) {
+      std::cout << hostView_->clusterSize()[i] << std::endl;
+    }
+    //hostView_ = tempView;
   }
 
   SiStripClustersCUDAHost getResults() { return std::move(hostView_); }
