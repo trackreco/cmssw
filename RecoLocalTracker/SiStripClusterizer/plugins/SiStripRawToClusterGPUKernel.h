@@ -2,7 +2,7 @@
 #define RecoLocalTracker_SiStripClusterizer_plugins_SiStripRawToClusterGPUKernel_h
 
 #include "HeterogeneousCore/CUDAUtilities/interface/device_unique_ptr.h"
-#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersSoADevice.h"
 
 #include "CalibFormats/SiStripObjects/interface/SiStripClusterizerConditionsGPU.h"
 //#include "clusterGPU.cuh"
@@ -45,7 +45,7 @@ namespace stripgpu {
                    const SiStripClusterizerConditionsGPU& conditions,
                    cudaStream_t stream);
     void copyAsync(cudaStream_t stream);
-    SiStripClustersCUDADevice getResults(cudaStream_t stream);
+    SiStripClustersSoADevice getResults(cudaStream_t stream);
 
   private:
     using ConditionsDeviceView = SiStripClusterizerConditionsGPU::Data::DeviceView;
@@ -67,7 +67,7 @@ namespace stripgpu {
     cms::cuda::host::unique_ptr<StripDataView> sst_data_d_;
     cms::cuda::device::unique_ptr<StripDataView> pt_sst_data_d_;
 
-    SiStripClustersCUDADevice clusters_d_;
+    SiStripClustersSoADevice clusters_d_;
     float channelThreshold_, seedThreshold_, clusterThresholdSquared_;
     uint8_t maxSequentialHoles_, maxSequentialBad_, maxAdjacentBad_;
     uint32_t maxClusterSize_;

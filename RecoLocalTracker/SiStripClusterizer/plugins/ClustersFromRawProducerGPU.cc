@@ -68,7 +68,7 @@ public:
         raw_(sistrip::FED_ID_MAX),
         gpuAlgo_(conf.getParameter<edm::ParameterSet>("Clusterizer")),
         inputToken_(consumes(conf.getParameter<edm::InputTag>("ProductLabel"))),
-        outputToken_(produces<cms::cuda::Product<SiStripClustersCUDADevice>>()),
+        outputToken_(produces<cms::cuda::Product<SiStripClustersSoADevice>>()),
         conditionsToken_(esConsumes(edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")})),
         cpuConditionsToken_(esConsumes(edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")})) {}
 
@@ -121,7 +121,7 @@ private:
   stripgpu::SiStripRawToClusterGPUKernel gpuAlgo_;
 
   edm::EDGetTokenT<FEDRawDataCollection> inputToken_;
-  edm::EDPutTokenT<cms::cuda::Product<SiStripClustersCUDADevice>> outputToken_;
+  edm::EDPutTokenT<cms::cuda::Product<SiStripClustersSoADevice>> outputToken_;
   edm::ESGetToken<stripgpu::SiStripClusterizerConditionsGPU, SiStripClusterizerConditionsRcd> conditionsToken_;
   edm::ESGetToken<SiStripClusterizerConditions, SiStripClusterizerConditionsRcd> cpuConditionsToken_;
 };

@@ -13,8 +13,7 @@
 #include "FWCore/Framework/interface/ESHandle.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
-#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
-#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDAHost.h"
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersSoAHost.h"
 
 #include "CUDADataFormats/Common/interface/Product.h"
 #include "FWCore/Framework/interface/ConsumesCollector.h"
@@ -79,7 +78,7 @@ private:
   }
 
 private:
-  edm::EDGetTokenT<SiStripClustersCUDAHost> inputToken_;
+  edm::EDGetTokenT<SiStripClustersSoAHost> inputToken_;
   edm::EDPutTokenT<edmNew::DetSetVector<SiStripCluster>> outputToken_;
 };
 
