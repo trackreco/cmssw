@@ -6,6 +6,11 @@
 
 class SiStripClustersSoAHost : public cms::cuda::PortableHostCollection<SiStripClustersLayout> {
 public:
+  using cms::cuda::PortableHostCollection<SiStripClustersLayout>::view;
+  using cms::cuda::PortableHostCollection<SiStripClustersLayout>::const_view;
+  using cms::cuda::PortableHostCollection<SiStripClustersLayout>::buffer;
+  using cms::cuda::PortableHostCollection<SiStripClustersLayout>::bufferSize;
+
   SiStripClustersSoAHost() = default;
   ~SiStripClustersSoAHost() = default;
 
