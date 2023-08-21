@@ -15,11 +15,11 @@ public:
   ~SiStripClustersSoADevice() = default;
 
   explicit SiStripClustersSoADevice(uint32_t maxClusters, cudaStream_t stream)
-      : cms::cuda::PortableDeviceCollection<SiStripClustersLayout>(maxClusters, stream),
-        maxClusters_{maxClusters} {
-        const uint32_t maxStripsPerCluster = 768;
-        cudaCheck(cudaMemcpyAsync(&(view().maxClusterSize()), &maxStripsPerCluster, sizeof(uint32_t), cudaMemcpyDefault, stream));
-      };
+      : cms::cuda::PortableDeviceCollection<SiStripClustersLayout>(maxClusters, stream), maxClusters_{maxClusters} {
+    const uint32_t maxStripsPerCluster = SiStripClustersSoA::maxStripsPerCluster;  //768
+    cudaCheck(
+        cudaMemcpyAsync(&(view().maxClusterSize()), &maxStripsPerCluster, sizeof(uint32_t), cudaMemcpyDefault, stream));
+  };
 
   SiStripClustersSoADevice(const SiStripClustersSoADevice &&) = delete;
   SiStripClustersSoADevice &operator=(const SiStripClustersSoADevice &&) = delete;

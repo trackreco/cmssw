@@ -15,10 +15,7 @@ public:
   ~SiStripClustersSoAHost() = default;
 
   explicit SiStripClustersSoAHost(uint32_t maxClusters, cudaStream_t stream)
-      : PortableHostCollection<SiStripClustersLayout>(maxClusters, stream) {
-        const uint32_t maxStripsPerCluster = 768;
-        view().nClusters() = maxStripsPerCluster;
-      };
+      : PortableHostCollection<SiStripClustersLayout>(maxClusters, stream){};
 
   SiStripClustersSoAHost(const SiStripClustersSoAHost &&) = delete;
   SiStripClustersSoAHost &operator=(const SiStripClustersSoAHost &&) = delete;

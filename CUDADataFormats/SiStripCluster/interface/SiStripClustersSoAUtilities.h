@@ -5,7 +5,8 @@
 #include "DataFormats/SoATemplate/interface/SoALayout.h"
 
 struct SiStripClustersSoA {
-  using clusterADCsColumn = std::array<uint8_t, /*maxStripsPerCluster=*/768>;
+  const static auto maxStripsPerCluster = 768;
+  using clusterADCsColumn = std::array<uint8_t, maxStripsPerCluster /*768*/>;
   GENERATE_SOA_LAYOUT(SiStripClustersSoALayout,
                       SOA_COLUMN(uint32_t, clusterIndex),
                       SOA_COLUMN(uint32_t, clusterSize),
@@ -16,8 +17,7 @@ struct SiStripClustersSoA {
                       SOA_COLUMN(float, barycenter),
                       SOA_COLUMN(float, charge),
                       SOA_SCALAR(uint32_t, nClusters),
-                      SOA_SCALAR(uint32_t, maxClusterSize)
-  );
+                      SOA_SCALAR(uint32_t, maxClusterSize));
 };
 
 using SiStripClustersLayout = typename SiStripClustersSoA::SiStripClustersSoALayout<>;
