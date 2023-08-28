@@ -13,14 +13,17 @@
 #include "FWCore/Framework/interface/ESHandle.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
-#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersSoAHost.h"
 
+#include "CUDADataFormats/Common/interface/Product.h"
+#include "FWCore/Framework/interface/ConsumesCollector.h"
+#include <iostream>
 #include <memory>
 
 class SiStripClustersFromSOA final : public edm::stream::EDProducer<> {
 public:
   explicit SiStripClustersFromSOA(const edm::ParameterSet& conf)
-      : inputToken_(consumes<SiStripClustersCUDAHost>(conf.getParameter<edm::InputTag>("ProductLabel"))),
+      : inputToken_(consumes(conf.getParameter<edm::InputTag>("ProductLabel"))),
         outputToken_(produces<edmNew::DetSetVector<SiStripCluster>>()) {}
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -34,12 +37,12 @@ private:
   void produce(edm::Event& ev, const edm::EventSetup& es) override {
     const auto& clust_data = ev.get(inputToken_);
 
-    const int nSeedStripsNC = clust_data.nClusters();
-    const auto clusterSize = clust_data.clusterSize().get();
-    const auto clusterADCs = clust_data.clusterADCs().get();
-    const auto detIDs = clust_data.clusterDetId().get();
-    const auto stripIDs = clust_data.firstStrip().get();
-    const auto trueCluster = clust_data.trueCluster().get();
+    const int nSeedStripsNC = clust_data->nClusters();
+    const auto clusterSize = clust_data->clusterSize();
+    const auto clusterADCs = clust_data->clusterADCs();
+    const auto detIDs = clust_data->clusterDetId();
+    const auto stripIDs = clust_data->firstStrip();
+    const auto trueCluster = clust_data->trueCluster();
 
     const unsigned int initSeedStripsSize = 15000;
 
@@ -62,7 +65,7 @@ private:
           adcs.reserve(size);
 
           for (uint32_t j = 0; j < size; ++j) {
-            adcs.push_back(clusterADCs[i + j * nSeedStripsNC]);
+            adcs.push_back(clusterADCs[i][j]);
           }
           record.push_back(SiStripCluster(firstStrip, std::move(adcs)));
         }
@@ -75,7 +78,7 @@ private:
   }
 
 private:
-  edm::EDGetTokenT<SiStripClustersCUDAHost> inputToken_;
+  edm::EDGetTokenT<SiStripClustersSoAHost> inputToken_;
   edm::EDPutTokenT<edmNew::DetSetVector<SiStripCluster>> outputToken_;
 };
 

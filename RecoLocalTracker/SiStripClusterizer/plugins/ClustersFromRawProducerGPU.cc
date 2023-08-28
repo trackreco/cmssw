@@ -68,7 +68,7 @@ public:
         raw_(sistrip::FED_ID_MAX),
         gpuAlgo_(conf.getParameter<edm::ParameterSet>("Clusterizer")),
         inputToken_(consumes(conf.getParameter<edm::InputTag>("ProductLabel"))),
-        outputToken_(produces<cms::cuda::Product<SiStripClustersCUDADevice>>()),
+        outputToken_(produces<cms::cuda::Product<SiStripClustersSoADevice>>()),
         conditionsToken_(esConsumes(edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")})),
         cpuConditionsToken_(esConsumes(edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")})) {}
 
@@ -91,7 +91,6 @@ private:
     // Queues asynchronous data transfers and kernels to the CUDA stream
     // returned by cms::cuda::ScopedContextAcquire::stream()
     gpuAlgo_.makeAsync(raw_, buffers_, conditions, ctx.stream());
-
     // Destructor of ctx queues a callback to the CUDA stream notifying
     // waitingTaskHolder when the queued asynchronous work has finished
   }
@@ -104,7 +103,7 @@ private:
     // OutputData to cms::cuda::Product<OutputData>. cms::cuda::Product<T> stores also
     // the current device and the CUDA stream since those will be needed
     // in the consumer side.
-    ctx.emplace(ev, outputToken_, gpuAlgo_.getResults(ctx.stream()));
+    ctx.emplace(ev, outputToken_, std::move(gpuAlgo_.getResults(ctx.stream())));
 
     for (auto& buf : buffers_)
       buf.reset(nullptr);
@@ -122,7 +121,7 @@ private:
   stripgpu::SiStripRawToClusterGPUKernel gpuAlgo_;
 
   edm::EDGetTokenT<FEDRawDataCollection> inputToken_;
-  edm::EDPutTokenT<cms::cuda::Product<SiStripClustersCUDADevice>> outputToken_;
+  edm::EDPutTokenT<cms::cuda::Product<SiStripClustersSoADevice>> outputToken_;
   edm::ESGetToken<stripgpu::SiStripClusterizerConditionsGPU, SiStripClusterizerConditionsRcd> conditionsToken_;
   edm::ESGetToken<SiStripClusterizerConditions, SiStripClusterizerConditionsRcd> cpuConditionsToken_;
 };
