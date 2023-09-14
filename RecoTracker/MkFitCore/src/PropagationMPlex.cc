@@ -549,10 +549,10 @@ namespace mkfit {
 
     // MultHelixProp can be optimized for CCS coordinates, see GenMPlexOps.pl
     MPlexLL temp;
-    //MultHelixProp(errorProp, outErr, temp);
-    //MultHelixPropTransp(errorProp, temp, outErr);
-    MultHelixPropFull(errorProp, outErr, temp);
-    MultHelixPropTranspFull(errorProp, temp, outErr);
+    MultHelixProp(errorProp, outErr, temp);
+    MultHelixPropTransp(errorProp, temp, outErr);
+    // MultHelixPropFull(errorProp, outErr, temp);
+    // MultHelixPropTranspFull(errorProp, temp, outErr);
 
     if (pflags.apply_material) {
       MPlexQF hitsRl;
@@ -662,10 +662,10 @@ namespace mkfit {
     // Matriplex version of:
     // result.errors = ROOT::Math::Similarity(errorProp, outErr);
     MPlexLL temp;
-    //MultHelixPropEndcap(errorProp, outErr, temp);
-    //MultHelixPropTranspEndcap(errorProp, temp, outErr);
-    MultHelixPropFull(errorProp, outErr, temp);
-    MultHelixPropTranspFull(errorProp, temp, outErr);
+    MultHelixPropEndcap(errorProp, outErr, temp);
+    MultHelixPropTranspEndcap(errorProp, temp, outErr);
+    // MultHelixPropFull(errorProp, outErr, temp);
+    // MultHelixPropTranspFull(errorProp, temp, outErr);
 
 #ifdef DEBUG
     if (debug && g_debug) {
