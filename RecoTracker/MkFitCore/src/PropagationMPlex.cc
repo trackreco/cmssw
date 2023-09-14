@@ -12,7 +12,7 @@
 // propagateLineToRMPlex
 //==============================================================================
 
-using namespace Matriplex;
+//using namespace Matriplex;
 
 namespace mkfit {
 
@@ -25,7 +25,7 @@ namespace mkfit {
                              const int N_proc) {
     // XXX Regenerate parts below with a script.
 
-    const idx_t N = NN;
+    const Matriplex::idx_t N = NN;
 
 #pragma omp simd
     for (int n = 0; n < NN; ++n) {
@@ -97,7 +97,7 @@ namespace {
     // C = A * B
 
     typedef float T;
-    const idx_t N = NN;
+    const Matriplex::idx_t N = NN;
 
     const T* a = A.fArray;
     ASSUME_ALIGNED(a, 64);
@@ -113,7 +113,7 @@ namespace {
     // C = B * AT;
 
     typedef float T;
-    const idx_t N = NN;
+    const Matriplex::idx_t N = NN;
 
     const T* a = A.fArray;
     ASSUME_ALIGNED(a, 64);
@@ -129,7 +129,7 @@ namespace {
     // C = A * B
 
     typedef float T;
-    const idx_t N = NN;
+    const Matriplex::idx_t N = NN;
 
     const T* a = A.fArray;
     ASSUME_ALIGNED(a, 64);
@@ -145,7 +145,7 @@ namespace {
     // C = B * AT;
 
     typedef float T;
-    const idx_t N = NN;
+    const Matriplex::idx_t N = NN;
 
     const T* a = A.fArray;
     ASSUME_ALIGNED(a, 64);
@@ -161,7 +161,7 @@ namespace {
     // C = A * B
 
     typedef float T;
-    const idx_t N = NN;
+    const Matriplex::idx_t N = NN;
 
     const T* a = A.fArray;
     ASSUME_ALIGNED(a, 64);
@@ -226,7 +226,7 @@ namespace {
     c[35 * N + n] = a[32 * N + n] * b[17 * N + n] + a[35 * N + n];
   }
 
-#ifdef UNUSED
+  //#ifdef UNUSED
   // this version does not assume to know which elements are 0 or 1, so it does the full multiplication
   void MultHelixPropFull(const MPlexLL& A, const MPlexLS& B, MPlexLL& C) {
 #pragma omp simd
@@ -282,7 +282,7 @@ namespace {
       }
     }
   }
-#endif
+  //#endif
 }  // end unnamed namespace
 
 //==============================================================================
@@ -488,7 +488,18 @@ namespace mkfit {
     errorProp.setVal(0.f);
     outFailFlag.setVal(0.f);
 
+    helixAtRFromIterativeCCS_impl_new(inPar, inChg, msRad, outPar, errorProp, outFailFlag, 0, NN, N_proc, pflags);
+    /*
+    //float nv = errorProp(0,0,0);
+
+    outPar = inPar;
+    errorProp.setVal(0.f);
+    outFailFlag.setVal(0.f);
+
     helixAtRFromIterativeCCS_impl(inPar, inChg, msRad, outPar, errorProp, outFailFlag, 0, NN, N_proc, pflags);
+    //float ov = errorProp(0,0,0);
+    assert(0);
+    */
   }
 
   void propagateHelixToRMPlex(const MPlexLS& inErr,
@@ -536,6 +547,13 @@ namespace mkfit {
     }
 #endif
 
+    // MultHelixProp can be optimized for CCS coordinates, see GenMPlexOps.pl
+    MPlexLL temp;
+    //MultHelixProp(errorProp, outErr, temp);
+    //MultHelixPropTransp(errorProp, temp, outErr);
+    MultHelixPropFull(errorProp, outErr, temp);
+    MultHelixPropTranspFull(errorProp, temp, outErr);
+
     if (pflags.apply_material) {
       MPlexQF hitsRl;
       MPlexQF hitsXi;
@@ -564,11 +582,6 @@ namespace mkfit {
 
     // Matriplex version of:
     // result.errors = ROOT::Math::Similarity(errorProp, outErr);
-
-    // MultHelixProp can be optimized for CCS coordinates, see GenMPlexOps.pl
-    MPlexLL temp;
-    MultHelixProp(errorProp, outErr, temp);
-    MultHelixPropTransp(errorProp, temp, outErr);
 
     /*
      // To be used with: MPT_DIM = 1
@@ -613,7 +626,16 @@ namespace mkfit {
 
     MPlexLL errorProp;
 
+    // helixAtZ_new(inPar, inChg, msZ, outPar, errorProp, outFailFlag, N_proc, pflags);
     helixAtZ(inPar, inChg, msZ, outPar, errorProp, outFailFlag, N_proc, pflags);
+
+    /* /////
+    outPar = inPar;
+    errorProp.setVal(0.f);
+    outFailFlag.setVal(0.f);
+    helixAtZ(inPar, inChg, msZ, outPar, errorProp, outFailFlag, N_proc, pflags);
+    std::cout << std::endl;assert(0);
+    ///// */
 
 #ifdef DEBUG
     if (debug && g_debug) {
@@ -636,6 +658,29 @@ namespace mkfit {
       }
     }
 #endif
+
+    // Matriplex version of:
+    // result.errors = ROOT::Math::Similarity(errorProp, outErr);
+    MPlexLL temp;
+    //MultHelixPropEndcap(errorProp, outErr, temp);
+    //MultHelixPropTranspEndcap(errorProp, temp, outErr);
+    MultHelixPropFull(errorProp, outErr, temp);
+    MultHelixPropTranspFull(errorProp, temp, outErr);
+
+#ifdef DEBUG
+    if (debug && g_debug) {
+      for (int kk = 0; kk < N_proc; ++kk) {
+        dprintf("outErr %d\n", kk);
+        for (int i = 0; i < 6; ++i) {
+          for (int j = 0; j < 6; ++j)
+            dprintf("%8f ", outErr.constAt(kk, i, j));
+          dprintf("\n");
+        }
+        dprintf("\n");
+      }
+    }
+#endif
+    //std::cout << std::endl;assert(0);
 
     if (pflags.apply_material) {
       MPlexQF hitsRl;
@@ -661,14 +706,21 @@ namespace mkfit {
       }
       applyMaterialEffects(hitsRl, hitsXi, propSign, outErr, outPar, N_proc, false);
     }
+#ifdef DEBUG
+    if (debug && g_debug) {
+      for (int kk = 0; kk < N_proc; ++kk) {
+        dprintf("outErr(after material) %d\n", kk);
+        for (int i = 0; i < 6; ++i) {
+          for (int j = 0; j < 6; ++j)
+            dprintf("%8f ", outErr.constAt(kk, i, j));
+          dprintf("\n");
+        }
+        dprintf("\n");
+      }
+    }
+#endif
 
     squashPhiMPlex(outPar, N_proc);  // ensure phi is between |pi|
-
-    // Matriplex version of:
-    // result.errors = ROOT::Math::Similarity(errorProp, outErr);
-    MPlexLL temp;
-    MultHelixPropEndcap(errorProp, outErr, temp);
-    MultHelixPropTranspEndcap(errorProp, temp, outErr);
 
     // PROP-FAIL-ENABLE To keep physics changes minimal, we always restore the
     // state to input when propagation fails -- as was the default before.
@@ -718,7 +770,9 @@ namespace mkfit {
                 const int N_proc,
                 const PropagationFlags& pflags) {
     errorProp.setVal(0.f);
+    outFailFlag.setVal(0.f);
 
+    //debug = true;
 #pragma omp simd
     for (int n = 0; n < NN; ++n) {
       //initialize erroProp to identity matrix, except element 2,2 which is zero
@@ -870,6 +924,7 @@ namespace mkfit {
       cosa[n] = 1.f - 2.f * sinah[n] * sinah[n];
       sina[n] = 2.f * sinah[n] * cosah[n];
     }
+
 //update parameters
 #pragma omp simd
     for (int n = 0; n < NN; ++n) {
@@ -884,7 +939,7 @@ namespace mkfit {
       dprint_np(n,
                 std::endl
                     << "outPar.At(n, 0, 0)=" << outPar.At(n, 0, 0) << " outPar.At(n, 1, 0)=" << outPar.At(n, 1, 0)
-                    << " pxin=" << pxin[n] << " pyin=" << pyin[n]);
+		<< " pxin=" << pxin[n] << " pyin=" << pyin[n] << " alpha=" << alpha[n] << " kinv=" << kinv[n]);
     }
 
     float pxcaMpysa[NN];
@@ -1015,6 +1070,116 @@ namespace mkfit {
 #endif
   }
 
+   void helixAtZ_new(const MPlexLV& inPar,
+                     const MPlexQI& inChg,
+                     const MPlexQF& msZ,
+                     MPlexLV& outPar,
+                     MPlexLL& errorProp,
+                     MPlexQI& outFailFlag,
+                     const int N_proc,
+                     const PropagationFlags& pflags) {
+
+    errorProp.setVal(0.f);
+    outFailFlag.setVal(0.f);
+
+    //debug = true;
+
+    float kinv[NN];
+    if (pflags.use_param_b_field) {
+#pragma omp simd
+      for (int n = 0; n < NN; ++n) {
+        kinv[n] = - inChg.constAt(n, 0, 0) * 0.01f * Const::sol * Config::bFieldFromZR(inPar.constAt(n, 2, 0), hipo(inPar.constAt(n, 0, 0), inPar.constAt(n, 1, 0)));
+      }
+    } else {
+#pragma omp simd
+      for (int n = 0; n < NN; ++n) {
+        kinv[n] = - inChg.constAt(n, 0, 0) * 0.01f * Const::sol * Config::Bfield;
+      }
+    }
+
+    float D[NN];
+#pragma omp simd
+    for (int n = 0; n < NN; ++n) {
+      D[n] = (msZ.constAt(n, 0, 0) - inPar.constAt(n, 2, 0)) * std::tan(inPar.constAt(n, 5, 0));
+    }
+
+    parsAndErrPropFromPathL_impl(inPar, inChg, outPar, kinv, D, errorProp, 0, NN, N_proc, pflags);
+
+    for (int n = 0; n < NN; ++n) {
+      dprint_np(n,
+		"propagation end (NEW), dump parameters\n"
+                  << "   D = " << D[n] << " alpha = " << D[n] * inPar(n, 3, 0) * kinv[n] << " kinv = " << kinv[n] << std::endl
+                  << "   pos = " << outPar(n, 0, 0) << " " << outPar(n, 1, 0) << " " << outPar(n, 2, 0) << "\t\t r="
+                  << std::sqrt(outPar(n, 0, 0) * outPar(n, 0, 0) + outPar(n, 1, 0) * outPar(n, 1, 0)) << std::endl
+                  << "   mom = " << outPar(n, 3, 0) << " " << outPar(n, 4, 0) << " " << outPar(n, 5, 0) << std::endl
+		  << " cart= " << std::cos(outPar(n, 4, 0)) / outPar(n, 3, 0) << " "
+                  << std::sin(outPar(n, 4, 0)) / outPar(n, 3, 0) << " " << 1. / (outPar(n, 3, 0) * tan(outPar(n, 5, 0)))
+                  << "\t\tpT=" << 1. / std::abs(outPar(n, 3, 0)) << std::endl);
+    }
+
+    //fixme hack
+    // for (int n = 0; n < NN; ++n) {
+    //   errorProp(n, 2, 0) = 0.;
+    //   errorProp(n, 2, 1) = 0.;
+    //   errorProp(n, 2, 2) = 0.;
+    //   errorProp(n, 2, 3) = 0.;
+    //   errorProp(n, 2, 4) = 0.;
+    //   errorProp(n, 2, 5) = 0.;
+    // }
+
+#ifdef DEBUG
+    for (int n = 0; n < NN; ++n) {
+      if (debug && g_debug && n < N_proc) {
+	dmutex_guard;
+	std::cout << n << ": jacobian" << std::endl;
+	printf("%5f %5f %5f %5f %5f %5f\n",
+	       errorProp(n, 0, 0),
+	       errorProp(n, 0, 1),
+	       errorProp(n, 0, 2),
+	       errorProp(n, 0, 3),
+	       errorProp(n, 0, 4),
+	       errorProp(n, 0, 5));
+	printf("%5f %5f %5f %5f %5f %5f\n",
+	       errorProp(n, 1, 0),
+	       errorProp(n, 1, 1),
+	       errorProp(n, 1, 2),
+	       errorProp(n, 1, 3),
+	       errorProp(n, 1, 4),
+	       errorProp(n, 1, 5));
+	printf("%5f %5f %5f %5f %5f %5f\n",
+	       errorProp(n, 2, 0),
+	       errorProp(n, 2, 1),
+	       errorProp(n, 2, 2),
+	       errorProp(n, 2, 3),
+	       errorProp(n, 2, 4),
+	       errorProp(n, 2, 5));
+	printf("%5f %5f %5f %5f %5f %5f\n",
+	       errorProp(n, 3, 0),
+	       errorProp(n, 3, 1),
+	       errorProp(n, 3, 2),
+	       errorProp(n, 3, 3),
+	       errorProp(n, 3, 4),
+	       errorProp(n, 3, 5));
+	printf("%5f %5f %5f %5f %5f %5f\n",
+	       errorProp(n, 4, 0),
+	       errorProp(n, 4, 1),
+	       errorProp(n, 4, 2),
+	       errorProp(n, 4, 3),
+	       errorProp(n, 4, 4),
+	       errorProp(n, 4, 5));
+	printf("%5f %5f %5f %5f %5f %5f\n",
+	       errorProp(n, 5, 0),
+	       errorProp(n, 5, 1),
+	       errorProp(n, 5, 2),
+	       errorProp(n, 5, 3),
+	       errorProp(n, 5, 4),
+	       errorProp(n, 5, 5));
+	printf("\n");
+      }
+    }
+#endif
+  }
+
   //==============================================================================
 
   void applyMaterialEffects(const MPlexQF& hitsRl,
@@ -1031,7 +1196,11 @@ namespace mkfit {
         continue;  //ugly, please fixme
       const float theta = outPar.constAt(n, 5, 0);
       const float pt = 1.f / outPar.constAt(n, 3, 0);  //fixme, make sure it is positive?
+      // const float ipt = outPar.constAt(n, 3, 0);
+      // const float pt = 1.f / ipt;  //fixme, make sure it is positive?
+      // const float ipt2 = ipt * ipt;
       const float p = pt / std::sin(theta);
+      // const float pz = p * std::cos(theta);
       const float p2 = p * p;
       constexpr float mpi = 0.140;       // m=140 MeV, pion
       constexpr float mpi2 = mpi * mpi;  // m=140 MeV, pion
@@ -1050,7 +1219,9 @@ namespace mkfit {
       const float thetaMSC = 0.0136f * (1.f + 0.038f * std::log(radL)) / (beta * p);  // eq 32.15
       const float thetaMSC2 = thetaMSC * thetaMSC * radL;
       outErr.At(n, 4, 4) += thetaMSC2;
-      // outErr.At(n, 4, 5) += thetaMSC2;
+      // outErr.At(n, 3, 3) += thetaMSC2 * pz * pz * ipt2 * ipt2;
+      // outErr.At(n, 3, 5) -= thetaMSC2 * pz * ipt2;
+      // outErr.At(n, 4, 4) += thetaMSC2 * p2 * ipt2;
       outErr.At(n, 5, 5) += thetaMSC2;
       //std::cout << "beta=" << beta << " p=" << p << std::endl;
       //std::cout << "multiple scattering thetaMSC=" << thetaMSC << " thetaMSC2=" << thetaMSC2 << " radL=" << radL << std::endl;
