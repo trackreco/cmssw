@@ -226,7 +226,7 @@ namespace {
     c[35 * N + n] = a[32 * N + n] * b[17 * N + n] + a[35 * N + n];
   }
 
-  //#ifdef UNUSED
+#ifdef UNUSED
   // this version does not assume to know which elements are 0 or 1, so it does the full multiplication
   void MultHelixPropFull(const MPlexLL& A, const MPlexLS& B, MPlexLL& C) {
 #pragma omp simd
@@ -282,7 +282,7 @@ namespace {
       }
     }
   }
-  //#endif
+#endif
 }  // end unnamed namespace
 
 //==============================================================================
