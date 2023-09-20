@@ -515,10 +515,12 @@ namespace mkfit {
             prev_layer = curr_layer;
             curr_layer = layer_plan_it.layer();
             mkfndr->setup(prop_config,
+                          m_job->m_iter_config,
                           m_job->m_iter_config.m_params,
                           m_job->m_iter_config.m_layer_configs[curr_layer],
                           st_par,
                           m_job->get_mask_for_layer(curr_layer),
+                          region,
                           m_job->m_in_fwd);
 
             const LayerOfHits &layer_of_hits = m_job->m_event_of_hits[curr_layer];
@@ -805,10 +807,12 @@ namespace mkfit {
           prev_layer = curr_layer;
           curr_layer = layer_plan_it.layer();
           mkfndr->setup(prop_config,
+                        m_job->m_iter_config,
                         iter_params,
                         m_job->m_iter_config.m_layer_configs[curr_layer],
                         st_par,
                         m_job->get_mask_for_layer(curr_layer),
+                        region,
                         m_job->m_in_fwd);
 
           dprintf("\n* Processing layer %d\n", curr_layer);
@@ -1018,10 +1022,12 @@ namespace mkfit {
       prev_layer = curr_layer;
       curr_layer = layer_plan_it.layer();
       mkfndr->setup(prop_config,
+                    m_job->m_iter_config,
                     iter_params,
                     m_job->m_iter_config.m_layer_configs[curr_layer],
                     st_par,
                     m_job->get_mask_for_layer(curr_layer),
+                    region,
                     m_job->m_in_fwd);
 
       const bool pickup_only = layer_plan_it.is_pickup_only();

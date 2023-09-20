@@ -21,16 +21,20 @@
 namespace mkfit {
 
   void MkFinder::setup(const PropagationConfig &pc,
+                       const IterationConfig &ic,
                        const IterationParams &ip,
                        const IterationLayerConfig &ilc,
                        const SteeringParams &sp,
                        const std::vector<bool> *ihm,
+                       int region,
                        bool infwd) {
     m_prop_config = &pc;
+    m_iteration_config = &ic;
     m_iteration_params = &ip;
     m_iteration_layer_config = &ilc;
     m_steering_params = &sp;
     m_iteration_hit_mask = ihm;
+    m_current_region = region;
     m_in_fwd = infwd;
   }
 
@@ -41,10 +45,12 @@ namespace mkfit {
 
   void MkFinder::release() {
     m_prop_config = nullptr;
+    m_iteration_config = nullptr;
     m_iteration_params = nullptr;
     m_iteration_layer_config = nullptr;
     m_steering_params = nullptr;
     m_iteration_hit_mask = nullptr;
+    m_current_region = -1;
     m_in_fwd = true;
   }
 
@@ -393,6 +399,53 @@ namespace mkfit {
       }
     }
 
+    namespace mp = mini_propagators;
+    struct Bins {
+      MPlexQI q1, q2, p1, p2;
+      mp::InitialStatePlex isp;
+      mp::StatePlex sp1, sp2;
+
+      // debug -- to be local in functions
+      MPlexQF phi_c, dphi_min, dphi_max;
+
+      Bins(const MPlexLV& par, const MPlexQI& chg) :
+        isp(par, chg) {}
+
+      void prop_to_limits(const LayerInfo &li) {
+        if (li.is_barrel()) {
+          isp.propagate_to_r(mp::PA_Exact, li.rin(), sp1, true);
+          isp.propagate_to_r(mp::PA_Exact, li.rout(), sp2, true);
+        } else {
+          isp.propagate_to_z(mp::PA_Exact, li.zmin(), sp1, true);
+          isp.propagate_to_z(mp::PA_Exact, li.zmax(), sp2, true);
+        }
+      }
+
+      void find_bin_ranges(const LayerInfo &li, const LayerOfHits &loh) {
+        // Below made members for debugging
+        // MPlexQF phi_c, dphi_min, dphi_max;
+        phi_c = mp::fast_atan2(isp.y, isp.x);
+        Matriplex::min_max(sp1.dphi, sp2.dphi, dphi_min, dphi_max);
+        for (int i = 0; i < p1.kTotSize; ++i) {
+          p1[i] = loh.phiBinChecked(phi_c[i] + dphi_min[i]); // assuming dphi_min is negative
+          p2[i] = loh.phiMaskApply(loh.phiBin(phi_c[i] + dphi_max[i]) + 1);
+        }
+        if (li.is_barrel()) {
+        } else {
+        }
+      }
+    };
+    const LayerInfo &LI = *L.layer_info();
+    Bins B(m_Par[iI], m_Chg);
+    B.prop_to_limits(LI);
+    B.find_bin_ranges(LI, L);
+    for (int i = 0; i < N_proc; ++i) {
+      printf("BinCheck %c %f %f %f | %d %d - %d %d |\n", LI.is_barrel() ? 'B' : 'E',
+             B.phi_c[i], B.dphi_min[i], B.dphi_max[i],
+             B.p1[i], B.p2[i], pb1v[i], pb2v[i]);
+    }
+
+
     struct PQE { float score; unsigned int hit_index; };
     auto pqe_cmp = [](const PQE &a, const PQE &b) { return a.score < b.score; };
     std::priority_queue<PQE, std::vector<PQE>, decltype(pqe_cmp)> pqueue(pqe_cmp);
@@ -472,8 +525,12 @@ namespace mkfit {
       std::vector<pos_match> pos_match_vec;
 #endif
 
-      mini_propagators::InitialState mp_is(m_Par[iI], m_Chg, itrack);
-      mini_propagators::State mp_s;
+      mp::InitialState mp_is(m_Par[iI], m_Chg, itrack);
+      mp::State mp_s;
+
+      // plex-check -- compare scalar vs. vectorized propagation
+      // mp::InitialStatePlex mp_isp(m_Par[iI], m_Chg);
+      // mp::StatePlex mp_sp;
 
       for (bidx_t qi = qb1; qi != qb2; ++qi) {
         for (bidx_t pi = pb1; pi != pb2; pi = L.phiMaskApply(pi + 1)) {
@@ -521,18 +578,29 @@ namespace mkfit {
               bool prop_ok;
               if (NEW_SELECTION) {
                 if (L.is_barrel()) {
-                  prop_ok = mp_is.propagate_to_r(mini_propagators::PA_Exact, L.hit_qbar(hi), mp_s, true);
+                  prop_ok = mp_is.propagate_to_r(mp::PA_Exact, L.hit_qbar(hi), mp_s, true);
+                  // mp_isp.propagate_to_r(mp::PA_Exact, L.hit_qbar(hi), mp_sp, true);
                   new_q = mp_s.z;
                 } else {
-                  prop_ok = mp_is.propagate_to_z(mini_propagators::PA_Exact, L.hit_qbar(hi), mp_s, true);
+                  prop_ok = mp_is.propagate_to_z(mp::PA_Exact, L.hit_qbar(hi), mp_s, true);
+                  // mp_isp.propagate_to_z(mp::PA_Exact, L.hit_qbar(hi), mp_sp, true);
                   new_q = std::hypot(mp_s.x, mp_s.y);
                 }
+
+                // plex-check
+                // printf("%d %d %c  -  %f %f %f %f %f %f\n", prop_ok, itrack, L.is_barrel() ? 'B' : 'E',
+                //   mp_s.x - mp_sp.x[itrack], mp_s.y - mp_sp.y[itrack], mp_s.z - mp_sp.z[itrack],
+                //   mp_s.px - mp_sp.px[itrack], mp_s.py - mp_sp.py[itrack], mp_s.pz - mp_sp.pz[itrack]);
+                // if (!isFinite(mp_s.x - mp_sp.x[itrack]))
+                //   printf("BRUH\n");
+
                 new_phi = getPhi(mp_s.x, mp_s.y);
                 new_ddphi = cdist(std::abs(new_phi - L.hit_phi(hi)));
                 new_ddq = std::abs(new_q - L.hit_q(hi));
               }
 
 #if defined(DUMPHITWINDOW) && defined(MKFIT_STANDALONE)
+              // clang-format off
               MPlexQF thisOutChi2;
               {
                 const MCHitInfo &mchinfo = m_event->simHitsInfo_[L.refHit(hi).mcHitID()];
@@ -639,7 +707,6 @@ namespace mkfit {
 
                 if (!(std::isnan(phi)) && !(std::isnan(getEta(m_Par[iI].At(itrack, 5, 0))))) {
                   //|| std::isnan(ter) || std::isnan(her) || std::isnan(m_Chi2(itrack, 0, 0)) || std::isnan(hchi2)))
-                  // clang-format off
                   printf("HITWINDOWSEL "
                          "%d "
                          "%d %d %d "
@@ -676,12 +743,13 @@ namespace mkfit {
                          hex, hey, her, hephi, hez,
                          ht_dxy, ht_dz, ht_dphi,
                          hchi2);
-                  // clang-format on
                 }
               }
+              // clang-format on
 #endif
 
 #if defined(DUMP_HIT_PRESEL) && defined(MKFIT_STANDALONE)
+              // clang-format off
               if (sim_lbl >= 0) {
                 const MCHitInfo &mchinfo = m_event->simHitsInfo_[L.refHit(hi_orig).mcHitID()];
                 int hit_lbl = mchinfo.mcTrackID();
@@ -719,7 +787,9 @@ namespace mkfit {
                 if (firstp) {
                   firstp = false;
                   printf("XXH_HIT "
-                /* 1 */ "event/I:layer:sim_lbl:hit_lbl:match:seed_lbl:"
+                /* 1 */ "event/I:layer:is_barrel:is_pix:is_stereo:"
+                        "iter_idx/I:iter_algo:eta_region:"
+                        "sim_lbl/I:hit_lbl:match:seed_lbl:"
                         "sim_pt/F:sim_eta:seed_pt:seed_eta:"
                         "c_x/F:c_y:c_z:c_px:c_py:c_pz:" // c_ for center layer (i.e., origin)
                         "h_x/F:h_y:h_z:h_px:h_py:h_pz:" // h_ for at hit (i.e., new)
@@ -734,7 +804,9 @@ namespace mkfit {
                 int c_acc = (ddq < dq ? 1 : 0) + (ddphi < dphi ? 2 : 0);
                 int h_acc = (new_ddq < dq ? 1 : 0) + (new_ddphi < dphi ? 2 : 0);
                 printf("XXH_HIT "
-               /* 1 */ "%d %d %d %d %d %d "
+               /* 1 */ "%d %d %d %d %d "
+                       "%d %d %d "
+                       "%d %d %d %d "
                        "%f %f %f %f "
                        "%f %f %f %f %f %f "
                        "%f %f %f %f %f %f "
@@ -744,7 +816,9 @@ namespace mkfit {
                        "%f %f %f %f "
                        "%d %d %f"
                        "\n",
-               /* 1 */ m_event->evtID(), L.layer_id(), sim_lbl, hit_lbl, sim_lbl == hit_lbl, thisseedmcid,
+               /* 1 */ m_event->evtID(), L.layer_id(), L.is_barrel(), L.is_pixel(), L.is_stereo(),
+                       m_iteration_config->m_iteration_index, m_iteration_config->m_track_algorithm, m_current_region,
+                       sim_lbl, hit_lbl, sim_lbl == hit_lbl, thisseedmcid,
                        S.pT(), S.momEta(), (seed_ptr ? seed_ptr->pT() : -999), (seed_ptr ? seed_ptr->momEta() : -999),
                        ngr(mp_is.x), ngr(mp_is.y), ngr(mp_is.z), ngr(mp_is.px), ngr(mp_is.py), ngr(mp_is.pz),
                        ngr(mp_s.x), ngr(mp_s.y), ngr(mp_s.z), ngr(mp_s.px), ngr(mp_s.py), ngr(mp_s.pz),
@@ -767,6 +841,7 @@ namespace mkfit {
                   pos_match_vec.emplace_back(pos_match{ new_ddphi, thisOutChi2[itrack], hit_out_idx++,
                                                         sim_lbl == hit_lbl });
               } // if sim_lbl valild
+              // clang-format on
 #endif
 
               if (NEW_SELECTION) {
@@ -826,6 +901,7 @@ namespace mkfit {
       }
 
 #if defined(DUMP_HIT_PRESEL) && defined(MKFIT_STANDALONE)
+      // clang-format off
       if (sim_lbl >= 0) {
         // Find ord number of matched hits.
         std::sort(pos_match_vec.begin(), pos_match_vec.end(),
@@ -842,8 +918,10 @@ namespace mkfit {
         if (firstp) {
           firstp = false;
           printf("XXH_CND "
-                 "event/I:layer:sim_lbl:"
-                 "sim_pt/F:sim_eta:"
+                 "event/I:layer:is_barrel:is_pix:is_stereo:"
+                 "iter_idx/I:iter_algo:eta_region:"
+                 "sim_lbl/I:seed_lbl:"
+                 "sim_pt/F:sim_eta:seed_pt:seed_eta:"
                  "all_hits/I:matched_hits:"
                  "acc_old/I:acc_new:acc_matched_old:acc_matched_new:"
                  "pos0/I:pos1:pos2:pos3:"
@@ -855,12 +933,14 @@ namespace mkfit {
         auto &S = m_event->simTracks_[sim_lbl];
         pos_match dflt { -999.9f, -999.9f, -999, false };
         pos_match &pmr0 = pcc_pos[0] >=0 ? pos_match_vec[pcc_pos[0]] : dflt,
-                              &pmr1 = pcc_pos[1] >=0 ? pos_match_vec[pcc_pos[1]] : dflt,
-                              &pmr2 = pcc_pos[2] >=0 ? pos_match_vec[pcc_pos[2]] : dflt,
-                              &pmr3 = pcc_pos[3] >=0 ? pos_match_vec[pcc_pos[3]] : dflt;
+                  &pmr1 = pcc_pos[1] >=0 ? pos_match_vec[pcc_pos[1]] : dflt,
+                  &pmr2 = pcc_pos[2] >=0 ? pos_match_vec[pcc_pos[2]] : dflt,
+                  &pmr3 = pcc_pos[3] >=0 ? pos_match_vec[pcc_pos[3]] : dflt;
         printf("XXH_CND "
+               "%d %d %d %d %d "
                "%d %d %d "
-               "%f %f "
+               "%d %d "
+               "%f %f %f %f "
                "%d %d "
                "%d %d %d %d "
                "%d %d %d %d "
@@ -868,8 +948,10 @@ namespace mkfit {
                "%f %f %f %f "
                "%d %d %d %d "
                "\n",
-               m_event->evtID(), L.layer_id(), sim_lbl,
-               S.pT(), S.momEta(),
+               m_event->evtID(), L.layer_id(), L.is_barrel(), L.is_pixel(), L.is_stereo(),
+               m_iteration_config->m_iteration_index, m_iteration_config->m_track_algorithm, m_current_region,
+               sim_lbl, thisseedmcid,
+               S.pT(), S.momEta(), (seed_ptr ? seed_ptr->pT() : -999), (seed_ptr ? seed_ptr->momEta() : -999),
                pcc_all_hits, pcc_matced_hits,
                pcc_acc_old, pcc_acc_new, pcc_acc_matched_old, pcc_acc_matched_new,
                pcc_pos[0], pcc_pos[1], pcc_pos[2], pcc_pos[3],
@@ -878,6 +960,7 @@ namespace mkfit {
                pmr0.idx, pmr1.idx, pmr2.idx, pmr3.idx
               );
       }
+      // clang-format off
 #endif
     }        //itrack
   }

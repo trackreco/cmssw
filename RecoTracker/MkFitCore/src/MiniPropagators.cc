@@ -1,4 +1,7 @@
 #include "RecoTracker/MkFitCore/src/MiniPropagators.h"
+#include "vdt/atan2.h"
+#include "vdt/tan.h"
+#include "vdt/sincos.h"
 
 namespace mkfit::mini_propagators {
 
@@ -75,6 +78,128 @@ namespace mkfit::mini_propagators {
         const float cosa = std::cos(alpha);
         const float sina = std::sin(alpha);
 
+        c.x = x + k * (px * sina - py * (1.0f - cosa));
+        c.y = y + k * (py * sina + px * (1.0f - cosa));
+        c.z = Z;
+
+        if (update_momentum) {
+          c.px = px * cosa - py * sina;
+          c.py = py * cosa + px * sina;
+          c.pz = pz;
+        }
+      }
+      break;
+    }
+
+    return true;
+  }
+
+  //===========================================================================
+  // Vectorized version
+  //===========================================================================
+
+  MPF fast_atan2(const MPF &y, const MPF &x) {
+    MPF t;
+    for (int i = 0; i < y.kTotSize; ++i) {
+      t[i] = vdt::fast_atan2f(y[i], x[i]);
+    }
+    return t;
+  }
+
+  MPF fast_tan(const MPF &a) {
+    MPF t;
+    for (int i = 0; i < a.kTotSize; ++i) {
+      t[i] = vdt::fast_tanf(a[i]);
+    }
+    return t;
+  }
+
+  void fast_sincos(const MPF &a, MPF &s, MPF &c) {
+    for (int i = 0; i < a.kTotSize; ++i) {
+      vdt::fast_sincosf(a[i], s[i], c[i]);
+    }
+  }
+
+  StatePlex::StatePlex(const MPlexLV& par) {
+    x = par.ReduceFixedIJ(0, 0);
+    y = par.ReduceFixedIJ(1, 0);
+    z = par.ReduceFixedIJ(2, 0);
+    const MPF pt = 1.0f / par.ReduceFixedIJ(3, 0);
+    fast_sincos(par.ReduceFixedIJ(4, 0), py, px);
+    px *= pt;
+    py *= pt;
+    pz = pt / fast_tan(par.ReduceFixedIJ(5, 0));
+  }
+
+  bool InitialStatePlex::propagate_to_r(PropAlgo_e algo, const MPF& R, StatePlex& c, bool update_momentum) const {
+    switch (algo) {
+      case PA_Line: {}
+      case PA_Quadratic: {}
+
+      case PA_Exact: {
+        // Momentum is always updated -- used as temporary for stepping.
+        const MPF k = 1.0f / inv_k;
+
+        const MPF curv = 0.5f * inv_k * inv_pt;
+        const MPF oo_curv = 1.0f / curv;  // 2 * radius of curvature
+        const MPF lambda = pz * inv_pt;
+
+        MPF D = 0;
+
+        c = *this;
+        c.dphi = 0;
+        for (int i = 0; i < Config::Niter; ++i) {
+          // compute tangental and ideal distance for the current iteration.
+          // 3-rd order asin for symmetric incidence (shortest arc lenght).
+          MPF r0 = Matriplex::hypot(c.x, c.y);
+          MPF td = (R - r0) * curv;
+          MPF id = oo_curv * td * (1.0f + 0.16666666f * td * td);
+          // This would be for line approximation:
+          // float id = R - r0;
+          D += id;
+
+          //printf("%-3d r0=%f R-r0=%f td=%f id=%f id_line=%f delta_id=%g\n",
+          //       i, r0, R-r0, td, id, R - r0, id - (R-r0));
+
+          MPF alpha = id * inv_pt * inv_k;
+
+          MPF sina, cosa;
+          fast_sincos(alpha, sina, cosa);
+
+          // update parameters
+          c.dphi += alpha;
+          c.x += k * (c.px * sina - c.py * (1.0f - cosa));
+          c.y += k * (c.py * sina + c.px * (1.0f - cosa));
+
+          MPF o_px = c.px;  // copy before overwriting
+          c.px = c.px * cosa - c.py * sina;
+          c.py = c.py * cosa + o_px * sina;
+        }
+
+        c.z += lambda * D;
+      }
+    }
+
+    // should have some epsilon constant / member? relative vs. abs?
+    // XXXXX to be vectorized with output bool plex + bool output if any is bad
+    return true; // std::abs(std::hypot(c.x, c.y) - R) < 0.1f;
+  }
+
+  bool InitialStatePlex::propagate_to_z(PropAlgo_e algo, const MPF& Z, StatePlex& c, bool update_momentum) const {
+    switch (algo) {
+      case PA_Line: {}
+      case PA_Quadratic: {}
+
+      case PA_Exact: {
+        MPF k = 1.0f / inv_k;
+
+        MPF dz = Z - z;
+        MPF alpha = dz * inv_k / pz;
+
+        MPF sina, cosa;
+        fast_sincos(alpha, sina, cosa);
+
+        c.dphi = alpha;
         c.x = x + k * (px * sina - py * (1.0f - cosa));
         c.y = y + k * (py * sina + px * (1.0f - cosa));
         c.z = Z;

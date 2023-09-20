@@ -59,6 +59,9 @@ ${LIB_CORE}: ${OBJS}
 ${OBJS}: %.o: %.cc %.d
 	${CXX} ${CPPFLAGS} ${CXXFLAGS} ${VEC_HOST} -c -o $@ $<
 
+%.s: %.cc
+	${CXX} ${CPPFLAGS} ${CXXFLAGS} ${VEC_HOST} -S -o $@ $<
+
 %.d: %.cc
 	${MAKEDEPEND} -o $@ $<
 

@@ -50,10 +50,12 @@ namespace mkfit {
     MkFinder() {}
 
     void setup(const PropagationConfig &pc,
+               const IterationConfig &ic,
                const IterationParams &ip,
                const IterationLayerConfig &ilc,
                const SteeringParams &sp,
                const std::vector<bool> *ihm,
+               int region,
                bool infwd);
     void setup_bkfit(const PropagationConfig &pc, const SteeringParams &sp);
     void release();
@@ -328,10 +330,12 @@ namespace mkfit {
     // MPlexLV    candParAtCurrHit;
 
     const PropagationConfig *m_prop_config = nullptr;
+    const IterationConfig *m_iteration_config = nullptr;
     const IterationParams *m_iteration_params = nullptr;
     const IterationLayerConfig *m_iteration_layer_config = nullptr;
     const SteeringParams *m_steering_params = nullptr;
     const std::vector<bool> *m_iteration_hit_mask = nullptr;
+    int m_current_region = -1;
     bool m_in_fwd = true;
 
     // Backward fit
