@@ -260,19 +260,18 @@ namespace mkfit {
     using bidx_t = LayerOfHits::bin_index_t;
     using bcnt_t = LayerOfHits::bin_content_t;
     const LayerOfHits &L = layer_of_hits;
-    // const IterationLayerConfig &ILC = *m_iteration_layer_config;
+    const IterationLayerConfig &ILC = *m_iteration_layer_config;
 
     const int iI = iP;
-    // const float nSigmaPhi = 3;
-    // const float nSigmaZ = 3;
-    // const float nSigmaR = 3;
+    const float nSigmaPhi = 3;
+    const float nSigmaZ = 3;
+    const float nSigmaR = 3;
 
     dprintf("LayerOfHits::SelectHitIndices %s layer=%d N_proc=%d\n",
             L.is_barrel() ? "barrel" : "endcap",
             L.layer_id(),
             N_proc);
 
-/*
     float dqv[NN], dphiv[NN], qv[NN], phiv[NN];
     bidx_t qb1v[NN], qb2v[NN], qbv[NN], pb1v[NN], pb2v[NN];
 
@@ -401,9 +400,9 @@ namespace mkfit {
         assignbins(itrack, r, dr, phi, dphi, min_dq, max_dq, min_dphi, max_dphi);
       }
     }
-*/
 
     namespace mp = mini_propagators;
+/*
     struct Bins {
       MPlexQI q0, q1, q2, p1, p2;
       mp::InitialStatePlex isp;
@@ -469,6 +468,7 @@ namespace mkfit {
         m_XWsrResult[i] = L.is_within_r_sensitive_region(B.q_c[i], 0.8f * (B.q2[i] - B.q1[i]));
       }
     }
+*/
     // for (int i = 0; i < N_proc; ++i) {
     //   printf("BinCheck %c %+8.6f %+8.6f %+8.6f | %3d %3d - %3d %3d | %2d %2d - %2d %2d\n", LI.is_barrel() ? 'B' : 'E',
     //          B.phi_c[i], B.dphi_min[i], B.dphi_max[i],
@@ -501,11 +501,11 @@ namespace mkfit {
         continue;
       }
 
-      const bidx_t qb = B.q0[itrack]; // qbv[itrack];
-      const bidx_t qb1 = B.q1[itrack]; // qb1v[itrack];
-      const bidx_t qb2 = B.q2[itrack]; // qb2v[itrack];
-      const bidx_t pb1 = B.p1[itrack]; // pb1v[itrack];
-      const bidx_t pb2 = B.p2[itrack]; // pb2v[itrack];
+      const bidx_t qb = qbv[itrack];
+      const bidx_t qb1 = qb1v[itrack];
+      const bidx_t qb2 = qb2v[itrack];
+      const bidx_t pb1 = pb1v[itrack];
+      const bidx_t pb2 = pb2v[itrack];
 
       // Used only by usePhiQArrays
       // const float q = qv[itrack];
