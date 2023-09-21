@@ -510,8 +510,8 @@ namespace mkfit {
       // Used only by usePhiQArrays
       // const float q = qv[itrack];
       // const float phi = phiv[itrack];
-      // const float dphi = dphiv[itrack];
-      // const float dq = dqv[itrack];
+      const float dphi = dphiv[itrack];
+      const float dq = dqv[itrack];
       // clang-format off
       dprintf("  %2d/%2d: %6.3f %6.3f %6.6f %7.5f %3u %3u %4u %4u\n",
               L.layer_id(), itrack, q, phi, dq, dphi,
@@ -878,10 +878,10 @@ namespace mkfit {
               if (NEW_SELECTION) {
                 if (!prop_ok)
                   continue;
-                if (new_ddq >= 1.2f * L.hit_q_half_length(hi)) // !!!! TO BE IMPROVED
+                if (new_ddq >= dq)
                   continue;
-                // if (new_ddphi >= 1.2f * dphi) // !!!! ALSO, TO BE IMPROVED, just scaling up a bit
-                //   continue;
+                if (new_ddphi >= dphi)
+                  continue;
                 if (pqueue_size < NEW_MAX_HIT) {
                   pqueue.push({ new_ddphi, hi_orig });
                   ++pqueue_size;
