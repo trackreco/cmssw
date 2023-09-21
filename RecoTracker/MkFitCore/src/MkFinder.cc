@@ -460,6 +460,15 @@ namespace mkfit {
     Bins B(m_Par[iI], m_Chg);
     B.prop_to_limits(LI);
     B.find_bin_ranges(LI, L);
+
+    for (int i = 0; i < N_proc; ++i) {
+      m_XHitSize[i] = 0;
+      if (LI.is_barrel()) {
+        m_XWsrResult[i] = L.is_within_z_sensitive_region(B.q_c[i], 0.8f * (B.q2[i] - B.q1[i]));
+      } else {
+        m_XWsrResult[i] = L.is_within_r_sensitive_region(B.q_c[i], 0.8f * (B.q2[i] - B.q1[i]));
+      }
+    }
     // for (int i = 0; i < N_proc; ++i) {
     //   printf("BinCheck %c %+8.6f %+8.6f %+8.6f | %3d %3d - %3d %3d | %2d %2d - %2d %2d\n", LI.is_barrel() ? 'B' : 'E',
     //          B.phi_c[i], B.dphi_min[i], B.dphi_max[i],
