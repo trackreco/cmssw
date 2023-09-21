@@ -455,6 +455,24 @@ namespace Matriplex {
     }
   }
 
+  template <typename T, idx_t D1, idx_t D2, idx_t N>
+  MPlex<T, D1, D2, N> min(const MPlex<T, D1, D2, N> &a, const MPlex<T, D1, D2, N> &b) {
+    MPlex<T, D1, D2, N> t;
+    for (idx_t i = 0; i < a.kTotSize; ++i) {
+      t.fArray[i] = std::min(a.fArray[i], b.fArray[i]);
+    }
+    return t;
+  }
+
+  template <typename T, idx_t D1, idx_t D2, idx_t N>
+  MPlex<T, D1, D2, N> max(const MPlex<T, D1, D2, N> &a, const MPlex<T, D1, D2, N> &b) {
+    MPlex<T, D1, D2, N> t;
+    for (idx_t i = 0; i < a.kTotSize; ++i) {
+      t.fArray[i] = std::max(a.fArray[i], b.fArray[i]);
+    }
+    return t;
+  }
+
   //==============================================================================
   // Multiplications
   //==============================================================================

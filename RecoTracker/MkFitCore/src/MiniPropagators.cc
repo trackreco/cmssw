@@ -2,6 +2,7 @@
 #include "vdt/atan2.h"
 #include "vdt/tan.h"
 #include "vdt/sincos.h"
+#include "vdt/sqrt.h"
 
 namespace mkfit::mini_propagators {
 
@@ -44,8 +45,9 @@ namespace mkfit::mini_propagators {
           //printf("%-3d r0=%f R-r0=%f td=%f id=%f id_line=%f delta_id=%g\n",
           //       i, r0, R-r0, td, id, R - r0, id - (R-r0));
 
-          float cosa = std::cos(id * inv_pt * inv_k);
-          float sina = std::sin(id * inv_pt * inv_k);
+          float alpha = id * inv_pt * inv_k;
+          float sina, cosa;
+          vdt::fast_sincosf(alpha, sina, cosa);
 
           // update parameters
           c.x += k * (c.px * sina - c.py * (1.0f - cosa));
@@ -75,8 +77,8 @@ namespace mkfit::mini_propagators {
         const float dz = Z - z;
         const float alpha = dz * inv_k / pz;
 
-        const float cosa = std::cos(alpha);
-        const float sina = std::sin(alpha);
+        float sina, cosa;
+        vdt::fast_sincosf(alpha, sina, cosa);
 
         c.x = x + k * (px * sina - py * (1.0f - cosa));
         c.y = y + k * (py * sina + px * (1.0f - cosa));

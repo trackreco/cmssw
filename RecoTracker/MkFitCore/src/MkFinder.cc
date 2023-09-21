@@ -15,6 +15,8 @@
 #include "RecoTracker/MkFitCore/standalone/Event.h"
 #endif
 
+#include "vdt/atan2.h"
+
 #include <algorithm>
 #include <queue>
 
@@ -258,18 +260,19 @@ namespace mkfit {
     using bidx_t = LayerOfHits::bin_index_t;
     using bcnt_t = LayerOfHits::bin_content_t;
     const LayerOfHits &L = layer_of_hits;
-    const IterationLayerConfig &ILC = *m_iteration_layer_config;
+    // const IterationLayerConfig &ILC = *m_iteration_layer_config;
 
     const int iI = iP;
-    const float nSigmaPhi = 3;
-    const float nSigmaZ = 3;
-    const float nSigmaR = 3;
+    // const float nSigmaPhi = 3;
+    // const float nSigmaZ = 3;
+    // const float nSigmaR = 3;
 
     dprintf("LayerOfHits::SelectHitIndices %s layer=%d N_proc=%d\n",
             L.is_barrel() ? "barrel" : "endcap",
             L.layer_id(),
             N_proc);
 
+/*
     float dqv[NN], dphiv[NN], qv[NN], phiv[NN];
     bidx_t qb1v[NN], qb2v[NN], qbv[NN], pb1v[NN], pb2v[NN];
 
@@ -398,15 +401,17 @@ namespace mkfit {
         assignbins(itrack, r, dr, phi, dphi, min_dq, max_dq, min_dphi, max_dphi);
       }
     }
+*/
 
     namespace mp = mini_propagators;
     struct Bins {
-      MPlexQI q1, q2, p1, p2;
+      MPlexQI q0, q1, q2, p1, p2;
       mp::InitialStatePlex isp;
       mp::StatePlex sp1, sp2;
 
       // debug -- to be local in functions
       MPlexQF phi_c, dphi_min, dphi_max;
+      MPlexQF q_c, qmin, qmax;
 
       Bins(const MPlexLV& par, const MPlexQI& chg) :
         isp(par, chg) {}
@@ -426,24 +431,41 @@ namespace mkfit {
         // MPlexQF phi_c, dphi_min, dphi_max;
         phi_c = mp::fast_atan2(isp.y, isp.x);
         Matriplex::min_max(sp1.dphi, sp2.dphi, dphi_min, dphi_max);
-        for (int i = 0; i < p1.kTotSize; ++i) {
-          p1[i] = loh.phiBinChecked(phi_c[i] + dphi_min[i]); // assuming dphi_min is negative
-          p2[i] = loh.phiMaskApply(loh.phiBin(phi_c[i] + dphi_max[i]) + 1);
-        }
+
+        // MPlexQF qmin, qmax;
         if (li.is_barrel()) {
+          Matriplex::min_max(sp1.z, sp2.z, qmin, qmax);
+          q_c = isp.z;
         } else {
+          Matriplex::min_max(Matriplex::hypot(sp1.x, sp1.y), Matriplex::hypot(sp2.x, sp2.y), qmin, qmax);
+          q_c = Matriplex::hypot(isp.x, isp.y);
+        }
+
+        for (int i = 0; i < p1.kTotSize; ++i) {
+        // Clamp crazy sizes
+          if (dphi_min[i] > 0.0f || dphi_min[i] < -0.1f) dphi_min[i] = -0.1f;
+          if (dphi_max[i] < 0.0f || dphi_max[i] > 0.1f) dphi_max[i] = 0.1f;
+          p1[i] = loh.phiBinChecked(phi_c[i] + 1.2f * dphi_min[i]); // assuming dphi_min is negative
+          p2[i] = loh.phiMaskApply(loh.phiBin(phi_c[i] + 1.2f * dphi_max[i]) + 1);
+
+          float extra_dq = 0.5f * li.q_bin();
+          q0[i] = loh.qBinChecked(q_c[i]);
+          q1[i] = loh.qBinChecked(qmin[i] - extra_dq);
+          q2[i] = loh.qBinChecked(qmax[i] + extra_dq) + 1;
         }
       }
     };
+
     const LayerInfo &LI = *L.layer_info();
     Bins B(m_Par[iI], m_Chg);
     B.prop_to_limits(LI);
     B.find_bin_ranges(LI, L);
-    for (int i = 0; i < N_proc; ++i) {
-      printf("BinCheck %c %f %f %f | %d %d - %d %d |\n", LI.is_barrel() ? 'B' : 'E',
-             B.phi_c[i], B.dphi_min[i], B.dphi_max[i],
-             B.p1[i], B.p2[i], pb1v[i], pb2v[i]);
-    }
+    // for (int i = 0; i < N_proc; ++i) {
+    //   printf("BinCheck %c %+8.6f %+8.6f %+8.6f | %3d %3d - %3d %3d | %2d %2d - %2d %2d\n", LI.is_barrel() ? 'B' : 'E',
+    //          B.phi_c[i], B.dphi_min[i], B.dphi_max[i],
+    //          B.p1[i], B.p2[i], pb1v[i], pb2v[i],
+    //          B.q1[i], B.q2[i], qb1v[i], qb2v[i]);
+    // }
 
 
     struct PQE { float score; unsigned int hit_index; };
@@ -470,17 +492,17 @@ namespace mkfit {
         continue;
       }
 
-      const bidx_t qb = qbv[itrack];
-      const bidx_t qb1 = qb1v[itrack];
-      const bidx_t qb2 = qb2v[itrack];
-      const bidx_t pb1 = pb1v[itrack];
-      const bidx_t pb2 = pb2v[itrack];
+      const bidx_t qb = B.q0[itrack]; // qbv[itrack];
+      const bidx_t qb1 = B.q1[itrack]; // qb1v[itrack];
+      const bidx_t qb2 = B.q2[itrack]; // qb2v[itrack];
+      const bidx_t pb1 = B.p1[itrack]; // pb1v[itrack];
+      const bidx_t pb2 = B.p2[itrack]; // pb2v[itrack];
 
       // Used only by usePhiQArrays
-      const float q = qv[itrack];
-      const float phi = phiv[itrack];
-      const float dphi = dphiv[itrack];
-      const float dq = dqv[itrack];
+      // const float q = qv[itrack];
+      // const float phi = phiv[itrack];
+      // const float dphi = dphiv[itrack];
+      // const float dq = dqv[itrack];
       // clang-format off
       dprintf("  %2d/%2d: %6.3f %6.3f %6.6f %7.5f %3u %3u %4u %4u\n",
               L.layer_id(), itrack, q, phi, dq, dphi,
@@ -565,8 +587,8 @@ namespace mkfit {
               if (m_XHitSize[itrack] >= MPlexHitIdxMax)
                 break;
 
-              const float ddq = std::abs(q - L.hit_q(hi));
-              const float ddphi = cdist(std::abs(phi - L.hit_phi(hi)));
+              // const float ddq = std::abs(q - L.hit_q(hi));
+              // const float ddphi = cdist(std::abs(phi - L.hit_phi(hi)));
 
               // clang-format off
               dprintf("     SHI %3u %4u %5u  %6.3f %6.3f %6.4f %7.5f   %s\n",
@@ -594,7 +616,7 @@ namespace mkfit {
                 // if (!isFinite(mp_s.x - mp_sp.x[itrack]))
                 //   printf("BRUH\n");
 
-                new_phi = getPhi(mp_s.x, mp_s.y);
+                new_phi = vdt::fast_atan2f(mp_s.y, mp_s.x);
                 new_ddphi = cdist(std::abs(new_phi - L.hit_phi(hi)));
                 new_ddq = std::abs(new_q - L.hit_q(hi));
               }
@@ -847,10 +869,10 @@ namespace mkfit {
               if (NEW_SELECTION) {
                 if (!prop_ok)
                   continue;
-                if (new_ddq >= dq) // !!!! TO BE IMPROVED
+                if (new_ddq >= 1.2f * L.hit_q_half_length(hi)) // !!!! TO BE IMPROVED
                   continue;
-                if (new_ddphi >= 1.2f * dphi) // !!!! ALSO, TO BE IMPROVED, just scaling up a bit
-                  continue;
+                // if (new_ddphi >= 1.2f * dphi) // !!!! ALSO, TO BE IMPROVED, just scaling up a bit
+                //   continue;
                 if (pqueue_size < NEW_MAX_HIT) {
                   pqueue.push({ new_ddphi, hi_orig });
                   ++pqueue_size;
@@ -859,10 +881,10 @@ namespace mkfit {
                   pqueue.push({ new_ddphi, hi_orig });
                 }
               } else {
-                if (ddq >= dq)
-                  continue;
-                if (ddphi >= dphi)
-                  continue;
+                // if (ddq >= dq)
+                //   continue;
+                // if (ddphi >= dphi)
+                //   continue;
 
                 // MT: Removing extra check gives full efficiency ...
                 //     and means our error estimations are wrong!
