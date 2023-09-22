@@ -83,146 +83,95 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
 
   // use code from AnalyticalCurvilinearJacobian::computeFullJacobian for error propagation in curvilinear coordinates, then convert to CCS
   // main difference from the above function is that we assume that the magnetic field is purely along z (which also implies that there is no change in pz)
+  // this simplifies significantly the code
 
   MPlex55  errorPropCurv;
   for (int n = nmin; n < nmax; ++n) {
 
-    float qbp = inChg(n, 0, 0)*sinT[n]*inPar(n, 3, 0);
-    float absS = s[n - nmin];
+    const float qbp = inChg(n, 0, 0)*sinT[n]*inPar(n, 3, 0);
     // calculate transport matrix
     // Origin: TRPRFN
-    float t11 = cosPin[n]*sinT[n];
-    float t12 = sinPin[n]*sinT[n];
-    float t13 = cosT[n];
-    float t21 = cosPout[n]*sinT[n];
-    float t22 = sinPout[n]*sinT[n];
-    float t23 = cosT[n];
-    float cosl0 = sinT[n];
-    float cosl1 = 1. / sinT[n];
+    const float t11 = cosPin[n]*sinT[n];
+    const float t12 = sinPin[n]*sinT[n];
+    const float t21 = cosPout[n]*sinT[n];
+    const float t22 = sinPout[n]*sinT[n];
+    const float cosl1 = 1.f / sinT[n];
     // define average magnetic field and gradient
     // at initial point - inlike TRPRFN
-    float bF = (pf.use_param_b_field ? 0.01f * Const::sol * Config::bFieldFromZR(inPar(n, 2, 0), hipo(inPar(n, 0, 0), inPar(n, 1, 0))) : 0.01f * Const::sol * Config::Bfield);
-    float qp = -bF;
-    float q = qp * qbp;
-    float theta = q * absS;
+    const float bF = (pf.use_param_b_field ? 0.01f * Const::sol * Config::bFieldFromZR(inPar(n, 2, 0), hipo(inPar(n, 0, 0), inPar(n, 1, 0))) : 0.01f * Const::sol * Config::Bfield);
+    const float q = -bF * qbp;
+    const float theta = q * s[n - nmin];
     //float sint, cost;
     //vdt::fast_sincos(theta, sint, cost);
-    float sint = std::sin(theta);
-    float cost = std::cos(theta);
-    float hn1 = 0.f;
-    float hn2 = 0.f;
-    float hn3 = 1.f;
-    float dx1 = inPar(n, 0, 0)-outPar(n, 0, 0);
-    float dx2 = inPar(n, 1, 0)-outPar(n, 1, 0);
-    float dx3 = inPar(n, 2, 0)-outPar(n, 2, 0);
-    float gamma = hn1 * t21 + hn2 * t22 + hn3 * t23;
-    float an1 = hn2 * t23 - hn3 * t22;
-    float an2 = hn3 * t21 - hn1 * t23;
-    float an3 = hn1 * t22 - hn2 * t21;
-    float au = 1. / sqrt(t11 * t11 + t12 * t12);
-    float u11 = -au * t12;
-    float u12 = au * t11;
-    float v11 = -t13 * u12;
-    float v12 = t13 * u11;
-    float v13 = t11 * u12 - t12 * u11;
-    au = 1. / sqrt(t21 * t21 + t22 * t22);
-    float u21 = -au * t22;
-    float u22 = au * t21;
-    float v21 = -t23 * u22;
-    float v22 = t23 * u21;
-    float v23 = t21 * u22 - t22 * u21;
+    const float sint = std::sin(theta);
+    const float cost = std::cos(theta);
+    const float dx1 = inPar(n, 0, 0)-outPar(n, 0, 0);
+    const float dx2 = inPar(n, 1, 0)-outPar(n, 1, 0);
+    const float dx3 = inPar(n, 2, 0)-outPar(n, 2, 0);
+    float au = 1.f / sqrt(t11 * t11 + t12 * t12);
+    const float u11 = -au * t12;
+    const float u12 = au * t11;
+    const float v11 = -cosT[n] * u12;
+    const float v12 = cosT[n] * u11;
+    const float v13 = t11 * u12 - t12 * u11;
+    au = 1.f / sqrt(t21 * t21 + t22 * t22);
+    const float u21 = -au * t22;
+    const float u22 = au * t21;
+    const float v21 = -cosT[n] * u22;
+    const float v22 = cosT[n] * u21;
+    const float v23 = t21 * u22 - t22 * u21;
     // now prepare the transport matrix
-    float anv = -(hn1 * u21 + hn2 * u22);
-    float anu = (hn1 * v21 + hn2 * v22 + hn3 * v23);
-    float omcost = 1. - cost;
-    float tmsint = theta - sint;
-    float hu1 = -hn3 * u12;
-    float hu2 = hn3 * u11;
-    float hu3 = hn1 * u12 - hn2 * u11;
-    float hv1 = hn2 * v13 - hn3 * v12;
-    float hv2 = hn3 * v11 - hn1 * v13;
-    float hv3 = hn1 * v12 - hn2 * v11;
+    const float omcost = 1.f - cost;
+    const float tmsint = theta - sint;
     //   1/p - doesn't change since |p1| = |p2|
-    errorPropCurv(n, 0, 0) = 1.;
-    for (auto i = 1; i < 5; ++i) errorPropCurv(n, 0, i) = 0.;
+    errorPropCurv(n, 0, 0) = 1.f;
+    for (auto i = 1; i < 5; ++i) errorPropCurv(n, 0, i) = 0.f;
     //   lambda
-    errorPropCurv(n, 1, 0) = -qp * anv * (t21 * dx1 + t22 * dx2 + t23 * dx3);
-    errorPropCurv(n, 1, 1) =
-      cost * (v11 * v21 + v12 * v22 + v13 * v23) + sint * (hv1 * v21 + hv2 * v22 + hv3 * v23) +
-      omcost * (hn1 * v11 + hn2 * v12 + hn3 * v13) * (hn1 * v21 + hn2 * v22 + hn3 * v23) +
-      anv * (-sint * (v11 * t21 + v12 * t22 + v13 * t23) + omcost * (v11 * an1 + v12 * an2 + v13 * an3) -
-             tmsint * gamma * (hn1 * v11 + hn2 * v12 + hn3 * v13));
-    errorPropCurv(n, 1, 2) = cost * (u11 * v21 + u12 * v22) + sint * (hu1 * v21 + hu2 * v22 + hu3 * v23) +
-                      omcost * (hn1 * u11 + hn2 * u12) * (hn1 * v21 + hn2 * v22 + hn3 * v23) +
-                      anv * (-sint * (u11 * t21 + u12 * t22) + omcost * (u11 * an1 + u12 * an2) -
-                             tmsint * gamma * (hn1 * u11 + hn2 * u12));
-    errorPropCurv(n, 1, 2) *= cosl0;
-    errorPropCurv(n, 1, 3) = -q * anv * (u11 * t21 + u12 * t22);
-    errorPropCurv(n, 1, 4) = -q * anv * (v11 * t21 + v12 * t22 + v13 * t23);
+    errorPropCurv(n, 1, 0) = 0.f;
+    errorPropCurv(n, 1, 1) = cost * (v11 * v21 + v12 * v22 + v13 * v23) + sint * (-v12 * v21 + v11 * v22) + omcost * v13 * v23;
+    errorPropCurv(n, 1, 2) = (cost * (u11 * v21 + u12 * v22) + sint * (-u12 * v21 + u11 * v22)) * sinT[n];
+    errorPropCurv(n, 1, 3) = 0.f;
+    errorPropCurv(n, 1, 4) = 0.f;
     //   phi
-    errorPropCurv(n, 2, 0) = -qp * anu * (t21 * dx1 + t22 * dx2 + t23 * dx3) * cosl1;
-    errorPropCurv(n, 2, 1) =
-      cost * (v11 * u21 + v12 * u22) + sint * (hv1 * u21 + hv2 * u22) +
-      omcost * (hn1 * v11 + hn2 * v12 + hn3 * v13) * (hn1 * u21 + hn2 * u22) +
-      anu * (-sint * (v11 * t21 + v12 * t22 + v13 * t23) + omcost * (v11 * an1 + v12 * an2 + v13 * an3) -
-             tmsint * gamma * (hn1 * v11 + hn2 * v12 + hn3 * v13));
-    errorPropCurv(n, 2, 1) *= cosl1;
-    errorPropCurv(n, 2, 2) = cost * (u11 * u21 + u12 * u22) + sint * (hu1 * u21 + hu2 * u22) +
-                      omcost * (hn1 * u11 + hn2 * u12) * (hn1 * u21 + hn2 * u22) +
-                      anu * (-sint * (u11 * t21 + u12 * t22) + omcost * (u11 * an1 + u12 * an2) -
-                             tmsint * gamma * (hn1 * u11 + hn2 * u12));
-    errorPropCurv(n, 2, 2) *= cosl1 * cosl0;
-    errorPropCurv(n, 2, 3) = -q * anu * (u11 * t21 + u12 * t22) * cosl1;
-    errorPropCurv(n, 2, 4) = -q * anu * (v11 * t21 + v12 * t22 + v13 * t23) * cosl1;
+    errorPropCurv(n, 2, 0) = bF * v23 * (t21 * dx1 + t22 * dx2 + cosT[n] * dx3) * cosl1;
+    errorPropCurv(n, 2, 1) = (cost * (v11 * u21 + v12 * u22) + sint * (-v12 * u21 + v11 * u22) + v23 * (-sint * (v11 * t21 + v12 * t22 + v13 * cosT[n]) + omcost * (-v11 * t22 + v12 * t21) - tmsint * cosT[n] * v13)) * cosl1;
+    errorPropCurv(n, 2, 2) = (cost * (u11 * u21 + u12 * u22) + sint * (-u12 * u21 + u11 * u22) + v23 * (-sint * (u11 * t21 + u12 * t22) + omcost * (-u11 * t22 + u12 * t21))) * cosl1 * sinT[n];
+    errorPropCurv(n, 2, 3) = -q * v23 * (u11 * t21 + u12 * t22) * cosl1;
+    errorPropCurv(n, 2, 4) = -q * v23 * (v11 * t21 + v12 * t22 + v13 * cosT[n]) * cosl1;
     //   yt
     float cutCriterion = fabs(s[n - nmin] * sinT[n - nmin] * inPar(n, 3, 0));
-    const float limit = 5.;  // valid for propagations with effectively float precision
+    const float limit = 5.f;  // valid for propagations with effectively float precision
     if (cutCriterion > limit) {
-      float pp = 1. / qbp;
+      const float pp = 1.f / qbp;
       errorPropCurv(n, 3, 0) = pp * (u21 * dx1 + u22 * dx2);
       errorPropCurv(n, 4, 0) = pp * (v21 * dx1 + v22 * dx2 + v23 * dx3);
     } else {
-      float hp11 = hn2 * t13 - hn3 * t12;
-      float hp12 = hn3 * t11 - hn1 * t13;
-      float hp13 = hn1 * t12 - hn2 * t11;
-      float temp1 = hp11 * u21 + hp12 * u22;
-      float s2 = s[n - nmin] * s[n - nmin];
-      float secondOrder41 = 0.5 * qp * temp1 * s2;
-      float ghnmp1 = gamma * hn1 - t11;
-      float ghnmp2 = gamma * hn2 - t12;
-      float ghnmp3 = gamma * hn3 - t13;
-      float temp2 = ghnmp1 * u21 + ghnmp2 * u22;
-      float s3 = s2 * s[n - nmin];
-      float s4 = s3 * s[n - nmin];
-      float h1 = bF;
-      float h2 = h1 * h1;
-      float h3 = h2 * h1;
-      float qbp2 = qbp * qbp;
-      float thirdOrder41 = 1. / 3 * h2 * s3 * qbp * temp2;
-      float fourthOrder41 = 1. / 8 * h3 * s4 * qbp2 * temp1;
+      const float temp1 = -t12 * u21 + t11 * u22;
+      const float s2 = s[n - nmin] * s[n - nmin];
+      const float secondOrder41 = -0.5f * bF * temp1 * s2;
+      const float temp2 = - t11 * u21 - t12 * u22;
+      const float s3 = s2 * s[n - nmin];
+      const float s4 = s3 * s[n - nmin];
+      const float h2 = bF * bF;
+      const float h3 = h2 * bF;
+      const float qbp2 = qbp * qbp;
+      const float thirdOrder41 = 1.f / 3 * h2 * s3 * qbp * temp2;
+      const float fourthOrder41 = 1.f / 8 * h3 * s4 * qbp2 * temp1;
       errorPropCurv(n, 3, 0) = secondOrder41 + (thirdOrder41 + fourthOrder41);
-      float temp3 = hp11 * v21 + hp12 * v22 + hp13 * v23;
-      float secondOrder51 = 0.5 * qp * temp3 * s2;
-      float temp4 = ghnmp1 * v21 + ghnmp2 * v22 + ghnmp3 * v23;
-      float thirdOrder51 = 1. / 3 * h2 * s3 * qbp * temp4;
-      float fourthOrder51 = 1. / 8 * h3 * s4 * qbp2 * temp3;
+      const float temp3 = -t12 * v21 + t11 * v22;
+      const float secondOrder51 = -0.5f * bF * temp3 * s2;
+      const float temp4 = - t11 * v21 - t12 * v22 - cosT[n] * v23;
+      const float thirdOrder51 = 1.f / 3 * h2 * s3 * qbp * temp4;
+      const float fourthOrder51 = 1.f / 8 * h3 * s4 * qbp2 * temp3;
       errorPropCurv(n, 4, 0) = secondOrder51 + (thirdOrder51 + fourthOrder51);
     }
-    errorPropCurv(n, 3, 1) = (sint * (v11 * u21 + v12 * u22) + omcost * (hv1 * u21 + hv2 * u22) +
-                       tmsint * (hn1 * u21 + hn2 * u22) * (hn1 * v11 + hn2 * v12 + hn3 * v13)) /
-                      q;
-    errorPropCurv(n, 3, 2) = (sint * (u11 * u21 + u12 * u22) + omcost * (hu1 * u21 + hu2 * u22) +
-                       tmsint * (hn1 * u21 + hn2 * u22) * (hn1 * u11 + hn2 * u12)) *
-                      cosl0 / q;
+    errorPropCurv(n, 3, 1) = (sint * (v11 * u21 + v12 * u22) + omcost * (-v12 * u21 + v11 * u22)) / q;
+    errorPropCurv(n, 3, 2) = (sint * (u11 * u21 + u12 * u22) + omcost * (-u12 * u21 + u11 * u22)) * sinT[n] / q;
     errorPropCurv(n, 3, 3) = (u11 * u21 + u12 * u22);
     errorPropCurv(n, 3, 4) = (v11 * u21 + v12 * u22);
     //   zt
-    errorPropCurv(n, 4, 1) = (sint * (v11 * v21 + v12 * v22 + v13 * v23) + omcost * (hv1 * v21 + hv2 * v22 + hv3 * v23) +
-                       tmsint * (hn1 * v21 + hn2 * v22 + hn3 * v23) * (hn1 * v11 + hn2 * v12 + hn3 * v13)) /
-                      q;
-    errorPropCurv(n, 4, 2) = (sint * (u11 * v21 + u12 * v22) + omcost * (hu1 * v21 + hu2 * v22 + hu3 * v23) +
-                       tmsint * (hn1 * v21 + hn2 * v22 + hn3 * v23) * (hn1 * u11 + hn2 * u12)) *
-                      cosl0 / q;
+    errorPropCurv(n, 4, 1) = (sint * (v11 * v21 + v12 * v22 + v13 * v23) + omcost * (-v12 * v21 + v11 * v22) + tmsint * v23 * v13) / q;
+    errorPropCurv(n, 4, 2) = (sint * (u11 * v21 + u12 * v22) + omcost * (-u12 * v21 + u11 * v22)) * sinT[n] / q;
     errorPropCurv(n, 4, 3) = (u11 * v21 + u12 * v22);
     errorPropCurv(n, 4, 4) = (v11 * v21 + v12 * v22 + v13 * v23);
 
