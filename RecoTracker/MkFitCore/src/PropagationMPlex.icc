@@ -7,25 +7,20 @@
 #include "TrackingTools/AnalyticalJacobians/interface/AnalyticalCurvilinearJacobian.h"
 #include "TrackingTools/TrajectoryParametrization/interface/GlobalTrajectoryParameters.h"
 #include "DataFormats/TrajectoryState/interface/TrackCharge.h"
-
-//should kinv and D be templated???
-template <typename Tf, typename Ti, typename TfLL1, typename TfLLL>
-static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
-                                                const Ti& __restrict__ inChg,
-                                                TfLL1& __restrict__ outPar,
-                                                const float* kinv,
-                                                const float* D,
-                                                TfLLL& __restrict__ errorProp,
-                                                const int nmin,
-                                                const int nmax,
-                                                const int N_proc,
-						const PropagationFlags& pf) {
+#include "RecoTracker/MkFitCore/interface/Track.h"
 
 
-  //iteration should return the path length D, then update parameters and compute errors
+template <typename Tf, typename TfLL1>
+static inline void parsFromPathL_impl(const Tf& __restrict__ inPar,
+                                      TfLL1& __restrict__ outPar,
+                                      const float* kinv,
+                                      const float* s,
+                                      const int nmin,
+                                      const int nmax) {
+
   float alpha[nmax - nmin];
   for (int n = nmin; n < nmax; ++n) {
-    alpha[n - nmin] = D[n - nmin] * inPar(n, 3, 0) * kinv[n - nmin];
+    alpha[n - nmin] = s[n - nmin] * std::sin(inPar(n, 5, 0)) * inPar(n, 3, 0) * kinv[n - nmin];
   }
 
   float cosah[nmax - nmin];
@@ -56,18 +51,55 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
     outPar(n, 5, 0) = inPar(n, 5, 0);
   }
 
+}
+
+//should kinv and D be templated???
+template <typename Tf, typename Ti, typename TfLL1, typename TfLLL>
+static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
+                                                const Ti& __restrict__ inChg,
+                                                TfLL1& __restrict__ outPar,
+                                                const float* kinv,
+                                                const float* s,
+                                                TfLLL& __restrict__ errorProp,
+                                                const int nmin,
+                                                const int nmax,
+                                                const int N_proc,
+						const PropagationFlags& pf) {
+
+
+  //iteration should return the path length s, then update parameters and compute errors
+
+  parsFromPathL_impl(inPar,outPar,kinv,s,nmin,nmax);
+
   // use the function AnalyticalCurvilinearJacobian::computeFullJacobian for error propagation in curvilinear coordinates, then convert to CCS
 
+  float cosPin[nmax - nmin];
+  float sinPin[nmax - nmin];
+  float cosPout[nmax - nmin];
+  float sinPout[nmax - nmin];
+  float cosT[nmax - nmin];
+  float sinT[nmax - nmin];
+  for (int n = nmin; n < nmax; ++n) {
+    cosPin[n] = std::cos(inPar(n, 4, 0));
+    sinPin[n] = std::sin(inPar(n, 4, 0));
+    cosPout[n] = std::cos(outPar(n, 4, 0));
+    sinPout[n] = std::sin(outPar(n, 4, 0));
+    cosT[n] = std::cos(inPar(n, 5, 0));
+    sinT[n] = std::sin(inPar(n, 5, 0));
+  }
+
   MPlex55  errorPropCurv;
+  MPlex56  jacCCS2Curv;
+  MPlex65  jacCurv2CCS;
   for (int n = nmin; n < nmax; ++n) {
     AnalyticalCurvilinearJacobian acj;
     GlobalPoint sX(inPar(n, 0, 0),inPar(n, 1, 0),inPar(n, 2, 0));
     GlobalPoint eX(outPar(n, 0, 0),outPar(n, 1, 0),outPar(n, 2, 0));
-    GlobalVector sP(std::cos(inPar(n, 4, 0))/inPar(n, 3, 0),std::sin(inPar(n, 4, 0))/inPar(n, 3, 0),std::cos(inPar(n, 5, 0))/std::sin(inPar(n, 5, 0))/inPar(n, 3, 0));
-    GlobalVector eP(std::cos(outPar(n, 4, 0))/outPar(n, 3, 0),std::sin(outPar(n, 4, 0))/outPar(n, 3, 0),std::cos(outPar(n, 5, 0))/std::sin(outPar(n, 5, 0))/outPar(n, 3, 0));
+    GlobalVector sP(cosPin[n]/inPar(n, 3, 0),sinPin[n]/inPar(n, 3, 0),cosT[n]/(sinT[n]*inPar(n, 3, 0)) );
+    GlobalVector eP(cosPout[n]/outPar(n, 3, 0),sinPout[n]/outPar(n, 3, 0),cosT[n]/(sinT[n]*outPar(n, 3, 0)) );
     TrackCharge sQ(inChg(n, 0, 0));
     GlobalVector bF(0,0, (pf.use_param_b_field ? 0.01f * Const::sol * Config::bFieldFromZR(inPar(n, 2, 0), hipo(inPar(n, 0, 0), inPar(n, 1, 0))) : 0.01f * Const::sol * Config::Bfield) );
-    acj.computeFullJacobian(GlobalTrajectoryParameters(sX, sP, sQ, 0, bF), eX, eP, bF, D[n - nmin]);
+    acj.computeFullJacobian(GlobalTrajectoryParameters(sX, sP, sQ, 0, bF), eX, eP, bF, s[n - nmin]);
     auto& acjj = acj.jacobian();
     //std::cout << acj.jacobian() << std::endl;
     for (auto i = 0; i < 5; ++i) {
@@ -75,6 +107,25 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
         errorPropCurv(n, i, j) = acjj(i,j);
       }
     }
+
+    TrackState state;
+    SMatrix66 jacCCS2CurvSM = state.jacobianCCSToCurvilinear(inPar(n, 3, 0), std::cos(inPar(n, 4, 0)), std::sin(inPar(n, 4, 0)), std::cos(inPar(n, 5, 0)), std::sin(inPar(n, 5, 0)), inChg(n, 0, 0));
+    //std::cout << jacCCS2CurvSM << std::endl;
+    for (auto i = 0; i < 5; ++i) {
+      for (auto j = 0; j < 6; ++j) {
+        jacCCS2Curv(n, i, j) = jacCCS2CurvSM(i,j);//fixme
+	//std::cout << jacCCS2Curv(n, i, j) << " ";
+      }
+      //std::cout << std::endl;
+    }
+    //assert(0);
+    SMatrix66 jacCurv2CCSSM = state.jacobianCurvilinearToCCS(std::cos(outPar(n, 4, 0))/outPar(n, 3, 0), std::sin(outPar(n, 4, 0))/outPar(n, 3, 0), std::cos(outPar(n, 5, 0))/(outPar(n, 3, 0)*std::sin(outPar(n, 5, 0))), inChg(n, 0, 0));
+    for (auto i = 0; i < 6; ++i) {
+      for (auto j = 0; j < 5; ++j) {
+        jacCurv2CCS(n, i, j) = jacCurv2CCSSM(i,j);
+      }
+    }
+  }//end loop over n
 
 //debug = true;
 #ifdef DEBUG
@@ -116,30 +167,30 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
       }
     }
 #endif
-  }//end loop over n
 
+/*
   //now we need jacobians to convert to/from curvilinear and CCS
   // code from TrackState::jacobianCCSToCurvilinear
-  MPlex56  jacCCS2Curv; // todo: cache sin and cosine
+  //MPlex56  jacCCS2Curv;
   for (int n = nmin; n < nmax; ++n) {
     for (int ii=0;ii<5;ii++) {
       for (int jj=0;jj<6;jj++) {
         jacCCS2Curv(n, ii, jj) = 0.f;
       }
     }
-    jacCCS2Curv(n, 0, 3) = inChg(n, 0, 0) * std::sin(inPar(n, 5, 0));
-    jacCCS2Curv(n, 0, 5) = inChg(n, 0, 0) * std::cos(inPar(n, 5, 0)) * inPar(n, 3, 0);
+    jacCCS2Curv(n, 0, 3) = inChg(n, 0, 0) * sinT[n];
+    jacCCS2Curv(n, 0, 5) = inChg(n, 0, 0) * cosT[n] * inPar(n, 3, 0);
     jacCCS2Curv(n, 1, 5) = -1.f;
     jacCCS2Curv(n, 2, 4) = 1.f;
-    jacCCS2Curv(n, 3, 0) = -std::sin(inPar(n, 4, 0));
-    jacCCS2Curv(n, 3, 1) = std::cos(inPar(n, 4, 0));
-    jacCCS2Curv(n, 4, 0) = -std::cos(inPar(n, 4, 0)) * std::cos(inPar(n, 5, 0));
-    jacCCS2Curv(n, 4, 1) = -std::sin(inPar(n, 4, 0)) * std::cos(inPar(n, 5, 0));
-    jacCCS2Curv(n, 4, 2) = std::sin(inPar(n, 5, 0));
+    jacCCS2Curv(n, 3, 0) = -sinPin[n];
+    jacCCS2Curv(n, 3, 1) = cosPin[n];
+    jacCCS2Curv(n, 4, 0) = -cosPin[n] * cosT[n];
+    jacCCS2Curv(n, 4, 1) = -sinPin[n] * cosT[n];
+    jacCCS2Curv(n, 4, 2) = sinT[n];
   }
 
   // code from TrackState::jacobianCurvilinearToCCS
-  MPlex65  jacCurv2CCS; // todo: cache sin and cosine
+  //MPlex65  jacCurv2CCS;
   for (int n = nmin; n < nmax; ++n) {
     for (int ii=0;ii<6;ii++) {
       for (int jj=0;jj<5;jj++) {
@@ -147,16 +198,17 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
       }
     }
 
-    jacCurv2CCS(n, 0, 3) = -std::sin(outPar(n, 4, 0));
-    jacCurv2CCS(n, 0, 4) = -std::cos(outPar(n, 5, 0)) * std::cos(outPar(n, 4, 0));
-    jacCurv2CCS(n, 1, 3) = std::cos(outPar(n, 4, 0));
-    jacCurv2CCS(n, 1, 4) = -std::cos(outPar(n, 5, 0)) * std::sin(outPar(n, 4, 0));
-    jacCurv2CCS(n, 2, 4) = std::sin(outPar(n, 5, 0));
-    jacCurv2CCS(n, 3, 0) = inChg(n, 0, 0) / std::sin(outPar(n, 5, 0));
-    jacCurv2CCS(n, 3, 1) = outPar(n, 3, 0) * std::cos(outPar(n, 5, 0)) / std::sin(outPar(n, 5, 0));
+    jacCurv2CCS(n, 0, 3) = -sinPout[n];
+    jacCurv2CCS(n, 0, 4) = -cosT[n] * cosPout[n];
+    jacCurv2CCS(n, 1, 3) = cosPout[n];
+    jacCurv2CCS(n, 1, 4) = -cosT[n] * sinPout[n];
+    jacCurv2CCS(n, 2, 4) = sinT[n];
+    jacCurv2CCS(n, 3, 0) = inChg(n, 0, 0) / sinT[n];
+    jacCurv2CCS(n, 3, 1) = outPar(n, 3, 0) * cosT[n] / sinT[n];
     jacCurv2CCS(n, 4, 2) = 1.f;
     jacCurv2CCS(n, 5, 1) = -1.f;
   }
+*/
 
   //need to compute errorProp = jacCurv2CCS*errorPropCurv*jacCCS2Curv
   Matriplex::MPlex<float, 6, 5, NN> tmp;
@@ -165,7 +217,109 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
 
 }
 
-// this function just calculates the path length D (using the iterative approach as before)
+
+float getS(float delta0, float delta1, float delta2,
+           float eta0, float eta1, float eta2,
+	   float sinP, float cosP, float sinT, float cosT,
+	   float pt, int q, float kinv
+           ) {
+  float A = delta0*eta0 + delta1*eta1 + delta2*eta2;
+  float ip = sinT/pt;
+  float p0[3] = {pt*cosP,pt*sinP,cosT/ip};
+  float B = (p0[0]*eta0 + p0[1]*eta1 + p0[2]*eta2) * ip;
+  float rho = kinv*ip;
+  float C = (eta0*p0[1] - eta1*p0[0]) * rho * 0.5f * ip;
+  float sqb2m4ac = std::sqrt( B*B - 4.f*A*C );
+  float s1 = (-B + sqb2m4ac)*0.5f/C;
+  float s2 = (-B - sqb2m4ac)*0.5f/C;
+  //take the closest
+  return ( std::abs(s1)>std::abs(s2) ? s2 : s1);
+}
+
+template <typename Tf, typename Ti, typename TfLL1, typename Tf11, typename TfLLL>
+static inline void helixAtPlane_impl(const Tf& __restrict__ inPar,
+                                     const Ti& __restrict__ inChg,
+                                     const Tf11& __restrict__ plPnt,
+                                     const Tf11& __restrict__ plNrm,
+                                     TfLL1& __restrict__ outPar,
+                                     TfLLL& __restrict__ errorProp,
+                                     Ti& __restrict__ outFailFlag,  // expected to be initialized to 0
+                                     const int nmin,
+                                     const int nmax,
+                                     const int N_proc,
+                                     const PropagationFlags& pf) {
+  float kinv[nmax - nmin];
+  if (pf.use_param_b_field) {
+#pragma omp simd
+    for (int n = nmin; n < nmax; ++n) {
+      kinv[n - nmin] = inChg(n, 0, 0) * 0.01f * (-Const::sol * Config::bFieldFromZR(inPar(n, 2, 0), hipo(inPar(n, 0, 0), inPar(n, 1, 0)) ) );
+    }
+  } else {
+#pragma omp simd
+    for (int n = nmin; n < nmax; ++n) {
+      kinv[n - nmin] = inChg(n, 0, 0) * 0.01f * (-Const::sol * Config::Bfield);
+    }
+  }
+
+  float delta0[nmax - nmin];
+  float delta1[nmax - nmin];
+  float delta2[nmax - nmin];
+#pragma omp simd
+  for (int n = nmin; n < nmax; ++n) {
+    delta0[n] = inPar(n,0,0)-plPnt(n,0,0);
+    delta1[n] = inPar(n,1,0)-plPnt(n,1,0);
+    delta2[n] = inPar(n,2,0)-plPnt(n,2,0);
+  }
+
+  float sinP[nmax - nmin];
+  float cosP[nmax - nmin];
+#pragma omp simd
+  for (int n = nmin; n < nmax; ++n) {
+    sinP[n] = std::sin(inPar(n,4,0));
+    cosP[n] = std::cos(inPar(n,4,0));
+  }
+
+  float s[nmax - nmin];
+  //first iteration outside the loop
+#pragma omp simd
+  for (int n = nmin; n < nmax; ++n) {
+    s[n] = getS(delta0[n],delta1[n],delta2[n],plNrm(n,0,0), plNrm(n,1,0), plNrm(n,2,0), sinP[n], cosP[n],
+                std::sin(inPar(n,5,0)), std::cos(inPar(n,5,0)), inPar(n,3,0), inChg(n,0,0), kinv[n]);
+  }
+
+  MPlexLV outParTmp;
+
+  CMS_UNROLL_LOOP_COUNT(Config::Niter-1)
+  for (int i = 0; i < Config::Niter-1; ++i) {
+
+    parsFromPathL_impl(inPar, outParTmp, kinv, s, nmin, nmax);
+
+#pragma omp simd
+    for (int n = nmin; n < nmax; ++n) {
+      delta0[n] = outParTmp(n,0,0)-plPnt(n,0,0);
+      delta1[n] = outParTmp(n,1,0)-plPnt(n,1,0);
+      delta2[n] = outParTmp(n,2,0)-plPnt(n,2,0);
+    }
+
+#pragma omp simd
+    for (int n = nmin; n < nmax; ++n) {
+      sinP[n] = std::sin(outParTmp(n,4,0));
+      cosP[n] = std::cos(outParTmp(n,4,0));
+    }
+
+#pragma omp simd
+    for (int n = nmin; n < nmax; ++n) {
+      s[n] += getS(delta0[n],delta1[n],delta2[n],plNrm(n,0,0), plNrm(n,1,0), plNrm(n,2,0), sinP[n], cosP[n],
+                   std::sin(inPar(n,5,0)), std::cos(inPar(n,5,0)), inPar(n,3,0), inChg(n,0,0), kinv[n]);
+    }
+
+  }//end Niter-1
+std::cout << "s=" << s[0] << std::endl;
+  parsAndErrPropFromPathL_impl(inPar, inChg, outPar, kinv, s, errorProp, nmin, nmax, N_proc, pf);
+
+}
+
+// this function just calculates the path length (using the iterative approach as before)
 // and then calls parsAndErrPropFromPathL_impl for error propagation
 template <typename Tf, typename Ti, typename TfLL1, typename Tf11, typename TfLLL>
 static inline void helixAtRFromIterativeCCS_impl_new(const Tf& __restrict__ inPar,
@@ -382,11 +536,15 @@ static inline void helixAtRFromIterativeCCS_impl_new(const Tf& __restrict__ inPa
     }
   }  // iteration loop
 
-  parsAndErrPropFromPathL_impl(inPar, inChg, outPar, kinv, D, errorProp, nmin, nmax, N_proc, pf);
+  float s[nmax - nmin];
+  for (int n = nmin; n < nmax; ++n) {
+    s[n - nmin] = D[n - nmin]/std::sin(inPar(n, 5, 0));
+  }
+  parsAndErrPropFromPathL_impl(inPar, inChg, outPar, kinv, s, errorProp, nmin, nmax, N_proc, pf);
 
   for (int n = nmin; n < nmax; ++n) {
     dprint_np(n,
-              "propagation end (NEW), dump parameters\n"
+              "propagation to R end (NEW), dump parameters\n"
                   << "   D = " << D[n - nmin] << " alpha = " << D[n - nmin] * inPar(n, 3, 0) * kinv[n - nmin] << " kinv = " << kinv[n - nmin] << std::endl
                   << "   pos = " << outPar(n, 0, 0) << " " << outPar(n, 1, 0) << " " << outPar(n, 2, 0) << "\t\t r="
                   << std::sqrt(outPar(n, 0, 0) * outPar(n, 0, 0) + outPar(n, 1, 0) * outPar(n, 1, 0)) << std::endl
