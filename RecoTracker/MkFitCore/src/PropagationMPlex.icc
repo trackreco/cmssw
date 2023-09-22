@@ -7,7 +7,6 @@
 #include "TrackingTools/AnalyticalJacobians/interface/AnalyticalCurvilinearJacobian.h"
 #include "TrackingTools/TrajectoryParametrization/interface/GlobalTrajectoryParameters.h"
 #include "DataFormats/TrajectoryState/interface/TrackCharge.h"
-#include "RecoTracker/MkFitCore/interface/Track.h"
 
 
 template <typename Tf, typename TfLL1>
@@ -89,8 +88,6 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
   }
 
   MPlex55  errorPropCurv;
-  MPlex56  jacCCS2Curv;
-  MPlex65  jacCurv2CCS;
   for (int n = nmin; n < nmax; ++n) {
     AnalyticalCurvilinearJacobian acj;
     GlobalPoint sX(inPar(n, 0, 0),inPar(n, 1, 0),inPar(n, 2, 0));
@@ -101,30 +98,12 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
     GlobalVector bF(0,0, (pf.use_param_b_field ? 0.01f * Const::sol * Config::bFieldFromZR(inPar(n, 2, 0), hipo(inPar(n, 0, 0), inPar(n, 1, 0))) : 0.01f * Const::sol * Config::Bfield) );
     acj.computeFullJacobian(GlobalTrajectoryParameters(sX, sP, sQ, 0, bF), eX, eP, bF, s[n - nmin]);
     auto& acjj = acj.jacobian();
-    //std::cout << acj.jacobian() << std::endl;
     for (auto i = 0; i < 5; ++i) {
       for (auto j = 0; j < 5; ++j) {
         errorPropCurv(n, i, j) = acjj(i,j);
       }
     }
 
-    TrackState state;
-    SMatrix66 jacCCS2CurvSM = state.jacobianCCSToCurvilinear(inPar(n, 3, 0), std::cos(inPar(n, 4, 0)), std::sin(inPar(n, 4, 0)), std::cos(inPar(n, 5, 0)), std::sin(inPar(n, 5, 0)), inChg(n, 0, 0));
-    //std::cout << jacCCS2CurvSM << std::endl;
-    for (auto i = 0; i < 5; ++i) {
-      for (auto j = 0; j < 6; ++j) {
-        jacCCS2Curv(n, i, j) = jacCCS2CurvSM(i,j);//fixme
-	//std::cout << jacCCS2Curv(n, i, j) << " ";
-      }
-      //std::cout << std::endl;
-    }
-    //assert(0);
-    SMatrix66 jacCurv2CCSSM = state.jacobianCurvilinearToCCS(std::cos(outPar(n, 4, 0))/outPar(n, 3, 0), std::sin(outPar(n, 4, 0))/outPar(n, 3, 0), std::cos(outPar(n, 5, 0))/(outPar(n, 3, 0)*std::sin(outPar(n, 5, 0))), inChg(n, 0, 0));
-    for (auto i = 0; i < 6; ++i) {
-      for (auto j = 0; j < 5; ++j) {
-        jacCurv2CCS(n, i, j) = jacCurv2CCSSM(i,j);
-      }
-    }
   }//end loop over n
 
 //debug = true;
@@ -168,10 +147,9 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
     }
 #endif
 
-/*
   //now we need jacobians to convert to/from curvilinear and CCS
   // code from TrackState::jacobianCCSToCurvilinear
-  //MPlex56  jacCCS2Curv;
+  MPlex56  jacCCS2Curv;
   for (int n = nmin; n < nmax; ++n) {
     for (int ii=0;ii<5;ii++) {
       for (int jj=0;jj<6;jj++) {
@@ -190,7 +168,7 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
   }
 
   // code from TrackState::jacobianCurvilinearToCCS
-  //MPlex65  jacCurv2CCS;
+  MPlex65  jacCurv2CCS;
   for (int n = nmin; n < nmax; ++n) {
     for (int ii=0;ii<6;ii++) {
       for (int jj=0;jj<5;jj++) {
@@ -208,7 +186,6 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
     jacCurv2CCS(n, 4, 2) = 1.f;
     jacCurv2CCS(n, 5, 1) = -1.f;
   }
-*/
 
   //need to compute errorProp = jacCurv2CCS*errorPropCurv*jacCCS2Curv
   Matriplex::MPlex<float, 6, 5, NN> tmp;
@@ -218,6 +195,7 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
 }
 
 
+// from P.Avery's notes (http://www.phys.ufl.edu/~avery/fitting/transport.pdf eq. 5)
 float getS(float delta0, float delta1, float delta2,
            float eta0, float eta1, float eta2,
 	   float sinP, float cosP, float sinT, float cosT,
