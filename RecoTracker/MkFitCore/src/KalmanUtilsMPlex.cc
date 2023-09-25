@@ -236,6 +236,97 @@ namespace {
     RotateResidualsOnTangentPlane_impl(R00, R01, A, B, 0, NN);
   }
 
+
+  //==============================================================================
+
+  inline void ProjectResErr(const MPlexHH& A, const MPlexHS& B, MPlexHH& C) {
+    // C = A * B, C is 3x3, A is 3x3 , B is 3x3 sym
+
+    /*
+    A 0 1 2
+      3 4 5
+      6 7 8
+    B 0 1 3
+      1 2 4
+      3 4 5
+    */
+
+    typedef float T;
+    const idx_t N = NN;
+
+    const T* a = A.fArray;
+    ASSUME_ALIGNED(a, 64);
+    const T* b = B.fArray;
+    ASSUME_ALIGNED(b, 64);
+    T* c = C.fArray;
+    ASSUME_ALIGNED(c, 64);
+
+#pragma omp simd
+    for (int n = 0; n < N; ++n) {
+      c[0 * N + n] = a[0 * N + n] * b[0 * N + n] + a[1 * N + n] * b[1 * N + n] + a[2 * N + n] * b[3 * N + n];
+      c[1 * N + n] = a[0 * N + n] * b[1 * N + n] + a[1 * N + n] * b[2 * N + n] + a[2 * N + n] * b[4 * N + n];
+      c[2 * N + n] = a[0 * N + n] * b[3 * N + n] + a[1 * N + n] * b[4 * N + n] + a[2 * N + n] * b[5 * N + n];
+      c[3 * N + n] = a[3 * N + n] * b[0 * N + n] + a[4 * N + n] * b[1 * N + n] + a[5 * N + n] * b[3 * N + n];
+      c[4 * N + n] = a[3 * N + n] * b[1 * N + n] + a[4 * N + n] * b[2 * N + n] + a[5 * N + n] * b[4 * N + n];
+      c[5 * N + n] = a[3 * N + n] * b[3 * N + n] + a[4 * N + n] * b[4 * N + n] + a[5 * N + n] * b[5 * N + n];
+      c[6 * N + n] = a[6 * N + n] * b[0 * N + n] + a[7 * N + n] * b[1 * N + n] + a[8 * N + n] * b[3 * N + n];
+      c[7 * N + n] = a[6 * N + n] * b[1 * N + n] + a[7 * N + n] * b[2 * N + n] + a[8 * N + n] * b[4 * N + n];
+      c[8 * N + n] = a[6 * N + n] * b[3 * N + n] + a[7 * N + n] * b[4 * N + n] + a[8 * N + n] * b[5 * N + n];
+    }
+  }
+
+  inline void ProjectResErrTransp(const MPlexHH& A, const MPlexHH& B, MPlex2S& C) {
+    // C = B * A^T, C is 2x2 sym, A is 3x3 , B is 3x3
+
+    /*
+    B   0 1 2
+        3 4 5
+        6 7 8
+    A^T 0 3 6
+        1 4 7
+        2 5 8
+    */
+
+    typedef float T;
+    const idx_t N = NN;
+
+    const T* a = A.fArray;
+    ASSUME_ALIGNED(a, 64);
+    const T* b = B.fArray;
+    ASSUME_ALIGNED(b, 64);
+    T* c = C.fArray;
+    ASSUME_ALIGNED(c, 64);
+
+#pragma omp simd
+    for (int n = 0; n < N; ++n) {
+      c[0 * N + n] = b[0 * N + n] * a[0 * N + n] + b[1 * N + n] * a[1 * N + n] + b[2 * N + n] * a[2 * N + n];
+      c[1 * N + n] = b[0 * N + n] * a[3 * N + n] + b[1 * N + n] * a[4 * N + n] + b[2 * N + n] * a[5 * N + n];
+      c[2 * N + n] = b[3 * N + n] * a[3 * N + n] + b[4 * N + n] * a[4 * N + n] + b[5 * N + n] * a[5 * N + n];
+    }
+  }
+
+  inline void RotateResidualsOnPlane(const MPlexHH& R,  //rot
+				     const MPlexHV& A,  //res_glo
+				     MPlex2V& B)        //res_loc
+  {
+
+    // typedef float T;
+    // const idx_t N = NN;
+
+    // const T* a = A.fArray;
+    // ASSUME_ALIGNED(a, 64);
+    // T* b = B.fArray;
+    // ASSUME_ALIGNED(b, 64);
+    // const T* r = R.fArray;
+    // ASSUME_ALIGNED(r, 64);
+
+#pragma omp simd
+    for (int n = 0; n < NN; ++n) {
+      B(n, 0, 0) = R(n, 0, 0) * A(n, 0, 0) + R(n, 0, 1) * A(n, 1, 0) + R(n, 0, 2) * A(n, 2, 0);
+      B(n, 1, 0) = R(n, 1, 0) * A(n, 0, 0) + R(n, 1, 1) * A(n, 1, 0) + R(n, 1, 2) * A(n, 2, 0);
+    }
+  }
+
   inline void KalmanHTG(const MPlexQF& A00, const MPlexQF& A01, const MPlex2S& B, MPlexHH& C) {
     // HTG  = rot * res_loc
     //   C  =  A  *    B
@@ -264,6 +355,34 @@ namespace {
       c[5 * N + n] = 0.;
       c[6 * N + n] = b[1 * N + n];
       c[7 * N + n] = b[2 * N + n];
+      c[8 * N + n] = 0.;
+    }
+  }
+
+  inline void KalmanHTG(const MPlexHH& A, const MPlex2S& B, MPlexHH& C) {
+    // HTG  = rot * res_loc
+    //   C  =  A  *    B
+
+    typedef float T;
+    const idx_t N = NN;
+
+    const T* a = A.fArray;
+    ASSUME_ALIGNED(a, 64);
+    const T* b = B.fArray;
+    ASSUME_ALIGNED(b, 64);
+    T* c = C.fArray;
+    ASSUME_ALIGNED(c, 64);
+
+#pragma omp simd
+    for (int n = 0; n < N; ++n) {
+      c[0 * N + n] = a[0 * N + n] * b[0 * N + n] + a[1 * N + n] * b[1 * N + n];
+      c[1 * N + n] = a[0 * N + n] * b[1 * N + n] + a[1 * N + n] * b[2 * N + n];
+      c[2 * N + n] = 0.;
+      c[3 * N + n] = a[3 * N + n] * b[0 * N + n] + a[4 * N + n] * b[1 * N + n];
+      c[4 * N + n] = a[3 * N + n] * b[1 * N + n] + a[4 * N + n] * b[2 * N + n];
+      c[5 * N + n] = 0.;
+      c[6 * N + n] = a[6 * N + n] * b[0 * N + n] + a[7 * N + n] * b[1 * N + n];
+      c[7 * N + n] = a[6 * N + n] * b[1 * N + n] + a[7 * N + n] * b[2 * N + n];
       c[8 * N + n] = 0.;
     }
   }
@@ -365,6 +484,79 @@ namespace {
   inline void KHMult(const MPlexLH& A, const MPlexQF& B00, const MPlexQF& B01, MPlexLL& C) {
     // C = A * B, C is 6x6, A is 6x3 , B is 3x6
     KHMult_imp(A, B00, B01, C, 0, NN);
+  }
+
+  inline void KHMult(const MPlexLH& A, const MPlexHH& B, MPlexLL& C) {
+    // C = A * B, C is 6x6, A is 6x3 , B is 3x6
+
+    /*
+    A  0  1  2
+       3  4  5
+       6  7  8
+       9 10 11
+      12 13 14
+      15 16 17
+    B  0  1  2  3  4  5
+       6  7  8  9 10 11
+      12 13 14 15 16 17
+    C  0  1  2  3  4  5
+       6  7  8  9 10 11
+      12 13 14 15 16 17
+      18 19 20 21 22 23
+      24 25 26 27 28 29
+      30 31 32 33 34 34
+    */
+
+    // typedef float T;
+    // const idx_t N = NN;
+
+    // const T* a = A.fArray;
+    // ASSUME_ALIGNED(a, 64);
+    // const T* b = B.fArray;
+    // ASSUME_ALIGNED(b, 64);
+    // T* c = C.fArray;
+    // ASSUME_ALIGNED(c, 64);
+
+#pragma omp simd
+    for (int n = 0; n < NN; ++n) {
+      C(n, 0, 0)  = A(n, 0, 0) * B(n, 0, 0) + A(n, 0, 1) * B(n, 1, 0) + A(n, 0, 2) * B(n, 2, 0);
+      C(n, 0, 1)  = A(n, 0, 0) * B(n, 0, 1) + A(n, 0, 1) * B(n, 1, 1) + A(n, 0, 2) * B(n, 2, 1);
+      C(n, 0, 2)  = A(n, 0, 0) * B(n, 0, 2) + A(n, 0, 1) * B(n, 1, 2) + A(n, 0, 2) * B(n, 2, 2);
+      C(n, 0, 3)  = 0;
+      C(n, 0, 4)  = 0;
+      C(n, 0, 5)  = 0;
+      C(n, 0, 6)  = A(n, 1, 0) * B(n, 0, 0) + A(n, 1, 1) * B(n, 1, 0) + A(n, 1, 2) * B(n, 2, 0);
+      C(n, 0, 7)  = A(n, 1, 0) * B(n, 0, 1) + A(n, 1, 1) * B(n, 1, 1) + A(n, 1, 2) * B(n, 2, 1);
+      C(n, 0, 8)  = A(n, 1, 0) * B(n, 0, 2) + A(n, 1, 1) * B(n, 1, 2) + A(n, 1, 2) * B(n, 2, 2);
+      C(n, 0, 9)  = 0;
+      C(n, 0, 10) = 0;
+      C(n, 0, 11) = 0;
+      C(n, 0, 12) = A(n, 2, 0) * B(n, 0, 0) + A(n, 2, 1) * B(n, 1, 0) + A(n, 2, 2) * B(n, 2, 0);
+      C(n, 0, 13) = A(n, 2, 0) * B(n, 0, 1) + A(n, 2, 1) * B(n, 1, 1) + A(n, 2, 2) * B(n, 2, 1);
+      C(n, 0, 14) = A(n, 2, 0) * B(n, 0, 2) + A(n, 2, 1) * B(n, 1, 2) + A(n, 2, 2) * B(n, 2, 2);
+      C(n, 0, 15) = 0;
+      C(n, 0, 16) = 0;
+      C(n, 0, 17) = 0;
+      C(n, 0, 18) = A(n, 3, 0) * B(n, 0, 0) + A(n, 3, 1) * B(n, 1, 0) + A(n, 3, 2) * B(n, 2, 0);
+      C(n, 0, 19) = A(n, 3, 0) * B(n, 0, 1) + A(n, 3, 1) * B(n, 1, 1) + A(n, 3, 2) * B(n, 2, 1);
+      C(n, 0, 20) = A(n, 3, 0) * B(n, 0, 2) + A(n, 3, 1) * B(n, 1, 2) + A(n, 3, 2) * B(n, 2, 2);
+      C(n, 0, 21) = 0;
+      C(n, 0, 22) = 0;
+      C(n, 0, 23) = 0;
+      C(n, 0, 24) = A(n, 4, 0) * B(n, 0, 0) + A(n, 4, 1) * B(n, 1, 0) + A(n, 4, 2) * B(n, 2, 0);
+      C(n, 0, 25) = A(n, 4, 0) * B(n, 0, 1) + A(n, 4, 1) * B(n, 1, 1) + A(n, 4, 2) * B(n, 2, 1);
+      C(n, 0, 26) = A(n, 4, 0) * B(n, 0, 2) + A(n, 4, 1) * B(n, 1, 2) + A(n, 4, 2) * B(n, 2, 2);
+      C(n, 0, 27) = 0;
+      C(n, 0, 28) = 0;
+      C(n, 0, 29) = 0;
+      C(n, 0, 30) = A(n, 5, 0) * B(n, 0, 0) + A(n, 5, 1) * B(n, 1, 0) + A(n, 5, 2) * B(n, 2, 0);
+      C(n, 0, 31) = A(n, 5, 0) * B(n, 0, 1) + A(n, 5, 1) * B(n, 1, 1) + A(n, 5, 2) * B(n, 2, 1);
+      C(n, 0, 32) = A(n, 5, 0) * B(n, 0, 2) + A(n, 5, 1) * B(n, 1, 2) + A(n, 5, 2) * B(n, 2, 2);
+      C(n, 0, 33) = 0;
+      C(n, 0, 34) = 0;
+      C(n, 0, 35) = 0;
+    }
+
   }
 
   inline void KHC(const MPlexLL& A, const MPlexLS& B, MPlexLS& C) {
@@ -700,6 +892,291 @@ namespace mkfit {
           printf("\n");
         }
         printf("\n");
+        printf("K:\n");
+        for (int i = 0; i < 6; ++i) {
+          for (int j = 0; j < 3; ++j)
+            printf("%8f ", K.At(0, i, j));
+          printf("\n");
+        }
+        printf("\n");
+        printf("outPar:\n");
+        for (int i = 0; i < 6; ++i) {
+          printf("%8f  ", outPar.At(0, i, 0));
+        }
+        printf("\n");
+        printf("outErr:\n");
+        for (int i = 0; i < 6; ++i) {
+          for (int j = 0; j < 6; ++j)
+            printf("%8f ", outErr.At(0, i, j));
+          printf("\n");
+        }
+        printf("\n");
+      }
+#endif
+    }
+  }
+
+  //==============================================================================
+  // Kalman operations - Plane
+  //==============================================================================
+
+  void kalmanUpdatePlane(const MPlexLS& psErr,
+			 const MPlexLV& psPar,
+			 const MPlexHS& msErr,
+			 const MPlexHV& msPar,
+			 const MPlexHV& plNrm,
+			 const MPlexHV& plDir,
+			 MPlexLS& outErr,
+			 MPlexLV& outPar,
+			 const int N_proc) {
+    kalmanOperationPlane(KFO_Update_Params | KFO_Local_Cov, psErr, psPar, msErr, msPar, plNrm, plDir, outErr, outPar, dummy_chi2, N_proc);
+  }
+
+  void kalmanPropagateAndUpdatePlane(const MPlexLS& psErr,
+				     const MPlexLV& psPar,
+				     MPlexQI& Chg,
+				     const MPlexHS& msErr,
+				     const MPlexHV& msPar,
+				     const MPlexHV& plNrm,
+				     const MPlexHV& plDir,
+				     MPlexLS& outErr,
+				     MPlexLV& outPar,
+				     MPlexQI& outFailFlag,
+				     const int N_proc,
+				     const PropagationFlags& propFlags,
+				     const bool propToHit) {
+    if (propToHit) {
+      MPlexLS propErr;
+      MPlexLV propPar;
+      propagateHelixToPlaneMPlex(psErr, psPar, Chg, msPar, plNrm, propErr, propPar, outFailFlag, N_proc, propFlags);
+
+      kalmanOperationPlane(
+			   KFO_Update_Params | KFO_Local_Cov, propErr, propPar, msErr, msPar, plNrm, plDir, outErr, outPar, dummy_chi2, N_proc);
+    } else {
+      kalmanOperationPlane(
+			   KFO_Update_Params | KFO_Local_Cov, psErr, psPar, msErr, msPar, plNrm, plDir, outErr, outPar, dummy_chi2, N_proc);
+    }
+    for (int n = 0; n < NN; ++n) {
+      if (outPar.At(n, 3, 0) < 0) {
+        Chg.At(n, 0, 0) = -Chg.At(n, 0, 0);
+        outPar.At(n, 3, 0) = -outPar.At(n, 3, 0);
+      }
+    }
+  }
+
+  //------------------------------------------------------------------------------
+
+  void kalmanComputeChi2Plane(const MPlexLS& psErr,
+			      const MPlexLV& psPar,
+			      const MPlexQI& inChg,
+			      const MPlexHS& msErr,
+			      const MPlexHV& msPar,
+			      const MPlexHV& plNrm,
+			      const MPlexHV& plDir,
+			      MPlexQF& outChi2,
+			      const int N_proc) {
+    kalmanOperationPlane(KFO_Calculate_Chi2, psErr, psPar, msErr, msPar, plNrm, plDir, dummy_err, dummy_par, outChi2, N_proc);
+  }
+
+  void kalmanPropagateAndComputeChi2Plane(const MPlexLS& psErr,
+					  const MPlexLV& psPar,
+					  const MPlexQI& inChg,
+					  const MPlexHS& msErr,
+					  const MPlexHV& msPar,
+					  const MPlexHV& plNrm,
+					  const MPlexHV& plDir,
+					  MPlexQF& outChi2,
+					  MPlexLV& propPar,
+					  MPlexQI& outFailFlag,
+					  const int N_proc,
+					  const PropagationFlags& propFlags,
+					  const bool propToHit) {
+    propPar = psPar;
+    if (propToHit) {
+      MPlexLS propErr;
+      propagateHelixToPlaneMPlex(psErr, psPar, inChg, msPar, plNrm, propErr, propPar, outFailFlag, N_proc, propFlags);
+
+      kalmanOperationPlane(KFO_Calculate_Chi2, propErr, propPar, msErr, msPar, plNrm, plDir, dummy_err, dummy_par, outChi2, N_proc);
+    } else {
+      kalmanOperationPlane(KFO_Calculate_Chi2, psErr, psPar, msErr, msPar, plNrm, plDir, dummy_err, dummy_par, outChi2, N_proc);
+    }
+  }
+
+  //------------------------------------------------------------------------------
+
+  void kalmanOperationPlane(const int kfOp,
+			    const MPlexLS& psErr,
+			    const MPlexLV& psPar,
+			    const MPlexHS& msErr,
+			    const MPlexHV& msPar,
+			    const MPlexHV& plNrm,
+			    const MPlexHV& plDir,
+			    MPlexLS& outErr,
+			    MPlexLV& outPar,
+			    MPlexQF& outChi2,
+			    const int N_proc) {
+#ifdef DEBUG
+    {
+      dmutex_guard;
+      printf("psPar:\n");
+      for (int i = 0; i < 6; ++i) {
+        printf("%8f ", psPar.constAt(0, 0, i));
+        printf("\n");
+      }
+      printf("\n");
+      printf("psErr:\n");
+      for (int i = 0; i < 6; ++i) {
+        for (int j = 0; j < 6; ++j)
+          printf("%8f ", psErr.constAt(0, i, j));
+        printf("\n");
+      }
+      printf("\n");
+      printf("msPar:\n");
+      for (int i = 0; i < 3; ++i) {
+        printf("%8f ", msPar.constAt(0, 0, i));
+        printf("\n");
+      }
+      printf("\n");
+      printf("msErr:\n");
+      for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j)
+          printf("%8f ", msErr.constAt(0, i, j));
+        printf("\n");
+      }
+      printf("\n");
+    }
+#endif
+
+    // Rotate global point on tangent plane to cylinder
+    // Tangent point is half way between hit and propagate position
+
+    // Rotation matrix
+    //    D0  D1   D2
+    //    X0  X1   X2
+    //    N0  N1   N2
+    // where D is the strip direction vector plDir, N is the normal plNrm, and X is the cross product between the two
+
+    MPlexHH rot;
+    for (int n = 0; n < NN; ++n) {
+      rot(n, 0, 0) = plDir(n, 0, 0);
+      rot(n, 0, 1) = plDir(n, 1, 0);
+      rot(n, 0, 2) = plDir(n, 2, 0);
+      rot(n, 1, 0) = plNrm(n, 1, 0)*plDir(n, 2, 0) - plNrm(n, 2, 0)*plDir(n, 1, 0);
+      rot(n, 1, 1) = plNrm(n, 2, 0)*plDir(n, 0, 0) - plNrm(n, 0, 0)*plDir(n, 2, 0);
+      rot(n, 1, 2) = plNrm(n, 0, 0)*plDir(n, 1, 0) - plNrm(n, 1, 0)*plDir(n, 0, 0);
+      rot(n, 2, 0) = plNrm(n, 0, 0);
+      rot(n, 2, 1) = plNrm(n, 1, 0);
+      rot(n, 2, 2) = plNrm(n, 2, 0);
+    }
+
+    MPlexHV res_glo;  //position residual in global coordinates
+    SubtractFirst3(msPar, psPar, res_glo);
+
+    MPlexHS resErr_glo;  //covariance sum in global position coordinates
+    AddIntoUpperLeft3x3(psErr, msErr, resErr_glo);
+
+    MPlex2V res_loc;  //position residual in local coordinates
+    RotateResidualsOnPlane(rot, res_glo, res_loc);
+    MPlex2S resErr_loc;  //covariance sum in local position coordinates
+    MPlexHH tempHH;
+    ProjectResErr(rot, resErr_glo, tempHH);
+    ProjectResErrTransp(rot, tempHH, resErr_loc);
+
+#ifdef DEBUG
+    {
+      dmutex_guard;
+      printf("rot:\n");
+      for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j)
+          printf("%8f ", rot.At(0, i, j));
+        printf("\n");
+      }
+      printf("\n");
+      printf("res_glo:\n");
+      for (int i = 0; i < 3; ++i) {
+	printf("%8f ", res_glo.At(0, i, 0));
+      }
+      printf("\n");
+      printf("resErr_glo:\n");
+      for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j)
+          printf("%8f ", resErr_glo.At(0, i, j));
+        printf("\n");
+      }
+      printf("\n");
+      printf("res_loc:\n");
+      for (int i = 0; i < 2; ++i) {
+	printf("%8f ", res_loc.At(0, i, 0));
+      }
+      printf("\n");
+      printf("tempHH:\n");
+      for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j)
+          printf("%8f ", tempHH.At(0, i, j));
+        printf("\n");
+      }
+      printf("\n");
+      printf("resErr_loc:\n");
+      for (int i = 0; i < 2; ++i) {
+        for (int j = 0; j < 2; ++j)
+          printf("%8f ", resErr_loc.At(0, i, j));
+        printf("\n");
+      }
+      printf("\n");
+    }
+#endif
+
+    //invert the 2x2 matrix
+    Matriplex::invertCramerSym(resErr_loc);
+
+    if (kfOp & KFO_Calculate_Chi2) {
+      Chi2Similarity(res_loc, resErr_loc, outChi2);
+
+#ifdef DEBUG
+      {
+        dmutex_guard;
+        printf("resErr_loc (Inv):\n");
+        for (int i = 0; i < 2; ++i) {
+          for (int j = 0; j < 2; ++j)
+            printf("%8f ", resErr_loc.At(0, i, j));
+          printf("\n");
+        }
+        printf("\n");
+        printf("chi2: %8f\n", outChi2.At(0, 0, 0));
+      }
+#endif
+    }
+
+    if (kfOp & KFO_Update_Params) {
+      MPlexLS psErrLoc = psErr;
+      // if (kfOp & KFO_Local_Cov)
+      //   CovXYconstrain(rotT00, rotT01, psErr, psErrLoc);
+
+      MPlexLH K;                           // kalman gain, fixme should be L2
+      KalmanHTG(rot, resErr_loc, tempHH);  // intermediate term to get kalman gain (H^T*G)
+      KalmanGain(psErrLoc, tempHH, K);
+
+      MultResidualsAdd(K, psPar, res_loc, outPar);
+      MPlexLL tempLL;
+
+      squashPhiMPlex(outPar, N_proc);  // ensure phi is between |pi|
+
+      KHMult(K, rot, tempLL);
+      KHC(tempLL, psErrLoc, outErr);
+      outErr.subtract(psErrLoc, outErr);
+
+#ifdef DEBUG
+      {
+        dmutex_guard;
+        if (kfOp & KFO_Local_Cov) {
+          printf("psErrLoc:\n");
+          for (int i = 0; i < 6; ++i) {
+            for (int j = 0; j < 6; ++j)
+              printf("% 8e ", psErrLoc.At(0, i, j));
+            printf("\n");
+          }
+          printf("\n");
+        }
         printf("K:\n");
         for (int i = 0; i < 6; ++i) {
           for (int j = 0; j < 3; ++j)
