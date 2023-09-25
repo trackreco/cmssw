@@ -637,14 +637,6 @@ namespace mkfit {
     helixAtZ_new(inPar, inChg, msZ, outPar, errorProp, outFailFlag, N_proc, pflags);
     //helixAtZ(inPar, inChg, msZ, outPar, errorProp, outFailFlag, N_proc, pflags);
 
-    /* /////
-    outPar = inPar;
-    errorProp.setVal(0.f);
-    outFailFlag.setVal(0.f);
-    helixAtZ(inPar, inChg, msZ, outPar, errorProp, outFailFlag, N_proc, pflags);
-    std::cout << std::endl;assert(0);
-    ///// */
-
 #ifdef DEBUG
     if (debug && g_debug) {
       for (int kk = 0; kk < N_proc; ++kk) {
@@ -709,14 +701,14 @@ namespace mkfit {
         }
         const float zout = msZ.constAt(n, 0, 0);
         const float zin = inPar.constAt(n, 2, 0);
-        propSign(n, 0, 0) = (std::abs(zout) > std::abs(zin) ? 1. : -1.);
+        propSign(n, 0, 0) = (std::abs(zout) > std::abs(zin) ? 1.f : -1.f);
       }
       MPlexHV plNrm;
 #pragma omp simd
       for (int n = 0; n < NN; ++n) {
 	plNrm(n, 0, 0) = 0.f;
 	plNrm(n, 1, 0) = 0.f;
-	plNrm(n, 2, 0) = 1.f;
+	plNrm(n, 2, 0) = ( msZ.constAt(n, 0, 0) > 0 ? 1.f : -1.f );
       }
       applyMaterialEffects(hitsRl, hitsXi, propSign, plNrm, outErr, outPar, N_proc);
     }
@@ -1301,9 +1293,12 @@ namespace mkfit {
           hitsRl(n, 0, 0) = mat.radl;
           hitsXi(n, 0, 0) = mat.bbxi;
         }
-        const float zout = outPar.constAt(n, 2, 0);
-        const float zin = inPar.constAt(n, 2, 0);
-        propSign(n, 0, 0) = (std::abs(zout) > std::abs(zin) ? 1. : -1.);
+        // const float zout = outPar.constAt(n, 2, 0);
+        // const float zin = inPar.constAt(n, 2, 0);
+        // propSign(n, 0, 0) = (std::abs(zout) > std::abs(zin) ? 1.f : -1.f);
+        const float r0 = hipo(inPar(n, 0, 0), inPar(n, 1, 0));//fixme, do it based on path length?
+        const float r = hipo(outPar(n, 0, 0), outPar(n, 1, 0));
+        propSign(n, 0, 0) = (r > r0 ? 1.f : -1.f);
       }
       applyMaterialEffects(hitsRl, hitsXi, propSign, plNrm, outErr, outPar, N_proc);
     }
