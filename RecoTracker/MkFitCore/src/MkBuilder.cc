@@ -1109,7 +1109,7 @@ namespace mkfit {
 
         mkfndr->inputTracksAndHits(eoccs.refCandidates(), layer_of_hits, seed_cand_update_idx, itrack, end, true);
 
-        mkfndr->updateWithLoadedHit(end - itrack, fnd_foos);
+        mkfndr->updateWithLoadedHit(end - itrack, layer_of_hits, fnd_foos);
 
         // copy_out the updated track params, errors only (hit-idcs and chi2 already set)
         mkfndr->copyOutParErr(eoccs.refCandidates_nc(), end - itrack, false);
