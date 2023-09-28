@@ -109,6 +109,8 @@ namespace mkfit {
 
     HitOnTrack bestHitLastHoT(int itrack) const { return m_HoTArrs[itrack][m_NHits(itrack, 0, 0) - 1]; }
 
+    void packModuleNormDir(const LayerOfHits &layer_of_hits, int hit_cnt, MPlexHV &norm, MPlexHV &dir, int N_proc) const;
+
     //----------------------------------------------------------------------------
 
     void getHitSelDynamicWindows(
@@ -136,7 +138,7 @@ namespace mkfit {
                                    const int N_proc,
                                    const FindingFoos &fnd_foos);
 
-    void updateWithLoadedHit(int N_proc, const FindingFoos &fnd_foos);
+    void updateWithLoadedHit(int N_proc, const LayerOfHits &layer_of_hits, const FindingFoos &fnd_foos);
 
     void copyOutParErr(std::vector<CombCandidate> &seed_cand_vec, int N_proc, bool outputProp) const;
 

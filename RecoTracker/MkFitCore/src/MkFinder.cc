@@ -16,6 +16,10 @@
 
 #include <algorithm>
 
+namespace {
+  const bool PROP_TO_PLANE = true;
+}
+
 namespace mkfit {
 
   void MkFinder::setup(const PropagationConfig &pc,
@@ -129,6 +133,9 @@ namespace mkfit {
 
       m_SeedIdx(imp, 0, 0) = idxs[i].seed_idx;
       m_CandIdx(imp, 0, 0) = idxs[i].cand_idx;
+      // Reuse selectHitIndices() arrays -- used also in packModuleNormDir()
+      m_XHitArr(imp, 0, 0) = idxs[i].hit_idx;
+      m_XHitSize(imp, 0, 0) = 1;
 
       const Hit &hit = layer_of_hits.refHit(idxs[i].hit_idx);
       m_msErr.copyIn(imp, hit.errArray());
@@ -183,6 +190,22 @@ namespace mkfit {
 
     for (int i = beg, imp = 0; i < end; ++i, ++imp) {
       copy_out(tracks[idxs[i]], imp, iO);
+    }
+  }
+
+  void MkFinder::packModuleNormDir(const LayerOfHits &layer_of_hits, int hit_cnt, MPlexHV &norm, MPlexHV &dir, int N_proc) const {
+    for (int itrack = 0; itrack < N_proc; ++itrack) {
+      if (hit_cnt < m_XHitSize[itrack]) {
+        const auto &hit = layer_of_hits.refHit(m_XHitArr.constAt(itrack, hit_cnt, 0));
+        unsigned int mid = hit.detIDinLayer();
+        const ModuleInfo &mi = layer_of_hits.layer_info()->module_info(mid);
+        norm.At(itrack, 0, 0) = mi.zdir[0];
+        norm.At(itrack, 1, 0) = mi.zdir[1];
+        norm.At(itrack, 2, 0) = mi.zdir[2];
+        dir.At(itrack, 0, 0) = mi.xdir[0];
+        dir.At(itrack, 1, 0) = mi.xdir[1];
+        dir.At(itrack, 2, 0) = mi.xdir[2];
+      }
     }
   }
 
@@ -955,6 +978,24 @@ namespace mkfit {
       MPlexQF outChi2;
       MPlexLV propPar;
       clearFailFlag();
+
+      if (PROP_TO_PLANE) {
+        // Maybe could use 2 matriplex packers ... ModuleInfo has 3 * SVector3 and uint
+        MPlexHV norm, dir;
+        packModuleNormDir(layer_of_hits, hit_cnt, norm, dir, N_proc);
+        kalmanPropagateAndComputeChi2Plane(m_Err[iP],
+                                     m_Par[iP],
+                                     m_Chg,
+                                     m_msErr,
+                                     m_msPar,
+                                     norm, dir,
+                                     outChi2,
+                                     propPar,
+                                     m_FailFlag,
+                                     N_proc,
+                                     m_prop_config->finding_intra_layer_pflags,
+                                     m_prop_config->finding_requires_propagation_to_hit_pos);
+      } else {
       (*fnd_foos.m_compute_chi2_foo)(m_Err[iP],
                                      m_Par[iP],
                                      m_Chg,
@@ -966,6 +1007,7 @@ namespace mkfit {
                                      N_proc,
                                      m_prop_config->finding_intra_layer_pflags,
                                      m_prop_config->finding_requires_propagation_to_hit_pos);
+      }
 
       // Now update the track parameters with this hit (note that some
       // calculations are already done when computing chi2, to be optimized).
@@ -1202,6 +1244,24 @@ namespace mkfit {
       MPlexQF outChi2;
       MPlexLV propPar;
       clearFailFlag();
+
+      if (PROP_TO_PLANE) {
+        // Maybe could use 2 matriplex packers ... ModuleInfo has 3 * SVector3 and uint
+        MPlexHV norm, dir;
+        packModuleNormDir(layer_of_hits, hit_cnt, norm, dir, N_proc);
+        kalmanPropagateAndComputeChi2Plane(m_Err[iP],
+                                     m_Par[iP],
+                                     m_Chg,
+                                     m_msErr,
+                                     m_msPar,
+                                     norm, dir,
+                                     outChi2,
+                                     propPar,
+                                     m_FailFlag,
+                                     N_proc,
+                                     m_prop_config->finding_intra_layer_pflags,
+                                     m_prop_config->finding_requires_propagation_to_hit_pos);
+      } else {
       (*fnd_foos.m_compute_chi2_foo)(m_Err[iP],
                                      m_Par[iP],
                                      m_Chg,
@@ -1213,6 +1273,7 @@ namespace mkfit {
                                      N_proc,
                                      m_prop_config->finding_intra_layer_pflags,
                                      m_prop_config->finding_requires_propagation_to_hit_pos);
+      }
 
       //#pragma omp simd  // DOES NOT VECTORIZE AS IT IS NOW
       for (int itrack = 0; itrack < N_proc; ++itrack) {
@@ -1356,10 +1417,26 @@ namespace mkfit {
   // UpdateWithLoadedHit
   //==============================================================================
 
-  void MkFinder::updateWithLoadedHit(int N_proc, const FindingFoos &fnd_foos) {
+  void MkFinder::updateWithLoadedHit(int N_proc, const LayerOfHits &layer_of_hits, const FindingFoos &fnd_foos) {
     // See comment in MkBuilder::find_tracks_in_layer() about intra / inter flags used here
     // for propagation to the hit.
     clearFailFlag();
+    if (PROP_TO_PLANE) {
+      MPlexHV norm, dir;
+      packModuleNormDir(layer_of_hits, 0, norm, dir, N_proc);
+      kalmanPropagateAndUpdatePlane(m_Err[iP],
+                                   m_Par[iP],
+                                   m_Chg,
+                                   m_msErr,
+                                   m_msPar,
+                                   norm, dir,
+                                   m_Err[iC],
+                                   m_Par[iC],
+                                   m_FailFlag,
+                                   N_proc,
+                                   m_prop_config->finding_inter_layer_pflags,
+                                   m_prop_config->finding_requires_propagation_to_hit_pos);
+    } else {
     (*fnd_foos.m_update_param_foo)(m_Err[iP],
                                    m_Par[iP],
                                    m_Chg,
@@ -1371,6 +1448,7 @@ namespace mkfit {
                                    N_proc,
                                    m_prop_config->finding_inter_layer_pflags,
                                    m_prop_config->finding_requires_propagation_to_hit_pos);
+    }
 
     // PROP-FAIL-ENABLE The following to be enabled when propagation failure
     // detection is properly implemented in propagate-to-R/Z.
