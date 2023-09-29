@@ -778,7 +778,7 @@ namespace mkfit {
     errorProp.setVal(0.f);
     outFailFlag.setVal(0.f);
 
-    //debug = true;
+    // debug = true;
 #pragma omp simd
     for (int n = 0; n < NN; ++n) {
       //initialize erroProp to identity matrix, except element 2,2 which is zero
@@ -1100,7 +1100,7 @@ namespace mkfit {
     errorProp.setVal(0.f);
     outFailFlag.setVal(0.f);
 
-    //debug = true;
+    // debug = true;
 
     float kinv[NN];
     if (pflags.use_param_b_field) {
@@ -1202,6 +1202,7 @@ namespace mkfit {
                     const MPlexQI& inChg,
                     const MPlexHV& plPnt,
                     const MPlexHV& plNrm,
+                    MPlexQF& pathL,
                     MPlexLV& outPar,
                     MPlexLL& errorProp,
                     MPlexQI& outFailFlag,
@@ -1210,7 +1211,7 @@ namespace mkfit {
     errorProp.setVal(0.f);
     outFailFlag.setVal(0.f);
 
-    helixAtPlane_impl(inPar, inChg, plPnt, plNrm, outPar, errorProp, outFailFlag, 0, NN, N_proc, pflags);
+    helixAtPlane_impl(inPar, inChg, plPnt, plNrm, pathL, outPar, errorProp, outFailFlag, 0, NN, N_proc, pflags);
   }
 
   void propagateHelixToPlaneMPlex(const MPlexLS& inErr,
@@ -1229,9 +1230,10 @@ namespace mkfit {
     outErr = inErr;
     outPar = inPar;
 
+    MPlexQF pathL;
     MPlexLL errorProp;
 
-    helixAtPlane(inPar, inChg, plPnt, plNrm, outPar, errorProp, outFailFlag, N_proc, pflags);
+    helixAtPlane(inPar, inChg, plPnt, plNrm, pathL, outPar, errorProp, outFailFlag, N_proc, pflags);
 
 #ifdef DEBUG
     if (debug && g_debug) {
@@ -1243,6 +1245,20 @@ namespace mkfit {
           dprintf("\n");
         }
         dprintf("\n");
+
+	for (int kk = 0; kk < N_proc; ++kk) {
+	  dprintf("plNrm %d\n", kk);
+	  for (int j = 0; j < 3; ++j)
+            dprintf("%8f ", plNrm.constAt(kk, 0, j));
+	}
+	dprintf("\n");
+
+	for (int kk = 0; kk < N_proc; ++kk) {
+	  dprintf("pathL %d\n", kk);
+	  for (int j = 0; j < 1; ++j)
+            dprintf("%8f ", pathL.constAt(kk, 0, j));
+	}
+	dprintf("\n");
 
         dprintf("errorProp %d\n", kk);
         for (int i = 0; i < 6; ++i) {
@@ -1293,12 +1309,7 @@ namespace mkfit {
           hitsRl(n, 0, 0) = mat.radl;
           hitsXi(n, 0, 0) = mat.bbxi;
         }
-        // const float zout = outPar.constAt(n, 2, 0);
-        // const float zin = inPar.constAt(n, 2, 0);
-        // propSign(n, 0, 0) = (std::abs(zout) > std::abs(zin) ? 1.f : -1.f);
-        const float r0 = hipo(inPar(n, 0, 0), inPar(n, 1, 0));//fixme, do it based on path length?
-        const float r = hipo(outPar(n, 0, 0), outPar(n, 1, 0));
-        propSign(n, 0, 0) = (r > r0 ? 1.f : -1.f);
+        propSign(n, 0, 0) = ( pathL(n, 0, 0) > 0.f ? 1.f : -1.f );
       }
       applyMaterialEffects(hitsRl, hitsXi, propSign, plNrm, outErr, outPar, N_proc);
     }

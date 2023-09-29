@@ -93,6 +93,7 @@ namespace mkfit {
                     const MPlexQI& inChg,
                     const MPlexHV& plPnt,
                     const MPlexHV& plNrm,
+                    MPlexQF& pathL,
                     MPlexLV& outPar,
                     MPlexLL& errorProp,
                     MPlexQI& outFailFlag,

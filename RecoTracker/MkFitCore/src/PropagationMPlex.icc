@@ -5,11 +5,11 @@
 //#define DEBUG
 //#include "Debug.h"
 
-template <typename Tf, typename TfLL1>
+template <typename Tf, typename TfLL1, typename Tf1>
 static inline void parsFromPathL_impl(const Tf& __restrict__ inPar,
                                       TfLL1& __restrict__ outPar,
                                       const float* kinv,
-                                      const float* s,
+                                      const Tf1 __restrict__ s,
                                       const int nmin,
                                       const int nmax) {
 
@@ -49,12 +49,12 @@ static inline void parsFromPathL_impl(const Tf& __restrict__ inPar,
 }
 
 //should kinv and D be templated???
-template <typename Tf, typename Ti, typename TfLL1, typename TfLLL>
+template <typename Tf, typename Ti, typename TfLL1, typename TfLLL, typename Tf1>
 static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
                                                 const Ti& __restrict__ inChg,
                                                 TfLL1& __restrict__ outPar,
                                                 const float* kinv,
-                                                const float* s,
+                                                const Tf1& __restrict__ s,
                                                 TfLLL& __restrict__ errorProp,
                                                 const int nmin,
                                                 const int nmax,
@@ -281,15 +281,17 @@ inline float getS(float delta0, float delta1, float delta2,
   float sqb2m4ac = std::sqrt( B*B - 4.f*A*C );
   float s1 = (-B + sqb2m4ac)*0.5f/C;
   float s2 = (-B - sqb2m4ac)*0.5f/C;
+  //std::cout << "A=" << A << " B=" << B << " C=" << C << " s1=" << s1 << " s2=" << s2 << std::endl;
   //take the closest
   return ( std::abs(s1)>std::abs(s2) ? s2 : s1);
 }
 
-template <typename Tf, typename Ti, typename TfLL1, typename Tf11, typename TfLLL>
+template <typename Tf, typename Ti, typename TfLL1, typename Tf11, typename TfLLL, typename Tf1>
 static inline void helixAtPlane_impl(const Tf& __restrict__ inPar,
                                      const Ti& __restrict__ inChg,
                                      const Tf11& __restrict__ plPnt,
                                      const Tf11& __restrict__ plNrm,
+				     Tf1& __restrict__ s,
                                      TfLL1& __restrict__ outPar,
                                      TfLLL& __restrict__ errorProp,
                                      Ti& __restrict__ outFailFlag,  // expected to be initialized to 0
@@ -328,12 +330,13 @@ static inline void helixAtPlane_impl(const Tf& __restrict__ inPar,
     cosP[n - nmin] = std::cos(inPar(n,4,0));
   }
 
-  float s[nmax - nmin];
+  //float s[nmax - nmin];
   //first iteration outside the loop
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    s[n - nmin] = getS(delta0[n - nmin],delta1[n - nmin],delta2[n - nmin],plNrm(n,0,0), plNrm(n,1,0), plNrm(n,2,0), sinP[n - nmin], cosP[n - nmin],
-                std::sin(inPar(n,5,0)), std::cos(inPar(n,5,0)), inPar(n,3,0), inChg(n,0,0), kinv[n - nmin]);
+    s[n - nmin] = (std::abs(plNrm(n,2,0))<1.f ? getS(delta0[n - nmin],delta1[n - nmin],delta2[n - nmin],plNrm(n,0,0), plNrm(n,1,0), plNrm(n,2,0), sinP[n - nmin], cosP[n - nmin],
+                                                     std::sin(inPar(n,5,0)), std::cos(inPar(n,5,0)), inPar(n,3,0), inChg(n,0,0), kinv[n - nmin])
+		                              : (plPnt.constAt(n, 2, 0) - inPar.constAt(n, 2, 0)) / std::cos(inPar.constAt(n, 5, 0)) );
   }
 
   MPlexLV outParTmp;
@@ -358,12 +361,12 @@ static inline void helixAtPlane_impl(const Tf& __restrict__ inPar,
 
 #pragma omp simd
     for (int n = nmin; n < nmax; ++n) {
-      s[n - nmin] += getS(delta0[n - nmin],delta1[n - nmin],delta2[n - nmin],plNrm(n,0,0), plNrm(n,1,0), plNrm(n,2,0), sinP[n - nmin], cosP[n - nmin],
-                   std::sin(inPar(n,5,0)), std::cos(inPar(n,5,0)), inPar(n,3,0), inChg(n,0,0), kinv[n - nmin]);
+      s[n - nmin] += (std::abs(plNrm(n,2,0))<1.f ? getS(delta0[n - nmin],delta1[n - nmin],delta2[n - nmin],plNrm(n,0,0), plNrm(n,1,0), plNrm(n,2,0), sinP[n - nmin], cosP[n - nmin],
+                                                        std::sin(inPar(n,5,0)), std::cos(inPar(n,5,0)), inPar(n,3,0), inChg(n,0,0), kinv[n - nmin])
+                                                 : (plPnt.constAt(n, 2, 0) - outParTmp.constAt(n, 2, 0)) / std::cos(outParTmp.constAt(n, 5, 0)) );
     }
-
   }//end Niter-1
-std::cout << "s=" << s[0] << std::endl;
+  //std::cout << "s=" << s[0] << std::endl;
   parsAndErrPropFromPathL_impl(inPar, inChg, outPar, kinv, s, errorProp, nmin, nmax, N_proc, pf);
 
 }
@@ -585,9 +588,11 @@ static inline void helixAtRFromIterativeCCS_impl_new(const Tf& __restrict__ inPa
     }
   }  // iteration loop
 
-  float s[nmax - nmin];
+  //float s[nmax - nmin];
+  MPlexQF s;
   for (int n = nmin; n < nmax; ++n) {
-    s[n - nmin] = D[n - nmin]/std::sin(inPar(n, 5, 0));
+    //s[n - nmin] = D[n - nmin]/std::sin(inPar(n, 5, 0));
+    s(n, 0, 0) = D[n - nmin]/std::sin(inPar(n, 5, 0));
   }
   parsAndErrPropFromPathL_impl(inPar, inChg, outPar, kinv, s, errorProp, nmin, nmax, N_proc, pf);
 
