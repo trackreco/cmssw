@@ -510,31 +510,50 @@ namespace mkfit {
     // MT: This should be properly handled in both functions (expecting input in output parameters sucks).
     outPar = inPar;
 
-    MPlexLL errorProp;
+    MPlexLS tmpInErr = inErr;
+    MPlexLV tmpInPar = inPar;
 
-    helixAtRFromIterativeCCS(inPar, inChg, msRad, outPar, errorProp, outFailFlag, N_proc, pflags);
+    for (int step=0;step<Config::Niter;step++) {
+
+      MPlexLL errorProp;
+
+      helixAtRFromIterativeCCS(tmpInPar, inChg, msRad, outPar, errorProp, outFailFlag, N_proc, pflags);
 
 #ifdef DEBUG
-    if (debug && g_debug) {
-      for (int kk = 0; kk < N_proc; ++kk) {
-        dprintf("outErr before prop %d\n", kk);
-        for (int i = 0; i < 6; ++i) {
-          for (int j = 0; j < 6; ++j)
-            dprintf("%8f ", outErr.At(kk, i, j));
-          dprintf("\n");
-        }
-        dprintf("\n");
+      if (debug && g_debug) {
+	for (int kk = 0; kk < N_proc; ++kk) {
+	  dprintf("outErr before prop %d\n", kk);
+	  for (int i = 0; i < 6; ++i) {
+	    for (int j = 0; j < 6; ++j)
+	      dprintf("%8f ", outErr.At(kk, i, j));
+	    dprintf("\n");
+	  }
+	  dprintf("\n");
 
-        dprintf("errorProp %d\n", kk);
-        for (int i = 0; i < 6; ++i) {
-          for (int j = 0; j < 6; ++j)
-            dprintf("%8f ", errorProp.At(kk, i, j));
-          dprintf("\n");
-        }
-        dprintf("\n");
+	  dprintf("errorProp %d\n", kk);
+	  for (int i = 0; i < 6; ++i) {
+	    for (int j = 0; j < 6; ++j)
+	      dprintf("%8f ", errorProp.At(kk, i, j));
+	    dprintf("\n");
+	  }
+	  dprintf("\n");
+	}
       }
-    }
 #endif
+
+      // Matriplex version of:
+      // result.errors = ROOT::Math::Similarity(errorProp, outErr);
+
+      // MultHelixProp can be optimized for CCS coordinates, see GenMPlexOps.pl
+      //need to double check this!
+      MPlexLL temp;
+      MultHelixProp(errorProp, tmpInErr, temp);
+      MultHelixPropTransp(errorProp, temp, outErr);
+
+      tmpInErr = outErr;
+      tmpInPar = outPar;
+
+    }
 
     if (pflags.apply_material) {
       MPlexQF hitsRl;
@@ -561,14 +580,6 @@ namespace mkfit {
     }
 
     squashPhiMPlex(outPar, N_proc);  // ensure phi is between |pi|
-
-    // Matriplex version of:
-    // result.errors = ROOT::Math::Similarity(errorProp, outErr);
-
-    // MultHelixProp can be optimized for CCS coordinates, see GenMPlexOps.pl
-    MPlexLL temp;
-    MultHelixProp(errorProp, outErr, temp);
-    MultHelixPropTransp(errorProp, temp, outErr);
 
     /*
      // To be used with: MPT_DIM = 1
@@ -1030,8 +1041,11 @@ namespace mkfit {
       if (radL < 1e-13f)
         continue;  //ugly, please fixme
       const float theta = outPar.constAt(n, 5, 0);
-      const float pt = 1.f / outPar.constAt(n, 3, 0);  //fixme, make sure it is positive?
+      const float ipt = outPar.constAt(n, 3, 0);
+      const float pt = 1.f / ipt;  //fixme, make sure it is positive?
+      const float ipt2 = ipt * ipt;
       const float p = pt / std::sin(theta);
+      const float pz = p * std::cos(theta);
       const float p2 = p * p;
       constexpr float mpi = 0.140;       // m=140 MeV, pion
       constexpr float mpi2 = mpi * mpi;  // m=140 MeV, pion
@@ -1049,8 +1063,9 @@ namespace mkfit {
       // const float thetaMSC2 = thetaMSC*thetaMSC;
       const float thetaMSC = 0.0136f * (1.f + 0.038f * std::log(radL)) / (beta * p);  // eq 32.15
       const float thetaMSC2 = thetaMSC * thetaMSC * radL;
-      outErr.At(n, 4, 4) += thetaMSC2;
-      // outErr.At(n, 4, 5) += thetaMSC2;
+      outErr.At(n, 3, 3) += thetaMSC2 * pz * pz * ipt2 * ipt2;
+      outErr.At(n, 3, 5) -= thetaMSC2 * pz * ipt2;
+      outErr.At(n, 4, 4) += thetaMSC2 * p2 * ipt2;
       outErr.At(n, 5, 5) += thetaMSC2;
       //std::cout << "beta=" << beta << " p=" << p << std::endl;
       //std::cout << "multiple scattering thetaMSC=" << thetaMSC << " thetaMSC2=" << thetaMSC2 << " radL=" << radL << std::endl;
