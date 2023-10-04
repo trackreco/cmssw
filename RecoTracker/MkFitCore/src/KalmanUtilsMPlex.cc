@@ -239,13 +239,12 @@ namespace {
 
   //==============================================================================
 
-  inline void ProjectResErr(const MPlexHH& A, const MPlexHS& B, MPlexHH& C) {
-    // C = A * B, C is 3x3, A is 3x3 , B is 3x3 sym
+  inline void ProjectResErr(const MPlex2H& A, const MPlexHS& B, MPlex2H& C) {
+    // C = A * B, C is 2x3, A is 2x3 , B is 3x3 sym
 
     /*
     A 0 1 2
       3 4 5
-      6 7 8
     B 0 1 3
       1 2 4
       3 4 5
@@ -269,22 +268,18 @@ namespace {
       c[3 * N + n] = a[3 * N + n] * b[0 * N + n] + a[4 * N + n] * b[1 * N + n] + a[5 * N + n] * b[3 * N + n];
       c[4 * N + n] = a[3 * N + n] * b[1 * N + n] + a[4 * N + n] * b[2 * N + n] + a[5 * N + n] * b[4 * N + n];
       c[5 * N + n] = a[3 * N + n] * b[3 * N + n] + a[4 * N + n] * b[4 * N + n] + a[5 * N + n] * b[5 * N + n];
-      c[6 * N + n] = a[6 * N + n] * b[0 * N + n] + a[7 * N + n] * b[1 * N + n] + a[8 * N + n] * b[3 * N + n];
-      c[7 * N + n] = a[6 * N + n] * b[1 * N + n] + a[7 * N + n] * b[2 * N + n] + a[8 * N + n] * b[4 * N + n];
-      c[8 * N + n] = a[6 * N + n] * b[3 * N + n] + a[7 * N + n] * b[4 * N + n] + a[8 * N + n] * b[5 * N + n];
     }
   }
 
-  inline void ProjectResErrTransp(const MPlexHH& A, const MPlexHH& B, MPlex2S& C) {
-    // C = B * A^T, C is 2x2 sym, A is 3x3 , B is 3x3
+  inline void ProjectResErrTransp(const MPlex2H& A, const MPlex2H& B, MPlex2S& C) {
+    // C = B * A^T, C is 2x2 sym, A is 2x3 (A^T is 3x2), B is 2x3
 
     /*
     B   0 1 2
         3 4 5
-        6 7 8
-    A^T 0 3 6
-        1 4 7
-        2 5 8
+    A^T 0 3
+        1 4
+        2 5
     */
 
     typedef float T;
@@ -305,7 +300,7 @@ namespace {
     }
   }
 
-  inline void RotateResidualsOnPlane(const MPlexHH& R,  //rot
+  inline void RotateResidualsOnPlane(const MPlex2H& R,  //prj
 				     const MPlexHV& A,  //res_glo
 				     MPlex2V& B)        //res_loc
   {
@@ -359,34 +354,6 @@ namespace {
     }
   }
 
-  inline void KalmanHTG(const MPlexHH& A, const MPlex2S& B, MPlexHH& C) {
-    // HTG  = rot * res_loc
-    //   C  =  A  *    B
-
-    typedef float T;
-    const idx_t N = NN;
-
-    const T* a = A.fArray;
-    ASSUME_ALIGNED(a, 64);
-    const T* b = B.fArray;
-    ASSUME_ALIGNED(b, 64);
-    T* c = C.fArray;
-    ASSUME_ALIGNED(c, 64);
-
-#pragma omp simd
-    for (int n = 0; n < N; ++n) {
-      c[0 * N + n] = a[0 * N + n] * b[0 * N + n] + a[1 * N + n] * b[1 * N + n];
-      c[1 * N + n] = a[0 * N + n] * b[1 * N + n] + a[1 * N + n] * b[2 * N + n];
-      c[2 * N + n] = 0.;
-      c[3 * N + n] = a[3 * N + n] * b[0 * N + n] + a[4 * N + n] * b[1 * N + n];
-      c[4 * N + n] = a[3 * N + n] * b[1 * N + n] + a[4 * N + n] * b[2 * N + n];
-      c[5 * N + n] = 0.;
-      c[6 * N + n] = a[6 * N + n] * b[0 * N + n] + a[7 * N + n] * b[1 * N + n];
-      c[7 * N + n] = a[6 * N + n] * b[1 * N + n] + a[7 * N + n] * b[2 * N + n];
-      c[8 * N + n] = 0.;
-    }
-  }
-
   inline void KalmanGain(const MPlexLS& A, const MPlexHH& B, MPlexLH& C) {
     // C = A * B, C is 6x3, A is 6x6 sym , B is 3x3
 
@@ -420,6 +387,93 @@ namespace {
       c[15 * N + n] = a[15 * N + n] * b[0 * N + n] + a[16 * N + n] * b[3 * N + n] + a[17 * N + n] * b[6 * N + n];
       c[16 * N + n] = a[15 * N + n] * b[1 * N + n] + a[16 * N + n] * b[4 * N + n] + a[17 * N + n] * b[7 * N + n];
       c[17 * N + n] = 0;
+    }
+  }
+
+  inline void KalmanHTG(const MPlex2H& A, const MPlex2S& B, MPlexH2& C) {
+    // HTG  = prj^T * res_loc
+    //   C  =  A^T  *   B
+
+    /*
+    A^T 0 3
+        1 4
+        2 5
+    B 0 1
+      1 2
+    C 0 1
+      2 3
+      4 5
+    */
+
+    typedef float T;
+    const idx_t N = NN;
+
+    const T* a = A.fArray;
+    ASSUME_ALIGNED(a, 64);
+    const T* b = B.fArray;
+    ASSUME_ALIGNED(b, 64);
+    T* c = C.fArray;
+    ASSUME_ALIGNED(c, 64);
+
+#pragma omp simd
+    for (int n = 0; n < N; ++n) {
+      c[0 * N + n] = a[0 * N + n] * b[0 * N + n] + a[3 * N + n] * b[1 * N + n];
+      c[1 * N + n] = a[0 * N + n] * b[1 * N + n] + a[3 * N + n] * b[2 * N + n];
+      c[2 * N + n] = a[1 * N + n] * b[0 * N + n] + a[4 * N + n] * b[1 * N + n];
+      c[3 * N + n] = a[1 * N + n] * b[1 * N + n] + a[4 * N + n] * b[2 * N + n];
+      c[4 * N + n] = a[2 * N + n] * b[0 * N + n] + a[5 * N + n] * b[1 * N + n];
+      c[5 * N + n] = a[2 * N + n] * b[1 * N + n] + a[5 * N + n] * b[2 * N + n];
+    }
+  }
+
+  inline void KalmanGain(const MPlexLS& A, const MPlexH2& B, MPlexL2& C) {
+    // C = A * B, C is 6x2, A is 6x6 sym , B is 3x2 (6x2 but half of it is zeros)
+
+    /*
+      A 0  1  3  6 10 15
+        1  2  4  7 11 16
+        3  4  5  8 12 17
+        6  7  8  9 13 18
+       10 11 12 13 14 19
+       15 16 17 18 19 20
+      B 0  1
+        2  3
+	4  5
+        X  X with X=0, so not even included in B
+        X  X
+        X  X
+      C 0  1
+        2  3
+	4  5
+        6  7
+        8  9
+       10 11
+     */
+
+    typedef float T;
+    const idx_t N = NN;
+
+    const T* a = A.fArray;
+    ASSUME_ALIGNED(a, 64);
+    const T* b = B.fArray;
+    ASSUME_ALIGNED(b, 64);
+    T* c = C.fArray;
+    ASSUME_ALIGNED(c, 64);
+
+#pragma omp simd
+    for (int n = 0; n < N; ++n) {
+      c[0 * N + n] = a[0 * N + n] * b[0 * N + n] + a[1 * N + n] * b[2 * N + n] + a[3 * N + n] * b[4 * N + n];
+      c[1 * N + n] = a[0 * N + n] * b[1 * N + n] + a[1 * N + n] * b[3 * N + n] + a[3 * N + n] * b[5 * N + n];
+      c[2 * N + n] = a[1 * N + n] * b[0 * N + n] + a[2 * N + n] * b[2 * N + n] + a[4 * N + n] * b[4 * N + n];
+      c[3 * N + n] = a[1 * N + n] * b[1 * N + n] + a[2 * N + n] * b[3 * N + n] + a[4 * N + n] * b[5 * N + n];
+      c[4 * N + n] = a[3 * N + n] * b[0 * N + n] + a[4 * N + n] * b[2 * N + n] + a[5 * N + n] * b[4 * N + n];
+      c[5 * N + n] = a[3 * N + n] * b[1 * N + n] + a[4 * N + n] * b[3 * N + n] + a[5 * N + n] * b[5 * N + n];
+      c[6 * N + n] = a[6 * N + n] * b[0 * N + n] + a[7 * N + n] * b[2 * N + n] + a[8 * N + n] * b[4 * N + n];
+      c[7 * N + n] = a[6 * N + n] * b[1 * N + n] + a[7 * N + n] * b[3 * N + n] + a[8 * N + n] * b[5 * N + n];
+      c[8 * N + n] = a[10 * N + n] * b[0 * N + n] + a[11 * N + n] * b[2 * N + n] + a[12 * N + n] * b[4 * N + n];
+      c[9 * N + n] = a[10 * N + n] * b[1 * N + n] + a[11 * N + n] * b[3 * N + n] + a[12 * N + n] * b[5 * N + n];
+      c[10 * N + n] = a[15 * N + n] * b[0 * N + n] + a[16 * N + n] * b[2 * N + n] + a[17 * N + n] * b[4 * N + n];
+      c[11 * N + n] = a[15 * N + n] * b[1 * N + n] + a[16 * N + n] * b[3 * N + n] + a[17 * N + n] * b[5 * N + n];
     }
   }
 
@@ -552,6 +606,78 @@ namespace {
       C(n, 0, 30) = A(n, 5, 0) * B(n, 0, 0) + A(n, 5, 1) * B(n, 1, 0) + A(n, 5, 2) * B(n, 2, 0);
       C(n, 0, 31) = A(n, 5, 0) * B(n, 0, 1) + A(n, 5, 1) * B(n, 1, 1) + A(n, 5, 2) * B(n, 2, 1);
       C(n, 0, 32) = A(n, 5, 0) * B(n, 0, 2) + A(n, 5, 1) * B(n, 1, 2) + A(n, 5, 2) * B(n, 2, 2);
+      C(n, 0, 33) = 0;
+      C(n, 0, 34) = 0;
+      C(n, 0, 35) = 0;
+    }
+
+  }
+
+  inline void KHMult(const MPlexL2& A, const MPlex2H& B, MPlexLL& C) {
+    // C = A * B, C is 6x6, A is 6x2 , B is 2x3 (2x6 but half of it made of zeros)
+
+    /*
+    A 0  1
+      2  3
+      4  5
+      6  7
+      8  9
+     10 11
+    B  0  1  2  X  X  X with X=0 so not included in B
+       3  4  5  X  X  X
+    C  0  1  2  3  4  5
+       6  7  8  9 10 11
+      12 13 14 15 16 17
+      18 19 20 21 22 23
+      24 25 26 27 28 29
+      30 31 32 33 34 34
+    */
+
+    // typedef float T;
+    // const idx_t N = NN;
+
+    // const T* a = A.fArray;
+    // ASSUME_ALIGNED(a, 64);
+    // const T* b = B.fArray;
+    // ASSUME_ALIGNED(b, 64);
+    // T* c = C.fArray;
+    // ASSUME_ALIGNED(c, 64);
+
+#pragma omp simd
+    for (int n = 0; n < NN; ++n) {
+      C(n, 0, 0)  = A(n, 0, 0) * B(n, 0, 0) + A(n, 0, 1) * B(n, 1, 0);
+      C(n, 0, 1)  = A(n, 0, 0) * B(n, 0, 1) + A(n, 0, 1) * B(n, 1, 1);
+      C(n, 0, 2)  = A(n, 0, 0) * B(n, 0, 2) + A(n, 0, 1) * B(n, 1, 2);
+      C(n, 0, 3)  = 0;
+      C(n, 0, 4)  = 0;
+      C(n, 0, 5)  = 0;
+      C(n, 0, 6)  = A(n, 1, 0) * B(n, 0, 0) + A(n, 1, 1) * B(n, 1, 0);
+      C(n, 0, 7)  = A(n, 1, 0) * B(n, 0, 1) + A(n, 1, 1) * B(n, 1, 1);
+      C(n, 0, 8)  = A(n, 1, 0) * B(n, 0, 2) + A(n, 1, 1) * B(n, 1, 2);
+      C(n, 0, 9)  = 0;
+      C(n, 0, 10) = 0;
+      C(n, 0, 11) = 0;
+      C(n, 0, 12) = A(n, 2, 0) * B(n, 0, 0) + A(n, 2, 1) * B(n, 1, 0);
+      C(n, 0, 13) = A(n, 2, 0) * B(n, 0, 1) + A(n, 2, 1) * B(n, 1, 1);
+      C(n, 0, 14) = A(n, 2, 0) * B(n, 0, 2) + A(n, 2, 1) * B(n, 1, 2);
+      C(n, 0, 15) = 0;
+      C(n, 0, 16) = 0;
+      C(n, 0, 17) = 0;
+      C(n, 0, 18) = A(n, 3, 0) * B(n, 0, 0) + A(n, 3, 1) * B(n, 1, 0);
+      C(n, 0, 19) = A(n, 3, 0) * B(n, 0, 1) + A(n, 3, 1) * B(n, 1, 1);
+      C(n, 0, 20) = A(n, 3, 0) * B(n, 0, 2) + A(n, 3, 1) * B(n, 1, 2);
+      C(n, 0, 21) = 0;
+      C(n, 0, 22) = 0;
+      C(n, 0, 23) = 0;
+      C(n, 0, 24) = A(n, 4, 0) * B(n, 0, 0) + A(n, 4, 1) * B(n, 1, 0);
+      C(n, 0, 25) = A(n, 4, 0) * B(n, 0, 1) + A(n, 4, 1) * B(n, 1, 1);
+      C(n, 0, 26) = A(n, 4, 0) * B(n, 0, 2) + A(n, 4, 1) * B(n, 1, 2);
+      C(n, 0, 27) = 0;
+      C(n, 0, 28) = 0;
+      C(n, 0, 29) = 0;
+      C(n, 0, 30) = A(n, 5, 0) * B(n, 0, 0) + A(n, 5, 1) * B(n, 1, 0);
+      C(n, 0, 31) = A(n, 5, 0) * B(n, 0, 1) + A(n, 5, 1) * B(n, 1, 1);
+      C(n, 0, 32) = A(n, 5, 0) * B(n, 0, 2) + A(n, 5, 1) * B(n, 1, 2);
       C(n, 0, 33) = 0;
       C(n, 0, 34) = 0;
       C(n, 0, 35) = 0;
@@ -814,6 +940,30 @@ namespace mkfit {
 #ifdef DEBUG
     {
       dmutex_guard;
+      printf("res_glo:\n");
+      for (int i = 0; i < 3; ++i) {
+	printf("%8f ", res_glo.At(0, i, 0));
+      }
+      printf("\n");
+      printf("resErr_glo:\n");
+      for (int i = 0; i < 3; ++i) {
+	for (int j = 0; j < 3; ++j)
+	  printf("%8f ", resErr_glo.At(0, i, j));
+	printf("\n");
+      }
+      printf("\n");
+      printf("res_loc:\n");
+      for (int i = 0; i < 2; ++i) {
+	printf("%8f ", res_loc.At(0, i, 0));
+      }
+      printf("\n");
+      printf("tempHH:\n");
+      for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j)
+          printf("%8f ", tempHH.At(0, i, j));
+        printf("\n");
+      }
+      printf("\n");
       printf("resErr_loc:\n");
       for (int i = 0; i < 2; ++i) {
         for (int j = 0; j < 2; ++j)
@@ -855,10 +1005,10 @@ namespace mkfit {
       KalmanGain(psErrLoc, tempHH, K);
 
       MultResidualsAdd(K, psPar, res_loc, outPar);
-      MPlexLL tempLL;
 
       squashPhiMPlex(outPar, N_proc);  // ensure phi is between |pi|
 
+      MPlexLL tempLL;
       KHMult(K, rotT00, rotT01, tempLL);
       KHC(tempLL, psErrLoc, outErr);
       outErr.subtract(psErrLoc, outErr);
@@ -875,22 +1025,19 @@ namespace mkfit {
           }
           printf("\n");
         }
-        printf("res_glo:\n");
-        for (int i = 0; i < 3; ++i) {
-          printf("%8f ", res_glo.At(0, i, 0));
-        }
-        printf("\n");
-        printf("res_loc:\n");
-        for (int i = 0; i < 2; ++i) {
-          printf("%8f ", res_loc.At(0, i, 0));
-        }
-        printf("\n");
         printf("resErr_loc (Inv):\n");
         for (int i = 0; i < 2; ++i) {
           for (int j = 0; j < 2; ++j)
             printf("%8f ", resErr_loc.At(0, i, j));
           printf("\n");
         }
+	printf("\n");
+	printf("tempHH:\n");
+	for (int i = 0; i < 3; ++i) {
+	  for (int j = 0; j < 3; ++j)
+	    printf("%8f ", tempHH.At(0, i, j));
+	  printf("\n");
+	}
         printf("\n");
         printf("K:\n");
         for (int i = 0; i < 6; ++i) {
@@ -898,6 +1045,13 @@ namespace mkfit {
             printf("%8f ", K.At(0, i, j));
           printf("\n");
         }
+        printf("\n");
+	printf("tempLL:\n");
+	for (int i = 0; i < 6; ++i) {
+	  for (int j = 0; j < 6; ++j)
+	    printf("%8f ", tempLL.At(0, i, j));
+	  printf("\n");
+	}
         printf("\n");
         printf("outPar:\n");
         for (int i = 0; i < 6; ++i) {
@@ -1056,17 +1210,14 @@ namespace mkfit {
     //    N0  N1   N2
     // where D is the strip direction vector plDir, N is the normal plNrm, and X is the cross product between the two
 
-    MPlexHH rot;
+    MPlex2H prj;
     for (int n = 0; n < NN; ++n) {
-      rot(n, 0, 0) = plDir(n, 0, 0);
-      rot(n, 0, 1) = plDir(n, 1, 0);
-      rot(n, 0, 2) = plDir(n, 2, 0);
-      rot(n, 1, 0) = plNrm(n, 1, 0)*plDir(n, 2, 0) - plNrm(n, 2, 0)*plDir(n, 1, 0);
-      rot(n, 1, 1) = plNrm(n, 2, 0)*plDir(n, 0, 0) - plNrm(n, 0, 0)*plDir(n, 2, 0);
-      rot(n, 1, 2) = plNrm(n, 0, 0)*plDir(n, 1, 0) - plNrm(n, 1, 0)*plDir(n, 0, 0);
-      rot(n, 2, 0) = plNrm(n, 0, 0);
-      rot(n, 2, 1) = plNrm(n, 1, 0);
-      rot(n, 2, 2) = plNrm(n, 2, 0);
+      prj(n, 0, 0) = plDir(n, 0, 0);
+      prj(n, 0, 1) = plDir(n, 1, 0);
+      prj(n, 0, 2) = plDir(n, 2, 0);
+      prj(n, 1, 0) = plNrm(n, 1, 0)*plDir(n, 2, 0) - plNrm(n, 2, 0)*plDir(n, 1, 0);
+      prj(n, 1, 1) = plNrm(n, 2, 0)*plDir(n, 0, 0) - plNrm(n, 0, 0)*plDir(n, 2, 0);
+      prj(n, 1, 2) = plNrm(n, 0, 0)*plDir(n, 1, 0) - plNrm(n, 1, 0)*plDir(n, 0, 0);
     }
 
     MPlexHV res_glo;  //position residual in global coordinates
@@ -1076,19 +1227,19 @@ namespace mkfit {
     AddIntoUpperLeft3x3(psErr, msErr, resErr_glo);
 
     MPlex2V res_loc;  //position residual in local coordinates
-    RotateResidualsOnPlane(rot, res_glo, res_loc);
+    RotateResidualsOnPlane(prj, res_glo, res_loc);
     MPlex2S resErr_loc;  //covariance sum in local position coordinates
-    MPlexHH tempHH;
-    ProjectResErr(rot, resErr_glo, tempHH);
-    ProjectResErrTransp(rot, tempHH, resErr_loc);
+    MPlex2H temp2H;
+    ProjectResErr(prj, resErr_glo, temp2H);
+    ProjectResErrTransp(prj, temp2H, resErr_loc);
 
 #ifdef DEBUG
     {
       dmutex_guard;
-      printf("rot:\n");
-      for (int i = 0; i < 3; ++i) {
+      printf("prj:\n");
+      for (int i = 0; i < 2; ++i) {
         for (int j = 0; j < 3; ++j)
-          printf("%8f ", rot.At(0, i, j));
+          printf("%8f ", prj.At(0, i, j));
         printf("\n");
       }
       printf("\n");
@@ -1109,10 +1260,10 @@ namespace mkfit {
 	printf("%8f ", res_loc.At(0, i, 0));
       }
       printf("\n");
-      printf("tempHH:\n");
-      for (int i = 0; i < 3; ++i) {
+      printf("temp2H:\n");
+      for (int i = 0; i < 2; ++i) {
         for (int j = 0; j < 3; ++j)
-          printf("%8f ", tempHH.At(0, i, j));
+          printf("%8f ", temp2H.At(0, i, j));
         printf("\n");
       }
       printf("\n");
@@ -1149,19 +1300,18 @@ namespace mkfit {
 
     if (kfOp & KFO_Update_Params) {
       MPlexLS psErrLoc = psErr;
-      // if (kfOp & KFO_Local_Cov)
-      //   CovXYconstrain(rotT00, rotT01, psErr, psErrLoc);
 
-      MPlexLH K;                           // kalman gain, fixme should be L2
-      KalmanHTG(rot, resErr_loc, tempHH);  // intermediate term to get kalman gain (H^T*G)
-      KalmanGain(psErrLoc, tempHH, K);
+      MPlexH2 tempH2;
+      MPlexL2 K;                           // kalman gain, fixme should be L2
+      KalmanHTG(prj, resErr_loc, tempH2);  // intermediate term to get kalman gain (H^T*G)
+      KalmanGain(psErrLoc, tempH2, K);
 
       MultResidualsAdd(K, psPar, res_loc, outPar);
-      MPlexLL tempLL;
 
       squashPhiMPlex(outPar, N_proc);  // ensure phi is between |pi|
 
-      KHMult(K, rot, tempLL);
+      MPlexLL tempLL;
+      KHMult(K, prj, tempLL);
       KHC(tempLL, psErrLoc, outErr);
       outErr.subtract(psErrLoc, outErr);
 
@@ -1177,12 +1327,33 @@ namespace mkfit {
           }
           printf("\n");
         }
+        printf("resErr_loc (Inv):\n");
+        for (int i = 0; i < 2; ++i) {
+          for (int j = 0; j < 2; ++j)
+            printf("%8f ", resErr_loc.At(0, i, j));
+          printf("\n");
+        }
+        printf("\n");
+	printf("tempH2:\n");
+	for (int i = 0; i < 3; ++i) {
+	  for (int j = 0; j < 2; ++j)
+	    printf("%8f ", tempH2.At(0, i, j));
+	  printf("\n");
+	}
+	printf("\n");
         printf("K:\n");
         for (int i = 0; i < 6; ++i) {
-          for (int j = 0; j < 3; ++j)
+          for (int j = 0; j < 2; ++j)
             printf("%8f ", K.At(0, i, j));
           printf("\n");
         }
+        printf("\n");
+	printf("tempLL:\n");
+	for (int i = 0; i < 6; ++i) {
+	  for (int j = 0; j < 6; ++j)
+	    printf("%8f ", tempLL.At(0, i, j));
+	  printf("\n");
+	}
         printf("\n");
         printf("outPar:\n");
         for (int i = 0; i < 6; ++i) {

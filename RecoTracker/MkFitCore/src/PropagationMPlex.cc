@@ -640,6 +640,12 @@ namespace mkfit {
 #ifdef DEBUG
     if (debug && g_debug) {
       for (int kk = 0; kk < N_proc; ++kk) {
+        dprintf("inPar %d\n", kk);
+        for (int i = 0; i < 6; ++i) {
+            dprintf("%8f ", inPar.constAt(kk, i, 0));
+        }
+        dprintf("\n");
+
         dprintf("inErr %d\n", kk);
         for (int i = 0; i < 6; ++i) {
           for (int j = 0; j < 6; ++j)
@@ -708,13 +714,22 @@ namespace mkfit {
       for (int n = 0; n < NN; ++n) {
 	plNrm(n, 0, 0) = 0.f;
 	plNrm(n, 1, 0) = 0.f;
-	plNrm(n, 2, 0) = ( msZ.constAt(n, 0, 0) > 0 ? 1.f : -1.f );
+	plNrm(n, 2, 0) = 1.f;
       }
       applyMaterialEffects(hitsRl, hitsXi, propSign, plNrm, outErr, outPar, N_proc);
-    }
 #ifdef DEBUG
     if (debug && g_debug) {
       for (int kk = 0; kk < N_proc; ++kk) {
+        dprintf("propSign %d\n", kk);
+        for (int i = 0; i < 1; ++i) {
+	  dprintf("%8f ", propSign.constAt(kk, i, 0));
+        }
+        dprintf("\n");
+        dprintf("plNrm %d\n", kk);
+        for (int i = 0; i < 3; ++i) {
+	  dprintf("%8f ", plNrm.constAt(kk, i, 0));
+        }
+        dprintf("\n");
         dprintf("outErr(after material) %d\n", kk);
         for (int i = 0; i < 6; ++i) {
           for (int j = 0; j < 6; ++j)
@@ -725,6 +740,7 @@ namespace mkfit {
       }
     }
 #endif
+    }
 
     squashPhiMPlex(outPar, N_proc);  // ensure phi is between |pi|
 
@@ -1235,9 +1251,26 @@ namespace mkfit {
 
     helixAtPlane(inPar, inChg, plPnt, plNrm, pathL, outPar, errorProp, outFailFlag, N_proc, pflags);
 
+    for (int n = 0; n < NN; ++n) {
+      dprint_np(n,
+		"propagation to plane end, dump parameters\n"
+		//<< "   D = " << s[n] << " alpha = " << s[n] * std::sin(inPar(n, 5, 0)) * inPar(n, 3, 0) * kinv[n] << " kinv = " << kinv[n] << std::endl
+		<< "   pos = " << outPar(n, 0, 0) << " " << outPar(n, 1, 0) << " " << outPar(n, 2, 0) << "\t\t r="
+		<< std::sqrt(outPar(n, 0, 0) * outPar(n, 0, 0) + outPar(n, 1, 0) * outPar(n, 1, 0)) << std::endl
+		<< "   mom = " << outPar(n, 3, 0) << " " << outPar(n, 4, 0) << " " << outPar(n, 5, 0) << std::endl
+		<< " cart= " << std::cos(outPar(n, 4, 0)) / outPar(n, 3, 0) << " "
+		<< std::sin(outPar(n, 4, 0)) / outPar(n, 3, 0) << " " << 1. / (outPar(n, 3, 0) * tan(outPar(n, 5, 0)))
+		<< "\t\tpT=" << 1. / std::abs(outPar(n, 3, 0)) << std::endl);
+    }
+
 #ifdef DEBUG
     if (debug && g_debug) {
       for (int kk = 0; kk < N_proc; ++kk) {
+        dprintf("inPar %d\n", kk);
+        for (int i = 0; i < 6; ++i) {
+            dprintf("%8f ", inPar.constAt(kk, i, 0));
+        }
+        dprintf("\n");
         dprintf("inErr %d\n", kk);
         for (int i = 0; i < 6; ++i) {
           for (int j = 0; j < 6; ++j)
@@ -1312,10 +1345,19 @@ namespace mkfit {
         propSign(n, 0, 0) = ( pathL(n, 0, 0) > 0.f ? 1.f : -1.f );
       }
       applyMaterialEffects(hitsRl, hitsXi, propSign, plNrm, outErr, outPar, N_proc);
-    }
 #ifdef DEBUG
     if (debug && g_debug) {
       for (int kk = 0; kk < N_proc; ++kk) {
+        dprintf("propSign %d\n", kk);
+        for (int i = 0; i < 1; ++i) {
+	  dprintf("%8f ", propSign.constAt(kk, i, 0));
+        }
+        dprintf("\n");
+        dprintf("plNrm %d\n", kk);
+        for (int i = 0; i < 3; ++i) {
+	  dprintf("%8f ", plNrm.constAt(kk, i, 0));
+        }
+        dprintf("\n");
         dprintf("outErr(after material) %d\n", kk);
         for (int i = 0; i < 6; ++i) {
           for (int j = 0; j < 6; ++j)
@@ -1326,6 +1368,7 @@ namespace mkfit {
       }
     }
 #endif
+    }
 
     squashPhiMPlex(outPar, N_proc);  // ensure phi is between |pi|
 
@@ -1395,7 +1438,7 @@ namespace mkfit {
       const float beta2 = p2 / (p2 + mpi2);
       const float beta = std::sqrt(beta2);
       //radiation lenght, corrected for the crossing angle (cos alpha from dot product of radius vector and momentum)
-      const float invCos = p / ( pt * std::cos(outPar.constAt(n, 4, 0)) * plNrm.constAt(n, 0, 0) +  pt * std::sin(outPar.constAt(n, 4, 0))* plNrm.constAt(n, 1, 0) + pz * plNrm.constAt(n, 2, 0) );
+      const float invCos = p / std::abs( pt * std::cos(outPar.constAt(n, 4, 0)) * plNrm.constAt(n, 0, 0) +  pt * std::sin(outPar.constAt(n, 4, 0))* plNrm.constAt(n, 1, 0) + pz * plNrm.constAt(n, 2, 0) );
       radL = radL * invCos;  //fixme works only for barrel geom
       // multiple scattering
       //vary independently phi and theta by the rms of the planar multiple scattering angle

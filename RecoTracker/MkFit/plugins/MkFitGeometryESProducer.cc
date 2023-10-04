@@ -566,7 +566,7 @@ std::unique_ptr<MkFitGeometry> MkFitGeometryESProducer::produce(const TrackerRec
     pconf.backward_fit_to_pca = false;
     pconf.finding_requires_propagation_to_hit_pos = true;
     pconf.finding_inter_layer_pflags = PropagationFlags(PF_use_param_b_field | PF_apply_material);
-    pconf.finding_intra_layer_pflags = PropagationFlags(PF_none);
+    pconf.finding_intra_layer_pflags = PropagationFlags(PF_use_param_b_field | PF_apply_material);
     pconf.backward_fit_pflags = PropagationFlags(PF_use_param_b_field | PF_apply_material);
     pconf.forward_fit_pflags = PropagationFlags(PF_use_param_b_field | PF_apply_material);
     pconf.seed_fit_pflags = PropagationFlags(PF_none);

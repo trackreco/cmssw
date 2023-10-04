@@ -281,7 +281,9 @@ inline float getS(float delta0, float delta1, float delta2,
   float sqb2m4ac = std::sqrt( B*B - 4.f*A*C );
   float s1 = (-B + sqb2m4ac)*0.5f/C;
   float s2 = (-B - sqb2m4ac)*0.5f/C;
-  //std::cout << "A=" << A << " B=" << B << " C=" << C << " s1=" << s1 << " s2=" << s2 << std::endl;
+#ifdef DEBUG
+  if (debug) std::cout << "A=" << A << " B=" << B << " C=" << C << " s1=" << s1 << " s2=" << s2 << std::endl;
+#endif
   //take the closest
   return ( std::abs(s1)>std::abs(s2) ? s2 : s1);
 }
