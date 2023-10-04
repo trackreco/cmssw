@@ -373,6 +373,7 @@ static inline void helixAtPlane_impl(const Tf& __restrict__ inPar,
 
 }
 
+/*
 // this function just calculates the path length (using the iterative approach as before)
 // and then calls parsAndErrPropFromPathL_impl for error propagation
 template <typename Tf, typename Ti, typename TfLL1, typename Tf11, typename TfLLL>
@@ -663,6 +664,7 @@ static inline void helixAtRFromIterativeCCS_impl_new(const Tf& __restrict__ inPa
 #endif
 
 }
+*/
 
 template <typename Tf, typename Ti, typename TfLL1, typename Tf11, typename TfLLL>
 static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,

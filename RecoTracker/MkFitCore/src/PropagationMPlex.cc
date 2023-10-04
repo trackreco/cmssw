@@ -488,8 +488,8 @@ namespace mkfit {
     errorProp.setVal(0.f);
     outFailFlag.setVal(0.f);
 
-    helixAtRFromIterativeCCS_impl_new(inPar, inChg, msRad, outPar, errorProp, outFailFlag, 0, NN, N_proc, pflags);
-    //helixAtRFromIterativeCCS_impl(inPar, inChg, msRad, outPar, errorProp, outFailFlag, 0, NN, N_proc, pflags);
+    //helixAtRFromIterativeCCS_impl_new(inPar, inChg, msRad, outPar, errorProp, outFailFlag, 0, NN, N_proc, pflags);
+    helixAtRFromIterativeCCS_impl(inPar, inChg, msRad, outPar, errorProp, outFailFlag, 0, NN, N_proc, pflags);
     /*
     //float nv = errorProp(0,0,0);
 
@@ -634,8 +634,8 @@ namespace mkfit {
 
     MPlexLL errorProp;
 
-    helixAtZ_new(inPar, inChg, msZ, outPar, errorProp, outFailFlag, N_proc, pflags);
-    //helixAtZ(inPar, inChg, msZ, outPar, errorProp, outFailFlag, N_proc, pflags);
+    //helixAtZ_new(inPar, inChg, msZ, outPar, errorProp, outFailFlag, N_proc, pflags);
+    helixAtZ(inPar, inChg, msZ, outPar, errorProp, outFailFlag, N_proc, pflags);
 
 #ifdef DEBUG
     if (debug && g_debug) {
@@ -1104,6 +1104,7 @@ namespace mkfit {
 #endif
   }
 
+  /*
    void helixAtZ_new(const MPlexLV& inPar,
                      const MPlexQI& inChg,
                      const MPlexQF& msZ,
@@ -1213,6 +1214,7 @@ namespace mkfit {
     }
 #endif
   }
+*/
 
   void helixAtPlane(const MPlexLV& inPar,
                     const MPlexQI& inChg,
