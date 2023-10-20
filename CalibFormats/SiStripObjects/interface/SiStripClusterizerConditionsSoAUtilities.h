@@ -9,22 +9,10 @@
 #include "HeterogeneousCore/CUDAUtilities/interface/host_unique_ptr.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/HostAllocator.h"
 
-//struct DetToFedSoA {
-//  GENERATE_SOA_LAYOUT(DetToFedSoALayout,
-//		                  SOA_COLUMN(stripgpu::detId_t, detID_),
-//                      SOA_COLUMN(stripgpu::apvPair_t, pair_),
-//                      SOA_COLUMN(stripgpu::fedId_t, fedID_),
-//                      SOA_COLUMN(stripgpu::fedCh_t, fedCh_));
-//};
-//
-//using DetToFedLayout = typename DetToFedSoA::DetToFedSoALayout<>;
-//using DetToFedView = typename DetToFedSoA::DetToFedSoALayout<>::View;
-//using DetToFedConstView = typename DetToFedSoA::DetToFedSoALayout<>::ConstView;
-
-struct DataSoA {
+struct SiStripClusterizerConditionsSoA {
   using arraySTRIPS_PER_FEDCH = std::array<std::uint16_t,sistrip::STRIPS_PER_FEDCH>;
   using arrayAPVS_PER_FEDCH = std::array<float,sistrip::APVS_PER_FEDCH>;
-  GENERATE_SOA_LAYOUT(DataSoALayout,
+  GENERATE_SOA_LAYOUT(SiStripClusterizerConditionsSoALayout,
 		                  //SOA_COLUMN(arraySTRIPS_PER_FEDCH, noise_),
 		                  SOA_COLUMN(std::uint16_t, noise_),
                       SOA_COLUMN(float, invthick_),
@@ -34,9 +22,9 @@ struct DataSoA {
                       SOA_COLUMN(float, gain_));
 };
 
-using DataLayout = typename DataSoA::DataSoALayout<>;
-using DataView = typename DataSoA::DataSoALayout<>::View;
-using DataConstView = typename DataSoA::DataSoALayout<>::ConstView;
+using SiStripClusterizerConditionsLayout = typename SiStripClusterizerConditionsSoA::SiStripClusterizerConditionsSoALayout<>;
+using SiStripClusterizerConditionsView = typename SiStripClusterizerConditionsSoA::SiStripClusterizerConditionsSoALayout<>::View;
+using SiStripClusterizerConditionsConstView = typename SiStripClusterizerConditionsSoA::SiStripClusterizerConditionsSoALayout<>::ConstView;
 
 class SiStripQuality;
 class SiStripGain;
