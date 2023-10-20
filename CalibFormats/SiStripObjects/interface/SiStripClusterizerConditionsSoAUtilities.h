@@ -5,22 +5,6 @@
 #include "DataFormats/SiStripCommon/interface/ConstantsForHardwareSystems.h"
 #include "DataFormats/SoATemplate/interface/SoALayout.h"
 
-#include "HeterogeneousCore/CUDAUtilities/interface/device_unique_ptr.h"
-#include "HeterogeneousCore/CUDAUtilities/interface/host_unique_ptr.h"
-#include "HeterogeneousCore/CUDAUtilities/interface/HostAllocator.h"
-
-//struct DetToFedSoA {
-//  GENERATE_SOA_LAYOUT(DetToFedSoALayout,
-//		                  SOA_COLUMN(stripgpu::detId_t, detID_),
-//                      SOA_COLUMN(stripgpu::apvPair_t, pair_),
-//                      SOA_COLUMN(stripgpu::fedId_t, fedID_),
-//                      SOA_COLUMN(stripgpu::fedCh_t, fedCh_));
-//};
-//
-//using DetToFedLayout = typename DetToFedSoA::DetToFedSoALayout<>;
-//using DetToFedView = typename DetToFedSoA::DetToFedSoALayout<>::View;
-//using DetToFedConstView = typename DetToFedSoA::DetToFedSoALayout<>::ConstView;
-
 struct SiStripClusterizerConditionsSoA {
   const static auto stripsPerFedCh = sistrip::STRIPS_PER_FEDCH;
   const static auto apvsPerFedCh = sistrip::APVS_PER_FEDCH;
