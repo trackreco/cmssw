@@ -7,79 +7,38 @@
 
 namespace stripgpu {
 
-  //class SiStripClusterizerConditionsSoAHost {
-  //public:
-  class DetToFed {
+  class SiStripClusterizerConditionsSoAHost
+      : public cms::cuda::PortableHostCollection<SiStripClusterizerConditionsLayout> {
   public:
-    DetToFed(detId_t detid, apvPair_t ipair, fedId_t fedid, fedCh_t fedch)
-        : detid_(detid), ipair_(ipair), fedid_(fedid), fedch_(fedch) {}
-    detId_t detID() const { return detid_; }
-    apvPair_t pair() const { return ipair_; }
-    fedId_t fedID() const { return fedid_; }
-    fedCh_t fedCh() const { return fedch_; }
+    using cms::cuda::PortableHostCollection<SiStripClusterizerConditionsLayout>::view;
+    using cms::cuda::PortableHostCollection<SiStripClusterizerConditionsLayout>::const_view;
+    using cms::cuda::PortableHostCollection<SiStripClusterizerConditionsLayout>::buffer;
+    using cms::cuda::PortableHostCollection<SiStripClusterizerConditionsLayout>::bufferSize;
 
-  private:
-    detId_t detid_;
-    apvPair_t ipair_;
-    fedId_t fedid_;
-    fedCh_t fedch_;
-  };
-  //class DetToFedSoAHost : public cms::cuda::PortableHostCollection<DetToFedLayout> {
-  //public:
-  //  using cms::cuda::PortableHostCollection<DetToFedLayout>::view;
-  //  using cms::cuda::PortableHostCollection<DetToFedLayout>::const_view;
-  //  using cms::cuda::PortableHostCollection<DetToFedLayout>::buffer;
-  //  using cms::cuda::PortableHostCollection<DetToFedLayout>::bufferSize;
-  //
-  //  DetToFedSoAHost() = default;
-  //  ~DetToFedSoAHost() = default;
-  //
-  //  explicit DetToFedSoAHost(detId_t detid, apvPair_t ipair, fedId_t fedid, fedCh_t fedch, cudaStream_t stream)
-  //      : PortableHostCollection<DetToFedLayout>(
-  //          detID_(detid), pair_(ipair), fedID_(fedid), fedCh_(fedch)){};
-  //
-  //  DetToFedSoAHost(const DetToFedSoAHost &&) = delete;
-  //  DetToFedSoAHost &operator=(const DetToFedSoAHost &&) = delete;
-  //  DetToFedSoAHost(DetToFedSoAHost &&) = default;
-  //  DetToFedSoAHost &operator=(DetToFedSoAHost &&) = default;
-  //};
-  using DetToFeds = std::vector<DetToFed>;
+    SiStripClusterizerConditionsSoAHost() = default;
+    ~SiStripClusterizerConditionsSoAHost() = default;
 
-  //const DetToFeds& detToFeds() const { return detToFeds_; }
+    SiStripClusterizerConditionsSoAHost(const SiStripClusterizerConditionsSoAHost&&) = delete;
+    SiStripClusterizerConditionsSoAHost& operator=(const SiStripClusterizerConditionsSoAHost&&) = delete;
+    SiStripClusterizerConditionsSoAHost(SiStripClusterizerConditionsSoAHost&&) = default;
+    SiStripClusterizerConditionsSoAHost& operator=(SiStripClusterizerConditionsSoAHost&&) = default;
 
-  class DataSoAHost : public cms::cuda::PortableHostCollection<DataLayout> {
-  public:
-    using cms::cuda::PortableHostCollection<DataLayout>::view;
-    using cms::cuda::PortableHostCollection<DataLayout>::const_view;
-    using cms::cuda::PortableHostCollection<DataLayout>::buffer;
-    using cms::cuda::PortableHostCollection<DataLayout>::bufferSize;
-
-    DataSoAHost() = default;
-    ~DataSoAHost() = default;
-
-    DataSoAHost(const DataSoAHost&&) = delete;
-    DataSoAHost& operator=(const DataSoAHost&&) = delete;
-    DataSoAHost(DataSoAHost&&) = default;
-    DataSoAHost& operator=(DataSoAHost&&) = default;
-
-    explicit DataSoAHost(const SiStripQuality& quality,
-                         const SiStripGain* gains,
-                         const SiStripNoises& noises,
-                         DetToFeds& detToFeds,
-                         cudaStream_t stream)
-        : cms::cuda::PortableHostCollection<DataLayout>(sistrip::NUMBER_OF_FEDS * sistrip::FEDCH_PER_FED, stream) {
+    explicit SiStripClusterizerConditionsSoAHost(const SiStripQuality& quality,
+                                                 const SiStripGain* gains,
+                                                 const SiStripNoises& noises,
+                                                 cudaStream_t stream)
+        : cms::cuda::PortableHostCollection<SiStripClusterizerConditionsLayout>(
+              sistrip::NUMBER_OF_FEDS * sistrip::FEDCH_PER_FED, stream) {
       // connected: map<DetID, std::vector<int>>
       // map of KEY=detid DATA=vector of apvs, maximum 6 APVs per detector module :
       const auto& connected = quality.cabling()->connected();
       // detCabling: map<DetID, std::vector<const FedChannelConnection *>
       // map of KEY=detid DATA=vector<FedChannelConnection>
       const auto& detCabling = quality.cabling()->getDetCabling();
-
       for (const auto& conn : connected) {
         const auto det = conn.first;
         if (!quality.IsModuleBad(det)) {
           const auto detConn_it = detCabling.find(det);
-
           if (detCabling.end() != detConn_it) {
             for (const auto& chan : (*detConn_it).second) {
               if (chan && chan->fedId() && chan->isConnected()) {
@@ -88,7 +47,7 @@ namespace stripgpu {
                 const auto fedCh = chan->fedCh();
                 const auto iPair = chan->apvPairNumber();
 
-                detToFeds.emplace_back(detID, iPair, fedID, fedCh);
+                detToFeds_.emplace_back(detID, iPair, fedID, fedCh);
 
                 view().detID()[channelIndex(fedID, fedCh)] = detID;
                 view().iPair()[channelIndex(fedID, fedCh)] = iPair;
@@ -113,17 +72,38 @@ namespace stripgpu {
         }
       }
 
-      std::sort(detToFeds.begin(), detToFeds.end(), [](const DetToFed& a, const DetToFed& b) {
+      std::sort(detToFeds_.begin(), detToFeds_.end(), [](const DetToFed& a, const DetToFed& b) {
         return a.detID() < b.detID() || (a.detID() == b.detID() && a.pair() < b.pair());
       });
     }
 
+    class DetToFed {
+    public:
+      DetToFed(detId_t detid, apvPair_t ipair, fedId_t fedid, fedCh_t fedch)
+          : detid_(detid), ipair_(ipair), fedid_(fedid), fedch_(fedch) {}
+      detId_t detID() const { return detid_; }
+      apvPair_t pair() const { return ipair_; }
+      fedId_t fedID() const { return fedid_; }
+      fedCh_t fedCh() const { return fedch_; }
+
+    private:
+      detId_t detid_;
+      apvPair_t ipair_;
+      fedId_t fedid_;
+      fedCh_t fedch_;
+    };
+    using DetToFeds = std::vector<DetToFed>;
+
+    const DetToFeds& detToFeds() const { return detToFeds_; }
+
   private:
+    DetToFeds detToFeds_;
+
     void setStrip(fedId_t fed, fedCh_t channel, stripId_t strip, std::uint16_t noise, float gain, bool bad) {
-      view().gain()[channelIndexHD(fed, channel)][apvIndexHD(fed, channel, strip)] = gain;
-      view().noise()[channelIndexHD(fed, channel)][stripIndexHD(fed, channel, strip)] = noise;
+      view().gain()[channelIndexHD(fed, channel)][apvIndexHD(strip)] = gain;
+      view().noise()[channelIndexHD(fed, channel)][stripIndexHD(strip)] = noise;
       if (bad) {
-        view().noise()[channelIndexHD(fed, channel)][stripIndexHD(fed, channel, strip)] |= badBit;
+        view().noise()[channelIndexHD(fed, channel)][stripIndexHD(strip)] |= badBit;
       }
     }
 
@@ -131,22 +111,6 @@ namespace stripgpu {
       view().invthick()[channelIndexHD(fed, channel)] = invthick;
     }
   };
-
-  //  explicit SiStripClusterizerConditionsSoAHost(const SiStripQuality& quality,
-  //                                               const SiStripGain* gains,
-  //                                               const SiStripNoises& noises,
-  //                                               cudaStream_t stream) {};
-  //    : data_(quality, gains, noises, stream) {};
-
-  //  ~SiStripClusterizerConditionsSoAHost() = default;
-
-  //DataSoAHost data() const { return data_; }
-
-  //private:
-  //  DetToFeds detToFeds_;
-  //  //DataSoAHost data_;
-
-  //};
 
 }  // namespace stripgpu
 

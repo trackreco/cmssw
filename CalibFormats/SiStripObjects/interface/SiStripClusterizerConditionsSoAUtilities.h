@@ -21,12 +21,12 @@
 //using DetToFedView = typename DetToFedSoA::DetToFedSoALayout<>::View;
 //using DetToFedConstView = typename DetToFedSoA::DetToFedSoALayout<>::ConstView;
 
-struct DataSoA {
+struct SiStripClusterizerConditionsSoA {
   const static auto stripsPerFedCh = sistrip::STRIPS_PER_FEDCH;
   const static auto apvsPerFedCh = sistrip::APVS_PER_FEDCH;
   using arraySTRIPS_PER_FEDCH = std::array<std::uint16_t, stripsPerFedCh>;
   using arrayAPVS_PER_FEDCH = std::array<float, apvsPerFedCh>;
-  GENERATE_SOA_LAYOUT(DataSoALayout,
+  GENERATE_SOA_LAYOUT(SiStripClusterizerConditionsSoALayout,
                       SOA_COLUMN(arraySTRIPS_PER_FEDCH, noise),
                       SOA_COLUMN(float, invthick),
                       SOA_COLUMN(stripgpu::detId_t, detID),
@@ -34,9 +34,12 @@ struct DataSoA {
                       SOA_COLUMN(arrayAPVS_PER_FEDCH, gain));
 };
 
-using DataLayout = typename DataSoA::DataSoALayout<>;
-using DataView = typename DataSoA::DataSoALayout<>::View;
-using DataConstView = typename DataSoA::DataSoALayout<>::ConstView;
+using SiStripClusterizerConditionsLayout =
+    typename SiStripClusterizerConditionsSoA::SiStripClusterizerConditionsSoALayout<>;
+using SiStripClusterizerConditionsView =
+    typename SiStripClusterizerConditionsSoA::SiStripClusterizerConditionsSoALayout<>::View;
+using SiStripClusterizerConditionsConstView =
+    typename SiStripClusterizerConditionsSoA::SiStripClusterizerConditionsSoALayout<>::ConstView;
 
 class SiStripQuality;
 class SiStripGain;
@@ -44,12 +47,9 @@ class SiStripNoises;
 
 namespace stripgpu {
   static constexpr std::uint16_t badBit = 1 << 15;
-
   __host__ __device__ inline fedId_t fedIndexHD(fedId_t fed) { return fed - sistrip::FED_ID_MIN; }
-  __host__ __device__ inline std::uint32_t stripIndexHD(fedId_t fed, fedCh_t channel, stripId_t strip) {
-    return (strip % sistrip::STRIPS_PER_FEDCH);
-  }
-  __host__ __device__ inline std::uint32_t apvIndexHD(fedId_t fed, fedCh_t channel, stripId_t strip) {
+  __host__ __device__ inline std::uint32_t stripIndexHD(stripId_t strip) { return (strip % sistrip::STRIPS_PER_FEDCH); }
+  __host__ __device__ inline std::uint32_t apvIndexHD(stripId_t strip) {
     return (strip % sistrip::STRIPS_PER_FEDCH) / sistrip::STRIPS_PER_APV;
   }
   __host__ __device__ inline std::uint32_t channelIndexHD(fedId_t fed, fedCh_t channel) {

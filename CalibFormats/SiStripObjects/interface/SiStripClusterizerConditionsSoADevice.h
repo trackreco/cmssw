@@ -6,36 +6,38 @@
 
 namespace stripgpu {
 
-  //class SiStripClusterizerConditionsSoADevice {
-  //public:
-  class DataSoADevice : public cms::cuda::PortableDeviceCollection<DataLayout> {
+  class SiStripClusterizerConditionsSoADevice
+      : public cms::cuda::PortableDeviceCollection<SiStripClusterizerConditionsLayout> {
   public:
-    using cms::cuda::PortableDeviceCollection<DataLayout>::view;
-    using cms::cuda::PortableDeviceCollection<DataLayout>::const_view;
-    using cms::cuda::PortableDeviceCollection<DataLayout>::buffer;
-    using cms::cuda::PortableDeviceCollection<DataLayout>::bufferSize;
+    using cms::cuda::PortableDeviceCollection<SiStripClusterizerConditionsLayout>::view;
+    using cms::cuda::PortableDeviceCollection<SiStripClusterizerConditionsLayout>::const_view;
+    using cms::cuda::PortableDeviceCollection<SiStripClusterizerConditionsLayout>::buffer;
+    using cms::cuda::PortableDeviceCollection<SiStripClusterizerConditionsLayout>::bufferSize;
 
-    DataSoADevice() = default;
-    ~DataSoADevice() = default;
+    SiStripClusterizerConditionsSoADevice() = default;
+    ~SiStripClusterizerConditionsSoADevice() = default;
 
-    DataSoADevice(const DataSoADevice &&) = delete;
-    DataSoADevice &operator=(const DataSoADevice &&) = delete;
-    DataSoADevice(DataSoADevice &&) = default;
-    DataSoADevice &operator=(DataSoADevice &&) = default;
+    SiStripClusterizerConditionsSoADevice(const SiStripClusterizerConditionsSoADevice &&) = delete;
+    SiStripClusterizerConditionsSoADevice &operator=(const SiStripClusterizerConditionsSoADevice &&) = delete;
+    SiStripClusterizerConditionsSoADevice(SiStripClusterizerConditionsSoADevice &&) = default;
+    SiStripClusterizerConditionsSoADevice &operator=(SiStripClusterizerConditionsSoADevice &&) = default;
 
-    explicit DataSoADevice(DataSoAHost cpuData, cudaStream_t stream)  // sistrip::NUMBER_OF_FEDS*sistrip::FEDCH_PER_FED
-        : cms::cuda::PortableDeviceCollection<DataLayout>(sizeof(cpuData->detID()), stream) {
-      const auto noise = cpuData->noise();
+    explicit SiStripClusterizerConditionsSoADevice(
+        SiStripClusterizerConditionsSoAHost cpuSiStrClCond,
+        cudaStream_t stream)  // sistrip::NUMBER_OF_FEDS*sistrip::FEDCH_PER_FED
+        : cms::cuda::PortableDeviceCollection<SiStripClusterizerConditionsLayout>(sizeof(cpuSiStrClCond->detID()),
+                                                                                  stream) {
+      const auto noise = cpuSiStrClCond->noise();
       cudaCheck(
           cudaMemcpyAsync(view().noise(), noise, sizeof(std::uint16_t) * sizeof(noise), cudaMemcpyDefault, stream));
-      const auto invthick = cpuData->invthick();
+      const auto invthick = cpuSiStrClCond->invthick();
       cudaCheck(
           cudaMemcpyAsync(view().invthick(), invthick, sizeof(float) * sizeof(invthick), cudaMemcpyDefault, stream));
-      const auto detID = cpuData->detID();
+      const auto detID = cpuSiStrClCond->detID();
       cudaCheck(cudaMemcpyAsync(view().detID(), detID, sizeof(detId_t) * sizeof(detID), cudaMemcpyDefault, stream));
-      const auto iPair = cpuData->iPair();
+      const auto iPair = cpuSiStrClCond->iPair();
       cudaCheck(cudaMemcpyAsync(view().iPair(), iPair, sizeof(apvPair_t) * sizeof(iPair), cudaMemcpyDefault, stream));
-      const auto gain = cpuData->gain();
+      const auto gain = cpuSiStrClCond->gain();
       cudaCheck(cudaMemcpyAsync(view().gain(), gain, sizeof(float) * sizeof(gain), cudaMemcpyDefault, stream));
     };
 
@@ -53,30 +55,17 @@ namespace stripgpu {
 
     __device__ inline float noise(fedId_t fed, fedCh_t channel, stripId_t strip) const {
       // noise is stored as 9 bits with a fixed point scale factor of 0.1
-      return 0.1f * (view().noise()[channelIndexHD(fed, channel)][stripIndexHD(fed, channel, strip)] & ~badBit);
+      return 0.1f * (view().noise()[channelIndexHD(fed, channel)][stripIndexHD(strip)] & ~badBit);
     }
 
     __device__ inline float gain(fedId_t fed, fedCh_t channel, stripId_t strip) const {
-      return view().gain()[channelIndexHD(fed, channel)][apvIndexHD(fed, channel, strip)];
+      return view().gain()[channelIndexHD(fed, channel)][apvIndexHD(strip)];
     }
 
     __device__ inline bool bad(fedId_t fed, fedCh_t channel, stripId_t strip) const {
-      return badBit == (view().noise()[channelIndexHD(fed, channel)][stripIndexHD(fed, channel, strip)] & badBit);
+      return badBit == (view().noise()[channelIndexHD(fed, channel)][stripIndexHD(strip)] & badBit);
     }
   };
-
-  //  // Function to return the actual payload on the memory of the current device
-  //  explicit SiStripClusterizerConditionsSoADevice(const SiStripClusterizerConditionsSoAHost& c,
-  //                                                 cudaStream_t stream)
-  //      : data_(SiStripClusterizerConditionsSoAHost.data(), stream) {};
-
-  //  ~SiStripClusterizerConditionsSoADevice() = default;
-
-  //  DataSoADevice data() const { return data_; }
-
-  //private:
-  //  DataSoADevice data_;
-
   //  // Helper that takes care of complexity of transferring the data to
   //  // multiple devices
   //  cms::cuda::ESProduct<Data> gpuData_;
