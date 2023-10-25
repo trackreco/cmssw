@@ -24,9 +24,7 @@ namespace mkfit {
   class IterationLayerConfig;
   class SteeringParams;
 
-#if defined(DUMPHITWINDOW) or defined(DEBUG_BACKWARD_FIT)
   class Event;
-#endif
 
   struct UpdateIndices {
     int seed_idx;
@@ -55,10 +53,14 @@ namespace mkfit {
                const IterationLayerConfig &ilc,
                const SteeringParams &sp,
                const std::vector<bool> *ihm,
+               const Event *ev,
                int region,
                bool infwd);
-    void setup_bkfit(const PropagationConfig &pc, const SteeringParams &sp);
+    void setup_bkfit(const PropagationConfig &pc, const SteeringParams &sp, const Event *ev);
     void release();
+
+    void begin_layer(const LayerOfHits &layer_of_hits);
+    void end_layer();
 
     //----------------------------------------------------------------------------
 
@@ -287,14 +289,9 @@ namespace mkfit {
 
     HitOnTrack m_HoTArrs[NN][Config::nMaxTrkHits];
 
-#if defined(DUMPHITWINDOW) or defined(DEBUG_BACKWARD_FIT)
-    MPlexQI m_SeedAlgo;   // seed algorithm
-    MPlexQI m_SeedLabel;  // seed label
-    Event *m_event;
-#endif
-
     MPlexQI m_SeedIdx;  // seed index in local thread (for bookkeeping at thread level)
     MPlexQI m_CandIdx;  // candidate index for the given seed (for bookkeeping of clone engine)
+    MPlexQI m_SeedOriginIdx; // seed index in MkBuilder seed input vector
 
     MPlexQI m_Stopped;  // Flag for BestHit that a track has been stopped (and copied out already)
 
@@ -335,6 +332,7 @@ namespace mkfit {
     const IterationLayerConfig *m_iteration_layer_config = nullptr;
     const SteeringParams *m_steering_params = nullptr;
     const std::vector<bool> *m_iteration_hit_mask = nullptr;
+    const Event *m_event = nullptr;
     int m_current_region = -1;
     bool m_in_fwd = true;
 

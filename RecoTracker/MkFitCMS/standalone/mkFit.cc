@@ -16,6 +16,7 @@
 
 #ifndef NO_ROOT
 #include "RecoTracker/MkFitCore/standalone/Validation.h"
+#include "RecoTracker/MkFitCore/standalone/RntDumper/RntDumper.h"
 #endif
 
 //#define DEBUG
@@ -1022,6 +1023,10 @@ int main(int argc, const char* argv[]) {
   } else {
     test_standard();
   }
+
+#ifndef NO_ROOT
+  RntDumper::FinalizeAll();
+#endif
 
   // clang-format on
 

@@ -364,8 +364,7 @@ namespace mkfit {
   // TrackCand
   //==============================================================================
 
-  // TrackCand depends on stuff in mkFit/HitStructures, CombCand in particular,
-  // so it is declared / implemented there.
+  // TrackCand defined in TrackStructures.h along with CombCandidate.
 
   // class TrackCand : public TrackBase { ... };
 

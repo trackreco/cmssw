@@ -228,6 +228,8 @@ namespace mkfit {
 
     bool seeds_sorted = false;
     // CCCC builder.PrepareSeeds();
+    ev.setCurrentSeedTracks(ev.seedTracks_);
+    ev.simLabelForCurrentSeed(0);
 
     builder.find_tracks_load_seeds(ev.seedTracks_, seeds_sorted);
 
@@ -275,6 +277,8 @@ namespace mkfit {
       StdSeq::root_val(&ev);
     }
 
+    ev.resetCurrentSeedTracks();
+
     builder.end_event();
 
     // ev.print_tracks(ev.candidateTracks_, true);
@@ -321,6 +325,7 @@ namespace mkfit {
 
     bool seeds_sorted = false;
     // CCCC builder.PrepareSeeds();
+    ev.setCurrentSeedTracks(ev.seedTracks_);
 
     builder.find_tracks_load_seeds(ev.seedTracks_, seeds_sorted);
 
@@ -371,6 +376,8 @@ namespace mkfit {
     } else if (Config::sim_val || Config::cmssw_val) {
       StdSeq::root_val(&ev);
     }
+
+    ev.resetCurrentSeedTracks();
 
     builder.end_event();
 
@@ -469,6 +476,8 @@ namespace mkfit {
       // Add protection in case no seeds are found for iteration
       if (seeds.size() <= 0)
         continue;
+      ev.setCurrentSeedTracks(seeds);
+      ev.simLabelForCurrentSeed(0);
 
       builder.find_tracks_load_seeds(seeds, do_seed_clean);
 
@@ -557,6 +566,7 @@ namespace mkfit {
 
         builder.export_tracks(ev.fitTracks_);
       }
+      ev.resetCurrentSeedTracks();
 
       builder.end_event();
     }

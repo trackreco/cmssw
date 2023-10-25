@@ -32,6 +32,7 @@ namespace mkfit::mini_propagators {
         float D = 0;
 
         c = *this;
+        c.dalpha = 0;
         for (int i = 0; i < Config::Niter; ++i) {
           // compute tangental and ideal distance for the current iteration.
           // 3-rd order asin for symmetric incidence (shortest arc lenght).
@@ -50,6 +51,7 @@ namespace mkfit::mini_propagators {
           vdt::fast_sincosf(alpha, sina, cosa);
 
           // update parameters
+          c.dalpha += alpha;
           c.x += k * (c.px * sina - c.py * (1.0f - cosa));
           c.y += k * (c.py * sina + c.px * (1.0f - cosa));
 
@@ -61,9 +63,9 @@ namespace mkfit::mini_propagators {
         c.z += lambda * D;
       }
     }
-
     // should have some epsilon constant / member? relative vs. abs?
-    return std::abs(std::hypot(c.x, c.y) - R) < 0.1f;
+    c.fail_flag = std::abs(std::hypot(c.x, c.y) - R) < 0.1f ? 0 : 1;
+    return c.fail_flag;
   }
 
   bool InitialState::propagate_to_z(PropAlgo_e algo, float Z, State& c, bool update_momentum) const {
@@ -80,6 +82,7 @@ namespace mkfit::mini_propagators {
         float sina, cosa;
         vdt::fast_sincosf(alpha, sina, cosa);
 
+        c.dalpha = alpha;
         c.x = x + k * (px * sina - py * (1.0f - cosa));
         c.y = y + k * (py * sina + px * (1.0f - cosa));
         c.z = Z;
@@ -92,8 +95,8 @@ namespace mkfit::mini_propagators {
       }
       break;
     }
-
-    return true;
+    c.fail_flag = false;
+    return c.fail_flag;
   }
 
   //===========================================================================
@@ -133,7 +136,9 @@ namespace mkfit::mini_propagators {
     pz = pt / fast_tan(par.ReduceFixedIJ(5, 0));
   }
 
-  bool InitialStatePlex::propagate_to_r(PropAlgo_e algo, const MPF& R, StatePlex& c, bool update_momentum) const {
+  // propagate to radius; returns number of failed propagations
+  int InitialStatePlex::propagate_to_r(PropAlgo_e algo, const MPF& R, StatePlex& c,
+                                        bool update_momentum, int N_proc) const {
     switch (algo) {
       case PA_Line: {}
       case PA_Quadratic: {}
@@ -149,7 +154,7 @@ namespace mkfit::mini_propagators {
         MPF D = 0;
 
         c = *this;
-        c.dphi = 0;
+        c.dalpha = 0;
         for (int i = 0; i < Config::Niter; ++i) {
           // compute tangental and ideal distance for the current iteration.
           // 3-rd order asin for symmetric incidence (shortest arc lenght).
@@ -169,7 +174,7 @@ namespace mkfit::mini_propagators {
           fast_sincos(alpha, sina, cosa);
 
           // update parameters
-          c.dphi += alpha;
+          c.dalpha += alpha;
           c.x += k * (c.px * sina - c.py * (1.0f - cosa));
           c.y += k * (c.py * sina + c.px * (1.0f - cosa));
 
@@ -183,11 +188,20 @@ namespace mkfit::mini_propagators {
     }
 
     // should have some epsilon constant / member? relative vs. abs?
-    // XXXXX to be vectorized with output bool plex + bool output if any is bad
-    return true; // std::abs(std::hypot(c.x, c.y) - R) < 0.1f;
+    MPF r = Matriplex::hypot(c.x, c.y);
+    c.fail_flag = 0;
+    int n_fail = 0;
+    for (int i = 0; i < N_proc; ++i) {
+      if (std::abs(R[i] - r[i]) > 0.1f) {
+        c.fail_flag[i] = 1;
+        ++n_fail;
+      }
+    }
+    return n_fail;
   }
 
-  bool InitialStatePlex::propagate_to_z(PropAlgo_e algo, const MPF& Z, StatePlex& c, bool update_momentum) const {
+  int InitialStatePlex::propagate_to_z(PropAlgo_e algo, const MPF& Z, StatePlex& c,
+                                        bool update_momentum, int N_proc) const {
     switch (algo) {
       case PA_Line: {}
       case PA_Quadratic: {}
@@ -201,7 +215,7 @@ namespace mkfit::mini_propagators {
         MPF sina, cosa;
         fast_sincos(alpha, sina, cosa);
 
-        c.dphi = alpha;
+        c.dalpha = alpha;
         c.x = x + k * (px * sina - py * (1.0f - cosa));
         c.y = y + k * (py * sina + px * (1.0f - cosa));
         c.z = Z;
@@ -214,8 +228,8 @@ namespace mkfit::mini_propagators {
       }
       break;
     }
-
-    return true;
+    c.fail_flag = 0;
+    return 0;
   }
 
 }

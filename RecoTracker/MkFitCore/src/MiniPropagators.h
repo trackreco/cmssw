@@ -12,6 +12,8 @@ namespace mkfit::mini_propagators {
   struct State {
     float x, y, z;
     float px, py, pz;
+    float dalpha;
+    int fail_flag;
 
     State() = default;
     State(const MPlexLV& par, int ti);
@@ -32,7 +34,6 @@ namespace mkfit::mini_propagators {
 
     bool propagate_to_r(PropAlgo_e algo, float R, State& c, bool update_momentum) const;
     bool propagate_to_z(PropAlgo_e algo, float Z, State& c, bool update_momentum) const;
-
   };
 
   //-----------------------------------------------------------
@@ -49,7 +50,8 @@ namespace mkfit::mini_propagators {
   struct StatePlex {
     MPF x, y, z;
     MPF px, py, pz;
-    MPF dphi;
+    MPF dalpha;
+    MPI fail_flag {0};
 
     StatePlex() = default;
     StatePlex(const MPlexLV& par);
@@ -72,8 +74,8 @@ namespace mkfit::mini_propagators {
         }
     }
 
-    bool propagate_to_r(PropAlgo_e algo, const MPF& R, StatePlex& c, bool update_momentum) const;
-    bool propagate_to_z(PropAlgo_e algo, const MPF& Z, StatePlex& c, bool update_momentum) const;
+    int propagate_to_r(PropAlgo_e algo, const MPF& R, StatePlex& c, bool update_momentum, int N_proc=NN) const;
+    int propagate_to_z(PropAlgo_e algo, const MPF& Z, StatePlex& c, bool update_momentum, int N_proc=NN) const;
   };
 
 };
