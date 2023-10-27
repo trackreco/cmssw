@@ -20,14 +20,6 @@ typedef ROOT::Math::DisplacementVector3D<ROOT::Math::CylindricalEta3D<float> > R
 // typedef ROOT::Math::DisplacementVector3D<ROOT::Math::Polar3D<float> > RThetaPhiVectorF;
 
 
-/*
-struct XXX {
-
-  XXX() = default;
-  XXX& operator=(const XXX&) = default;
-};
-*/
-
 using RVec = ROOT::Experimental::REveVector;
 
 struct HeaderLayer {
@@ -78,42 +70,6 @@ struct BinSearch {
 
   BinSearch() = default;
   BinSearch& operator=(const BinSearch&) = default;
-};
-
-struct HitMatch {
-  RVec p_hit, m_hit;
-  bool prop_ok;
-
-  /*
-    "c_x/F:c_y:c_z:c_px:c_py:c_pz:" // c_ for center layer (i.e., origin)
-    "h_x/F:h_y:h_z:h_px:h_py:h_pz:" // h_ for at hit (i.e., new)
-    "dq/F:dphi:"
-    "c_ddq/F:c_ddphi:c_accept/I:" // (1 dq, 2 dphi, 3 both)
-    "h_ddq/F:h_ddphi:h_accept/I:" // (1 dq, 2 dphi, 3 both)
-    "hit_q/F:hit_qhalflen:hit_qbar:hit_phi:"
-    "c_prop_ok/I:h_prop_ok/I:chi2/F"
-  */
-};
-
-struct CandMatch {
-// header
-// siminfo
-/*
-  "all_hits/I:matched_hits:"
-  "acc_old/I:acc_new:acc_matched_old:acc_matched_new:"
-  "pos0/I:pos1:pos2:pos3:"
-  "dphi0/F:dphi1:dphi2:dphi3:"
-  "chi20/F:chi21:chi22:chi23:"
-  "idx0/I:idx1:idx2:idx3"
-
-  int pcc_all_hits = 0, pcc_matced_hits = 0;
-  int pcc_acc_old = 0, pcc_acc_matched_old = 0, pcc_acc_new = 0, pcc_acc_matched_new = 0;
-
-  pcc_pos[0], pcc_pos[1], pcc_pos[2], pcc_pos[3],
-  pmr0.dphi, pmr1.dphi, pmr2.dphi, pmr3.dphi,
-  pmr0.chi2, pmr1.chi2, pmr2.chi2, pmr3.chi2,
-  pmr0.idx, pmr1.idx, pmr2.idx, pmr3.idx
-*/
 };
 
 struct CandInfo {

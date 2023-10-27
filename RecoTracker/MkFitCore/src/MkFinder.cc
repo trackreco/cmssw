@@ -272,12 +272,11 @@ namespace mkfit {
   // SelectHitIndices
   //==============================================================================
 
-  void MkFinder::selectHitIndices(const LayerOfHits &layer_of_hits, const int N_proc) {
+  void MkFinder::selectHitIndices(const LayerOfHits &layer_of_hits, const int N_proc, bool fill_binsearch_only) {
     // bool debug = true;
     using bidx_t = LayerOfHits::bin_index_t;
     using bcnt_t = LayerOfHits::bin_content_t;
     const LayerOfHits &L = layer_of_hits;
-    const LayerInfo &LI = *L.layer_info();
     const IterationLayerConfig &ILC = *m_iteration_layer_config;
 
     const int iI = iP;
@@ -420,144 +419,15 @@ namespace mkfit {
     }
 
 #ifdef RNT_DUMP_MkF_SelHitIdcs
-    rnt_shi.InnerIdcsReset(N_proc);
-    for (int i = 0; i < N_proc; ++i) {
-      auto slfh = m_event->simLabelForCurrentSeed(m_SeedOriginIdx[i]);
-      if (m_FailFlag[i]) {
-        rnt_shi.RegisterFailedProp(i, m_Par[1 - iI], m_Par[iI], m_event, m_SeedOriginIdx[i]);
-      } else if (slfh.label >= 0) {
-        auto &ci = rnt_shi.RegisterGoodProp(i, m_Par[iI], m_event, m_SeedOriginIdx[i]);
+    if (fill_binsearch_only) {
+      // XXX loop over good indices (prepared in V2) and put in V1 BinSearch results
+      for (auto i : rnt_shi.f_h_idcs) {
+        CandInfo &ci = (*rnt_shi.ci)[ rnt_shi.f_h_remap[i] ];
         ci.bso = BinSearch({phiv[i], dphiv[i], qv[i], dqv[i], pb1v[i], pb2v[i], qb1v[i], qb2v[i], m_XWsrResult[i].m_wsr, m_XWsrResult[i].m_in_gap, false});
-      } // else ... should do something about the bad seeds ?
+      }
+      return;
     }
 #endif
-
-    constexpr bool NEW_CALCULATION = true;
-    constexpr bool NEW_SELECTION = true;//false; // true;
-    constexpr int  NEW_MAX_HIT = 6; // 4 - 6 give about the same # of tracks in quality-val
-    constexpr float DDPHI_PRESEL_FAC = 2.0f;
-    constexpr float DDQ_PRESEL_FAC = 1.2f;
-    constexpr float PHI_BIN_EXTRA_FAC = 2.75f;
-    constexpr float Q_BIN_EXTRA_FAC = 1.6f;
-
-    namespace mp = mini_propagators;
-    struct Bins {
-      MPlexQUH q0, q1, q2, p1, p2;
-      mp::InitialStatePlex isp;
-      mp::StatePlex sp1, sp2;
-      int n_proc;
-
-      // debug & ntuple dump -- to be local in functions
-      MPlexQF phi_c, dphi;
-      MPlexQF q_c, qmin, qmax;
-
-      Bins(const MPlexLV& par, const MPlexQI& chg, int np=NN) :
-        isp(par, chg), n_proc(np) {}
-
-      void prop_to_limits(const LayerInfo &li) {
-        // Positions 1 and 2 should really be by "propagation order", 1 is the closest/
-        // This should also work for backward propagation so not exactly trivial.
-        // Also, do not really need propagation to center.
-        if (li.is_barrel()) {
-          isp.propagate_to_r(mp::PA_Exact, li.rin(), sp1, true, n_proc);
-          isp.propagate_to_r(mp::PA_Exact, li.rout(), sp2, true, n_proc);
-        } else {
-          isp.propagate_to_z(mp::PA_Exact, li.zmin(), sp1, true, n_proc);
-          isp.propagate_to_z(mp::PA_Exact, li.zmax(), sp2, true, n_proc);
-        }
-      }
-
-      void find_bin_ranges(const LayerInfo &li, const LayerOfHits &loh) {
-        // Below made members for debugging
-        // MPlexQF phi_c, dphi_min, dphi_max;
-        phi_c = mp::fast_atan2(isp.y, isp.x);
-
-        // Matriplex::min_max(sp1.dphi, sp2.dphi, dphi_min, dphi_max);
-        // the above is wrong: dalpha is not dphi --> renamed variable in State
-        MPlexQF xp1, xp2, pmin, pmax;
-        xp1 = mp::fast_atan2(sp1.y, sp1.x);
-        xp2 = mp::fast_atan2(sp2.y, sp2.x);
-        Matriplex::min_max(xp1, xp2, pmin, pmax);
-        // Matriplex::min_max(mp::fast_atan2(sp1.y, sp1.x), smp::fast_atan2(sp2.y, sp2.x), pmin, pmax);
-        MPlexQF dp = pmax - pmin;
-        MPlexQF cc = 0.5f * (pmax + pmin);
-        for (int ii=0; ii<n_proc; ++ii) {
-          if (dp[ii] > Const::PI) {
-            std::swap(pmax[ii], pmin[ii]);
-            dp[ii] = Const::TwoPI - dp[ii];
-            cc[ii] = Const::PI - cc[ii];
-          }
-          phi_c[ii] = cc[ii];
-          dphi[ii] = 0.5f * dp[ii];
-          // printf("phic: %f  p1: %f  p2: %f   pmin: %f  pmax: %f   dphi: %f\n",
-          //       phi_c[ii], xp1[ii], xp2[ii], pmin[ii], pmax[ii], dphi[ii]);
-        }
-
-        // MPlexQF qmin, qmax;
-        if (li.is_barrel()) {
-          Matriplex::min_max(sp1.z, sp2.z, qmin, qmax);
-          q_c = isp.z;
-        } else {
-          Matriplex::min_max(Matriplex::hypot(sp1.x, sp1.y), Matriplex::hypot(sp2.x, sp2.y), qmin, qmax);
-          q_c = Matriplex::hypot(isp.x, isp.y);
-        }
-
-        for (int i = 0; i < p1.kTotSize; ++i) {
-          // Clamp crazy sizes. This actually only happens when prop-fail flag is set.
-          // const float dphi_clamp = 0.1;
-          // if (dphi_min[i] > 0.0f || dphi_min[i] < -dphi_clamp) dphi_min[i] = -dphi_clamp;
-          // if (dphi_max[i] < 0.0f || dphi_max[i] > dphi_clampf) dphi_max[i] = dphi_clamp;
-          // p1[i] = loh.phiBinChecked(phi_c[i] + 1.2f * dphi_min[i]); // assuming dphi_min is negative
-          // p2[i] = loh.phiMaskApply(loh.phiBin(phi_c[i] + 1.2f * dphi_max[i]) + 1);
-          p1[i] = loh.phiBinChecked(pmin[i] - PHI_BIN_EXTRA_FAC * 0.0123f);
-          p2[i] = loh.phiBinChecked(pmax[i] + PHI_BIN_EXTRA_FAC * 0.0123f);
-
-          // This also needs to be understood / scaled / errors taken into account.
-          q0[i] = loh.qBinChecked(q_c[i]);
-          q1[i] = loh.qBinChecked(qmin[i] - Q_BIN_EXTRA_FAC * 0.5f * li.q_bin());
-          q2[i] = loh.qBinChecked(qmax[i] + Q_BIN_EXTRA_FAC * 0.5f * li.q_bin()) + 1;
-        }
-      }
-    };
-
-    Bins B(m_Par[iI], m_Chg, N_proc);
-    B.prop_to_limits(LI);
-    B.find_bin_ranges(LI, L);
-
-    for (int i = 0; i < N_proc; ++i) {
-      m_XHitSize[i] = 0;
-      // Notify failure. Ideally should be detected before selectHitIndices().
-      if (m_FailFlag[i]) {
-        m_XWsrResult[i].m_wsr = WSR_Failed;
-      } else {
-        if (LI.is_barrel()) {
-          m_XWsrResult[i] = L.is_within_z_sensitive_region(B.q_c[i], 0.5f * (B.q2[i] - B.q1[i]));
-        } else {
-          m_XWsrResult[i] = L.is_within_r_sensitive_region(B.q_c[i], 0.5f * (B.q2[i] - B.q1[i]));
-        }
-      }
-    }
-
-    // for (int i = 0; i < N_proc; ++i) {
-    //   printf("BinCheck %c %+8.6f %+8.6f | %3d %3d - %3d %3d ||  | %2d %2d - %2d %2d\n", LI.is_barrel() ? 'B' : 'E',
-    //          B.phi[i], B.dphi[i], B.p1[i], B.p2[i], pb1v[i], pb2v[i],
-    //          B.q[i], B.dq[i], B.q1[i], B.q2[i], qb1v[i], qb2v[i]);
-    // }
-
-#ifdef RNT_DUMP_MkF_SelHitIdcs
-    for (auto i : rnt_shi.f_h_idcs) {
-      CandInfo &ci = (*rnt_shi.ci)[ rnt_shi.f_h_remap[i] ];
-      ci.bsn = BinSearch({B.phi_c[i], B.dphi[i], B.q_c[i], 0.5f * (B.q2[i] - B.q1[i]),
-                          B.p1[i], B.p2[i], B.q1[i], B.q2[i], m_XWsrResult[i].m_wsr, m_XWsrResult[i].m_in_gap, false});
-      ci.ps_min = statep2propstate(B.sp1, i);
-      ci.ps_max = statep2propstate(B.sp2, i);
-    }
-#endif
-
-    struct PQE { float score; unsigned int hit_index; };
-    auto pqe_cmp = [](const PQE &a, const PQE &b) { return a.score < b.score; };
-    std::priority_queue<PQE, std::vector<PQE>, decltype(pqe_cmp)> pqueue(pqe_cmp);
-    int pqueue_size = 0;
 
     // Vectorizing this makes it run slower!
     //#pragma omp simd
@@ -573,59 +443,30 @@ namespace mkfit {
         continue;
       }
 
-      // New binning -- known to be too restrictive, so scaled up. Probably esp. in stereo layers.
-      // Also, could take track covariance dphi / dq extras + known tilt stuff.
-      const bidx_t qb = B.q0[itrack];
-      const bidx_t qb1 = B.q1[itrack];
-      const bidx_t qb2 = B.q2[itrack];
-      const bidx_t pb1 = B.p1[itrack];
-      const bidx_t pb2 = B.p2[itrack];
-      // -------------------
-      // const bidx_t qb = qbv[itrack];
-      // const bidx_t qb1 = qb1v[itrack];
-      // const bidx_t qb2 = qb2v[itrack];
-      // const bidx_t pb1 = pb1v[itrack];
-      // const bidx_t pb2 = pb2v[itrack];
+      const bidx_t qb = qbv[itrack];
+      const bidx_t qb1 = qb1v[itrack];
+      const bidx_t qb2 = qb2v[itrack];
+      const bidx_t pb1 = pb1v[itrack];
+      const bidx_t pb2 = pb2v[itrack];
 
-      // clang-format off
-      dprintf("  %2d/%2d: %6.3f %6.3f %6.6f %7.5f %3u %3u %4u %4u\n",
-              L.layer_id(), itrack, qv[itrack], phi[itrack], dqv[itrack], dphiv[itrack],
-              qb1, qb2, pb1, pb2);
-      // clang-format on
-      // MT: One could iterate in "spiral" order, to pick hits close to the center.
-      // http://stackoverflow.com/questions/398299/looping-in-a-spiral
-      // This would then work best with relatively small bin sizes.
-      // Or, set them up so I can always take 3x3 array around the intersection.
-
-#if defined(DUMPHITWINDOW) && defined(MKFIT_STANDALONE)
-      const auto ngr = [](float f) { return isFinite(f) ? f : -999.0f; };
-
-      const Track &seed_track = m_event->currentSeed(m_SeedOriginIdx[itrack]);
-      int seed_lbl = seed_track.label();
-      int seed_mcid = seed_track.mcHitIDofFirstHit(m_event->layerHits_, m_event->simHitsInfo_);
       const float q = qv[itrack];
       const float phi = phiv[itrack];
       const float dphi = dphiv[itrack];
       const float dq = dqv[itrack];
 
-#endif
-#if defined(DUMP_HIT_PRESEL) && defined(MKFIT_STANDALONE)
-      int sim_lbl = m_Label(itrack, 0, 0);
-      int hit_out_idx = 0;
-      // Per-cand-cumulant vars for RTT
-      int pcc_all_hits = 0, pcc_matced_hits = 0;
-      int pcc_acc_old = 0, pcc_acc_matched_old = 0, pcc_acc_new = 0, pcc_acc_matched_new = 0;
-      // phi-sorted position of matched hits
-      struct pos_match { float dphi, chi2; int idx; bool matched; };
-      std::vector<pos_match> pos_match_vec;
-#endif
+      // clang-format off
+      dprintf("  %2d/%2d: %6.3f %6.3f %6.6f %7.5f %3u %3u %4u %4u\n",
+              L.layer_id(), itrack, q, phi, dq, dphi,
+              qb1, qb2, pb1, pb2);
+      // clang-format on
 
-      mp::InitialState mp_is(m_Par[iI], m_Chg, itrack);
-      mp::State mp_s;
+#if defined(DUMPHITWINDOW) && defined(MKFIT_STANDALONE)
+      const auto ngr = [](float f) { return isFinite(f) ? f : -999.0f; };
 
-      // plex-check -- compare scalar vs. vectorized propagation
-      // mp::InitialStatePlex mp_isp(m_Par[iI], m_Chg);
-      // mp::StatePlex mp_sp;
+      const int seed_lbl = m_event->currentSeed(m_SeedOriginIdx[itrack]).label();
+      Event::SimLabelFromHits slfh = m_event->simLabelForCurrentSeed(m_SeedOriginIdx[itrack]);
+      const int seed_mcid = (slfh.is_set() && slfh.good_frac() > 0.7f) ? slfh.label : -999999;
+#endif
 
       for (bidx_t qi = qb1; qi != qb2; ++qi) {
         for (bidx_t pi = pb1; pi != pb2; pi = L.phiMaskApply(pi + 1)) {
@@ -660,39 +501,14 @@ namespace mkfit {
               if (m_XHitSize[itrack] >= MPlexHitIdxMax)
                 break;
 
-              const float ddq = std::abs(qv[itrack] - L.hit_q(hi));
-              const float ddphi = cdist(std::abs(phiv[itrack] - L.hit_phi(hi)));
+              const float ddq = std::abs(q - L.hit_q(hi));
+              const float ddphi = cdist(std::abs(phi - L.hit_phi(hi)));
 
               // clang-format off
               dprintf("     SHI %3u %4u %5u  %6.3f %6.3f %6.4f %7.5f   %s\n",
                       qi, pi, hi, L.hit_q(hi), L.hit_phi(hi),
                       ddq, ddphi, (ddq < dq && ddphi < dphi) ? "PASS" : "FAIL");
               // clang-format on
-
-              float new_q, new_phi, new_ddphi, new_ddq;
-              bool prop_fail;
-              if (NEW_CALCULATION) {
-                if (L.is_barrel()) {
-                  prop_fail = mp_is.propagate_to_r(mp::PA_Exact, L.hit_qbar(hi), mp_s, true);
-                  // mp_isp.propagate_to_r(mp::PA_Exact, L.hit_qbar(hi), mp_sp, true);
-                  new_q = mp_s.z;
-                } else {
-                  prop_fail = mp_is.propagate_to_z(mp::PA_Exact, L.hit_qbar(hi), mp_s, true);
-                  // mp_isp.propagate_to_z(mp::PA_Exact, L.hit_qbar(hi), mp_sp, true);
-                  new_q = std::hypot(mp_s.x, mp_s.y);
-                }
-
-                // plex-check
-                // printf("%d %d %c  -  %f %f %f %f %f %f\n", prop_fail, itrack, L.is_barrel() ? 'B' : 'E',
-                //   mp_s.x - mp_sp.x[itrack], mp_s.y - mp_sp.y[itrack], mp_s.z - mp_sp.z[itrack],
-                //   mp_s.px - mp_sp.px[itrack], mp_s.py - mp_sp.py[itrack], mp_s.pz - mp_sp.pz[itrack]);
-                // if (!isFinite(mp_s.x - mp_sp.x[itrack]))
-                //   printf("BRUH\n");
-
-                new_phi = vdt::fast_atan2f(mp_s.y, mp_s.x);
-                new_ddphi = cdist(std::abs(new_phi - L.hit_phi(hi)));
-                new_ddq = std::abs(new_q - L.hit_q(hi));
-              }
 
 #if defined(DUMPHITWINDOW) && defined(MKFIT_STANDALONE)
               // clang-format off
@@ -843,129 +659,17 @@ namespace mkfit {
               // clang-format on
 #endif
 
-#if defined(DUMP_HIT_PRESEL) && defined(MKFIT_STANDALONE)
-              // clang-format off
-              if (sim_lbl >= 0) {
-                const MCHitInfo &mchinfo = m_event->simHitsInfo_[L.refHit(hi_orig).mcHitID()];
-                int hit_lbl = mchinfo.mcTrackID();
-                bool  old_dec = (ddq < dq) && (ddphi < dphi);
-                bool  new_dec = (new_ddq < dq) && (new_ddphi < dphi);
-  #if defined(DEBUG)
-                const char *judge = "N/A";
-                if (sim_lbl == hit_lbl) {
-                  if (old_dec == new_dec)
-                    judge = "SAME";
-                  else if (old_dec)
-                    judge = "WORSE";
-                  else
-                    judge = "BETTER";
-                } else {
-                  if (old_dec == new_dec)
-                    judge = "EQF";
-                  else if (old_dec)
-                    judge = "REJECT_B";
-                  else
-                    judge = "ACCEPT_B";
-                }
-                const char* prop_str = L.is_barrel() ? "propToR" : "propToZ";
-                const auto b2a = [&](bool b) { return b ? "true" : "false"; };
-                dprintf("       %s %.3f -> %7.3f, %7.3f, %7.3f; n_q=%6.3f n_phi=%6.3f dq=%6.4f q_hfsz=%6.4f dphi=%7.5f"
-                        " : %s %s "
-                        " -- %s -- %s %s -- %s\n",
-                  prop_str, L.hit_qbar(hi), mp_s.x, mp_s.y, mp_s.z, new_q, new_phi,
-                  new_ddq, L.hit_q_half_length(hi), new_ddphi,
-                  b2a(new_ddq < dq), b2a(new_ddphi < dphi),
-                  sim_lbl == hit_lbl ? "MATCH" : "OTHER", b2a(old_dec), b2a(new_dec), judge
-                );
-  #endif
-                static bool firstp = true;
-                if (firstp) {
-                  firstp = false;
-                  printf("XXH_HIT "
-                /* 1 */ "event/I:layer:is_barrel:is_pix:is_stereo:"
-                        "iter_idx/I:iter_algo:eta_region:"
-                        "sim_lbl/I:hit_lbl:match:seed_lbl:"
-                        "sim_pt/F:sim_eta:seed_pt:seed_eta:"
-                        "c_x/F:c_y:c_z:c_px:c_py:c_pz:" // c_ for center layer (i.e., origin)
-                        "h_x/F:h_y:h_z:h_px:h_py:h_pz:" // h_ for at hit (i.e., new)
-                        "dq/F:dphi:"
-                        "c_ddq/F:c_ddphi:c_accept/I:" // (1 dq, 2 dphi, 3 both)
-                        "h_ddq/F:h_ddphi:h_accept/I:" // (1 dq, 2 dphi, 3 both)
-                        "hit_q/F:hit_qhalflen:hit_qbar:hit_phi:"
-                        "c_prop_ok/I:h_prop_ok/I:chi2/F"
-                        "\n");
-                }
-                auto &S = m_event->simTracks_[sim_lbl];
-                int c_acc = (ddq < dq ? 1 : 0) + (ddphi < dphi ? 2 : 0);
-                int h_acc = (new_ddq < dq ? 1 : 0) + (new_ddphi < dphi ? 2 : 0);
-                printf("XXH_HIT "
-               /* 1 */ "%d %d %d %d %d "
-                       "%d %d %d "
-                       "%d %d %d %d "
-                       "%f %f %f %f "
-                       "%f %f %f %f %f %f "
-                       "%f %f %f %f %f %f "
-                       "%f %f "
-                       "%f %f %d "
-                       "%f %f %d "
-                       "%f %f %f %f "
-                       "%d %d %f"
-                       "\n",
-               /* 1 */ m_event->evtID(), L.layer_id(), L.is_barrel(), L.is_pixel(), L.is_stereo(),
-                       m_iteration_config->m_iteration_index, m_iteration_config->m_track_algorithm, m_current_region,
-                       sim_lbl, hit_lbl, sim_lbl == hit_lbl, seed_lbl,
-                       S.pT(), S.momEta(), seed_track.pT(), seed_track.momEta(),
-                       ngr(mp_is.x), ngr(mp_is.y), ngr(mp_is.z), ngr(mp_is.px), ngr(mp_is.py), ngr(mp_is.pz),
-                       ngr(mp_s.x), ngr(mp_s.y), ngr(mp_s.z), ngr(mp_s.px), ngr(mp_s.py), ngr(mp_s.pz),
-                       dq, dphi,
-                       ngr(ddq), ngr(ddphi), c_acc,
-                       ngr(new_ddq), ngr(new_ddphi), h_acc,
-                       ngr(q), L.hit_q_half_length(hi), L.hit_qbar(hi), ngr(phi),
-                       (m_FailFlag[itrack] == 0 ? 1 : 0), !prop_fail, ngr(thisOutChi2[itrack])
-                      );
+              if (ddq >= dq)
+                continue;
+              if (ddphi >= dphi)
+                continue;
 
-                ++pcc_all_hits;
-                if (sim_lbl == hit_lbl) {
-                  ++pcc_matced_hits;
-                  if (old_dec) ++pcc_acc_matched_old;
-                  if (new_dec) ++pcc_acc_matched_new;
-                }
-                if (old_dec) ++pcc_acc_old;
-                if (new_dec) ++pcc_acc_new;
-                if (new_ddq < dq)
-                  pos_match_vec.emplace_back(pos_match{ new_ddphi, thisOutChi2[itrack], hit_out_idx++,
-                                                        sim_lbl == hit_lbl });
-              } // if sim_lbl valild
-              // clang-format on
-#endif
-
-              if (NEW_SELECTION) {
-                if (prop_fail)
-                  continue;
-                if (new_ddq >= DDQ_PRESEL_FAC * L.hit_q_half_length(hi)) // !!!! TO BE IMPROVED
-                  continue;
-                if (new_ddphi >= DDPHI_PRESEL_FAC * 0.0123f) // !!!! ALSO, TO BE IMPROVED, just scaling up a bit
-                   continue;
-                if (pqueue_size < NEW_MAX_HIT) {
-                  pqueue.push({ new_ddphi, hi_orig });
-                  ++pqueue_size;
-                } else if (new_ddphi < pqueue.top().score) {
-                  pqueue.pop();
-                  pqueue.push({ new_ddphi, hi_orig });
-                }
-              } else {
-                if (ddq >= dqv[itrack])
-                  continue;
-                if (ddphi >= dphiv[itrack])
-                  continue;
-
-                // MT: Removing extra check gives full efficiency ...
-                //     and means our error estimations are wrong!
-                // Avi says we should have *minimal* search windows per layer.
-                // Also ... if bins are sufficiently small, we do not need the extra
-                // checks, see above.
-                m_XHitArr.At(itrack, m_XHitSize[itrack]++, 0) = hi_orig;
-              }
+              // MT: Removing extra check gives full efficiency ...
+              //     and means our error estimations are wrong!
+              // Avi says we should have *minimal* search windows per layer.
+              // Also ... if bins are sufficiently small, we do not need the extra
+              // checks, see above.
+              m_XHitArr.At(itrack, m_XHitSize[itrack]++, 0) = hi_orig;
             } else {
               // MT: The following check alone makes more sense with spiral traversal,
               // we'd be taking in closest hits first.
@@ -981,83 +685,270 @@ namespace mkfit {
           }  //hi
         }    //pi
       }      //qi
-
-      if (NEW_SELECTION) {
-        dprintf(" ORDUNG (%d)", pqueue_size);
-        // Reverse hits so best dphis/scores come first in the hit-index list.
-        m_XHitSize[itrack] = pqueue_size;
-        while (pqueue_size) {
-          --pqueue_size;
-          m_XHitArr.At(itrack, pqueue_size, 0) = pqueue.top().hit_index;
-          dprintf("   %d: %f %d", pqueue_size, pqueue.top().score, pqueue.top().hit_index);
-          pqueue.pop();
-        }
-        dprintf("\n");
-      }
-
-#if defined(DUMP_HIT_PRESEL) && defined(MKFIT_STANDALONE)
-      // clang-format off
-      if (sim_lbl >= 0) {
-        // Find ord number of matched hits.
-        std::sort(pos_match_vec.begin(), pos_match_vec.end(),
-                  [](auto &a, auto &b){return a.dphi < b.dphi;});
-        int pmvs = pos_match_vec.size();
-        int oi = 0;
-        int pcc_pos[4] = { -1, -1, -1, -1 };
-        for (int i = 0; i < pmvs && oi < 4; ++i) {
-          if (pos_match_vec[i].matched)
-            pcc_pos[oi++] = i;
-        }
-
-        static bool firstp = true;
-        if (firstp) {
-          firstp = false;
-          printf("XXH_CND "
-                 "event/I:layer:is_barrel:is_pix:is_stereo:"
-                 "iter_idx/I:iter_algo:eta_region:"
-                 "sim_lbl/I:seed_lbl:"
-                 "sim_pt/F:sim_eta:seed_pt:seed_eta:"
-                 "all_hits/I:matched_hits:"
-                 "acc_old/I:acc_new:acc_matched_old:acc_matched_new:"
-                 "pos0/I:pos1:pos2:pos3:"
-                 "dphi0/F:dphi1:dphi2:dphi3:"
-                 "chi20/F:chi21:chi22:chi23:"
-                 "idx0/I:idx1:idx2:idx3"
-                 "\n");
-        }
-        auto &S = m_event->simTracks_[sim_lbl];
-        pos_match dflt { -999.9f, -999.9f, -999, false };
-        pos_match &pmr0 = pcc_pos[0] >=0 ? pos_match_vec[pcc_pos[0]] : dflt,
-                  &pmr1 = pcc_pos[1] >=0 ? pos_match_vec[pcc_pos[1]] : dflt,
-                  &pmr2 = pcc_pos[2] >=0 ? pos_match_vec[pcc_pos[2]] : dflt,
-                  &pmr3 = pcc_pos[3] >=0 ? pos_match_vec[pcc_pos[3]] : dflt;
-        printf("XXH_CND "
-               "%d %d %d %d %d "
-               "%d %d %d "
-               "%d %d "
-               "%f %f %f %f "
-               "%d %d "
-               "%d %d %d %d "
-               "%d %d %d %d "
-               "%f %f %f %f "
-               "%f %f %f %f "
-               "%d %d %d %d "
-               "\n",
-               m_event->evtID(), L.layer_id(), L.is_barrel(), L.is_pixel(), L.is_stereo(),
-               m_iteration_config->m_iteration_index, m_iteration_config->m_track_algorithm, m_current_region,
-               sim_lbl, seed_lbl,
-               S.pT(), S.momEta(), seed_track.pT(), seed_track.momEta(),
-               pcc_all_hits, pcc_matced_hits,
-               pcc_acc_old, pcc_acc_new, pcc_acc_matched_old, pcc_acc_matched_new,
-               pcc_pos[0], pcc_pos[1], pcc_pos[2], pcc_pos[3],
-               pmr0.dphi, pmr1.dphi, pmr2.dphi, pmr3.dphi,
-               pmr0.chi2, pmr1.chi2, pmr2.chi2, pmr3.chi2,
-               pmr0.idx, pmr1.idx, pmr2.idx, pmr3.idx
-              );
-      }
-      // clang-format off
-#endif
     }        //itrack
+  }
+
+  //==============================================================================
+  // SelectHitIndicesV2
+  //==============================================================================
+
+  void MkFinder::selectHitIndicesV2(const LayerOfHits &layer_of_hits, const int N_proc) {
+    // bool debug = true;
+    using bidx_t = LayerOfHits::bin_index_t;
+    using bcnt_t = LayerOfHits::bin_content_t;
+    const LayerOfHits &L = layer_of_hits;
+    const LayerInfo &LI = *L.layer_info();
+
+    const int iI = iP;
+
+    dprintf("LayerOfHits::SelectHitIndicesV2 %s layer=%d N_proc=%d\n",
+            L.is_barrel() ? "barrel" : "endcap",
+            L.layer_id(),
+            N_proc);
+
+#ifdef RNT_DUMP_MkF_SelHitIdcs
+    rnt_shi.InnerIdcsReset(N_proc);
+    for (int i = 0; i < N_proc; ++i) {
+      auto slfh = m_event->simLabelForCurrentSeed(m_SeedOriginIdx[i]);
+      if (m_FailFlag[i]) {
+        rnt_shi.RegisterFailedProp(i, m_Par[1 - iI], m_Par[iI], m_event, m_SeedOriginIdx[i]);
+      } else if (slfh.is_set()) {
+        rnt_shi.RegisterGoodProp(i, m_Par[iI], m_event, m_SeedOriginIdx[i]);
+        // get BinSearch result from V1.
+        selectHitIndices(layer_of_hits, N_proc, true);
+      } // else ... could do something about the bad seeds ... probably better to collect elsewhere.
+    }
+#endif
+
+    constexpr int NEW_MAX_HIT = 6; // 4 - 6 give about the same # of tracks in quality-val
+    constexpr float DDPHI_PRESEL_FAC = 2.0f;
+    constexpr float DDQ_PRESEL_FAC = 1.2f;
+    constexpr float PHI_BIN_EXTRA_FAC = 2.75f;
+    constexpr float Q_BIN_EXTRA_FAC = 1.6f;
+
+    namespace mp = mini_propagators;
+    struct Bins {
+      MPlexQUH q0, q1, q2, p1, p2;
+      mp::InitialStatePlex isp;
+      mp::StatePlex sp1, sp2;
+      int n_proc;
+
+      // debug & ntuple dump -- to be local in functions
+      MPlexQF phi_c, dphi;
+      MPlexQF q_c, qmin, qmax;
+
+      Bins(const MPlexLV& par, const MPlexQI& chg, int np=NN) :
+        isp(par, chg), n_proc(np) {}
+
+      void prop_to_limits(const LayerInfo &li) {
+        // Positions 1 and 2 should really be by "propagation order", 1 is the closest/
+        // This should also work for backward propagation so not exactly trivial.
+        // Also, do not really need propagation to center.
+        if (li.is_barrel()) {
+          isp.propagate_to_r(mp::PA_Exact, li.rin(), sp1, true, n_proc);
+          isp.propagate_to_r(mp::PA_Exact, li.rout(), sp2, true, n_proc);
+        } else {
+          isp.propagate_to_z(mp::PA_Exact, li.zmin(), sp1, true, n_proc);
+          isp.propagate_to_z(mp::PA_Exact, li.zmax(), sp2, true, n_proc);
+        }
+      }
+
+      void find_bin_ranges(const LayerInfo &li, const LayerOfHits &loh) {
+        // Below made members for debugging
+        // MPlexQF phi_c, dphi_min, dphi_max;
+        phi_c = mp::fast_atan2(isp.y, isp.x);
+
+        // Matriplex::min_max(sp1.dphi, sp2.dphi, dphi_min, dphi_max);
+        // the above is wrong: dalpha is not dphi --> renamed variable in State
+        MPlexQF xp1, xp2, pmin, pmax;
+        xp1 = mp::fast_atan2(sp1.y, sp1.x);
+        xp2 = mp::fast_atan2(sp2.y, sp2.x);
+        Matriplex::min_max(xp1, xp2, pmin, pmax);
+        // Matriplex::min_max(mp::fast_atan2(sp1.y, sp1.x), smp::fast_atan2(sp2.y, sp2.x), pmin, pmax);
+        MPlexQF dp = pmax - pmin;
+        phi_c = 0.5f * (pmax + pmin);
+        for (int ii=0; ii<n_proc; ++ii) {
+          if (dp[ii] > Const::PI) {
+            std::swap(pmax[ii], pmin[ii]);
+            dp[ii] = Const::TwoPI - dp[ii];
+            phi_c[ii] = Const::PI - phi_c[ii];
+          }
+          dphi[ii] = 0.5f * dp[ii];
+          // printf("phic: %f  p1: %f  p2: %f   pmin: %f  pmax: %f   dphi: %f\n",
+          //       phi_c[ii], xp1[ii], xp2[ii], pmin[ii], pmax[ii], dphi[ii]);
+        }
+
+        // MPlexQF qmin, qmax;
+        if (li.is_barrel()) {
+          Matriplex::min_max(sp1.z, sp2.z, qmin, qmax);
+          q_c = isp.z;
+        } else {
+          Matriplex::min_max(Matriplex::hypot(sp1.x, sp1.y), Matriplex::hypot(sp2.x, sp2.y), qmin, qmax);
+          q_c = Matriplex::hypot(isp.x, isp.y);
+        }
+
+        for (int i = 0; i < p1.kTotSize; ++i) {
+          // Clamp crazy sizes. This actually only happens when prop-fail flag is set.
+          // const float dphi_clamp = 0.1;
+          // if (dphi_min[i] > 0.0f || dphi_min[i] < -dphi_clamp) dphi_min[i] = -dphi_clamp;
+          // if (dphi_max[i] < 0.0f || dphi_max[i] > dphi_clampf) dphi_max[i] = dphi_clamp;
+          p1[i] = loh.phiBinChecked(pmin[i] - PHI_BIN_EXTRA_FAC * 0.0123f);
+          p2[i] = loh.phiBinChecked(pmax[i] + PHI_BIN_EXTRA_FAC * 0.0123f);
+
+          q0[i] = loh.qBinChecked(q_c[i]);
+          q1[i] = loh.qBinChecked(qmin[i] - Q_BIN_EXTRA_FAC * 0.5f * li.q_bin());
+          q2[i] = loh.qBinChecked(qmax[i] + Q_BIN_EXTRA_FAC * 0.5f * li.q_bin()) + 1;
+        }
+      }
+    };
+
+    Bins B(m_Par[iI], m_Chg, N_proc);
+    B.prop_to_limits(LI);
+    B.find_bin_ranges(LI, L);
+
+    for (int i = 0; i < N_proc; ++i) {
+      m_XHitSize[i] = 0;
+      // Notify failure. Ideally should be detected before selectHitIndices().
+      if (m_FailFlag[i]) {
+        m_XWsrResult[i].m_wsr = WSR_Failed;
+      } else {
+        if (LI.is_barrel()) {
+          m_XWsrResult[i] = L.is_within_z_sensitive_region(B.q_c[i], 0.5f * (B.q2[i] - B.q1[i]));
+        } else {
+          m_XWsrResult[i] = L.is_within_r_sensitive_region(B.q_c[i], 0.5f * (B.q2[i] - B.q1[i]));
+        }
+      }
+    }
+
+    // for (int i = 0; i < N_proc; ++i) {
+    //   printf("BinCheck %c %+8.6f %+8.6f | %3d %3d - %3d %3d ||  | %2d %2d - %2d %2d\n", LI.is_barrel() ? 'B' : 'E',
+    //          B.phi[i], B.dphi[i], B.p1[i], B.p2[i], pb1v[i], pb2v[i],
+    //          B.q[i], B.dq[i], B.q1[i], B.q2[i], qb1v[i], qb2v[i]);
+    // }
+
+#ifdef RNT_DUMP_MkF_SelHitIdcs
+    for (auto i : rnt_shi.f_h_idcs) {
+      CandInfo &ci = (*rnt_shi.ci)[ rnt_shi.f_h_remap[i] ];
+      ci.bsn = BinSearch({B.phi_c[i], B.dphi[i], B.q_c[i], 0.5f * (B.q2[i] - B.q1[i]),
+                          B.p1[i], B.p2[i], B.q1[i], B.q2[i], m_XWsrResult[i].m_wsr, m_XWsrResult[i].m_in_gap, false});
+      ci.ps_min = statep2propstate(B.sp1, i);
+      ci.ps_max = statep2propstate(B.sp2, i);
+    }
+#endif
+
+    struct PQE { float score; unsigned int hit_index; };
+    auto pqe_cmp = [](const PQE &a, const PQE &b) { return a.score < b.score; };
+    std::priority_queue<PQE, std::vector<PQE>, decltype(pqe_cmp)> pqueue(pqe_cmp);
+    int pqueue_size = 0;
+
+    // Vectorizing this makes it run slower!
+    //#pragma omp simd
+    for (int itrack = 0; itrack < N_proc; ++itrack) {
+      if (m_FailFlag[itrack]) {
+        m_XWsrResult[itrack].m_wsr = WSR_Failed;
+        continue;
+      }
+
+      if (m_XWsrResult[itrack].m_wsr == WSR_Outside) {
+        continue;
+      }
+
+      // New binning -- known to be too restrictive, so scaled up. Probably esp. in stereo layers.
+      // Also, could take track covariance dphi / dq extras + known tilt stuff.
+      const bidx_t qb = B.q0[itrack];
+      const bidx_t qb1 = B.q1[itrack];
+      const bidx_t qb2 = B.q2[itrack];
+      const bidx_t pb1 = B.p1[itrack];
+      const bidx_t pb2 = B.p2[itrack];
+
+      // clang-format off
+      dprintf("  %2d/%2d: %6.3f %6.3f %6.6f %7.5f %3u %3u %4u %4u\n",
+              L.layer_id(), itrack, qv[itrack], phi[itrack], dqv[itrack], dphiv[itrack],
+              qb1, qb2, pb1, pb2);
+      // clang-format on
+
+      mp::InitialState mp_is(m_Par[iI], m_Chg, itrack);
+      mp::State mp_s;
+
+      for (bidx_t qi = qb1; qi != qb2; ++qi) {
+        for (bidx_t pi = pb1; pi != pb2; pi = L.phiMaskApply(pi + 1)) {
+          // Limit to central Q-bin
+          if (qi == qb && L.isBinDead(pi, qi) == true) {
+            dprint("dead module for track in layer=" << L.layer_id() << " qb=" << qi << " pi=" << pi << " q=" << q
+                                                     << " phi=" << phi);
+            m_XWsrResult[itrack].m_in_gap = true;
+          }
+
+          // It might make sense to make first loop to extract bin indices
+          // and issue prefetches at the same time.
+          // Then enter vectorized loop to actually collect the hits in proper order.
+
+          //SK: ~20x1024 bin sizes give mostly 1 hit per bin. Commented out for 128 bins or less
+          // #pragma nounroll
+          auto pbi = L.phiQBinContent(pi, qi);
+          for (bcnt_t hi = pbi.begin(); hi < pbi.end(); ++hi) {
+            // MT: Access into m_hit_zs and m_hit_phis is 1% run-time each.
+
+            const unsigned int hi_orig = L.getOriginalHitIndex(hi);
+
+            if (m_iteration_hit_mask && (*m_iteration_hit_mask)[hi_orig]) {
+              dprintf(
+                  "Yay, denying masked hit on layer %u, hi %u, orig idx %u\n", L.layer_info()->layer_id(), hi, hi_orig);
+              continue;
+            }
+
+            if (m_XHitSize[itrack] >= MPlexHitIdxMax)
+              break;
+
+            float new_q, new_phi, new_ddphi, new_ddq;
+            bool prop_fail;
+
+            if (L.is_barrel()) {
+                prop_fail = mp_is.propagate_to_r(mp::PA_Exact, L.hit_qbar(hi), mp_s, true);
+                new_q = mp_s.z;
+            } else {
+                prop_fail = mp_is.propagate_to_z(mp::PA_Exact, L.hit_qbar(hi), mp_s, true);
+                new_q = std::hypot(mp_s.x, mp_s.y);
+            }
+
+            new_phi = vdt::fast_atan2f(mp_s.y, mp_s.x);
+            new_ddphi = cdist(std::abs(new_phi - L.hit_phi(hi)));
+            new_ddq = std::abs(new_q - L.hit_q(hi));
+
+            bool dqdphi_presel = new_ddq < DDQ_PRESEL_FAC * L.hit_q_half_length(hi) &&
+                                 new_ddphi < DDPHI_PRESEL_FAC * 0.0123f;
+
+            // clang-format off
+            dprintf("     SHI %3u %4u %5u  %6.3f %6.3f %6.4f %7.5f  PROP-%s  %s\n",
+                    qi, pi, hi, L.hit_q(hi), L.hit_phi(hi),
+                    ddq, ddphi, prop_fail ? "FAIL" : "OK", dqdphi_presel ? "PASS" : "REJECT");
+            // clang-format on
+
+            if (prop_fail || !dqdphi_presel)
+                continue;
+            if (pqueue_size < NEW_MAX_HIT) {
+                pqueue.push({ new_ddphi, hi_orig });
+                ++pqueue_size;
+            } else if (new_ddphi < pqueue.top().score) {
+                pqueue.pop();
+                pqueue.push({ new_ddphi, hi_orig });
+            }
+          } //hi
+        } //pi
+      } //qi
+
+      dprintf(" PQUEUE (%d)", pqueue_size);
+      // Reverse hits so best dphis/scores come first in the hit-index list.
+      m_XHitSize[itrack] = pqueue_size;
+      while (pqueue_size) {
+        --pqueue_size;
+        m_XHitArr.At(itrack, pqueue_size, 0) = pqueue.top().hit_index;
+        dprintf("   %d: %f %d", pqueue_size, pqueue.top().score, pqueue.top().hit_index);
+        pqueue.pop();
+      }
+      dprintf("\n");
+
+    } //itrack
   }
 
   //==============================================================================

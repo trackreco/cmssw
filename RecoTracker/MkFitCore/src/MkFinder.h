@@ -120,7 +120,8 @@ namespace mkfit {
 
     float getHitSelDynamicChi2Cut(const int itrk, const int ipar);
 
-    void selectHitIndices(const LayerOfHits &layer_of_hits, const int N_proc);
+    void selectHitIndices(const LayerOfHits &layer_of_hits, const int N_proc, bool fill_binsearch_only=false);
+    void selectHitIndicesV2(const LayerOfHits &layer_of_hits, const int N_proc);
 
     void addBestHit(const LayerOfHits &layer_of_hits, const int N_proc, const FindingFoos &fnd_foos);
 

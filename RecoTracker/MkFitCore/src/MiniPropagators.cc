@@ -95,7 +95,7 @@ namespace mkfit::mini_propagators {
       }
       break;
     }
-    c.fail_flag = false;
+    c.fail_flag = 0;
     return c.fail_flag;
   }
 
