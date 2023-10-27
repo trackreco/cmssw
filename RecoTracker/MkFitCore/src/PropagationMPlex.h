@@ -80,17 +80,6 @@ namespace mkfit {
                 const int N_proc,
                 const PropagationFlags& pflags);
 
-  /*
-  void helixAtZ_new(const MPlexLV& inPar,
-                    const MPlexQI& inChg,
-                    const MPlexQF& msZ,
-                    MPlexLV& outPar,
-                    MPlexLL& errorProp,
-                    MPlexQI& outFailFlag,
-                    const int N_proc,
-                    const PropagationFlags& pflags);
-  */
-
   void helixAtPlane(const MPlexLV& inPar,
                     const MPlexQI& inChg,
                     const MPlexHV& plPnt,

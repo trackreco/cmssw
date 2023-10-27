@@ -754,33 +754,6 @@ namespace mkfit {
       }
     }
     // }
-
-    // This dump is now out of its place as similarity is done with matriplex ops.
-    /*
-#ifdef DEBUG
-   {
-     dmutex_guard;
-     for (int kk = 0; kk < N_proc; ++kk)
-     {
-       dprintf("outErr %d\n", kk);
-       for (int i = 0; i < 6; ++i) { for (int j = 0; j < 6; ++j)
-           dprintf("%8f ", outErr.At(kk,i,j)); printf("\n");
-       } dprintf("\n");
-
-       dprintf("outPar %d\n", kk);
-       for (int i = 0; i < 6; ++i) {
-           dprintf("%8f ", outPar.At(kk,i,0)); printf("\n");
-       } dprintf("\n");
-       if (std::abs(outPar.At(kk,2,0) - msZ.constAt(kk, 0, 0)) > 0.0001) {
-         float pt = 1.0f / inPar.constAt(kk,3,0);
-	 dprint_np(kk, "DID NOT GET TO Z, dZ=" << std::abs(outPar.At(kk,2,0) - msZ.constAt(kk, 0, 0))
-		   << " z=" << msZ.constAt(kk, 0, 0) << " zin=" << inPar.constAt(kk,2,0) << " zout=" << outPar.At(kk,2,0) << std::endl
-		   << "pt=" << pt << " pz=" << pt/std::tan(inPar.constAt(kk,5,0)));
-       }
-     }
-   }
-#endif
-   */
   }
 
   void helixAtZ(const MPlexLV& inPar,
@@ -1104,118 +1077,6 @@ namespace mkfit {
 #endif
   }
 
-  /*
-   void helixAtZ_new(const MPlexLV& inPar,
-                     const MPlexQI& inChg,
-                     const MPlexQF& msZ,
-                     MPlexLV& outPar,
-                     MPlexLL& errorProp,
-                     MPlexQI& outFailFlag,
-                     const int N_proc,
-                     const PropagationFlags& pflags) {
-
-    errorProp.setVal(0.f);
-    outFailFlag.setVal(0.f);
-
-    // debug = true;
-
-    float kinv[NN];
-    if (pflags.use_param_b_field) {
-#pragma omp simd
-      for (int n = 0; n < NN; ++n) {
-        kinv[n] = - inChg.constAt(n, 0, 0) * 0.01f * Const::sol * Config::bFieldFromZR(inPar.constAt(n, 2, 0), hipo(inPar.constAt(n, 0, 0), inPar.constAt(n, 1, 0)));
-      }
-    } else {
-#pragma omp simd
-      for (int n = 0; n < NN; ++n) {
-        kinv[n] = - inChg.constAt(n, 0, 0) * 0.01f * Const::sol * Config::Bfield;
-      }
-    }
-
-    float s[NN];
-#pragma omp simd
-    for (int n = 0; n < NN; ++n) {
-      s[n] = (msZ.constAt(n, 0, 0) - inPar.constAt(n, 2, 0)) / std::cos(inPar.constAt(n, 5, 0));
-    }
-
-    parsAndErrPropFromPathL_impl(inPar, inChg, outPar, kinv, s, errorProp, 0, NN, N_proc, pflags);
-
-    for (int n = 0; n < NN; ++n) {
-      dprint_np(n,
-		"propagation to Z end (NEW), dump parameters\n"
-                  << "   D = " << s[n] << " alpha = " << s[n] * std::sin(inPar(n, 5, 0)) * inPar(n, 3, 0) * kinv[n] << " kinv = " << kinv[n] << std::endl
-                  << "   pos = " << outPar(n, 0, 0) << " " << outPar(n, 1, 0) << " " << outPar(n, 2, 0) << "\t\t r="
-                  << std::sqrt(outPar(n, 0, 0) * outPar(n, 0, 0) + outPar(n, 1, 0) * outPar(n, 1, 0)) << std::endl
-                  << "   mom = " << outPar(n, 3, 0) << " " << outPar(n, 4, 0) << " " << outPar(n, 5, 0) << std::endl
-		  << " cart= " << std::cos(outPar(n, 4, 0)) / outPar(n, 3, 0) << " "
-                  << std::sin(outPar(n, 4, 0)) / outPar(n, 3, 0) << " " << 1. / (outPar(n, 3, 0) * tan(outPar(n, 5, 0)))
-                  << "\t\tpT=" << 1. / std::abs(outPar(n, 3, 0)) << std::endl);
-    }
-
-    //fixme hack
-    // for (int n = 0; n < NN; ++n) {
-    //   errorProp(n, 2, 0) = 0.;
-    //   errorProp(n, 2, 1) = 0.;
-    //   errorProp(n, 2, 2) = 0.;
-    //   errorProp(n, 2, 3) = 0.;
-    //   errorProp(n, 2, 4) = 0.;
-    //   errorProp(n, 2, 5) = 0.;
-    // }
-
-#ifdef DEBUG
-    for (int n = 0; n < NN; ++n) {
-      if (debug && g_debug && n < N_proc) {
-	dmutex_guard;
-	std::cout << n << ": jacobian" << std::endl;
-	printf("%5f %5f %5f %5f %5f %5f\n",
-	       errorProp(n, 0, 0),
-	       errorProp(n, 0, 1),
-	       errorProp(n, 0, 2),
-	       errorProp(n, 0, 3),
-	       errorProp(n, 0, 4),
-	       errorProp(n, 0, 5));
-	printf("%5f %5f %5f %5f %5f %5f\n",
-	       errorProp(n, 1, 0),
-	       errorProp(n, 1, 1),
-	       errorProp(n, 1, 2),
-	       errorProp(n, 1, 3),
-	       errorProp(n, 1, 4),
-	       errorProp(n, 1, 5));
-	printf("%5f %5f %5f %5f %5f %5f\n",
-	       errorProp(n, 2, 0),
-	       errorProp(n, 2, 1),
-	       errorProp(n, 2, 2),
-	       errorProp(n, 2, 3),
-	       errorProp(n, 2, 4),
-	       errorProp(n, 2, 5));
-	printf("%5f %5f %5f %5f %5f %5f\n",
-	       errorProp(n, 3, 0),
-	       errorProp(n, 3, 1),
-	       errorProp(n, 3, 2),
-	       errorProp(n, 3, 3),
-	       errorProp(n, 3, 4),
-	       errorProp(n, 3, 5));
-	printf("%5f %5f %5f %5f %5f %5f\n",
-	       errorProp(n, 4, 0),
-	       errorProp(n, 4, 1),
-	       errorProp(n, 4, 2),
-	       errorProp(n, 4, 3),
-	       errorProp(n, 4, 4),
-	       errorProp(n, 4, 5));
-	printf("%5f %5f %5f %5f %5f %5f\n",
-	       errorProp(n, 5, 0),
-	       errorProp(n, 5, 1),
-	       errorProp(n, 5, 2),
-	       errorProp(n, 5, 3),
-	       errorProp(n, 5, 4),
-	       errorProp(n, 5, 5));
-	printf("\n");
-      }
-    }
-#endif
-  }
-*/
-
   void helixAtPlane(const MPlexLV& inPar,
                     const MPlexQI& inChg,
                     const MPlexHV& plPnt,
@@ -1418,7 +1279,7 @@ namespace mkfit {
   void applyMaterialEffects(const MPlexQF& hitsRl,
                             const MPlexQF& hitsXi,
                             const MPlexQF& propSign,
-			    const MPlexHV& plNrm,
+			                      const MPlexHV& plNrm,
                             MPlexLS& outErr,
                             MPlexLV& outPar,
                             const int N_proc) {
@@ -1451,11 +1312,15 @@ namespace mkfit {
       // const float thetaMSC2 = thetaMSC*thetaMSC;
       const float thetaMSC = 0.0136f * (1.f + 0.038f * std::log(radL)) / (beta * p);  // eq 32.15
       const float thetaMSC2 = thetaMSC * thetaMSC * radL;
-      // outErr.At(n, 4, 4) += thetaMSC2;
-      outErr.At(n, 3, 3) += thetaMSC2 * pz * pz * ipt2 * ipt2;
-      outErr.At(n, 3, 5) -= thetaMSC2 * pz * ipt2;
-      outErr.At(n, 4, 4) += thetaMSC2 * p2 * ipt2;
-      outErr.At(n, 5, 5) += thetaMSC2;
+      if (Config::usePtMultScat) {
+        outErr.At(n, 3, 3) += thetaMSC2 * pz * pz * ipt2 * ipt2;
+        outErr.At(n, 3, 5) -= thetaMSC2 * pz * ipt2;
+        outErr.At(n, 4, 4) += thetaMSC2 * p2 * ipt2;
+        outErr.At(n, 5, 5) += thetaMSC2;
+      } else {
+        outErr.At(n, 4, 4) += thetaMSC2;
+        outErr.At(n, 5, 5) += thetaMSC2;
+      }
       //std::cout << "beta=" << beta << " p=" << p << std::endl;
       //std::cout << "multiple scattering thetaMSC=" << thetaMSC << " thetaMSC2=" << thetaMSC2 << " radL=" << radL << std::endl;
       // energy loss

@@ -16,10 +16,6 @@
 
 #include <algorithm>
 
-namespace {
-  const bool PROP_TO_PLANE = true;
-}
-
 namespace mkfit {
 
   void MkFinder::setup(const PropagationConfig &pc,
@@ -979,7 +975,7 @@ namespace mkfit {
       MPlexLV propPar;
       clearFailFlag();
 
-      if (PROP_TO_PLANE) {
+      if (Config::usePropToPlane) {
         // Maybe could use 2 matriplex packers ... ModuleInfo has 3 * SVector3 and uint
         MPlexHV norm, dir;
         packModuleNormDir(layer_of_hits, hit_cnt, norm, dir, N_proc);
@@ -996,17 +992,17 @@ namespace mkfit {
                                      m_prop_config->finding_intra_layer_pflags,
                                      m_prop_config->finding_requires_propagation_to_hit_pos);
       } else {
-      (*fnd_foos.m_compute_chi2_foo)(m_Err[iP],
-                                     m_Par[iP],
-                                     m_Chg,
-                                     m_msErr,
-                                     m_msPar,
-                                     outChi2,
-                                     propPar,
-                                     m_FailFlag,
-                                     N_proc,
-                                     m_prop_config->finding_intra_layer_pflags,
-                                     m_prop_config->finding_requires_propagation_to_hit_pos);
+        (*fnd_foos.m_compute_chi2_foo)(m_Err[iP],
+                                       m_Par[iP],
+                                       m_Chg,
+                                       m_msErr,
+                                       m_msPar,
+                                       outChi2,
+                                       propPar,
+                                       m_FailFlag,
+                                       N_proc,
+                                       m_prop_config->finding_intra_layer_pflags,
+                                       m_prop_config->finding_requires_propagation_to_hit_pos);
       }
 
       // Now update the track parameters with this hit (note that some
@@ -1245,7 +1241,7 @@ namespace mkfit {
       MPlexLV propPar;
       clearFailFlag();
 
-      if (PROP_TO_PLANE) {
+      if (Config::usePropToPlane) {
         // Maybe could use 2 matriplex packers ... ModuleInfo has 3 * SVector3 and uint
         MPlexHV norm, dir;
         packModuleNormDir(layer_of_hits, hit_cnt, norm, dir, N_proc);
@@ -1262,17 +1258,17 @@ namespace mkfit {
                                      m_prop_config->finding_intra_layer_pflags,
                                      m_prop_config->finding_requires_propagation_to_hit_pos);
       } else {
-      (*fnd_foos.m_compute_chi2_foo)(m_Err[iP],
-                                     m_Par[iP],
-                                     m_Chg,
-                                     m_msErr,
-                                     m_msPar,
-                                     outChi2,
-                                     propPar,
-                                     m_FailFlag,
-                                     N_proc,
-                                     m_prop_config->finding_intra_layer_pflags,
-                                     m_prop_config->finding_requires_propagation_to_hit_pos);
+        (*fnd_foos.m_compute_chi2_foo)(m_Err[iP],
+                                       m_Par[iP],
+                                       m_Chg,
+                                       m_msErr,
+                                       m_msPar,
+                                       outChi2,
+                                       propPar,
+                                       m_FailFlag,
+                                       N_proc,
+                                       m_prop_config->finding_intra_layer_pflags,
+                                       m_prop_config->finding_requires_propagation_to_hit_pos);
       }
 
       //#pragma omp simd  // DOES NOT VECTORIZE AS IT IS NOW
@@ -1421,7 +1417,7 @@ namespace mkfit {
     // See comment in MkBuilder::find_tracks_in_layer() about intra / inter flags used here
     // for propagation to the hit.
     clearFailFlag();
-    if (PROP_TO_PLANE) {
+    if (Config::usePropToPlane) {
       MPlexHV norm, dir;
       packModuleNormDir(layer_of_hits, 0, norm, dir, N_proc);
       kalmanPropagateAndUpdatePlane(m_Err[iP],
@@ -1437,17 +1433,17 @@ namespace mkfit {
                                    m_prop_config->finding_inter_layer_pflags,
                                    m_prop_config->finding_requires_propagation_to_hit_pos);
     } else {
-    (*fnd_foos.m_update_param_foo)(m_Err[iP],
-                                   m_Par[iP],
-                                   m_Chg,
-                                   m_msErr,
-                                   m_msPar,
-                                   m_Err[iC],
-                                   m_Par[iC],
-                                   m_FailFlag,
-                                   N_proc,
-                                   m_prop_config->finding_inter_layer_pflags,
-                                   m_prop_config->finding_requires_propagation_to_hit_pos);
+      (*fnd_foos.m_update_param_foo)(m_Err[iP],
+                                     m_Par[iP],
+                                     m_Chg,
+                                     m_msErr,
+                                     m_msPar,
+                                     m_Err[iC],
+                                     m_Par[iC],
+                                     m_FailFlag,
+                                     N_proc,
+                                     m_prop_config->finding_inter_layer_pflags,
+                                     m_prop_config->finding_requires_propagation_to_hit_pos);
     }
 
     // PROP-FAIL-ENABLE The following to be enabled when propagation failure
