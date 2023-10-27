@@ -12,7 +12,6 @@ static inline void parsFromPathL_impl(const Tf& __restrict__ inPar,
                                       const Tf1 __restrict__ s,
                                       const int nmin,
                                       const int nmax) {
-
   float alpha[nmax - nmin];
   for (int n = nmin; n < nmax; ++n) {
     alpha[n - nmin] = s[n - nmin] * std::sin(inPar(n, 5, 0)) * inPar(n, 3, 0) * kinv[n - nmin];
@@ -38,14 +37,20 @@ static inline void parsFromPathL_impl(const Tf& __restrict__ inPar,
   }
 
   for (int n = nmin; n < nmax; ++n) {
-    outPar(n, 0, 0) = inPar(n, 0, 0) + 2.f * sinah[n - nmin] * (std::cos(inPar(n, 4, 0)) * cosah[n - nmin] - std::sin(inPar(n, 4, 0)) * sinah[n - nmin]) / (inPar(n, 3, 0) * kinv[n - nmin]);
-    outPar(n, 1, 0) = inPar(n, 1, 0) + 2.f * sinah[n - nmin] * (std::sin(inPar(n, 4, 0)) * cosah[n - nmin] + std::cos(inPar(n, 4, 0)) * sinah[n - nmin]) / (inPar(n, 3, 0) * kinv[n - nmin]);
-    outPar(n, 2, 0) = inPar(n, 2, 0) + alpha[n - nmin] / kinv[n - nmin] * std::cos(inPar(n, 5, 0)) / (inPar(n, 3, 0) * std::sin(inPar(n, 5, 0)));
+    outPar(n, 0, 0) =
+        inPar(n, 0, 0) + 2.f * sinah[n - nmin] *
+                             (std::cos(inPar(n, 4, 0)) * cosah[n - nmin] - std::sin(inPar(n, 4, 0)) * sinah[n - nmin]) /
+                             (inPar(n, 3, 0) * kinv[n - nmin]);
+    outPar(n, 1, 0) =
+        inPar(n, 1, 0) + 2.f * sinah[n - nmin] *
+                             (std::sin(inPar(n, 4, 0)) * cosah[n - nmin] + std::cos(inPar(n, 4, 0)) * sinah[n - nmin]) /
+                             (inPar(n, 3, 0) * kinv[n - nmin]);
+    outPar(n, 2, 0) = inPar(n, 2, 0) + alpha[n - nmin] / kinv[n - nmin] * std::cos(inPar(n, 5, 0)) /
+                                           (inPar(n, 3, 0) * std::sin(inPar(n, 5, 0)));
     outPar(n, 3, 0) = inPar(n, 3, 0);
     outPar(n, 4, 0) = inPar(n, 4, 0) + alpha[n - nmin];
     outPar(n, 5, 0) = inPar(n, 5, 0);
   }
-
 }
 
 //should kinv and D be templated???
@@ -60,10 +65,9 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
                                                 const int nmax,
                                                 const int N_proc,
                                                 const PropagationFlags& pf) {
-
   //iteration should return the path length s, then update parameters and compute errors
 
-  parsFromPathL_impl(inPar,outPar,kinv,s,nmin,nmax);
+  parsFromPathL_impl(inPar, outPar, kinv, s, nmin, nmax);
 
   float cosPin[nmax - nmin];
   float sinPin[nmax - nmin];
@@ -86,29 +90,31 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
   // main difference from the above function is that we assume that the magnetic field is purely along z (which also implies that there is no change in pz)
   // this simplifies significantly the code
 
-  MPlex55  errorPropCurv;
+  MPlex55 errorPropCurv;
   for (int n = nmin; n < nmax; ++n) {
-
-    const float qbp = inChg(n, 0, 0)*sinT[n - nmin]*inPar(n, 3, 0);
+    const float qbp = inChg(n, 0, 0) * sinT[n - nmin] * inPar(n, 3, 0);
     // calculate transport matrix
     // Origin: TRPRFN
-    const float t11 = cosPin[n - nmin]*sinT[n - nmin];
-    const float t12 = sinPin[n - nmin]*sinT[n - nmin];
-    const float t21 = cosPout[n - nmin]*sinT[n - nmin];
-    const float t22 = sinPout[n - nmin]*sinT[n - nmin];
+    const float t11 = cosPin[n - nmin] * sinT[n - nmin];
+    const float t12 = sinPin[n - nmin] * sinT[n - nmin];
+    const float t21 = cosPout[n - nmin] * sinT[n - nmin];
+    const float t22 = sinPout[n - nmin] * sinT[n - nmin];
     const float cosl1 = 1.f / sinT[n - nmin];
     // define average magnetic field and gradient
     // at initial point - inlike TRPRFN
-    const float bF = (pf.use_param_b_field ? 0.01f * Const::sol * Config::bFieldFromZR(inPar(n, 2, 0), hipo(inPar(n, 0, 0), inPar(n, 1, 0))) : 0.01f * Const::sol * Config::Bfield);
+    const float bF =
+        (pf.use_param_b_field
+             ? 0.01f * Const::sol * Config::bFieldFromZR(inPar(n, 2, 0), hipo(inPar(n, 0, 0), inPar(n, 1, 0)))
+             : 0.01f * Const::sol * Config::Bfield);
     const float q = -bF * qbp;
     const float theta = q * s[n - nmin];
     //float sint, cost;
     //vdt::fast_sincos(theta, sint, cost);
     const float sint = std::sin(theta);
     const float cost = std::cos(theta);
-    const float dx1 = inPar(n, 0, 0)-outPar(n, 0, 0);
-    const float dx2 = inPar(n, 1, 0)-outPar(n, 1, 0);
-    const float dx3 = inPar(n, 2, 0)-outPar(n, 2, 0);
+    const float dx1 = inPar(n, 0, 0) - outPar(n, 0, 0);
+    const float dx2 = inPar(n, 1, 0) - outPar(n, 1, 0);
+    const float dx3 = inPar(n, 2, 0) - outPar(n, 2, 0);
     float au = 1.f / sqrt(t11 * t11 + t12 * t12);
     const float u11 = -au * t12;
     const float u12 = au * t11;
@@ -126,17 +132,24 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
     const float tmsint = theta - sint;
     //   1/p - doesn't change since |p1| = |p2|
     errorPropCurv(n, 0, 0) = 1.f;
-    for (auto i = 1; i < 5; ++i) errorPropCurv(n, 0, i) = 0.f;
+    for (auto i = 1; i < 5; ++i)
+      errorPropCurv(n, 0, i) = 0.f;
     //   lambda
     errorPropCurv(n, 1, 0) = 0.f;
-    errorPropCurv(n, 1, 1) = cost * (v11 * v21 + v12 * v22 + v13 * v23) + sint * (-v12 * v21 + v11 * v22) + omcost * v13 * v23;
+    errorPropCurv(n, 1, 1) =
+        cost * (v11 * v21 + v12 * v22 + v13 * v23) + sint * (-v12 * v21 + v11 * v22) + omcost * v13 * v23;
     errorPropCurv(n, 1, 2) = (cost * (u11 * v21 + u12 * v22) + sint * (-u12 * v21 + u11 * v22)) * sinT[n - nmin];
     errorPropCurv(n, 1, 3) = 0.f;
     errorPropCurv(n, 1, 4) = 0.f;
     //   phi
     errorPropCurv(n, 2, 0) = bF * v23 * (t21 * dx1 + t22 * dx2 + cosT[n - nmin] * dx3) * cosl1;
-    errorPropCurv(n, 2, 1) = (cost * (v11 * u21 + v12 * u22) + sint * (-v12 * u21 + v11 * u22) + v23 * (-sint * (v11 * t21 + v12 * t22 + v13 * cosT[n - nmin]) + omcost * (-v11 * t22 + v12 * t21) - tmsint * cosT[n - nmin] * v13)) * cosl1;
-    errorPropCurv(n, 2, 2) = (cost * (u11 * u21 + u12 * u22) + sint * (-u12 * u21 + u11 * u22) + v23 * (-sint * (u11 * t21 + u12 * t22) + omcost * (-u11 * t22 + u12 * t21))) * cosl1 * sinT[n - nmin];
+    errorPropCurv(n, 2, 1) = (cost * (v11 * u21 + v12 * u22) + sint * (-v12 * u21 + v11 * u22) +
+                              v23 * (-sint * (v11 * t21 + v12 * t22 + v13 * cosT[n - nmin]) +
+                                     omcost * (-v11 * t22 + v12 * t21) - tmsint * cosT[n - nmin] * v13)) *
+                             cosl1;
+    errorPropCurv(n, 2, 2) = (cost * (u11 * u21 + u12 * u22) + sint * (-u12 * u21 + u11 * u22) +
+                              v23 * (-sint * (u11 * t21 + u12 * t22) + omcost * (-u11 * t22 + u12 * t21))) *
+                             cosl1 * sinT[n - nmin];
     errorPropCurv(n, 2, 3) = -q * v23 * (u11 * t21 + u12 * t22) * cosl1;
     errorPropCurv(n, 2, 4) = -q * v23 * (v11 * t21 + v12 * t22 + v13 * cosT[n - nmin]) * cosl1;
     //   yt
@@ -150,7 +163,7 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
       const float temp1 = -t12 * u21 + t11 * u22;
       const float s2 = s[n - nmin] * s[n - nmin];
       const float secondOrder41 = -0.5f * bF * temp1 * s2;
-      const float temp2 = - t11 * u21 - t12 * u22;
+      const float temp2 = -t11 * u21 - t12 * u22;
       const float s3 = s2 * s[n - nmin];
       const float s4 = s3 * s[n - nmin];
       const float h2 = bF * bF;
@@ -161,7 +174,7 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
       errorPropCurv(n, 3, 0) = secondOrder41 + (thirdOrder41 + fourthOrder41);
       const float temp3 = -t12 * v21 + t11 * v22;
       const float secondOrder51 = -0.5f * bF * temp3 * s2;
-      const float temp4 = - t11 * v21 - t12 * v22 - cosT[n - nmin] * v23;
+      const float temp4 = -t11 * v21 - t12 * v22 - cosT[n - nmin] * v23;
       const float thirdOrder51 = 1.f / 3 * h2 * s3 * qbp * temp4;
       const float fourthOrder51 = 1.f / 8 * h3 * s4 * qbp2 * temp3;
       errorPropCurv(n, 4, 0) = secondOrder51 + (thirdOrder51 + fourthOrder51);
@@ -171,60 +184,61 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
     errorPropCurv(n, 3, 3) = (u11 * u21 + u12 * u22);
     errorPropCurv(n, 3, 4) = (v11 * u21 + v12 * u22);
     //   zt
-    errorPropCurv(n, 4, 1) = (sint * (v11 * v21 + v12 * v22 + v13 * v23) + omcost * (-v12 * v21 + v11 * v22) + tmsint * v23 * v13) / q;
+    errorPropCurv(n, 4, 1) =
+        (sint * (v11 * v21 + v12 * v22 + v13 * v23) + omcost * (-v12 * v21 + v11 * v22) + tmsint * v23 * v13) / q;
     errorPropCurv(n, 4, 2) = (sint * (u11 * v21 + u12 * v22) + omcost * (-u12 * v21 + u11 * v22)) * sinT[n - nmin] / q;
     errorPropCurv(n, 4, 3) = (u11 * v21 + u12 * v22);
     errorPropCurv(n, 4, 4) = (v11 * v21 + v12 * v22 + v13 * v23);
 
-  }//end loop over n
+  }  //end loop over n
 
 //debug = true;
 #ifdef DEBUG
-    for (int n = nmin; n < nmax; ++n) {
-      if (debug && g_debug && n < N_proc) {
-        dmutex_guard;
-        std::cout << n << ": errorPropCurv" << std::endl;
-        printf("%5f %5f %5f %5f %5f\n",
-               errorPropCurv(n, 0, 0),
-               errorPropCurv(n, 0, 1),
-               errorPropCurv(n, 0, 2),
-               errorPropCurv(n, 0, 3),
-               errorPropCurv(n, 0, 4));
-        printf("%5f %5f %5f %5f %5f\n",
-               errorPropCurv(n, 1, 0),
-               errorPropCurv(n, 1, 1),
-               errorPropCurv(n, 1, 2),
-               errorPropCurv(n, 1, 3),
-               errorPropCurv(n, 1, 4));
-        printf("%5f %5f %5f %5f %5f\n",
-               errorPropCurv(n, 2, 0),
-               errorPropCurv(n, 2, 1),
-               errorPropCurv(n, 2, 2),
-               errorPropCurv(n, 2, 3),
-               errorPropCurv(n, 2, 4));
-        printf("%5f %5f %5f %5f %5f\n",
-               errorPropCurv(n, 3, 0),
-               errorPropCurv(n, 3, 1),
-               errorPropCurv(n, 3, 2),
-               errorPropCurv(n, 3, 3),
-               errorPropCurv(n, 3, 4));
-        printf("%5f %5f %5f %5f %5f\n",
-               errorPropCurv(n, 4, 0),
-               errorPropCurv(n, 4, 1),
-               errorPropCurv(n, 4, 2),
-               errorPropCurv(n, 4, 3),
-               errorPropCurv(n, 4, 4));
-        printf("\n");
-      }
+  for (int n = nmin; n < nmax; ++n) {
+    if (debug && g_debug && n < N_proc) {
+      dmutex_guard;
+      std::cout << n << ": errorPropCurv" << std::endl;
+      printf("%5f %5f %5f %5f %5f\n",
+             errorPropCurv(n, 0, 0),
+             errorPropCurv(n, 0, 1),
+             errorPropCurv(n, 0, 2),
+             errorPropCurv(n, 0, 3),
+             errorPropCurv(n, 0, 4));
+      printf("%5f %5f %5f %5f %5f\n",
+             errorPropCurv(n, 1, 0),
+             errorPropCurv(n, 1, 1),
+             errorPropCurv(n, 1, 2),
+             errorPropCurv(n, 1, 3),
+             errorPropCurv(n, 1, 4));
+      printf("%5f %5f %5f %5f %5f\n",
+             errorPropCurv(n, 2, 0),
+             errorPropCurv(n, 2, 1),
+             errorPropCurv(n, 2, 2),
+             errorPropCurv(n, 2, 3),
+             errorPropCurv(n, 2, 4));
+      printf("%5f %5f %5f %5f %5f\n",
+             errorPropCurv(n, 3, 0),
+             errorPropCurv(n, 3, 1),
+             errorPropCurv(n, 3, 2),
+             errorPropCurv(n, 3, 3),
+             errorPropCurv(n, 3, 4));
+      printf("%5f %5f %5f %5f %5f\n",
+             errorPropCurv(n, 4, 0),
+             errorPropCurv(n, 4, 1),
+             errorPropCurv(n, 4, 2),
+             errorPropCurv(n, 4, 3),
+             errorPropCurv(n, 4, 4));
+      printf("\n");
     }
+  }
 #endif
 
   //now we need jacobians to convert to/from curvilinear and CCS
   // code from TrackState::jacobianCCSToCurvilinear
-  MPlex56  jacCCS2Curv;
+  MPlex56 jacCCS2Curv;
   for (int n = nmin; n < nmax; ++n) {
-    for (int ii=0;ii<5;ii++) {
-      for (int jj=0;jj<6;jj++) {
+    for (int ii = 0; ii < 5; ii++) {
+      for (int jj = 0; jj < 6; jj++) {
         jacCCS2Curv(n, ii, jj) = 0.f;
       }
     }
@@ -240,10 +254,10 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
   }
 
   // code from TrackState::jacobianCurvilinearToCCS
-  MPlex65  jacCurv2CCS;
+  MPlex65 jacCurv2CCS;
   for (int n = nmin; n < nmax; ++n) {
-    for (int ii=0;ii<6;ii++) {
-      for (int jj=0;jj<5;jj++) {
+    for (int ii = 0; ii < 6; ii++) {
+      for (int jj = 0; jj < 5; jj++) {
         jacCurv2CCS(n, ii, jj) = 0.f;
       }
     }
@@ -263,29 +277,37 @@ static inline void parsAndErrPropFromPathL_impl(const Tf& __restrict__ inPar,
   Matriplex::MPlex<float, 6, 5, NN> tmp;
   Matriplex::multiplyGeneral(jacCurv2CCS, errorPropCurv, tmp);
   Matriplex::multiplyGeneral(tmp, jacCCS2Curv, errorProp);
-
 }
 
-
 // from P.Avery's notes (http://www.phys.ufl.edu/~avery/fitting/transport.pdf eq. 5)
-inline float getS(float delta0, float delta1, float delta2,
-                  float eta0, float eta1, float eta2,
-	          float sinP, float cosP, float sinT, float cosT,
-	          float pt, int q, float kinv) {
-  float A = delta0*eta0 + delta1*eta1 + delta2*eta2;
-  float ip = sinT/pt;
-  float p0[3] = {pt*cosP,pt*sinP,cosT/ip};
-  float B = (p0[0]*eta0 + p0[1]*eta1 + p0[2]*eta2) * ip;
-  float rho = kinv*ip;
-  float C = (eta0*p0[1] - eta1*p0[0]) * rho * 0.5f * ip;
-  float sqb2m4ac = std::sqrt( B*B - 4.f*A*C );
-  float s1 = (-B + sqb2m4ac)*0.5f/C;
-  float s2 = (-B - sqb2m4ac)*0.5f/C;
+inline float getS(float delta0,
+                  float delta1,
+                  float delta2,
+                  float eta0,
+                  float eta1,
+                  float eta2,
+                  float sinP,
+                  float cosP,
+                  float sinT,
+                  float cosT,
+                  float pt,
+                  int q,
+                  float kinv) {
+  float A = delta0 * eta0 + delta1 * eta1 + delta2 * eta2;
+  float ip = sinT / pt;
+  float p0[3] = {pt * cosP, pt * sinP, cosT / ip};
+  float B = (p0[0] * eta0 + p0[1] * eta1 + p0[2] * eta2) * ip;
+  float rho = kinv * ip;
+  float C = (eta0 * p0[1] - eta1 * p0[0]) * rho * 0.5f * ip;
+  float sqb2m4ac = std::sqrt(B * B - 4.f * A * C);
+  float s1 = (-B + sqb2m4ac) * 0.5f / C;
+  float s2 = (-B - sqb2m4ac) * 0.5f / C;
 #ifdef DEBUG
-  if (debug) std::cout << "A=" << A << " B=" << B << " C=" << C << " s1=" << s1 << " s2=" << s2 << std::endl;
+  if (debug)
+    std::cout << "A=" << A << " B=" << B << " C=" << C << " s1=" << s1 << " s2=" << s2 << std::endl;
 #endif
   //take the closest
-  return ( std::abs(s1)>std::abs(s2) ? s2 : s1);
+  return (std::abs(s1) > std::abs(s2) ? s2 : s1);
 }
 
 template <typename Tf, typename Ti, typename TfLL1, typename Tf11, typename TfLLL, typename Tf1>
@@ -293,7 +315,7 @@ static inline void helixAtPlane_impl(const Tf& __restrict__ inPar,
                                      const Ti& __restrict__ inChg,
                                      const Tf11& __restrict__ plPnt,
                                      const Tf11& __restrict__ plNrm,
-				     Tf1& __restrict__ s,
+                                     Tf1& __restrict__ s,
                                      TfLL1& __restrict__ outPar,
                                      TfLLL& __restrict__ errorProp,
                                      Ti& __restrict__ outFailFlag,  // expected to be initialized to 0
@@ -305,7 +327,8 @@ static inline void helixAtPlane_impl(const Tf& __restrict__ inPar,
   if (pf.use_param_b_field) {
 #pragma omp simd
     for (int n = nmin; n < nmax; ++n) {
-      kinv[n - nmin] = inChg(n, 0, 0) * 0.01f * (-Const::sol * Config::bFieldFromZR(inPar(n, 2, 0), hipo(inPar(n, 0, 0), inPar(n, 1, 0)) ) );
+      kinv[n - nmin] = inChg(n, 0, 0) * 0.01f *
+                       (-Const::sol * Config::bFieldFromZR(inPar(n, 2, 0), hipo(inPar(n, 0, 0), inPar(n, 1, 0))));
     }
   } else {
 #pragma omp simd
@@ -319,58 +342,80 @@ static inline void helixAtPlane_impl(const Tf& __restrict__ inPar,
   float delta2[nmax - nmin];
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    delta0[n - nmin] = inPar(n,0,0)-plPnt(n,0,0);
-    delta1[n - nmin] = inPar(n,1,0)-plPnt(n,1,0);
-    delta2[n - nmin] = inPar(n,2,0)-plPnt(n,2,0);
+    delta0[n - nmin] = inPar(n, 0, 0) - plPnt(n, 0, 0);
+    delta1[n - nmin] = inPar(n, 1, 0) - plPnt(n, 1, 0);
+    delta2[n - nmin] = inPar(n, 2, 0) - plPnt(n, 2, 0);
   }
 
   float sinP[nmax - nmin];
   float cosP[nmax - nmin];
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    sinP[n - nmin] = std::sin(inPar(n,4,0));
-    cosP[n - nmin] = std::cos(inPar(n,4,0));
+    sinP[n - nmin] = std::sin(inPar(n, 4, 0));
+    cosP[n - nmin] = std::cos(inPar(n, 4, 0));
   }
 
   //float s[nmax - nmin];
   //first iteration outside the loop
 #pragma omp simd
   for (int n = nmin; n < nmax; ++n) {
-    s[n - nmin] = (std::abs(plNrm(n,2,0))<1.f ? getS(delta0[n - nmin],delta1[n - nmin],delta2[n - nmin],plNrm(n,0,0), plNrm(n,1,0), plNrm(n,2,0), sinP[n - nmin], cosP[n - nmin],
-                                                     std::sin(inPar(n,5,0)), std::cos(inPar(n,5,0)), inPar(n,3,0), inChg(n,0,0), kinv[n - nmin])
-		                              : (plPnt.constAt(n, 2, 0) - inPar.constAt(n, 2, 0)) / std::cos(inPar.constAt(n, 5, 0)) );
+    s[n - nmin] = (std::abs(plNrm(n, 2, 0)) < 1.f
+                       ? getS(delta0[n - nmin],
+                              delta1[n - nmin],
+                              delta2[n - nmin],
+                              plNrm(n, 0, 0),
+                              plNrm(n, 1, 0),
+                              plNrm(n, 2, 0),
+                              sinP[n - nmin],
+                              cosP[n - nmin],
+                              std::sin(inPar(n, 5, 0)),
+                              std::cos(inPar(n, 5, 0)),
+                              inPar(n, 3, 0),
+                              inChg(n, 0, 0),
+                              kinv[n - nmin])
+                       : (plPnt.constAt(n, 2, 0) - inPar.constAt(n, 2, 0)) / std::cos(inPar.constAt(n, 5, 0)));
   }
 
   MPlexLV outParTmp;
 
-  CMS_UNROLL_LOOP_COUNT(Config::Niter-1)
-  for (int i = 0; i < Config::Niter-1; ++i) {
-
+  CMS_UNROLL_LOOP_COUNT(Config::Niter - 1)
+  for (int i = 0; i < Config::Niter - 1; ++i) {
     parsFromPathL_impl(inPar, outParTmp, kinv, s, nmin, nmax);
 
 #pragma omp simd
     for (int n = nmin; n < nmax; ++n) {
-      delta0[n - nmin] = outParTmp(n,0,0)-plPnt(n,0,0);
-      delta1[n - nmin] = outParTmp(n,1,0)-plPnt(n,1,0);
-      delta2[n - nmin] = outParTmp(n,2,0)-plPnt(n,2,0);
+      delta0[n - nmin] = outParTmp(n, 0, 0) - plPnt(n, 0, 0);
+      delta1[n - nmin] = outParTmp(n, 1, 0) - plPnt(n, 1, 0);
+      delta2[n - nmin] = outParTmp(n, 2, 0) - plPnt(n, 2, 0);
     }
 
 #pragma omp simd
     for (int n = nmin; n < nmax; ++n) {
-      sinP[n - nmin] = std::sin(outParTmp(n,4,0));
-      cosP[n - nmin] = std::cos(outParTmp(n,4,0));
+      sinP[n - nmin] = std::sin(outParTmp(n, 4, 0));
+      cosP[n - nmin] = std::cos(outParTmp(n, 4, 0));
     }
 
 #pragma omp simd
     for (int n = nmin; n < nmax; ++n) {
-      s[n - nmin] += (std::abs(plNrm(n,2,0))<1.f ? getS(delta0[n - nmin],delta1[n - nmin],delta2[n - nmin],plNrm(n,0,0), plNrm(n,1,0), plNrm(n,2,0), sinP[n - nmin], cosP[n - nmin],
-                                                        std::sin(inPar(n,5,0)), std::cos(inPar(n,5,0)), inPar(n,3,0), inChg(n,0,0), kinv[n - nmin])
-                                                 : (plPnt.constAt(n, 2, 0) - outParTmp.constAt(n, 2, 0)) / std::cos(outParTmp.constAt(n, 5, 0)) );
+      s[n - nmin] += (std::abs(plNrm(n, 2, 0)) < 1.f ? getS(delta0[n - nmin],
+                                                            delta1[n - nmin],
+                                                            delta2[n - nmin],
+                                                            plNrm(n, 0, 0),
+                                                            plNrm(n, 1, 0),
+                                                            plNrm(n, 2, 0),
+                                                            sinP[n - nmin],
+                                                            cosP[n - nmin],
+                                                            std::sin(inPar(n, 5, 0)),
+                                                            std::cos(inPar(n, 5, 0)),
+                                                            inPar(n, 3, 0),
+                                                            inChg(n, 0, 0),
+                                                            kinv[n - nmin])
+                                                     : (plPnt.constAt(n, 2, 0) - outParTmp.constAt(n, 2, 0)) /
+                                                           std::cos(outParTmp.constAt(n, 5, 0)));
     }
-  }//end Niter-1
+  }  //end Niter-1
   //std::cout << "s=" << s[0] << std::endl;
   parsAndErrPropFromPathL_impl(inPar, inChg, outPar, kinv, s, errorProp, nmin, nmax, N_proc, pf);
-
 }
 
 /*
@@ -733,7 +778,7 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
     //dprint(std::endl);
   }
 
-//debug = true;
+  //debug = true;
   for (int n = nmin; n < nmax; ++n) {
     dprint_np(n,
               "input parameters"
@@ -1122,11 +1167,12 @@ static inline void helixAtRFromIterativeCCS_impl(const Tf& __restrict__ inPar,
   for (int n = nmin; n < nmax; ++n) {
     dprint_np(n,
               "propagation end, dump parameters\n"
-                  << "   D = " << D[n - nmin] << " alpha = " << alpha[n - nmin] << " kinv = " << kinv[n - nmin] << std::endl
+                  << "   D = " << D[n - nmin] << " alpha = " << alpha[n - nmin] << " kinv = " << kinv[n - nmin]
+                  << std::endl
                   << "   pos = " << outPar(n, 0, 0) << " " << outPar(n, 1, 0) << " " << outPar(n, 2, 0) << "\t\t r="
                   << std::sqrt(outPar(n, 0, 0) * outPar(n, 0, 0) + outPar(n, 1, 0) * outPar(n, 1, 0)) << std::endl
                   << "   mom = " << outPar(n, 3, 0) << " " << outPar(n, 4, 0) << " " << outPar(n, 5, 0) << std::endl
-		  << "   cart= " << std::cos(outPar(n, 4, 0)) / outPar(n, 3, 0) << " "
+                  << "   cart= " << std::cos(outPar(n, 4, 0)) / outPar(n, 3, 0) << " "
                   << std::sin(outPar(n, 4, 0)) / outPar(n, 3, 0) << " " << 1. / (outPar(n, 3, 0) * tan(outPar(n, 5, 0)))
                   << "\t\tpT=" << 1. / std::abs(outPar(n, 3, 0)) << std::endl);
   }

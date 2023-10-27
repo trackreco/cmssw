@@ -579,9 +579,9 @@ namespace mkfit {
       MPlexHV plNrm;
 #pragma omp simd
       for (int n = 0; n < NN; ++n) {
-	plNrm(n, 0, 0) = std::cos(outPar.constAt(n, 4, 0));
-	plNrm(n, 1, 0) = std::sin(outPar.constAt(n, 4, 0));
-	plNrm(n, 2, 0) = 0.f;
+        plNrm(n, 0, 0) = std::cos(outPar.constAt(n, 4, 0));
+        plNrm(n, 1, 0) = std::sin(outPar.constAt(n, 4, 0));
+        plNrm(n, 2, 0) = 0.f;
       }
       applyMaterialEffects(hitsRl, hitsXi, propSign, plNrm, outErr, outPar, N_proc);
     }
@@ -642,7 +642,7 @@ namespace mkfit {
       for (int kk = 0; kk < N_proc; ++kk) {
         dprintf("inPar %d\n", kk);
         for (int i = 0; i < 6; ++i) {
-            dprintf("%8f ", inPar.constAt(kk, i, 0));
+          dprintf("%8f ", inPar.constAt(kk, i, 0));
         }
         dprintf("\n");
 
@@ -712,33 +712,33 @@ namespace mkfit {
       MPlexHV plNrm;
 #pragma omp simd
       for (int n = 0; n < NN; ++n) {
-	plNrm(n, 0, 0) = 0.f;
-	plNrm(n, 1, 0) = 0.f;
-	plNrm(n, 2, 0) = 1.f;
+        plNrm(n, 0, 0) = 0.f;
+        plNrm(n, 1, 0) = 0.f;
+        plNrm(n, 2, 0) = 1.f;
       }
       applyMaterialEffects(hitsRl, hitsXi, propSign, plNrm, outErr, outPar, N_proc);
 #ifdef DEBUG
-    if (debug && g_debug) {
-      for (int kk = 0; kk < N_proc; ++kk) {
-        dprintf("propSign %d\n", kk);
-        for (int i = 0; i < 1; ++i) {
-	  dprintf("%8f ", propSign.constAt(kk, i, 0));
-        }
-        dprintf("\n");
-        dprintf("plNrm %d\n", kk);
-        for (int i = 0; i < 3; ++i) {
-	  dprintf("%8f ", plNrm.constAt(kk, i, 0));
-        }
-        dprintf("\n");
-        dprintf("outErr(after material) %d\n", kk);
-        for (int i = 0; i < 6; ++i) {
-          for (int j = 0; j < 6; ++j)
-            dprintf("%8f ", outErr.constAt(kk, i, j));
+      if (debug && g_debug) {
+        for (int kk = 0; kk < N_proc; ++kk) {
+          dprintf("propSign %d\n", kk);
+          for (int i = 0; i < 1; ++i) {
+            dprintf("%8f ", propSign.constAt(kk, i, 0));
+          }
+          dprintf("\n");
+          dprintf("plNrm %d\n", kk);
+          for (int i = 0; i < 3; ++i) {
+            dprintf("%8f ", plNrm.constAt(kk, i, 0));
+          }
+          dprintf("\n");
+          dprintf("outErr(after material) %d\n", kk);
+          for (int i = 0; i < 6; ++i) {
+            for (int j = 0; j < 6; ++j)
+              dprintf("%8f ", outErr.constAt(kk, i, j));
+            dprintf("\n");
+          }
           dprintf("\n");
         }
-        dprintf("\n");
       }
-    }
 #endif
     }
 
@@ -827,18 +827,18 @@ namespace mkfit {
     }
 #pragma omp simd
     for (int n = 0; n < NN; ++n) {
-      dprint_np(
-          n,
-          "propagation start, dump parameters"
-              << std::endl
-              << "pos = " << inPar.constAt(n, 0, 0) << " " << inPar.constAt(n, 1, 0) << " " << inPar.constAt(n, 2, 0) << std::endl
-              << "mom (cart) = " << std::cos(inPar.constAt(n, 4, 0)) / inPar.constAt(n, 3, 0) << " "
-              << std::sin(inPar.constAt(n, 4, 0)) / inPar.constAt(n, 3, 0) << " "
-              << 1. / (inPar.constAt(n, 3, 0) * tan(inPar.constAt(n, 5, 0)))
-              << " r=" << std::sqrt(inPar.constAt(n, 0, 0) * inPar.constAt(n, 0, 0) + inPar.constAt(n, 1, 0) * inPar.constAt(n, 1, 0))
-              << " pT=" << 1. / std::abs(inPar.constAt(n, 3, 0))
-              << " q=" << inChg.constAt(n, 0, 0) << " targetZ=" << msZ.constAt(n, 0, 0)
-	      << std::endl);
+      dprint_np(n,
+                "propagation start, dump parameters"
+                    << std::endl
+                    << "pos = " << inPar.constAt(n, 0, 0) << " " << inPar.constAt(n, 1, 0) << " "
+                    << inPar.constAt(n, 2, 0) << std::endl
+                    << "mom (cart) = " << std::cos(inPar.constAt(n, 4, 0)) / inPar.constAt(n, 3, 0) << " "
+                    << std::sin(inPar.constAt(n, 4, 0)) / inPar.constAt(n, 3, 0) << " "
+                    << 1. / (inPar.constAt(n, 3, 0) * tan(inPar.constAt(n, 5, 0))) << " r="
+                    << std::sqrt(inPar.constAt(n, 0, 0) * inPar.constAt(n, 0, 0) +
+                                 inPar.constAt(n, 1, 0) * inPar.constAt(n, 1, 0))
+                    << " pT=" << 1. / std::abs(inPar.constAt(n, 3, 0)) << " q=" << inChg.constAt(n, 0, 0)
+                    << " targetZ=" << msZ.constAt(n, 0, 0) << std::endl);
     }
 
     float pt[NN];
@@ -940,13 +940,14 @@ namespace mkfit {
 #pragma omp simd
     for (int n = 0; n < NN; ++n) {
       dprint_np(n,
-		"propagation to Z end (OLD), dump parameters\n"
-                  << "   pos = " << outPar(n, 0, 0) << " " << outPar(n, 1, 0) << " " << outPar(n, 2, 0) << "\t\t r="
-                  << std::sqrt(outPar(n, 0, 0) * outPar(n, 0, 0) + outPar(n, 1, 0) * outPar(n, 1, 0)) << std::endl
-                  << "   mom = " << outPar(n, 3, 0) << " " << outPar(n, 4, 0) << " " << outPar(n, 5, 0) << std::endl
-		  << " cart= " << std::cos(outPar(n, 4, 0)) / outPar(n, 3, 0) << " "
-                  << std::sin(outPar(n, 4, 0)) / outPar(n, 3, 0) << " " << 1. / (outPar(n, 3, 0) * tan(outPar(n, 5, 0)))
-                  << "\t\tpT=" << 1. / std::abs(outPar(n, 3, 0)) << std::endl);
+                "propagation to Z end (OLD), dump parameters\n"
+                    << "   pos = " << outPar(n, 0, 0) << " " << outPar(n, 1, 0) << " " << outPar(n, 2, 0) << "\t\t r="
+                    << std::sqrt(outPar(n, 0, 0) * outPar(n, 0, 0) + outPar(n, 1, 0) * outPar(n, 1, 0)) << std::endl
+                    << "   mom = " << outPar(n, 3, 0) << " " << outPar(n, 4, 0) << " " << outPar(n, 5, 0) << std::endl
+                    << " cart= " << std::cos(outPar(n, 4, 0)) / outPar(n, 3, 0) << " "
+                    << std::sin(outPar(n, 4, 0)) / outPar(n, 3, 0) << " "
+                    << 1. / (outPar(n, 3, 0) * tan(outPar(n, 5, 0))) << "\t\tpT=" << 1. / std::abs(outPar(n, 3, 0))
+                    << std::endl);
     }
 
     float pxcaMpysa[NN];
@@ -1094,16 +1095,16 @@ namespace mkfit {
   }
 
   void propagateHelixToPlaneMPlex(const MPlexLS& inErr,
-				  const MPlexLV& inPar,
-				  const MPlexQI& inChg,
-				  const MPlexHV& plPnt,
-				  const MPlexHV& plNrm,
-				  MPlexLS& outErr,
-				  MPlexLV& outPar,
-				  MPlexQI& outFailFlag,
-				  const int N_proc,
-				  const PropagationFlags& pflags,
-				  const MPlexQI* noMatEffPtr) {
+                                  const MPlexLV& inPar,
+                                  const MPlexQI& inChg,
+                                  const MPlexHV& plPnt,
+                                  const MPlexHV& plNrm,
+                                  MPlexLS& outErr,
+                                  MPlexLV& outPar,
+                                  MPlexQI& outFailFlag,
+                                  const int N_proc,
+                                  const PropagationFlags& pflags,
+                                  const MPlexQI* noMatEffPtr) {
     // debug = true;
 
     outErr = inErr;
@@ -1115,15 +1116,16 @@ namespace mkfit {
     helixAtPlane(inPar, inChg, plPnt, plNrm, pathL, outPar, errorProp, outFailFlag, N_proc, pflags);
 
     for (int n = 0; n < NN; ++n) {
-      dprint_np(n,
-		"propagation to plane end, dump parameters\n"
-		//<< "   D = " << s[n] << " alpha = " << s[n] * std::sin(inPar(n, 5, 0)) * inPar(n, 3, 0) * kinv[n] << " kinv = " << kinv[n] << std::endl
-		<< "   pos = " << outPar(n, 0, 0) << " " << outPar(n, 1, 0) << " " << outPar(n, 2, 0) << "\t\t r="
-		<< std::sqrt(outPar(n, 0, 0) * outPar(n, 0, 0) + outPar(n, 1, 0) * outPar(n, 1, 0)) << std::endl
-		<< "   mom = " << outPar(n, 3, 0) << " " << outPar(n, 4, 0) << " " << outPar(n, 5, 0) << std::endl
-		<< " cart= " << std::cos(outPar(n, 4, 0)) / outPar(n, 3, 0) << " "
-		<< std::sin(outPar(n, 4, 0)) / outPar(n, 3, 0) << " " << 1. / (outPar(n, 3, 0) * tan(outPar(n, 5, 0)))
-		<< "\t\tpT=" << 1. / std::abs(outPar(n, 3, 0)) << std::endl);
+      dprint_np(
+          n,
+          "propagation to plane end, dump parameters\n"
+              //<< "   D = " << s[n] << " alpha = " << s[n] * std::sin(inPar(n, 5, 0)) * inPar(n, 3, 0) * kinv[n] << " kinv = " << kinv[n] << std::endl
+              << "   pos = " << outPar(n, 0, 0) << " " << outPar(n, 1, 0) << " " << outPar(n, 2, 0) << "\t\t r="
+              << std::sqrt(outPar(n, 0, 0) * outPar(n, 0, 0) + outPar(n, 1, 0) * outPar(n, 1, 0)) << std::endl
+              << "   mom = " << outPar(n, 3, 0) << " " << outPar(n, 4, 0) << " " << outPar(n, 5, 0) << std::endl
+              << " cart= " << std::cos(outPar(n, 4, 0)) / outPar(n, 3, 0) << " "
+              << std::sin(outPar(n, 4, 0)) / outPar(n, 3, 0) << " " << 1. / (outPar(n, 3, 0) * tan(outPar(n, 5, 0)))
+              << "\t\tpT=" << 1. / std::abs(outPar(n, 3, 0)) << std::endl);
     }
 
 #ifdef DEBUG
@@ -1131,7 +1133,7 @@ namespace mkfit {
       for (int kk = 0; kk < N_proc; ++kk) {
         dprintf("inPar %d\n", kk);
         for (int i = 0; i < 6; ++i) {
-            dprintf("%8f ", inPar.constAt(kk, i, 0));
+          dprintf("%8f ", inPar.constAt(kk, i, 0));
         }
         dprintf("\n");
         dprintf("inErr %d\n", kk);
@@ -1142,19 +1144,19 @@ namespace mkfit {
         }
         dprintf("\n");
 
-	for (int kk = 0; kk < N_proc; ++kk) {
-	  dprintf("plNrm %d\n", kk);
-	  for (int j = 0; j < 3; ++j)
+        for (int kk = 0; kk < N_proc; ++kk) {
+          dprintf("plNrm %d\n", kk);
+          for (int j = 0; j < 3; ++j)
             dprintf("%8f ", plNrm.constAt(kk, 0, j));
-	}
-	dprintf("\n");
+        }
+        dprintf("\n");
 
-	for (int kk = 0; kk < N_proc; ++kk) {
-	  dprintf("pathL %d\n", kk);
-	  for (int j = 0; j < 1; ++j)
+        for (int kk = 0; kk < N_proc; ++kk) {
+          dprintf("pathL %d\n", kk);
+          for (int j = 0; j < 1; ++j)
             dprintf("%8f ", pathL.constAt(kk, 0, j));
-	}
-	dprintf("\n");
+        }
+        dprintf("\n");
 
         dprintf("errorProp %d\n", kk);
         for (int i = 0; i < 6; ++i) {
@@ -1205,31 +1207,31 @@ namespace mkfit {
           hitsRl(n, 0, 0) = mat.radl;
           hitsXi(n, 0, 0) = mat.bbxi;
         }
-        propSign(n, 0, 0) = ( pathL(n, 0, 0) > 0.f ? 1.f : -1.f );
+        propSign(n, 0, 0) = (pathL(n, 0, 0) > 0.f ? 1.f : -1.f);
       }
       applyMaterialEffects(hitsRl, hitsXi, propSign, plNrm, outErr, outPar, N_proc);
 #ifdef DEBUG
-    if (debug && g_debug) {
-      for (int kk = 0; kk < N_proc; ++kk) {
-        dprintf("propSign %d\n", kk);
-        for (int i = 0; i < 1; ++i) {
-	  dprintf("%8f ", propSign.constAt(kk, i, 0));
-        }
-        dprintf("\n");
-        dprintf("plNrm %d\n", kk);
-        for (int i = 0; i < 3; ++i) {
-	  dprintf("%8f ", plNrm.constAt(kk, i, 0));
-        }
-        dprintf("\n");
-        dprintf("outErr(after material) %d\n", kk);
-        for (int i = 0; i < 6; ++i) {
-          for (int j = 0; j < 6; ++j)
-            dprintf("%8f ", outErr.constAt(kk, i, j));
+      if (debug && g_debug) {
+        for (int kk = 0; kk < N_proc; ++kk) {
+          dprintf("propSign %d\n", kk);
+          for (int i = 0; i < 1; ++i) {
+            dprintf("%8f ", propSign.constAt(kk, i, 0));
+          }
+          dprintf("\n");
+          dprintf("plNrm %d\n", kk);
+          for (int i = 0; i < 3; ++i) {
+            dprintf("%8f ", plNrm.constAt(kk, i, 0));
+          }
+          dprintf("\n");
+          dprintf("outErr(after material) %d\n", kk);
+          for (int i = 0; i < 6; ++i) {
+            for (int j = 0; j < 6; ++j)
+              dprintf("%8f ", outErr.constAt(kk, i, j));
+            dprintf("\n");
+          }
           dprintf("\n");
         }
-        dprintf("\n");
       }
-    }
 #endif
     }
 
@@ -1279,7 +1281,7 @@ namespace mkfit {
   void applyMaterialEffects(const MPlexQF& hitsRl,
                             const MPlexQF& hitsXi,
                             const MPlexQF& propSign,
-			                      const MPlexHV& plNrm,
+                            const MPlexHV& plNrm,
                             MPlexLS& outErr,
                             MPlexLV& outPar,
                             const int N_proc) {
@@ -1301,7 +1303,9 @@ namespace mkfit {
       const float beta2 = p2 / (p2 + mpi2);
       const float beta = std::sqrt(beta2);
       //radiation lenght, corrected for the crossing angle (cos alpha from dot product of radius vector and momentum)
-      const float invCos = p / std::abs( pt * std::cos(outPar.constAt(n, 4, 0)) * plNrm.constAt(n, 0, 0) +  pt * std::sin(outPar.constAt(n, 4, 0))* plNrm.constAt(n, 1, 0) + pz * plNrm.constAt(n, 2, 0) );
+      const float invCos =
+          p / std::abs(pt * std::cos(outPar.constAt(n, 4, 0)) * plNrm.constAt(n, 0, 0) +
+                       pt * std::sin(outPar.constAt(n, 4, 0)) * plNrm.constAt(n, 1, 0) + pz * plNrm.constAt(n, 2, 0));
       radL = radL * invCos;  //fixme works only for barrel geom
       // multiple scattering
       //vary independently phi and theta by the rms of the planar multiple scattering angle

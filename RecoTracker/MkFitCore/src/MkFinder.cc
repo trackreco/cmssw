@@ -189,7 +189,8 @@ namespace mkfit {
     }
   }
 
-  void MkFinder::packModuleNormDir(const LayerOfHits &layer_of_hits, int hit_cnt, MPlexHV &norm, MPlexHV &dir, int N_proc) const {
+  void MkFinder::packModuleNormDir(
+      const LayerOfHits &layer_of_hits, int hit_cnt, MPlexHV &norm, MPlexHV &dir, int N_proc) const {
     for (int itrack = 0; itrack < N_proc; ++itrack) {
       if (hit_cnt < m_XHitSize[itrack]) {
         const auto &hit = layer_of_hits.refHit(m_XHitArr.constAt(itrack, hit_cnt, 0));
@@ -980,17 +981,18 @@ namespace mkfit {
         MPlexHV norm, dir;
         packModuleNormDir(layer_of_hits, hit_cnt, norm, dir, N_proc);
         kalmanPropagateAndComputeChi2Plane(m_Err[iP],
-                                     m_Par[iP],
-                                     m_Chg,
-                                     m_msErr,
-                                     m_msPar,
-                                     norm, dir,
-                                     outChi2,
-                                     propPar,
-                                     m_FailFlag,
-                                     N_proc,
-                                     m_prop_config->finding_intra_layer_pflags,
-                                     m_prop_config->finding_requires_propagation_to_hit_pos);
+                                           m_Par[iP],
+                                           m_Chg,
+                                           m_msErr,
+                                           m_msPar,
+                                           norm,
+                                           dir,
+                                           outChi2,
+                                           propPar,
+                                           m_FailFlag,
+                                           N_proc,
+                                           m_prop_config->finding_intra_layer_pflags,
+                                           m_prop_config->finding_requires_propagation_to_hit_pos);
       } else {
         (*fnd_foos.m_compute_chi2_foo)(m_Err[iP],
                                        m_Par[iP],
@@ -1246,17 +1248,18 @@ namespace mkfit {
         MPlexHV norm, dir;
         packModuleNormDir(layer_of_hits, hit_cnt, norm, dir, N_proc);
         kalmanPropagateAndComputeChi2Plane(m_Err[iP],
-                                     m_Par[iP],
-                                     m_Chg,
-                                     m_msErr,
-                                     m_msPar,
-                                     norm, dir,
-                                     outChi2,
-                                     propPar,
-                                     m_FailFlag,
-                                     N_proc,
-                                     m_prop_config->finding_intra_layer_pflags,
-                                     m_prop_config->finding_requires_propagation_to_hit_pos);
+                                           m_Par[iP],
+                                           m_Chg,
+                                           m_msErr,
+                                           m_msPar,
+                                           norm,
+                                           dir,
+                                           outChi2,
+                                           propPar,
+                                           m_FailFlag,
+                                           N_proc,
+                                           m_prop_config->finding_intra_layer_pflags,
+                                           m_prop_config->finding_requires_propagation_to_hit_pos);
       } else {
         (*fnd_foos.m_compute_chi2_foo)(m_Err[iP],
                                        m_Par[iP],
@@ -1421,17 +1424,18 @@ namespace mkfit {
       MPlexHV norm, dir;
       packModuleNormDir(layer_of_hits, 0, norm, dir, N_proc);
       kalmanPropagateAndUpdatePlane(m_Err[iP],
-                                   m_Par[iP],
-                                   m_Chg,
-                                   m_msErr,
-                                   m_msPar,
-                                   norm, dir,
-                                   m_Err[iC],
-                                   m_Par[iC],
-                                   m_FailFlag,
-                                   N_proc,
-                                   m_prop_config->finding_inter_layer_pflags,
-                                   m_prop_config->finding_requires_propagation_to_hit_pos);
+                                    m_Par[iP],
+                                    m_Chg,
+                                    m_msErr,
+                                    m_msPar,
+                                    norm,
+                                    dir,
+                                    m_Err[iC],
+                                    m_Par[iC],
+                                    m_FailFlag,
+                                    N_proc,
+                                    m_prop_config->finding_inter_layer_pflags,
+                                    m_prop_config->finding_requires_propagation_to_hit_pos);
     } else {
       (*fnd_foos.m_update_param_foo)(m_Err[iP],
                                      m_Par[iP],

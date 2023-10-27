@@ -236,7 +236,6 @@ namespace {
     RotateResidualsOnTangentPlane_impl(R00, R01, A, B, 0, NN);
   }
 
-
   //==============================================================================
 
   inline void ProjectResErr(const MPlex2H& A, const MPlexHS& B, MPlex2H& C) {
@@ -301,10 +300,9 @@ namespace {
   }
 
   inline void RotateResidualsOnPlane(const MPlex2H& R,  //prj
-				     const MPlexHV& A,  //res_glo
-				     MPlex2V& B)        //res_loc
+                                     const MPlexHV& A,  //res_glo
+                                     MPlex2V& B)        //res_loc
   {
-
     // typedef float T;
     // const idx_t N = NN;
 
@@ -572,16 +570,16 @@ namespace {
 
 #pragma omp simd
     for (int n = 0; n < NN; ++n) {
-      C(n, 0, 0)  = A(n, 0, 0) * B(n, 0, 0) + A(n, 0, 1) * B(n, 1, 0);
-      C(n, 0, 1)  = A(n, 0, 0) * B(n, 0, 1) + A(n, 0, 1) * B(n, 1, 1);
-      C(n, 0, 2)  = A(n, 0, 0) * B(n, 0, 2) + A(n, 0, 1) * B(n, 1, 2);
-      C(n, 0, 3)  = 0;
-      C(n, 0, 4)  = 0;
-      C(n, 0, 5)  = 0;
-      C(n, 0, 6)  = A(n, 1, 0) * B(n, 0, 0) + A(n, 1, 1) * B(n, 1, 0);
-      C(n, 0, 7)  = A(n, 1, 0) * B(n, 0, 1) + A(n, 1, 1) * B(n, 1, 1);
-      C(n, 0, 8)  = A(n, 1, 0) * B(n, 0, 2) + A(n, 1, 1) * B(n, 1, 2);
-      C(n, 0, 9)  = 0;
+      C(n, 0, 0) = A(n, 0, 0) * B(n, 0, 0) + A(n, 0, 1) * B(n, 1, 0);
+      C(n, 0, 1) = A(n, 0, 0) * B(n, 0, 1) + A(n, 0, 1) * B(n, 1, 1);
+      C(n, 0, 2) = A(n, 0, 0) * B(n, 0, 2) + A(n, 0, 1) * B(n, 1, 2);
+      C(n, 0, 3) = 0;
+      C(n, 0, 4) = 0;
+      C(n, 0, 5) = 0;
+      C(n, 0, 6) = A(n, 1, 0) * B(n, 0, 0) + A(n, 1, 1) * B(n, 1, 0);
+      C(n, 0, 7) = A(n, 1, 0) * B(n, 0, 1) + A(n, 1, 1) * B(n, 1, 1);
+      C(n, 0, 8) = A(n, 1, 0) * B(n, 0, 2) + A(n, 1, 1) * B(n, 1, 2);
+      C(n, 0, 9) = 0;
       C(n, 0, 10) = 0;
       C(n, 0, 11) = 0;
       C(n, 0, 12) = A(n, 2, 0) * B(n, 0, 0) + A(n, 2, 1) * B(n, 1, 0);
@@ -609,7 +607,6 @@ namespace {
       C(n, 0, 34) = 0;
       C(n, 0, 35) = 0;
     }
-
   }
 
   inline void KHC(const MPlexLL& A, const MPlexLS& B, MPlexLS& C) {
@@ -869,19 +866,19 @@ namespace mkfit {
       dmutex_guard;
       printf("res_glo:\n");
       for (int i = 0; i < 3; ++i) {
-	printf("%8f ", res_glo.At(0, i, 0));
+        printf("%8f ", res_glo.At(0, i, 0));
       }
       printf("\n");
       printf("resErr_glo:\n");
       for (int i = 0; i < 3; ++i) {
-	for (int j = 0; j < 3; ++j)
-	  printf("%8f ", resErr_glo.At(0, i, j));
-	printf("\n");
+        for (int j = 0; j < 3; ++j)
+          printf("%8f ", resErr_glo.At(0, i, j));
+        printf("\n");
       }
       printf("\n");
       printf("res_loc:\n");
       for (int i = 0; i < 2; ++i) {
-	printf("%8f ", res_loc.At(0, i, 0));
+        printf("%8f ", res_loc.At(0, i, 0));
       }
       printf("\n");
       printf("tempHH:\n");
@@ -958,13 +955,13 @@ namespace mkfit {
             printf("%8f ", resErr_loc.At(0, i, j));
           printf("\n");
         }
-	printf("\n");
-	printf("tempHH:\n");
-	for (int i = 0; i < 3; ++i) {
-	  for (int j = 0; j < 3; ++j)
-	    printf("%8f ", tempHH.At(0, i, j));
-	  printf("\n");
-	}
+        printf("\n");
+        printf("tempHH:\n");
+        for (int i = 0; i < 3; ++i) {
+          for (int j = 0; j < 3; ++j)
+            printf("%8f ", tempHH.At(0, i, j));
+          printf("\n");
+        }
         printf("\n");
         printf("K:\n");
         for (int i = 0; i < 6; ++i) {
@@ -973,12 +970,12 @@ namespace mkfit {
           printf("\n");
         }
         printf("\n");
-	printf("tempLL:\n");
-	for (int i = 0; i < 6; ++i) {
-	  for (int j = 0; j < 6; ++j)
-	    printf("%8f ", tempLL.At(0, i, j));
-	  printf("\n");
-	}
+        printf("tempLL:\n");
+        for (int i = 0; i < 6; ++i) {
+          for (int j = 0; j < 6; ++j)
+            printf("%8f ", tempLL.At(0, i, j));
+          printf("\n");
+        }
         printf("\n");
         printf("outPar:\n");
         for (int i = 0; i < 6; ++i) {
@@ -1002,40 +999,59 @@ namespace mkfit {
   //==============================================================================
 
   void kalmanUpdatePlane(const MPlexLS& psErr,
-			 const MPlexLV& psPar,
-			 const MPlexHS& msErr,
-			 const MPlexHV& msPar,
-			 const MPlexHV& plNrm,
-			 const MPlexHV& plDir,
-			 MPlexLS& outErr,
-			 MPlexLV& outPar,
-			 const int N_proc) {
-    kalmanOperationPlane(KFO_Update_Params | KFO_Local_Cov, psErr, psPar, msErr, msPar, plNrm, plDir, outErr, outPar, dummy_chi2, N_proc);
+                         const MPlexLV& psPar,
+                         const MPlexHS& msErr,
+                         const MPlexHV& msPar,
+                         const MPlexHV& plNrm,
+                         const MPlexHV& plDir,
+                         MPlexLS& outErr,
+                         MPlexLV& outPar,
+                         const int N_proc) {
+    kalmanOperationPlane(
+        KFO_Update_Params | KFO_Local_Cov, psErr, psPar, msErr, msPar, plNrm, plDir, outErr, outPar, dummy_chi2, N_proc);
   }
 
   void kalmanPropagateAndUpdatePlane(const MPlexLS& psErr,
-				     const MPlexLV& psPar,
-				     MPlexQI& Chg,
-				     const MPlexHS& msErr,
-				     const MPlexHV& msPar,
-				     const MPlexHV& plNrm,
-				     const MPlexHV& plDir,
-				     MPlexLS& outErr,
-				     MPlexLV& outPar,
-				     MPlexQI& outFailFlag,
-				     const int N_proc,
-				     const PropagationFlags& propFlags,
-				     const bool propToHit) {
+                                     const MPlexLV& psPar,
+                                     MPlexQI& Chg,
+                                     const MPlexHS& msErr,
+                                     const MPlexHV& msPar,
+                                     const MPlexHV& plNrm,
+                                     const MPlexHV& plDir,
+                                     MPlexLS& outErr,
+                                     MPlexLV& outPar,
+                                     MPlexQI& outFailFlag,
+                                     const int N_proc,
+                                     const PropagationFlags& propFlags,
+                                     const bool propToHit) {
     if (propToHit) {
       MPlexLS propErr;
       MPlexLV propPar;
       propagateHelixToPlaneMPlex(psErr, psPar, Chg, msPar, plNrm, propErr, propPar, outFailFlag, N_proc, propFlags);
 
-      kalmanOperationPlane(
-			   KFO_Update_Params | KFO_Local_Cov, propErr, propPar, msErr, msPar, plNrm, plDir, outErr, outPar, dummy_chi2, N_proc);
+      kalmanOperationPlane(KFO_Update_Params | KFO_Local_Cov,
+                           propErr,
+                           propPar,
+                           msErr,
+                           msPar,
+                           plNrm,
+                           plDir,
+                           outErr,
+                           outPar,
+                           dummy_chi2,
+                           N_proc);
     } else {
-      kalmanOperationPlane(
-			   KFO_Update_Params | KFO_Local_Cov, psErr, psPar, msErr, msPar, plNrm, plDir, outErr, outPar, dummy_chi2, N_proc);
+      kalmanOperationPlane(KFO_Update_Params | KFO_Local_Cov,
+                           psErr,
+                           psPar,
+                           msErr,
+                           msPar,
+                           plNrm,
+                           plDir,
+                           outErr,
+                           outPar,
+                           dummy_chi2,
+                           N_proc);
     }
     for (int n = 0; n < NN; ++n) {
       if (outPar.At(n, 3, 0) < 0) {
@@ -1048,54 +1064,57 @@ namespace mkfit {
   //------------------------------------------------------------------------------
 
   void kalmanComputeChi2Plane(const MPlexLS& psErr,
-			      const MPlexLV& psPar,
-			      const MPlexQI& inChg,
-			      const MPlexHS& msErr,
-			      const MPlexHV& msPar,
-			      const MPlexHV& plNrm,
-			      const MPlexHV& plDir,
-			      MPlexQF& outChi2,
-			      const int N_proc) {
-    kalmanOperationPlane(KFO_Calculate_Chi2, psErr, psPar, msErr, msPar, plNrm, plDir, dummy_err, dummy_par, outChi2, N_proc);
+                              const MPlexLV& psPar,
+                              const MPlexQI& inChg,
+                              const MPlexHS& msErr,
+                              const MPlexHV& msPar,
+                              const MPlexHV& plNrm,
+                              const MPlexHV& plDir,
+                              MPlexQF& outChi2,
+                              const int N_proc) {
+    kalmanOperationPlane(
+        KFO_Calculate_Chi2, psErr, psPar, msErr, msPar, plNrm, plDir, dummy_err, dummy_par, outChi2, N_proc);
   }
 
   void kalmanPropagateAndComputeChi2Plane(const MPlexLS& psErr,
-					  const MPlexLV& psPar,
-					  const MPlexQI& inChg,
-					  const MPlexHS& msErr,
-					  const MPlexHV& msPar,
-					  const MPlexHV& plNrm,
-					  const MPlexHV& plDir,
-					  MPlexQF& outChi2,
-					  MPlexLV& propPar,
-					  MPlexQI& outFailFlag,
-					  const int N_proc,
-					  const PropagationFlags& propFlags,
-					  const bool propToHit) {
+                                          const MPlexLV& psPar,
+                                          const MPlexQI& inChg,
+                                          const MPlexHS& msErr,
+                                          const MPlexHV& msPar,
+                                          const MPlexHV& plNrm,
+                                          const MPlexHV& plDir,
+                                          MPlexQF& outChi2,
+                                          MPlexLV& propPar,
+                                          MPlexQI& outFailFlag,
+                                          const int N_proc,
+                                          const PropagationFlags& propFlags,
+                                          const bool propToHit) {
     propPar = psPar;
     if (propToHit) {
       MPlexLS propErr;
       propagateHelixToPlaneMPlex(psErr, psPar, inChg, msPar, plNrm, propErr, propPar, outFailFlag, N_proc, propFlags);
 
-      kalmanOperationPlane(KFO_Calculate_Chi2, propErr, propPar, msErr, msPar, plNrm, plDir, dummy_err, dummy_par, outChi2, N_proc);
+      kalmanOperationPlane(
+          KFO_Calculate_Chi2, propErr, propPar, msErr, msPar, plNrm, plDir, dummy_err, dummy_par, outChi2, N_proc);
     } else {
-      kalmanOperationPlane(KFO_Calculate_Chi2, psErr, psPar, msErr, msPar, plNrm, plDir, dummy_err, dummy_par, outChi2, N_proc);
+      kalmanOperationPlane(
+          KFO_Calculate_Chi2, psErr, psPar, msErr, msPar, plNrm, plDir, dummy_err, dummy_par, outChi2, N_proc);
     }
   }
 
   //------------------------------------------------------------------------------
 
   void kalmanOperationPlane(const int kfOp,
-			    const MPlexLS& psErr,
-			    const MPlexLV& psPar,
-			    const MPlexHS& msErr,
-			    const MPlexHV& msPar,
-			    const MPlexHV& plNrm,
-			    const MPlexHV& plDir,
-			    MPlexLS& outErr,
-			    MPlexLV& outPar,
-			    MPlexQF& outChi2,
-			    const int N_proc) {
+                            const MPlexLS& psErr,
+                            const MPlexLV& psPar,
+                            const MPlexHS& msErr,
+                            const MPlexHV& msPar,
+                            const MPlexHV& plNrm,
+                            const MPlexHV& plDir,
+                            MPlexLS& outErr,
+                            MPlexLV& outPar,
+                            MPlexQF& outChi2,
+                            const int N_proc) {
 #ifdef DEBUG
     {
       dmutex_guard;
@@ -1142,9 +1161,9 @@ namespace mkfit {
       prj(n, 0, 0) = plDir(n, 0, 0);
       prj(n, 0, 1) = plDir(n, 1, 0);
       prj(n, 0, 2) = plDir(n, 2, 0);
-      prj(n, 1, 0) = plNrm(n, 1, 0)*plDir(n, 2, 0) - plNrm(n, 2, 0)*plDir(n, 1, 0);
-      prj(n, 1, 1) = plNrm(n, 2, 0)*plDir(n, 0, 0) - plNrm(n, 0, 0)*plDir(n, 2, 0);
-      prj(n, 1, 2) = plNrm(n, 0, 0)*plDir(n, 1, 0) - plNrm(n, 1, 0)*plDir(n, 0, 0);
+      prj(n, 1, 0) = plNrm(n, 1, 0) * plDir(n, 2, 0) - plNrm(n, 2, 0) * plDir(n, 1, 0);
+      prj(n, 1, 1) = plNrm(n, 2, 0) * plDir(n, 0, 0) - plNrm(n, 0, 0) * plDir(n, 2, 0);
+      prj(n, 1, 2) = plNrm(n, 0, 0) * plDir(n, 1, 0) - plNrm(n, 1, 0) * plDir(n, 0, 0);
     }
 
     MPlexHV res_glo;  //position residual in global coordinates
@@ -1172,7 +1191,7 @@ namespace mkfit {
       printf("\n");
       printf("res_glo:\n");
       for (int i = 0; i < 3; ++i) {
-	printf("%8f ", res_glo.At(0, i, 0));
+        printf("%8f ", res_glo.At(0, i, 0));
       }
       printf("\n");
       printf("resErr_glo:\n");
@@ -1184,7 +1203,7 @@ namespace mkfit {
       printf("\n");
       printf("res_loc:\n");
       for (int i = 0; i < 2; ++i) {
-	printf("%8f ", res_loc.At(0, i, 0));
+        printf("%8f ", res_loc.At(0, i, 0));
       }
       printf("\n");
       printf("temp2H:\n");
@@ -1261,13 +1280,13 @@ namespace mkfit {
           printf("\n");
         }
         printf("\n");
-	printf("tempH2:\n");
-	for (int i = 0; i < 3; ++i) {
-	  for (int j = 0; j < 2; ++j)
-	    printf("%8f ", tempH2.At(0, i, j));
-	  printf("\n");
-	}
-	printf("\n");
+        printf("tempH2:\n");
+        for (int i = 0; i < 3; ++i) {
+          for (int j = 0; j < 2; ++j)
+            printf("%8f ", tempH2.At(0, i, j));
+          printf("\n");
+        }
+        printf("\n");
         printf("K:\n");
         for (int i = 0; i < 6; ++i) {
           for (int j = 0; j < 2; ++j)
@@ -1275,12 +1294,12 @@ namespace mkfit {
           printf("\n");
         }
         printf("\n");
-	printf("tempLL:\n");
-	for (int i = 0; i < 6; ++i) {
-	  for (int j = 0; j < 6; ++j)
-	    printf("%8f ", tempLL.At(0, i, j));
-	  printf("\n");
-	}
+        printf("tempLL:\n");
+        for (int i = 0; i < 6; ++i) {
+          for (int j = 0; j < 6; ++j)
+            printf("%8f ", tempLL.At(0, i, j));
+          printf("\n");
+        }
         printf("\n");
         printf("outPar:\n");
         for (int i = 0; i < 6; ++i) {

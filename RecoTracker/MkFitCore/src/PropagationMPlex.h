@@ -92,21 +92,21 @@ namespace mkfit {
                     const PropagationFlags& pflags);
 
   void propagateHelixToPlaneMPlex(const MPlexLS& inErr,
-				  const MPlexLV& inPar,
-				  const MPlexQI& inChg,
-				  const MPlexHV& plPnt,
-				  const MPlexHV& plNrm,
-				  MPlexLS& outErr,
-				  MPlexLV& outPar,
-				  MPlexQI& outFailFlag,
-				  const int N_proc,
-				  const PropagationFlags& pflags,
-				  const MPlexQI* noMatEffPtr = nullptr);
+                                  const MPlexLV& inPar,
+                                  const MPlexQI& inChg,
+                                  const MPlexHV& plPnt,
+                                  const MPlexHV& plNrm,
+                                  MPlexLS& outErr,
+                                  MPlexLV& outPar,
+                                  MPlexQI& outFailFlag,
+                                  const int N_proc,
+                                  const PropagationFlags& pflags,
+                                  const MPlexQI* noMatEffPtr = nullptr);
 
   void applyMaterialEffects(const MPlexQF& hitsRl,
                             const MPlexQF& hitsXi,
                             const MPlexQF& propSign,
-			    const MPlexHV& plNrm,
+                            const MPlexHV& plNrm,
                             MPlexLS& outErr,
                             MPlexLV& outPar,
                             const int N_proc);
