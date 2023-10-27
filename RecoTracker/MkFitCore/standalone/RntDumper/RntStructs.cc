@@ -15,7 +15,8 @@ namespace {
   // nan-guard, in place, return true if nan detected.
   bool ngr(float &f) {
     bool is_bad = !isFinite(f);
-    if (is_bad) f = -999.0f;
+    if (is_bad)
+      f = -999.0f;
     return is_bad;
   }
   bool ngr(RVec &v) {
@@ -29,10 +30,10 @@ namespace {
     is_bad |= ngr(s.mom);
     return is_bad;
   }
-}
+}  // namespace
 
 bool BinSearch::nan_check() {
-  has_nans  = ngr(phi);
+  has_nans = ngr(phi);
   has_nans |= ngr(dphi);
   has_nans |= ngr(q);
   has_nans |= ngr(dq);
@@ -40,13 +41,13 @@ bool BinSearch::nan_check() {
 }
 
 void CandInfo::nan_check() {
-  has_nans  = ngr(ps_min);
+  has_nans = ngr(ps_min);
   has_nans |= ngr(ps_max);
   has_nans |= bso.nan_check();
   has_nans |= bsn.nan_check();
 }
 
 void FailedPropInfo::nan_check() {
-  has_nans  = ngr(s_prev);
+  has_nans = ngr(s_prev);
   has_nans |= ngr(s_final);
 }

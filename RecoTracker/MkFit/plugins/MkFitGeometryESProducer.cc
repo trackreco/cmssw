@@ -282,7 +282,8 @@ void MkFitGeometryESProducer::fillShapeAndPlacement(const GeomDet *det,
   const auto &p = det->position();
   auto z = det->rotation().z();
   auto x = det->rotation().x();
-  layer_info.register_module({{p.x(), p.y(), p.z()}, {z.x(), z.y(), z.z()}, {x.x(), x.y(), x.z()}, half_length, detid.rawId()});
+  layer_info.register_module(
+      {{p.x(), p.y(), p.z()}, {z.x(), z.y(), z.z()}, {x.x(), x.y(), x.z()}, half_length, detid.rawId()});
   // Set some layer parameters (repeatedly, would require hard-coding otherwise)
   layer_info.set_subdet(detid.subdetId());
   layer_info.set_is_pixel(detid.subdetId() <= 2);

@@ -95,12 +95,12 @@ namespace mkfit {
       const Hit &h = hitv[i];
 
       float phi = h.phi();
-      float q =  m_is_barrel ? h.z() : h.r();
+      float q = m_is_barrel ? h.z() : h.r();
 
       m_binnor.register_entry_safe(phi, q);
 
       if (Config::usePhiQArrays) {
-        constexpr float sqrt3 = std::sqrt(3);
+        const float sqrt3 = std::sqrt(3);
         float half_length, qbar;
         if (m_is_barrel) {
           half_length = sqrt3 * std::sqrt(h.ezz());
@@ -109,7 +109,7 @@ namespace mkfit {
           half_length = sqrt3 * std::sqrt(h.exx() + h.eyy());
           qbar = h.z();
         }
-        hinfos.emplace_back(HitInfo({ phi, q, half_length, qbar }));
+        hinfos.emplace_back(HitInfo({phi, q, half_length, qbar}));
       }
     }
 
@@ -163,12 +163,12 @@ namespace mkfit {
     m_max_ext_idx = std::max(m_max_ext_idx, idx);
 
     float phi = h.phi();
-    float q =  m_is_barrel ? h.z() : h.r();
+    float q = m_is_barrel ? h.z() : h.r();
 
     m_binnor.register_entry_safe(phi, q);
 
     if (Config::usePhiQArrays) {
-      constexpr float sqrt3 = std::sqrt(3);
+      const float sqrt3 = std::sqrt(3);
       float half_length, qbar;
       if (m_is_barrel) {
         half_length = sqrt3 * std::sqrt(h.ezz());
@@ -177,7 +177,7 @@ namespace mkfit {
         half_length = sqrt3 * std::sqrt(h.exx() + h.eyy());
         qbar = h.z();
       }
-      m_hit_infos.emplace_back(HitInfo({ phi, q, half_length, qbar }));
+      m_hit_infos.emplace_back(HitInfo({phi, q, half_length, qbar}));
     }
   }
 

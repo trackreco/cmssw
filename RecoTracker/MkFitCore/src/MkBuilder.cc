@@ -718,7 +718,9 @@ namespace mkfit {
 
         if (layer_info.is_barrel()) {
           dprintf("Barrel cand propagation failed, got to r=%f ... layer is %f - %f\n",
-                  mkfndr->radius(ti - itrack, MkBase::iP), layer_info.rin(), layer_info.rout());
+                  mkfndr->radius(ti - itrack, MkBase::iP),
+                  layer_info.rin(),
+                  layer_info.rout());
           // In barrel region, create a stopped replica. In transition region keep the original copy
           // as there is still a chance to hit endcaps.
           tmp_cands[seed_cand_idx[ti].first - start_seed].push_back(cand);

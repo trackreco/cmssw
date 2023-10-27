@@ -91,31 +91,31 @@ namespace Matriplex {
       return *this;
     }
 
-    Matriplex& operator+=(const Matriplex &a) {
+    Matriplex& operator+=(const Matriplex& a) {
       for (idx_t i = 0; i < kTotSize; ++i)
         fArray[i] += a.fArray[i];
       return *this;
     }
 
-    Matriplex& operator-=(const Matriplex &a) {
+    Matriplex& operator-=(const Matriplex& a) {
       for (idx_t i = 0; i < kTotSize; ++i)
         fArray[i] -= a.fArray[i];
       return *this;
     }
 
-    Matriplex& operator*=(const Matriplex &a) {
+    Matriplex& operator*=(const Matriplex& a) {
       for (idx_t i = 0; i < kTotSize; ++i)
         fArray[i] *= a.fArray[i];
       return *this;
     }
 
-    Matriplex& operator/=(const Matriplex &a) {
+    Matriplex& operator/=(const Matriplex& a) {
       for (idx_t i = 0; i < kTotSize; ++i)
         fArray[i] /= a.fArray[i];
       return *this;
     }
 
-    Matriplex& sqrt(const Matriplex &a) {
+    Matriplex& sqrt(const Matriplex& a) {
       for (idx_t i = 0; i < kTotSize; ++i)
         fArray[i] = std::sqrt(a.fArray[i]);
       return *this;
@@ -126,7 +126,7 @@ namespace Matriplex {
       return *this;
     }
 
-    Matriplex& sqr(const Matriplex &a) {
+    Matriplex& sqr(const Matriplex& a) {
       for (idx_t i = 0; i < kTotSize; ++i)
         fArray[i] = a.fArray[i] * a.fArray[i];
       return *this;
@@ -144,7 +144,7 @@ namespace Matriplex {
       return sqrt();
     }
 
-    Matriplex& sin(const Matriplex &a) {
+    Matriplex& sin(const Matriplex& a) {
       for (idx_t i = 0; i < kTotSize; ++i)
         fArray[i] = std::sin(a.fArray[i]);
       return *this;
@@ -155,7 +155,7 @@ namespace Matriplex {
       return *this;
     }
 
-    Matriplex& cos(const Matriplex &a) {
+    Matriplex& cos(const Matriplex& a) {
       for (idx_t i = 0; i < kTotSize; ++i)
         fArray[i] = std::cos(a.fArray[i]);
       return *this;
@@ -166,7 +166,7 @@ namespace Matriplex {
       return *this;
     }
 
-    Matriplex& tan(const Matriplex &a) {
+    Matriplex& tan(const Matriplex& a) {
       for (idx_t i = 0; i < kTotSize; ++i)
         fArray[i] = std::tan(a.fArray[i]);
       return *this;
@@ -308,7 +308,6 @@ namespace Matriplex {
       }
       return t;
     }
-
   };
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
@@ -319,121 +318,121 @@ namespace Matriplex {
   //==============================================================================
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> operator+(const MPlex<T, D1, D2, N> &a, const MPlex<T, D1, D2, N> &b) {
+  MPlex<T, D1, D2, N> operator+(const MPlex<T, D1, D2, N>& a, const MPlex<T, D1, D2, N>& b) {
     MPlex<T, D1, D2, N> t = a;
     t += b;
     return t;
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> operator-(const MPlex<T, D1, D2, N> &a, const MPlex<T, D1, D2, N> &b) {
+  MPlex<T, D1, D2, N> operator-(const MPlex<T, D1, D2, N>& a, const MPlex<T, D1, D2, N>& b) {
     MPlex<T, D1, D2, N> t = a;
     t -= b;
     return t;
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> operator*(const MPlex<T, D1, D2, N> &a, const MPlex<T, D1, D2, N> &b) {
+  MPlex<T, D1, D2, N> operator*(const MPlex<T, D1, D2, N>& a, const MPlex<T, D1, D2, N>& b) {
     MPlex<T, D1, D2, N> t = a;
     t *= b;
     return t;
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> operator/(const MPlex<T, D1, D2, N> &a, const MPlex<T, D1, D2, N> &b) {
+  MPlex<T, D1, D2, N> operator/(const MPlex<T, D1, D2, N>& a, const MPlex<T, D1, D2, N>& b) {
     MPlex<T, D1, D2, N> t = a;
     t /= b;
     return t;
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> operator+(const MPlex<T, D1, D2, N> &a, T b) {
+  MPlex<T, D1, D2, N> operator+(const MPlex<T, D1, D2, N>& a, T b) {
     MPlex<T, D1, D2, N> t = a;
     t += b;
     return t;
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> operator-(const MPlex<T, D1, D2, N> &a, T b) {
+  MPlex<T, D1, D2, N> operator-(const MPlex<T, D1, D2, N>& a, T b) {
     MPlex<T, D1, D2, N> t = a;
     t -= b;
     return t;
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> operator*(const MPlex<T, D1, D2, N> &a, T b) {
+  MPlex<T, D1, D2, N> operator*(const MPlex<T, D1, D2, N>& a, T b) {
     MPlex<T, D1, D2, N> t = a;
     t *= b;
     return t;
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> operator/(const MPlex<T, D1, D2, N> &a, T b) {
+  MPlex<T, D1, D2, N> operator/(const MPlex<T, D1, D2, N>& a, T b) {
     MPlex<T, D1, D2, N> t = a;
     t /= b;
     return t;
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> operator+(T a, const MPlex<T, D1, D2, N> &b) {
+  MPlex<T, D1, D2, N> operator+(T a, const MPlex<T, D1, D2, N>& b) {
     MPlex<T, D1, D2, N> t = a;
     t += b;
     return t;
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> operator-(T a, const MPlex<T, D1, D2, N> &b) {
+  MPlex<T, D1, D2, N> operator-(T a, const MPlex<T, D1, D2, N>& b) {
     MPlex<T, D1, D2, N> t = a;
     t -= b;
     return t;
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> operator*(T a, const MPlex<T, D1, D2, N> &b) {
+  MPlex<T, D1, D2, N> operator*(T a, const MPlex<T, D1, D2, N>& b) {
     MPlex<T, D1, D2, N> t = a;
     t *= b;
     return t;
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> operator/(T a, const MPlex<T, D1, D2, N> &b) {
+  MPlex<T, D1, D2, N> operator/(T a, const MPlex<T, D1, D2, N>& b) {
     MPlex<T, D1, D2, N> t = a;
     t /= b;
     return t;
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> sqrt(const MPlex<T, D1, D2, N> &a) {
+  MPlex<T, D1, D2, N> sqrt(const MPlex<T, D1, D2, N>& a) {
     MPlex<T, D1, D2, N> t;
-   return t.sqrt(a);
+    return t.sqrt(a);
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> sqr(const MPlex<T, D1, D2, N> &a) {
+  MPlex<T, D1, D2, N> sqr(const MPlex<T, D1, D2, N>& a) {
     MPlex<T, D1, D2, N> t;
-   return t.sqrt(a);
+    return t.sqrt(a);
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> hypot(const MPlex<T, D1, D2, N> &a, const MPlex<T, D1, D2, N> &b) {
+  MPlex<T, D1, D2, N> hypot(const MPlex<T, D1, D2, N>& a, const MPlex<T, D1, D2, N>& b) {
     MPlex<T, D1, D2, N> t;
     return t.hypot(a, b);
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> sin(const MPlex<T, D1, D2, N> &a) {
-   MPlex<T, D1, D2, N> t;
-   return t.sin(a);
+  MPlex<T, D1, D2, N> sin(const MPlex<T, D1, D2, N>& a) {
+    MPlex<T, D1, D2, N> t;
+    return t.sin(a);
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> cos(const MPlex<T, D1, D2, N> &a) {
+  MPlex<T, D1, D2, N> cos(const MPlex<T, D1, D2, N>& a) {
     MPlex<T, D1, D2, N> t;
     return t.cos(a);
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  void sincos(const MPlex<T, D1, D2, N> &a, MPlex<T, D1, D2, N> &s, MPlex<T, D1, D2, N> &c) {
+  void sincos(const MPlex<T, D1, D2, N>& a, MPlex<T, D1, D2, N>& s, MPlex<T, D1, D2, N>& c) {
     for (idx_t i = 0; i < a.kTotSize; ++i) {
       s.fArray[i] = std::sin(a.fArray[i]);
       c.fArray[i] = std::cos(a.fArray[i]);
@@ -441,14 +440,16 @@ namespace Matriplex {
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> tan(const MPlex<T, D1, D2, N> &a) {
+  MPlex<T, D1, D2, N> tan(const MPlex<T, D1, D2, N>& a) {
     MPlex<T, D1, D2, N> t;
     return t.tan(a);
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  void min_max(const MPlex<T, D1, D2, N> &a, const MPlex<T, D1, D2, N> &b,
-               MPlex<T, D1, D2, N> &min, MPlex<T, D1, D2, N> &max) {
+  void min_max(const MPlex<T, D1, D2, N>& a,
+               const MPlex<T, D1, D2, N>& b,
+               MPlex<T, D1, D2, N>& min,
+               MPlex<T, D1, D2, N>& max) {
     for (idx_t i = 0; i < a.kTotSize; ++i) {
       min.fArray[i] = std::min(a.fArray[i], b.fArray[i]);
       max.fArray[i] = std::max(a.fArray[i], b.fArray[i]);
@@ -456,7 +457,7 @@ namespace Matriplex {
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> min(const MPlex<T, D1, D2, N> &a, const MPlex<T, D1, D2, N> &b) {
+  MPlex<T, D1, D2, N> min(const MPlex<T, D1, D2, N>& a, const MPlex<T, D1, D2, N>& b) {
     MPlex<T, D1, D2, N> t;
     for (idx_t i = 0; i < a.kTotSize; ++i) {
       t.fArray[i] = std::min(a.fArray[i], b.fArray[i]);
@@ -465,7 +466,7 @@ namespace Matriplex {
   }
 
   template <typename T, idx_t D1, idx_t D2, idx_t N>
-  MPlex<T, D1, D2, N> max(const MPlex<T, D1, D2, N> &a, const MPlex<T, D1, D2, N> &b) {
+  MPlex<T, D1, D2, N> max(const MPlex<T, D1, D2, N>& a, const MPlex<T, D1, D2, N>& b) {
     MPlex<T, D1, D2, N> t;
     for (idx_t i = 0; i < a.kTotSize; ++i) {
       t.fArray[i] = std::max(a.fArray[i], b.fArray[i]);

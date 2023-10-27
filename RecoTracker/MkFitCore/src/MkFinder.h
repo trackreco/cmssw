@@ -120,7 +120,7 @@ namespace mkfit {
 
     float getHitSelDynamicChi2Cut(const int itrk, const int ipar);
 
-    void selectHitIndices(const LayerOfHits &layer_of_hits, const int N_proc, bool fill_binsearch_only=false);
+    void selectHitIndices(const LayerOfHits &layer_of_hits, const int N_proc, bool fill_binsearch_only = false);
     void selectHitIndicesV2(const LayerOfHits &layer_of_hits, const int N_proc);
 
     void addBestHit(const LayerOfHits &layer_of_hits, const int N_proc, const FindingFoos &fnd_foos);
@@ -290,9 +290,9 @@ namespace mkfit {
 
     HitOnTrack m_HoTArrs[NN][Config::nMaxTrkHits];
 
-    MPlexQI m_SeedIdx;  // seed index in local thread (for bookkeeping at thread level)
-    MPlexQI m_CandIdx;  // candidate index for the given seed (for bookkeeping of clone engine)
-    MPlexQI m_SeedOriginIdx; // seed index in MkBuilder seed input vector
+    MPlexQI m_SeedIdx;        // seed index in local thread (for bookkeeping at thread level)
+    MPlexQI m_CandIdx;        // candidate index for the given seed (for bookkeeping of clone engine)
+    MPlexQI m_SeedOriginIdx;  // seed index in MkBuilder seed input vector
 
     MPlexQI m_Stopped;  // Flag for BestHit that a track has been stopped (and copied out already)
 

@@ -292,8 +292,7 @@ namespace mkfit {
           m_nTailMinusOneHits_before_bkwsearch(o.m_nTailMinusOneHits_before_bkwsearch),
           m_seed_origin_index(o.m_seed_origin_index),
           m_hots_size(o.m_hots_size),
-          m_hots(o.m_hots) {
-    }
+          m_hots(o.m_hots) {}
 
     // Required for std::swap().
     CombCandidate(CombCandidate&& o)
@@ -413,7 +412,7 @@ namespace mkfit {
     short int m_lastHitIdx_before_bkwsearch = -1;
     short int m_nInsideMinusOneHits_before_bkwsearch = -1;
     short int m_nTailMinusOneHits_before_bkwsearch = -1;
-    int m_seed_origin_index = -1; // seed index in the passed-in seed vector
+    int m_seed_origin_index = -1;  // seed index in the passed-in seed vector
     int m_hots_size = 0;
     std::vector<HoTNode> m_hots;
   };

@@ -10,17 +10,14 @@
 
 namespace REX = ROOT::Experimental;
 
-std::vector<RntDumper*> RntDumper::s_instances;
+std::vector<RntDumper *> RntDumper::s_instances;
 
-RntDumper::RntDumper(const char *fname) :
-  m_file(TFile::Open(fname, "recreate"))
-{
+RntDumper::RntDumper(const char *fname) : m_file(TFile::Open(fname, "recreate")) {
   if (!m_file || !m_file->IsOpen()) {
     printf("RntDumper::RntDumper() failed creeating file '%s'.\n", fname);
     throw std::runtime_error("Failed creating file");
   }
-    printf("RntDumper::RntDumper() succesfully opened file '%s'.\n", fname);
-
+  printf("RntDumper::RntDumper() succesfully opened file '%s'.\n", fname);
 }
 
 RntDumper::~RntDumper() {
@@ -38,24 +35,20 @@ RntDumper::~RntDumper() {
   }
 }
 
-std::unique_ptr<REX::RNTupleModel> RntDumper::CreateModel() {
-  return RNTupleModel::Create();
-}
+std::unique_ptr<REX::RNTupleModel> RntDumper::CreateModel() { return RNTupleModel::Create(); }
 
-REX::RNTupleWriter* RntDumper::WritifyModel(std::unique_ptr<REX::RNTupleModel> &model, std::string_view mname) {
+REX::RNTupleWriter *RntDumper::WritifyModel(std::unique_ptr<REX::RNTupleModel> &model, std::string_view mname) {
   auto wup = RNTupleWriter::Append(std::move(model), mname, *m_file);
   REX::RNTupleWriter *w = wup.get();
-  m_writers.insert( { std::string(mname), std::move(wup) } );
+  m_writers.insert({std::string(mname), std::move(wup)});
   return w;
 }
 
-void RntDumper::RegisterTree(TTree *t) {
-  m_trees.push_back(t);
-}
+void RntDumper::RegisterTree(TTree *t) { m_trees.push_back(t); }
 
 // === static ===
 
-RntDumper* RntDumper::Create(const char *fname) {
+RntDumper *RntDumper::Create(const char *fname) {
   // Should check fnames ?
   RntDumper *d = new RntDumper(fname);
   s_instances.push_back(d);
@@ -63,7 +56,7 @@ RntDumper* RntDumper::Create(const char *fname) {
 }
 
 void RntDumper::FinalizeAll() {
-  printf("RntDumper::FinalizeAll() shutting down %d instances.\n", (int) s_instances.size());
+  printf("RntDumper::FinalizeAll() shutting down %d instances.\n", (int)s_instances.size());
   for (auto &d : s_instances)
     delete d;
 }

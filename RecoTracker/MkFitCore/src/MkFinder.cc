@@ -71,9 +71,16 @@ namespace mkfit {
     const LayerInfo &LI = *L.layer_info();
     rnt_shi.ResetH();
     rnt_shi.ResetF();
-    *rnt_shi.h = { m_event->evtID(), m_iteration_config->m_iteration_index, m_iteration_config->m_track_algorithm,
-                    m_current_region, L.layer_id(), L.is_barrel() ? LI.rin() : LI.zmin(), LI.is_barrel() ? LI.rout() : LI.zmax(),
-                    L.is_barrel(), L.is_pixel(), L.is_stereo() };
+    *rnt_shi.h = {m_event->evtID(),
+                  m_iteration_config->m_iteration_index,
+                  m_iteration_config->m_track_algorithm,
+                  m_current_region,
+                  L.layer_id(),
+                  L.is_barrel() ? LI.rin() : LI.zmin(),
+                  LI.is_barrel() ? LI.rout() : LI.zmax(),
+                  L.is_barrel(),
+                  L.is_pixel(),
+                  L.is_stereo()};
     *rnt_shi.f = *rnt_shi.h;
 #endif
   }
@@ -422,8 +429,18 @@ namespace mkfit {
     if (fill_binsearch_only) {
       // XXX loop over good indices (prepared in V2) and put in V1 BinSearch results
       for (auto i : rnt_shi.f_h_idcs) {
-        CandInfo &ci = (*rnt_shi.ci)[ rnt_shi.f_h_remap[i] ];
-        ci.bso = BinSearch({phiv[i], dphiv[i], qv[i], dqv[i], pb1v[i], pb2v[i], qb1v[i], qb2v[i], m_XWsrResult[i].m_wsr, m_XWsrResult[i].m_in_gap, false});
+        CandInfo &ci = (*rnt_shi.ci)[rnt_shi.f_h_remap[i]];
+        ci.bso = BinSearch({phiv[i],
+                            dphiv[i],
+                            qv[i],
+                            dqv[i],
+                            pb1v[i],
+                            pb2v[i],
+                            qb1v[i],
+                            qb2v[i],
+                            m_XWsrResult[i].m_wsr,
+                            m_XWsrResult[i].m_in_gap,
+                            false});
       }
       return;
     }
@@ -716,11 +733,11 @@ namespace mkfit {
         rnt_shi.RegisterGoodProp(i, m_Par[iI], m_event, m_SeedOriginIdx[i]);
         // get BinSearch result from V1.
         selectHitIndices(layer_of_hits, N_proc, true);
-      } // else ... could do something about the bad seeds ... probably better to collect elsewhere.
+      }  // else ... could do something about the bad seeds ... probably better to collect elsewhere.
     }
 #endif
 
-    constexpr int NEW_MAX_HIT = 6; // 4 - 6 give about the same # of tracks in quality-val
+    constexpr int NEW_MAX_HIT = 6;  // 4 - 6 give about the same # of tracks in quality-val
     constexpr float DDPHI_PRESEL_FAC = 2.0f;
     constexpr float DDQ_PRESEL_FAC = 1.2f;
     constexpr float PHI_BIN_EXTRA_FAC = 2.75f;
@@ -737,8 +754,7 @@ namespace mkfit {
       MPlexQF phi_c, dphi;
       MPlexQF q_c, qmin, qmax;
 
-      Bins(const MPlexLV& par, const MPlexQI& chg, int np=NN) :
-        isp(par, chg), n_proc(np) {}
+      Bins(const MPlexLV &par, const MPlexQI &chg, int np = NN) : isp(par, chg), n_proc(np) {}
 
       void prop_to_limits(const LayerInfo &li) {
         // Positions 1 and 2 should really be by "propagation order", 1 is the closest/
@@ -767,7 +783,7 @@ namespace mkfit {
         // Matriplex::min_max(mp::fast_atan2(sp1.y, sp1.x), smp::fast_atan2(sp2.y, sp2.x), pmin, pmax);
         MPlexQF dp = pmax - pmin;
         phi_c = 0.5f * (pmax + pmin);
-        for (int ii=0; ii<n_proc; ++ii) {
+        for (int ii = 0; ii < n_proc; ++ii) {
           if (dp[ii] > Const::PI) {
             std::swap(pmax[ii], pmin[ii]);
             dp[ii] = Const::TwoPI - dp[ii];
@@ -828,15 +844,27 @@ namespace mkfit {
 
 #ifdef RNT_DUMP_MkF_SelHitIdcs
     for (auto i : rnt_shi.f_h_idcs) {
-      CandInfo &ci = (*rnt_shi.ci)[ rnt_shi.f_h_remap[i] ];
-      ci.bsn = BinSearch({B.phi_c[i], B.dphi[i], B.q_c[i], 0.5f * (B.q2[i] - B.q1[i]),
-                          B.p1[i], B.p2[i], B.q1[i], B.q2[i], m_XWsrResult[i].m_wsr, m_XWsrResult[i].m_in_gap, false});
+      CandInfo &ci = (*rnt_shi.ci)[rnt_shi.f_h_remap[i]];
+      ci.bsn = BinSearch({B.phi_c[i],
+                          B.dphi[i],
+                          B.q_c[i],
+                          0.5f * (B.q2[i] - B.q1[i]),
+                          B.p1[i],
+                          B.p2[i],
+                          B.q1[i],
+                          B.q2[i],
+                          m_XWsrResult[i].m_wsr,
+                          m_XWsrResult[i].m_in_gap,
+                          false});
       ci.ps_min = statep2propstate(B.sp1, i);
       ci.ps_max = statep2propstate(B.sp2, i);
     }
 #endif
 
-    struct PQE { float score; unsigned int hit_index; };
+    struct PQE {
+      float score;
+      unsigned int hit_index;
+    };
     auto pqe_cmp = [](const PQE &a, const PQE &b) { return a.score < b.score; };
     std::priority_queue<PQE, std::vector<PQE>, decltype(pqe_cmp)> pqueue(pqe_cmp);
     int pqueue_size = 0;
@@ -904,19 +932,19 @@ namespace mkfit {
             bool prop_fail;
 
             if (L.is_barrel()) {
-                prop_fail = mp_is.propagate_to_r(mp::PA_Exact, L.hit_qbar(hi), mp_s, true);
-                new_q = mp_s.z;
+              prop_fail = mp_is.propagate_to_r(mp::PA_Exact, L.hit_qbar(hi), mp_s, true);
+              new_q = mp_s.z;
             } else {
-                prop_fail = mp_is.propagate_to_z(mp::PA_Exact, L.hit_qbar(hi), mp_s, true);
-                new_q = std::hypot(mp_s.x, mp_s.y);
+              prop_fail = mp_is.propagate_to_z(mp::PA_Exact, L.hit_qbar(hi), mp_s, true);
+              new_q = std::hypot(mp_s.x, mp_s.y);
             }
 
             new_phi = vdt::fast_atan2f(mp_s.y, mp_s.x);
             new_ddphi = cdist(std::abs(new_phi - L.hit_phi(hi)));
             new_ddq = std::abs(new_q - L.hit_q(hi));
 
-            bool dqdphi_presel = new_ddq < DDQ_PRESEL_FAC * L.hit_q_half_length(hi) &&
-                                 new_ddphi < DDPHI_PRESEL_FAC * 0.0123f;
+            bool dqdphi_presel =
+                new_ddq < DDQ_PRESEL_FAC * L.hit_q_half_length(hi) && new_ddphi < DDPHI_PRESEL_FAC * 0.0123f;
 
             // clang-format off
             dprintf("     SHI %3u %4u %5u  %6.3f %6.3f %6.4f %7.5f  PROP-%s  %s\n",
@@ -925,17 +953,17 @@ namespace mkfit {
             // clang-format on
 
             if (prop_fail || !dqdphi_presel)
-                continue;
+              continue;
             if (pqueue_size < NEW_MAX_HIT) {
-                pqueue.push({ new_ddphi, hi_orig });
-                ++pqueue_size;
+              pqueue.push({new_ddphi, hi_orig});
+              ++pqueue_size;
             } else if (new_ddphi < pqueue.top().score) {
-                pqueue.pop();
-                pqueue.push({ new_ddphi, hi_orig });
+              pqueue.pop();
+              pqueue.push({new_ddphi, hi_orig});
             }
-          } //hi
-        } //pi
-      } //qi
+          }  //hi
+        }    //pi
+      }      //qi
 
       dprintf(" PQUEUE (%d)", pqueue_size);
       // Reverse hits so best dphis/scores come first in the hit-index list.
@@ -948,7 +976,7 @@ namespace mkfit {
       }
       dprintf("\n");
 
-    } //itrack
+    }  //itrack
   }
 
   //==============================================================================

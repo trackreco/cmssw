@@ -862,12 +862,8 @@ namespace mkfit {
   // Handling of current seed vectors and MC label reconstruction from hit data
   //==============================================================================
 
-  void Event::setCurrentSeedTracks(const TrackVec &seeds) {
-    currentSeedTracks_ = &seeds;
-  }
-  const Track& Event::currentSeed(int i) const {
-    return (*currentSeedTracks_)[i];
-  }
+  void Event::setCurrentSeedTracks(const TrackVec &seeds) { currentSeedTracks_ = &seeds; }
+  const Track &Event::currentSeed(int i) const { return (*currentSeedTracks_)[i]; }
 
   Event::SimLabelFromHits Event::simLabelForCurrentSeed(int i) const {
     assert(currentSeedTracks_ != nullptr);
@@ -875,7 +871,7 @@ namespace mkfit {
     if (currentSeedSimFromHits_.empty()) {
       currentSeedSimFromHits_.resize(currentSeedTracks_->size());
 
-      for (int si = 0; si < (int) currentSeedTracks_->size(); ++si) {
+      for (int si = 0; si < (int)currentSeedTracks_->size(); ++si) {
         const Track &s = currentSeed(si);
         // printf("%3d (%d): [", si, s.label());
         std::map<int, int> lab_cnt;
@@ -891,7 +887,7 @@ namespace mkfit {
             ++lab_cnt[hl];
         }
         int max_c = -1, max_l = -1;
-        for (auto& x : lab_cnt) {
+        for (auto &x : lab_cnt) {
           if (x.second > max_c) {
             max_l = x.first;
             max_c = x.second;
@@ -904,7 +900,7 @@ namespace mkfit {
           max_l = -1;
         }
         // printf(" ] -> %d %d => %d\n", s.nTotalHits(), max_c, max_l);
-        currentSeedSimFromHits_[si] = { s.nTotalHits(), max_c, max_l };
+        currentSeedSimFromHits_[si] = {s.nTotalHits(), max_c, max_l};
       }
     }
 

@@ -19,12 +19,11 @@ typedef ROOT::Math::DisplacementVector3D<ROOT::Math::CylindricalEta3D<float> > R
 /// WARNING: ROOT dictionary not provided for the type below
 // typedef ROOT::Math::DisplacementVector3D<ROOT::Math::Polar3D<float> > RThetaPhiVectorF;
 
-
 using RVec = ROOT::Experimental::REveVector;
 
 struct HeaderLayer {
   int event, iter_idx, iter_algo, eta_region, layer;
-  float qb_min, qb_max; // qbar layer limits, r for barrel, z for endcap
+  float qb_min, qb_max;  // qbar layer limits, r for barrel, z for endcap
   bool is_barrel, is_pix, is_stereo;
 
   HeaderLayer() = default;
@@ -39,7 +38,7 @@ struct State {
 };
 
 struct PropState : public State {
-  float dalpha; // helix angle during propagation
+  float dalpha;  // helix angle during propagation
   int fail_flag;
 
   PropState() = default;
@@ -49,11 +48,11 @@ struct PropState : public State {
 struct SimSeedInfo {
   State s_sim;
   State s_seed;
-  int   sim_lbl, seed_lbl, seed_idx;
-  int   n_hits, n_match;
-  bool  has_sim = false;
+  int sim_lbl, seed_lbl, seed_idx;
+  int n_hits, n_match;
+  bool has_sim = false;
 
-  float good_frac() const { return (float)n_match/n_hits; }
+  float good_frac() const { return (float)n_match / n_hits; }
 
   SimSeedInfo() = default;
   SimSeedInfo& operator=(const SimSeedInfo&) = default;
@@ -80,7 +79,7 @@ struct CandInfo {
   BinSearch bsn;
   bool has_nans = false;
 
-  CandInfo(const SimSeedInfo &s, const State &c) : ssi(s), s_ctr(c) {}
+  CandInfo(const SimSeedInfo& s, const State& c) : ssi(s), s_ctr(c) {}
 
   void nan_check();
 
@@ -94,8 +93,7 @@ struct FailedPropInfo {
   State s_final;
   bool has_nans = false;
 
-  FailedPropInfo(const SimSeedInfo &s, const State &p, const State &f) :
-    ssi(s), s_prev(p), s_final(f) {}
+  FailedPropInfo(const SimSeedInfo& s, const State& p, const State& f) : ssi(s), s_prev(p), s_final(f) {}
 
   void nan_check();
 

@@ -49,14 +49,14 @@ namespace mkfit {
 
     Validation &validation_;
 
-     // For seed access in deep data dumpers.
+    // For seed access in deep data dumpers.
     struct SimLabelFromHits {
       int n_hits = 0, n_match = 0, label = -1;
-      float good_frac() const { return (float)n_match/n_hits; }
+      float good_frac() const { return (float)n_match / n_hits; }
       bool is_set() const { return label >= 0; }
     };
     void setCurrentSeedTracks(const TrackVec &seeds);
-    const Track& currentSeed(int i) const;
+    const Track &currentSeed(int i) const;
     SimLabelFromHits simLabelForCurrentSeed(int i) const;
     void resetCurrentSeedTracks();
 

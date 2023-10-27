@@ -420,8 +420,7 @@ namespace mkfit {
       }
     }
 
-    int mcHitIDofFirstHit(const std::vector<HitVec>& globalHitVec,
-                           const MCHitInfoVec& globalMCHitInfo) const {
+    int mcHitIDofFirstHit(const std::vector<HitVec>& globalHitVec, const MCHitInfoVec& globalMCHitInfo) const {
       const HitOnTrack& hot = hitsOnTrk_[0];
       if ((hot.index >= 0) && (static_cast<size_t>(hot.index) < globalHitVec[hot.layer].size())) {
         return globalHitVec[hot.layer][hot.index].mcTrackID(globalMCHitInfo);

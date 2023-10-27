@@ -18,8 +18,10 @@ namespace mkfit::mini_propagators {
 
   bool InitialState::propagate_to_r(PropAlgo_e algo, float R, State& c, bool update_momentum) const {
     switch (algo) {
-      case PA_Line: {}
-      case PA_Quadratic: {}
+      case PA_Line: {
+      }
+      case PA_Quadratic: {
+      }
 
       case PA_Exact: {
         // Momentum is always updated -- used as temporary for stepping.
@@ -70,8 +72,10 @@ namespace mkfit::mini_propagators {
 
   bool InitialState::propagate_to_z(PropAlgo_e algo, float Z, State& c, bool update_momentum) const {
     switch (algo) {
-      case PA_Line: {}
-      case PA_Quadratic: {}
+      case PA_Line: {
+      }
+      case PA_Quadratic: {
+      }
 
       case PA_Exact: {
         const float k = 1.0f / inv_k;
@@ -92,8 +96,7 @@ namespace mkfit::mini_propagators {
           c.py = py * cosa + px * sina;
           c.pz = pz;
         }
-      }
-      break;
+      } break;
     }
     c.fail_flag = 0;
     return c.fail_flag;
@@ -103,7 +106,7 @@ namespace mkfit::mini_propagators {
   // Vectorized version
   //===========================================================================
 
-  MPF fast_atan2(const MPF &y, const MPF &x) {
+  MPF fast_atan2(const MPF& y, const MPF& x) {
     MPF t;
     for (int i = 0; i < y.kTotSize; ++i) {
       t[i] = vdt::fast_atan2f(y[i], x[i]);
@@ -111,7 +114,7 @@ namespace mkfit::mini_propagators {
     return t;
   }
 
-  MPF fast_tan(const MPF &a) {
+  MPF fast_tan(const MPF& a) {
     MPF t;
     for (int i = 0; i < a.kTotSize; ++i) {
       t[i] = vdt::fast_tanf(a[i]);
@@ -119,7 +122,7 @@ namespace mkfit::mini_propagators {
     return t;
   }
 
-  void fast_sincos(const MPF &a, MPF &s, MPF &c) {
+  void fast_sincos(const MPF& a, MPF& s, MPF& c) {
     for (int i = 0; i < a.kTotSize; ++i) {
       vdt::fast_sincosf(a[i], s[i], c[i]);
     }
@@ -137,11 +140,13 @@ namespace mkfit::mini_propagators {
   }
 
   // propagate to radius; returns number of failed propagations
-  int InitialStatePlex::propagate_to_r(PropAlgo_e algo, const MPF& R, StatePlex& c,
-                                        bool update_momentum, int N_proc) const {
+  int InitialStatePlex::propagate_to_r(
+      PropAlgo_e algo, const MPF& R, StatePlex& c, bool update_momentum, int N_proc) const {
     switch (algo) {
-      case PA_Line: {}
-      case PA_Quadratic: {}
+      case PA_Line: {
+      }
+      case PA_Quadratic: {
+      }
 
       case PA_Exact: {
         // Momentum is always updated -- used as temporary for stepping.
@@ -200,11 +205,13 @@ namespace mkfit::mini_propagators {
     return n_fail;
   }
 
-  int InitialStatePlex::propagate_to_z(PropAlgo_e algo, const MPF& Z, StatePlex& c,
-                                        bool update_momentum, int N_proc) const {
+  int InitialStatePlex::propagate_to_z(
+      PropAlgo_e algo, const MPF& Z, StatePlex& c, bool update_momentum, int N_proc) const {
     switch (algo) {
-      case PA_Line: {}
-      case PA_Quadratic: {}
+      case PA_Line: {
+      }
+      case PA_Quadratic: {
+      }
 
       case PA_Exact: {
         MPF k = 1.0f / inv_k;
@@ -225,11 +232,10 @@ namespace mkfit::mini_propagators {
           c.py = py * cosa + px * sina;
           c.pz = pz;
         }
-      }
-      break;
+      } break;
     }
     c.fail_flag = 0;
     return 0;
   }
 
-}
+}  // namespace mkfit::mini_propagators
