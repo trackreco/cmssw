@@ -9,7 +9,7 @@ template <typename Tf, typename TfLL1, typename Tf1>
 static inline void parsFromPathL_impl(const Tf& __restrict__ inPar,
                                       TfLL1& __restrict__ outPar,
                                       const float* kinv,
-                                      const Tf1 __restrict__ s,
+                                      const Tf1& __restrict__ s,
                                       const int nmin,
                                       const int nmax) {
   float alpha[nmax - nmin];
