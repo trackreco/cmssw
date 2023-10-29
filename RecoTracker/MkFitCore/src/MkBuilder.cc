@@ -1089,8 +1089,10 @@ namespace mkfit {
         // from intra-layer to inter-layer.
         // mkfndr->copyOutParErr(eoccs.refCandidates_nc(), end - itrack, true);
 
-        // test
-        mkfndr->inputTracksAndHitIdx(eoccs.refCandidates(), seed_cand_idx, itrack, end, false);
+        // For prop-to-plane propagate from the last hit, not layer center.
+        if (Config::usePropToPlane) {
+          mkfndr->inputTracksAndHitIdx(eoccs.refCandidates(), seed_cand_idx, itrack, end, false);
+        }
 
         dprint("make new candidates");
         cloner.begin_iteration();
