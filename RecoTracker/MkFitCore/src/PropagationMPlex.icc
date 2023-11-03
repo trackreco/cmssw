@@ -301,6 +301,17 @@ static inline void helixAtPlane_impl(const Tf& __restrict__ inPar,
                                      const int nmax,
                                      const int N_proc,
                                      const PropagationFlags& pf) {
+
+  for (int n = nmin; n < nmax; ++n) {
+    dprint_np(n,
+              "input parameters"
+                  << " inPar(n, 0, 0)=" << std::setprecision(9) << inPar(n, 0, 0) << " inPar(n, 1, 0)="
+                  << std::setprecision(9) << inPar(n, 1, 0) << " inPar(n, 2, 0)=" << std::setprecision(9)
+                  << inPar(n, 2, 0) << " inPar(n, 3, 0)=" << std::setprecision(9) << inPar(n, 3, 0)
+                  << " inPar(n, 4, 0)=" << std::setprecision(9) << inPar(n, 4, 0)
+                  << " inPar(n, 5, 0)=" << std::setprecision(9) << inPar(n, 5, 0));
+  }
+
   float kinv[nmax - nmin];
   if (pf.use_param_b_field) {
 #pragma omp simd
@@ -330,6 +341,14 @@ static inline void helixAtPlane_impl(const Tf& __restrict__ inPar,
   for (int n = nmin; n < nmax; ++n) {
     sinP[n - nmin] = std::sin(inPar(n,4,0));
     cosP[n - nmin] = std::cos(inPar(n,4,0));
+  }
+
+  // determine solution for straight line
+  float sl[nmax - nmin];
+#pragma omp simd
+  for (int n = nmin; n < nmax; ++n) {
+    //sl[n - nmin] = - ( plNrm(n, 0, 0)*delta0[n - nmin] + plNrm(n, 1, 0)*delta1[n - nmin] + plNrm(n, 2, 0)*delta2[n - nmin] ) / ( plNrm(n, 0, 0)*cosP[n - nmin]/inPar(n,3,0) + plNrm(n, 1, 0)*sinP[n - nmin]/inPar(n,3,0) + plNrm(n, 2, 0)*std::cos(inPar(n,5,0))/std::sin(inPar(n,5,0))/inPar(n,3,0) );
+    sl[n - nmin] = - ( plNrm(n, 0, 0)*delta0[n - nmin] + plNrm(n, 1, 0)*delta1[n - nmin] + plNrm(n, 2, 0)*delta2[n - nmin] ) / ( plNrm(n, 0, 0)*cosP[n - nmin]*std::sin(inPar(n,5,0)) + plNrm(n, 1, 0)*sinP[n - nmin]*std::sin(inPar(n,5,0)) + plNrm(n, 2, 0)*std::cos(inPar(n,5,0)) );
   }
 
   //float s[nmax - nmin];
@@ -368,7 +387,18 @@ static inline void helixAtPlane_impl(const Tf& __restrict__ inPar,
                                                  : (plPnt.constAt(n, 2, 0) - outParTmp.constAt(n, 2, 0)) / std::cos(outParTmp.constAt(n, 5, 0)) );
     }
   }//end Niter-1
-  //std::cout << "s=" << s[0] << std::endl;
+
+  // use linear approximation if s did not converge (for very high pT tracks)
+  for (int n = nmin; n < nmax; ++n) {
+#ifdef DEBUG
+    if (debug) std::cout << "s[n - nmin]=" << s[n - nmin] << " sl[n - nmin]=" << sl[n - nmin] << " std::isnan(s[n - nmin])=" << std::isnan(s[n - nmin]) << " std::isfinite(s[n - nmin])=" << std::isfinite(s[n - nmin]) << " std::isnormal(s[n - nmin])=" << std::isnormal(s[n - nmin]) << std::endl;
+#endif
+    if ( (std::abs(sl[n - nmin])>std::abs(s[n - nmin])) || std::isnormal(s[n - nmin])==false) s[n - nmin] = sl[n - nmin];
+  }
+
+#ifdef DEBUG
+  if (debug) std::cout << "s=" << s[0] << std::endl;
+#endif
   parsAndErrPropFromPathL_impl(inPar, inChg, outPar, kinv, s, errorProp, nmin, nmax, N_proc, pf);
 
 }
