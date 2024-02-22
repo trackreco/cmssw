@@ -1060,6 +1060,10 @@ namespace mkfit {
       if (pickup_only || theEndCand == 0)
         continue;
 
+      // For Phase-2
+      //      if (layer_of_hits.nHits() <= 0)
+      //	continue;
+
       cloner.begin_layer(curr_layer);
 
       //vectorized loop

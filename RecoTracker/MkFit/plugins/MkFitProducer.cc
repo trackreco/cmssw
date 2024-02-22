@@ -59,6 +59,7 @@ private:
   const bool removeDuplicates_;
   const bool mkFitSilent_;
   const bool limitConcurrency_;
+  const bool isPhase2_;
 };
 
 MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
@@ -76,7 +77,8 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
       backwardFitInCMSSW_{iConfig.getParameter<bool>("backwardFitInCMSSW")},
       removeDuplicates_{iConfig.getParameter<bool>("removeDuplicates")},
       mkFitSilent_{iConfig.getUntrackedParameter<bool>("mkFitSilent")},
-      limitConcurrency_{iConfig.getUntrackedParameter<bool>("limitConcurrency")} {
+      limitConcurrency_{iConfig.getUntrackedParameter<bool>("limitConcurrency")},
+      isPhase2_{iConfig.getParameter<bool>("isPhase2")} {
   const auto clustersToSkip = iConfig.getParameter<edm::InputTag>("clustersToSkip");
   if (not clustersToSkip.label().empty()) {
     pixelMaskToken_ = consumes(clustersToSkip);
@@ -124,6 +126,7 @@ void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& description
       ->setComment(
           "Use tbb::task_arena to limit the internal concurrency to 1; useful only for timing studies when measuring "
           "the module time");
+  desc.add("isPhase2", false);
 
   edm::ParameterSetDescription descCCC;
   descCCC.add<double>("value");
@@ -145,6 +148,7 @@ void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::Ev
     iEvent.emplace(putToken_, mkfit::TrackVec(), not backwardFitInCMSSW_);
     return;
   }
+
   // This producer does not strictly speaking need the MkFitGeometry,
   // but the ESProducer sets global variables (yes, that "feature"
   // should be removed), so getting the MkFitGeometry makes it
@@ -177,7 +181,8 @@ void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::Ev
       stripContainerMask.copyMaskTo(stripMask);
     }
   } else {
-    stripClusterChargeCut(iEvent.get(stripClusterChargeToken_), stripMask);
+    if (!(isPhase2_))
+      stripClusterChargeCut(iEvent.get(stripClusterChargeToken_), stripMask);
   }
 
   // seeds need to be mutable because of the possible cleaning

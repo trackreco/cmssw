@@ -55,6 +55,7 @@ private:
   const edm::EDPutTokenT<MkFitEventOfHits> putToken_;
   const bool usePixelQualityDB_;
   const bool useStripStripQualityDB_;
+  const bool isPhase2_;
 };
 
 MkFitEventOfHitsProducer::MkFitEventOfHitsProducer(edm::ParameterSet const& iConfig)
@@ -66,13 +67,15 @@ MkFitEventOfHitsProducer::MkFitEventOfHitsProducer(edm::ParameterSet const& iCon
       mkFitGeomToken_{esConsumes()},
       putToken_{produces<MkFitEventOfHits>()},
       usePixelQualityDB_{iConfig.getParameter<bool>("usePixelQualityDB")},
-      useStripStripQualityDB_{iConfig.getParameter<bool>("useStripStripQualityDB")} {
-  if (useStripStripQualityDB_ || usePixelQualityDB_)
+      useStripStripQualityDB_{iConfig.getParameter<bool>("useStripStripQualityDB")},
+      isPhase2_{iConfig.getParameter<bool>("isPhase2")} {
+  if ((useStripStripQualityDB_) || usePixelQualityDB_)
     geomToken_ = esConsumes();
   if (usePixelQualityDB_) {
     pixelQualityToken_ = esConsumes();
   }
-  if (useStripStripQualityDB_) {
+  // For Phase-2, disable (momentarily?) SiStrip quality
+  if (useStripStripQualityDB_ && !(isPhase2_)) {
     stripQualityToken_ = esConsumes();
   }
 }
@@ -85,6 +88,7 @@ void MkFitEventOfHitsProducer::fillDescriptions(edm::ConfigurationDescriptions& 
   desc.add("stripHits", edm::InputTag{"mkFitSiStripHits"});
   desc.add("usePixelQualityDB", true)->setComment("Use SiPixelQuality DB information");
   desc.add("useStripStripQualityDB", true)->setComment("Use SiStrip quality DB information");
+  desc.add("isPhase2", false);
 
   descriptions.addWithDefaultLabel(desc);
 }
@@ -96,7 +100,6 @@ void MkFitEventOfHitsProducer::produce(edm::StreamID iID, edm::Event& iEvent, co
 
   auto eventOfHits = std::make_unique<mkfit::EventOfHits>(mkFitGeom.trackerInfo());
   mkfit::StdSeq::cmssw_LoadHits_Begin(*eventOfHits, {&pixelHits.hits(), &stripHits.hits()});
-
   if (usePixelQualityDB_ || useStripStripQualityDB_) {
     std::vector<mkfit::DeadVec> deadvectors(mkFitGeom.layerNumberConverter().nLayers());
     const auto& trackerGeom = iSetup.getData(geomToken_);
@@ -116,7 +119,8 @@ void MkFitEventOfHitsProducer::produce(edm::StreamID iID, edm::Event& iEvent, co
       }
     }
 
-    if (useStripStripQualityDB_) {
+    // For Phase-2, disable (momentarily?) SiStrip quality check
+    if (useStripStripQualityDB_ && !(isPhase2_)) {
       const auto& siStripQuality = iSetup.getData(stripQualityToken_);
       const auto& badStrips = siStripQuality.getBadComponentList();
       for (const auto& bs : badStrips) {

@@ -6,6 +6,7 @@
 
 #include "DataFormats/SiStripCluster/interface/SiStripClusterTools.h"
 #include "DataFormats/TrackerRecHit2D/interface/SiStripRecHit2DCollection.h"
+#include "DataFormats/TrackerRecHit2D/interface/Phase2TrackerRecHit1D.h"
 
 #include "Geometry/Records/interface/TrackerTopologyRcd.h"
 
@@ -35,6 +36,16 @@ namespace {
   private:
     const float minGoodStripCharge_;
   };
+
+  struct ConvertHitTraitsPhase2 {
+    static constexpr bool applyCCC() { return false; }
+    static std::nullptr_t clusterCharge(const Phase2TrackerRecHit1D& hit, DetId hitId) { return nullptr; }
+    static bool passCCC(std::nullptr_t) { return true; }
+    static void setDetails(mkfit::Hit& mhit, const Phase2TrackerCluster1D& cluster, int shortId, std::nullptr_t) {
+      mhit.setupAsStrip(shortId, (1 << 8) - 1, cluster.size());
+    }
+  };
+
 }  // namespace
 
 class MkFitSiStripHitConverter : public edm::global::EDProducer<> {
@@ -49,6 +60,7 @@ private:
 
   const edm::EDGetTokenT<SiStripRecHit2DCollection> stripRphiRecHitToken_;
   const edm::EDGetTokenT<SiStripRecHit2DCollection> stripStereoRecHitToken_;
+  const edm::EDGetTokenT<Phase2TrackerRecHit1DCollectionNew> siPhase2RecHitToken_;
   const edm::ESGetToken<TransientTrackingRecHitBuilder, TransientRecHitRecord> ttrhBuilderToken_;
   const edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> ttopoToken_;
   const edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
@@ -56,11 +68,14 @@ private:
   const edm::EDPutTokenT<MkFitClusterIndexToHit> clusterIndexPutToken_;
   const edm::EDPutTokenT<std::vector<float>> clusterChargePutToken_;
   const ConvertHitTraits convertTraits_;
+  const bool isPhase2_;
 };
 
 MkFitSiStripHitConverter::MkFitSiStripHitConverter(edm::ParameterSet const& iConfig)
     : stripRphiRecHitToken_{consumes<SiStripRecHit2DCollection>(iConfig.getParameter<edm::InputTag>("rphiHits"))},
       stripStereoRecHitToken_{consumes<SiStripRecHit2DCollection>(iConfig.getParameter<edm::InputTag>("stereoHits"))},
+      siPhase2RecHitToken_{
+          consumes<Phase2TrackerRecHit1DCollectionNew>(iConfig.getParameter<edm::InputTag>("siPhase2Hits"))},
       ttrhBuilderToken_{esConsumes<TransientTrackingRecHitBuilder, TransientRecHitRecord>(
           iConfig.getParameter<edm::ESInputTag>("ttrhBuilder"))},
       ttopoToken_{esConsumes<TrackerTopology, TrackerTopologyRcd>()},
@@ -69,18 +84,22 @@ MkFitSiStripHitConverter::MkFitSiStripHitConverter(edm::ParameterSet const& iCon
       clusterIndexPutToken_{produces<MkFitClusterIndexToHit>()},
       clusterChargePutToken_{produces<std::vector<float>>()},
       convertTraits_{static_cast<float>(
-          iConfig.getParameter<edm::ParameterSet>("minGoodStripCharge").getParameter<double>("value"))} {}
+          iConfig.getParameter<edm::ParameterSet>("minGoodStripCharge").getParameter<double>("value"))},
+      isPhase2_{iConfig.getParameter<bool>("isPhase2")} {}
 
 void MkFitSiStripHitConverter::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
 
   desc.add("rphiHits", edm::InputTag{"siStripMatchedRecHits", "rphiRecHit"});
   desc.add("stereoHits", edm::InputTag{"siStripMatchedRecHits", "stereoRecHit"});
+  desc.add("siPhase2Hits", edm::InputTag{"siPhase2RecHits"});
   desc.add("ttrhBuilder", edm::ESInputTag{"", "WithTrackAngle"});
 
   edm::ParameterSetDescription descCCC;
   descCCC.add<double>("value");
   desc.add("minGoodStripCharge", descCCC);
+
+  desc.add("isPhase2", false);
 
   descriptions.add("mkFitSiStripHitConverterDefault", desc);
 }
@@ -100,21 +119,35 @@ void MkFitSiStripHitConverter::produce(edm::StreamID iID, edm::Event& iEvent, co
   };
 
   edm::ProductID stripClusterID;
-  const auto& stripRphiHits = iEvent.get(stripRphiRecHitToken_);
-  const auto& stripStereoHits = iEvent.get(stripStereoRecHitToken_);
-  if (not stripRphiHits.empty()) {
-    stripClusterID = convert(stripRphiHits);
-  }
-  if (not stripStereoHits.empty()) {
-    auto stripStereoClusterID = convert(stripStereoHits);
-    if (stripRphiHits.empty()) {
-      stripClusterID = stripStereoClusterID;
-    } else if (stripClusterID != stripStereoClusterID) {
-      throw cms::Exception("LogicError") << "Encountered different cluster ProductIDs for strip RPhi hits ("
-                                         << stripClusterID << ") and stereo (" << stripStereoClusterID << ")";
+  if (!(isPhase2_)) {
+    const auto& stripRphiHits = iEvent.get(stripRphiRecHitToken_);
+    const auto& stripStereoHits = iEvent.get(stripStereoRecHitToken_);
+    if (not stripRphiHits.empty()) {
+      stripClusterID = convert(stripRphiHits);
+    }
+    if (not stripStereoHits.empty()) {
+      auto stripStereoClusterID = convert(stripStereoHits);
+      if (stripRphiHits.empty()) {
+        stripClusterID = stripStereoClusterID;
+      } else if (stripClusterID != stripStereoClusterID) {
+        throw cms::Exception("LogicError") << "Encountered different cluster ProductIDs for strip RPhi hits ("
+                                           << stripClusterID << ") and stereo (" << stripStereoClusterID << ")";
+      }
+    }
+  } else {
+    const auto& phase2Hits = iEvent.get(siPhase2RecHitToken_);
+    std::vector<float> dummy;
+    if (not phase2Hits.empty()) {
+      stripClusterID = mkfit::convertHits(ConvertHitTraitsPhase2{},
+                                          phase2Hits,
+                                          hitWrapper.hits(),
+                                          clusterIndexToHit.hits(),
+                                          dummy,
+                                          ttopo,
+                                          ttrhBuilder,
+                                          mkFitGeom);
     }
   }
-
   hitWrapper.setClustersID(stripClusterID);
 
   iEvent.emplace(wrapperPutToken_, std::move(hitWrapper));

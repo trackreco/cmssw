@@ -61,6 +61,7 @@ private:
   const edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> mfToken_;
   const edm::EDPutTokenT<MkFitSeedWrapper> putToken_;
   const unsigned int maxNSeeds_;
+  const bool isPhase2_;
 };
 
 MkFitSeedConverter::MkFitSeedConverter(edm::ParameterSet const& iConfig)
@@ -71,7 +72,8 @@ MkFitSeedConverter::MkFitSeedConverter(edm::ParameterSet const& iConfig)
       mkFitGeomToken_{esConsumes<MkFitGeometry, TrackerRecoGeometryRecord>()},
       mfToken_{esConsumes<MagneticField, IdealMagneticFieldRecord>()},
       putToken_{produces<MkFitSeedWrapper>()},
-      maxNSeeds_{iConfig.getParameter<unsigned int>("maxNSeeds")} {}
+      maxNSeeds_{iConfig.getParameter<unsigned int>("maxNSeeds")},
+      isPhase2_{iConfig.getParameter<bool>("isPhase2")} {}
 
 void MkFitSeedConverter::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
@@ -79,6 +81,7 @@ void MkFitSeedConverter::fillDescriptions(edm::ConfigurationDescriptions& descri
   desc.add("seeds", edm::InputTag{"initialStepSeeds"});
   desc.add("ttrhBuilder", edm::ESInputTag{"", "WithTrackAngle"});
   desc.add("maxNSeeds", 500000U);
+  desc.add("isPhase2", false);
 
   descriptions.addWithDefaultLabel(desc);
 }
@@ -147,7 +150,7 @@ mkfit::TrackVec MkFitSeedConverter::convertSeeds(const edm::View<TrajectorySeed>
         LogTrace("MkFitSeedConverter") << " adding hit detid " << detId.rawId() << " index " << clusterRef.index()
                                        << " ilay " << ilay;
         ret.back().addHitIdx(clusterRef.index(), ilay, 0);  // per-hit chi2 is not known
-      } else {
+      } else if (!(isPhase2_)) {
         auto& matched2D = dynamic_cast<const SiStripMatchedRecHit2D&>(recHit);
         const OmniClusterRef* const clRefs[2] = {&matched2D.monoClusterRef(), &matched2D.stereoClusterRef()};
         const DetId detIds[2] = {matched2D.monoId(), matched2D.stereoId()};

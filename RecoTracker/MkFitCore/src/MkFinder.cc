@@ -314,7 +314,7 @@ namespace mkfit {
   //==============================================================================
 
   void MkFinder::selectHitIndices(const LayerOfHits &layer_of_hits, const int N_proc, bool fill_binsearch_only) {
-    // bool debug = true;
+    //bool debug = true;
     using bidx_t = LayerOfHits::bin_index_t;
     using bcnt_t = LayerOfHits::bin_content_t;
     const LayerOfHits &L = layer_of_hits;
@@ -754,7 +754,7 @@ namespace mkfit {
   //==============================================================================
 
   void MkFinder::selectHitIndicesV2(const LayerOfHits &layer_of_hits, const int N_proc) {
-    // bool debug = true;
+    //bool debug = true;
     using bidx_t = LayerOfHits::bin_index_t;
     using bcnt_t = LayerOfHits::bin_content_t;
     const LayerOfHits &L = layer_of_hits;
@@ -900,11 +900,11 @@ namespace mkfit {
       }
     }
 
-    // for (int i = 0; i < N_proc; ++i) {
-    //   printf("BinCheck %c %+8.6f %+8.6f | %3d %3d - %3d %3d ||  | %2d %2d - %2d %2d\n", LI.is_barrel() ? 'B' : 'E',
-    //          B.phi[i], B.dphi[i], B.p1[i], B.p2[i], pb1v[i], pb2v[i],
-    //          B.q[i], B.dq[i], B.q1[i], B.q2[i], qb1v[i], qb2v[i]);
-    // }
+    //for (int i = 0; i < N_proc; ++i) {
+    //  printf("BinCheck %c %+8.6f %+8.6f | %3d %3d - %3d %3d ||  | %2d %2d - %2d %2d\n", LI.is_barrel() ? 'B' : 'E',
+    //         B.phi[i], B.dphi[i], B.p1[i], B.p2[i], pb1v[i], pb2v[i],
+    //         B.q[i], B.dq[i], B.q1[i], B.q2[i], qb1v[i], qb2v[i]);
+    //}
 
 #ifdef RNT_DUMP_MkF_SelHitIdcs
     for (auto i : rnt_shi.f_h_idcs) {
@@ -957,11 +957,11 @@ namespace mkfit {
       const bidx_t pb1 = B.p1[itrack];
       const bidx_t pb2 = B.p2[itrack];
 
-      // clang-format off
-      dprintf("  %2d/%2d: %6.3f %6.3f %6.6f %7.5f %3u %3u %4u %4u\n",
-              L.layer_id(), itrack, qv[itrack], phi[itrack], dqv[itrack], dphiv[itrack],
-              qb1, qb2, pb1, pb2);
-      // clang-format on
+      //// clang-format off
+      //dprintf("  %2d/%2d: %6.3f %6.3f %6.6f %7.5f %3u %3u %4u %4u\n",
+      //        L.layer_id(), itrack, qv[itrack], phi[itrack], dqv[itrack], dphiv[itrack],
+      //        qb1, qb2, pb1, pb2);
+      //// clang-format on
 
       mp::InitialState mp_is(m_Par[iI], m_Chg, itrack);
       mp::State mp_s;
@@ -970,8 +970,8 @@ namespace mkfit {
         for (bidx_t pi = pb1; pi != pb2; pi = L.phiMaskApply(pi + 1)) {
           // Limit to central Q-bin
           if (qi == qb && L.isBinDead(pi, qi) == true) {
-            dprint("dead module for track in layer=" << L.layer_id() << " qb=" << qi << " pi=" << pi << " q=" << q
-                                                     << " phi=" << phi);
+            //dprint("dead module for track in layer=" << L.layer_id() << " qb=" << qi << " pi=" << pi << " q=" << q
+            //                                         << " phi=" << phi);
             m_XWsrResult[itrack].m_in_gap = true;
           }
 
@@ -984,7 +984,6 @@ namespace mkfit {
           auto pbi = L.phiQBinContent(pi, qi);
           for (bcnt_t hi = pbi.begin(); hi < pbi.end(); ++hi) {
             // MT: Access into m_hit_zs and m_hit_phis is 1% run-time each.
-
             const unsigned int hi_orig = L.getOriginalHitIndex(hi);
 
             if (m_iteration_hit_mask && (*m_iteration_hit_mask)[hi_orig]) {
@@ -1015,9 +1014,9 @@ namespace mkfit {
                                  new_ddphi < B.dphi_track[itrack] + DDPHI_PRESEL_FAC * 0.0123f;
 
             // clang-format off
-            dprintf("     SHI %3u %4u %5u  %6.3f %6.3f %6.4f %7.5f  PROP-%s  %s\n",
-                    qi, pi, hi, L.hit_q(hi), L.hit_phi(hi),
-                    ddq, ddphi, prop_fail ? "FAIL" : "OK", dqdphi_presel ? "PASS" : "REJECT");
+            //dprintf("     SHI %3u %4u %5u  %6.3f %6.3f %6.4f %7.5f  PROP-%s  %s\n",
+            //        qi, pi, hi, L.hit_q(hi), L.hit_phi(hi),
+            //        ddq, ddphi, prop_fail ? "FAIL" : "OK", dqdphi_presel ? "PASS" : "REJECT");
             // clang-format on
 
             if (prop_fail || !dqdphi_presel)
@@ -1648,6 +1647,8 @@ namespace mkfit {
               }
             }
 
+            // For Phase-2:
+            isCompatible = true;
             if (isCompatible) {
               CombCandidate &ccand = cloner.combCandWithOriginalIndex(m_SeedIdx(itrack, 0, 0));
               bool hitExists = false;

@@ -12,6 +12,7 @@
 #include "DataFormats/TrackReco/interface/SeedStopInfo.h"
 #include "DataFormats/TrackingRecHit/interface/InvalidTrackingRecHit.h"
 #include "DataFormats/TrackerRecHit2D/interface/SiStripRecHit1D.h"
+#include "DataFormats/TrackerRecHit2D/interface/Phase2TrackerRecHit1D.h"
 
 #include "TrackingTools/Records/interface/TransientRecHitRecord.h"
 #include "TrackingTools/TransientTrackingRecHit/interface/TransientTrackingRecHitBuilder.h"
@@ -86,7 +87,8 @@ private:
                                              const mkfit::TrackVec& mkFitSeeds,
                                              const reco::BeamSpot* bs,
                                              const reco::VertexCollection* vertices,
-                                             const tensorflow::Session* session) const;
+                                             const tensorflow::Session* session,
+                                             const bool isPhase2) const;
 
   std::pair<TrajectoryStateOnSurface, const GeomDet*> backwardFit(const FreeTrajectoryState& fts,
                                                                   const edm::OwnVector<TrackingRecHit>& hits,
@@ -140,6 +142,8 @@ private:
   const edm::EDGetTokenT<reco::VertexCollection> verticesToken_;
   const std::string tfDnnLabel_;
   const edm::ESGetToken<TfGraphDefWrapper, TfGraphRecord> tfDnnToken_;
+
+  const bool isPhase2_;
 };
 
 MkFitOutputConverter::MkFitOutputConverter(edm::ParameterSet const& iConfig)
@@ -176,7 +180,8 @@ MkFitOutputConverter::MkFitOutputConverter(edm::ParameterSet const& iConfig)
       verticesToken_(algoCandSelection_ ? consumes<reco::VertexCollection>(edm::InputTag("firstStepPrimaryVertices"))
                                         : edm::EDGetTokenT<reco::VertexCollection>()),
       tfDnnLabel_(iConfig.getParameter<std::string>("tfDnnLabel")),
-      tfDnnToken_(esConsumes(edm::ESInputTag("", tfDnnLabel_))) {}
+      tfDnnToken_(esConsumes(edm::ESInputTag("", tfDnnLabel_))),
+      isPhase2_{bool(iConfig.getParameter<bool>("isPhase2"))} {}
 
 void MkFitOutputConverter::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
@@ -205,6 +210,8 @@ void MkFitOutputConverter::fillDescriptions(edm::ConfigurationDescriptions& desc
   desc.add<bool>("candMVASel", false)->setComment("flag used to trigger MVA selection at cand level");
   desc.add<double>("candWP", 0)->setComment("MVA selection at cand level working point");
   desc.add<int>("batchSize", 16)->setComment("batch size for cand DNN evaluation");
+
+  desc.add<bool>("isPhase2", false);
 
   descriptions.addWithDefaultLabel(desc);
 }
@@ -248,7 +255,8 @@ void MkFitOutputConverter::produce(edm::StreamID iID, edm::Event& iEvent, const 
                                    mkfitSeeds.seeds(),
                                    beamspot,
                                    vertices,
-                                   session));
+                                   session,
+                                   isPhase2_));
 
   // TODO: SeedStopInfo is currently unfilled
   iEvent.emplace(putSeedStopInfoToken_, seeds.size());
@@ -267,7 +275,8 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
                                                                  const mkfit::TrackVec& mkFitSeeds,
                                                                  const reco::BeamSpot* bs,
                                                                  const reco::VertexCollection* vertices,
-                                                                 const tensorflow::Session* session) const {
+                                                                 const tensorflow::Session* session,
+                                                                 const bool isPhase2) const {
   TrackCandidateCollection output;
   const auto& candidates = mkFitOutput.tracks();
   output.reserve(candidates.size());
@@ -370,14 +379,18 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
         auto const& hits = isPixel ? pixelClusterIndexToHit.hits() : stripClusterIndexToHit.hits();
 
         auto const& thit = static_cast<BaseTrackerRecHit const&>(*hits[hitOnTrack.index]);
-        if (thit.firstClusterRef().isPixel() || thit.detUnit()->type().isEndcap()) {
+        if (isPhase2)
           recHits.push_back(hits[hitOnTrack.index]->clone());
-        } else {
-          recHits.push_back(std::make_unique<SiStripRecHit1D>(
-              thit.localPosition(),
-              LocalError(thit.localPositionError().xx(), 0.f, std::numeric_limits<float>::max()),
-              *thit.det(),
-              thit.firstClusterRef()));
+        else {
+          if (thit.firstClusterRef().isPixel() || thit.detUnit()->type().isEndcap()) {
+            recHits.push_back(hits[hitOnTrack.index]->clone());
+          } else {
+            recHits.push_back(std::make_unique<SiStripRecHit1D>(
+                thit.localPosition(),
+                LocalError(thit.localPositionError().xx(), 0.f, std::numeric_limits<float>::max()),
+                *thit.det(),
+                thit.firstClusterRef()));
+          }
         }
         LogTrace("MkFitOutputConverter") << "  pos " << recHits.back().globalPosition().x() << " "
                                          << recHits.back().globalPosition().y() << " "
