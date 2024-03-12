@@ -115,8 +115,8 @@ void MkFitEventOfHitsProducer::produce(edm::StreamID iID, edm::Event& iEvent, co
           deadvectors[ilay].push_back({surf.phiSpan().first, surf.phiSpan().second, q1, q2});
       }
     }
-
-    if (useStripStripQualityDB_) {
+    // For Phase-2, disable (momentarily?) SiStrip quality check
+    if (useStripStripQualityDB_ && !mkFitGeom.isPhase2()) {
       const auto& siStripQuality = iSetup.getData(stripQualityToken_);
       const auto& badStrips = siStripQuality.getBadComponentList();
       for (const auto& bs : badStrips) {
