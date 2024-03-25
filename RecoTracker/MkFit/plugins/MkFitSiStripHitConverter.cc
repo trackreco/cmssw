@@ -127,7 +127,7 @@ void MkFitSiStripHitConverter::produce(edm::StreamID iID, edm::Event& iEvent, co
         stripClusterID = stripStereoClusterID;
       } else if (stripClusterID != stripStereoClusterID) {
         throw cms::Exception("LogicError") << "Encountered different cluster ProductIDs for strip RPhi hits ("
-                                          << stripClusterID << ") and stereo (" << stripStereoClusterID << ")";
+                                           << stripClusterID << ") and stereo (" << stripStereoClusterID << ")";
       }
     }
   } else {

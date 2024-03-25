@@ -147,7 +147,7 @@ mkfit::TrackVec MkFitSeedConverter::convertSeeds(const edm::View<TrajectorySeed>
         LogTrace("MkFitSeedConverter") << " adding hit detid " << detId.rawId() << " index " << clusterRef.index()
                                        << " ilay " << ilay;
         ret.back().addHitIdx(clusterRef.index(), ilay, 0);  // per-hit chi2 is not known
-      } else if (!mkFitGeom.isPhase2()) { // XXXX why is !phase2 if needed here?
+      } else if (!mkFitGeom.isPhase2()) {                   // XXXX why is !phase2 if needed here?
         auto& matched2D = dynamic_cast<const SiStripMatchedRecHit2D&>(recHit);
         const OmniClusterRef* const clRefs[2] = {&matched2D.monoClusterRef(), &matched2D.stereoClusterRef()};
         const DetId detIds[2] = {matched2D.monoId(), matched2D.stereoId()};

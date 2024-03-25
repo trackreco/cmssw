@@ -374,7 +374,7 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
         auto const& hits = isPixel ? pixelClusterIndexToHit.hits() : stripClusterIndexToHit.hits();
 
         auto const& thit = static_cast<BaseTrackerRecHit const&>(*hits[hitOnTrack.index]);
-        if(mkFitGeom.isPhase1()) {
+        if (mkFitGeom.isPhase1()) {
           if (thit.firstClusterRef().isPixel() || thit.detUnit()->type().isEndcap()) {
             recHits.push_back(hits[hitOnTrack.index]->clone());
           } else {

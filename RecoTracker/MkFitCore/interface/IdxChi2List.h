@@ -30,6 +30,6 @@ namespace mkfit {
     }
   };
 
-}
+}  // namespace mkfit
 
 #endif
