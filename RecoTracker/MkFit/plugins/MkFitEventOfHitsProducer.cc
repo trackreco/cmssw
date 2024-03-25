@@ -72,7 +72,7 @@ MkFitEventOfHitsProducer::MkFitEventOfHitsProducer(edm::ParameterSet const& iCon
   if (usePixelQualityDB_) {
     pixelQualityToken_ = esConsumes();
   }
-  if (useStripStripQualityDB_) {
+  if (useStripStripQualityDB_ && !((iConfig.getParameter<edm::InputTag>("stripHits"))==edm::InputTag{"mkFitSiPhase2Hits"})) {
     stripQualityToken_ = esConsumes();
   }
 }
