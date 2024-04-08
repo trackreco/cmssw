@@ -88,7 +88,7 @@ struct HitMatchInfo : public HitInfo {
   bool presel;
   bool prop_ok;
   bool has_ic2list{false};
-  mkfit::IdxChi2List ic2list{0};
+  mkfit::IdxChi2List ic2list{0u};
 
   bool accept() const { return presel && prop_ok; }
 
