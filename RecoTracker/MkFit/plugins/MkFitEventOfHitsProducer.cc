@@ -72,7 +72,7 @@ MkFitEventOfHitsProducer::MkFitEventOfHitsProducer(edm::ParameterSet const& iCon
   if (usePixelQualityDB_) {
     pixelQualityToken_ = esConsumes();
   }
-  if (useStripStripQualityDB_ && !((iConfig.getParameter<edm::InputTag>("stripHits"))==edm::InputTag{"mkFitSiPhase2Hits"})) {
+  if (useStripStripQualityDB_) {
     stripQualityToken_ = esConsumes();
   }
 }
@@ -116,7 +116,7 @@ void MkFitEventOfHitsProducer::produce(edm::StreamID iID, edm::Event& iEvent, co
       }
     }
     // For Phase-2, disable (momentarily?) SiStrip quality check
-    if (useStripStripQualityDB_ && !mkFitGeom.isPhase2()) {
+    if (useStripStripQualityDB_) {
       const auto& siStripQuality = iSetup.getData(stripQualityToken_);
       const auto& badStrips = siStripQuality.getBadComponentList();
       for (const auto& bs : badStrips) {
