@@ -475,7 +475,6 @@ trackingPhase2PU140.toReplaceWith(InitialStepTask, _InitialStepTask_trackingPhas
 (trackingMkFitInitialStep & trackingPhase2PU140).toModify(initialStepTrackCandidatesMkFit, stripHits=cms.InputTag('mkFitSiPhase2Hits'))
 (trackingMkFitInitialStep & trackingPhase2PU140).toModify(initialStepTrackCandidates, mkFitStripHits=cms.InputTag('mkFitSiPhase2Hits'))
 (trackingMkFitInitialStep & trackingPhase2PU140).toModify(initialStepTrackCandidatesMkFitConfig, config='RecoTracker/MkFit/data/mkfit-phase2-initialStep.json')
-(trackingMkFitInitialStep & trackingPhase2PU140).toModify(initialStepTrackCandidatesMkFitSeeds)
 
 from Configuration.Eras.Modifier_fastSim_cff import fastSim
 _InitialStepTask_fastSim = cms.Task(initialStepTrackingRegions
