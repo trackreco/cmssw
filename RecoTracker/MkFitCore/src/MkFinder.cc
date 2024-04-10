@@ -770,7 +770,8 @@ namespace mkfit {
       if (m_FailFlag[i]) {
         rnt_shi.RegisterFailedProp(i, m_Par[1 - iI], m_Par[iI], m_event, m_SeedOriginIdx[i]);
       } else if (sim_lbls[i].is_set()) {
-        rnt_shi.RegisterGoodProp(i, m_Par[iI], m_event, m_SeedOriginIdx[i]);
+        CandInfo &ci = rnt_shi.RegisterGoodProp(i, m_Par[iI], m_event, m_SeedOriginIdx[i]);
+        ci.ic2list.reset(); // zero initialize
       }  // else ... could do something about the bad seeds ... probably better to collect elsewhere.
     }
     // Get BinSearch result from V1. Note -- it can clear m_FailFlag for some cands!

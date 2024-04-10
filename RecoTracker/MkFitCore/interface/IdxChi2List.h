@@ -20,9 +20,7 @@ namespace mkfit {
     IdxChi2List() = default;
     IdxChi2List& operator=(const IdxChi2List&) = default;
 
-    // Constructor with initialization to 0 (used for export to TTrees)
-    IdxChi2List(unsigned int) { reset(); }
-
+    // Zero initialization
     void reset() {
       module = 0u;
       hitIdx = trkIdx = 0;
