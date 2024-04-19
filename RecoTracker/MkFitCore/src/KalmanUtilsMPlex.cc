@@ -1251,8 +1251,8 @@ namespace mkfit {
   //------------------------------------------------------------------------------
 
   void kalmanOperationPlaneLocal(const int kfOp,
-			         const MPlexLS& propErr,
-			         const MPlexLV& propPar,
+			         const MPlexLS& psErr,
+			         const MPlexLV& psPar,
 			         const MPlexQI& inChg,
 			         const MPlexHS& msErr,
 			         const MPlexHV& msPar,
@@ -1263,9 +1263,6 @@ namespace mkfit {
 			         MPlexLV& outPar,
 			         MPlexQF& outChi2,
 			         const int N_proc) {
-    MPlexLS psErr = propErr;//fixme is this needed?
-    MPlexLV psPar = propPar;
-
 #ifdef DEBUG
     {
       dmutex_guard;
@@ -1298,7 +1295,7 @@ namespace mkfit {
     }
 #endif
 
-    MPlex2H prj;
+    MPlex2H prj;//fixme: eliminate
     for (int n = 0; n < NN; ++n) {
       prj(n, 0, 0) = plDir(n, 0, 0);
       prj(n, 0, 1) = plDir(n, 1, 0);
@@ -1307,7 +1304,7 @@ namespace mkfit {
       prj(n, 1, 1) = plNrm(n, 2, 0)*plDir(n, 0, 0) - plNrm(n, 0, 0)*plDir(n, 2, 0);
       prj(n, 1, 2) = plNrm(n, 0, 0)*plDir(n, 1, 0) - plNrm(n, 1, 0)*plDir(n, 0, 0);
     }
-    MPlexHH rot;
+    MPlexHH rot;//fixme: vectorize
     for (int n = 0; n < NN; ++n) {
       rot(n, 0, 0) = plDir(n, 0, 0);
       rot(n, 0, 1) = plDir(n, 1, 0);
@@ -1318,6 +1315,38 @@ namespace mkfit {
       rot(n, 2, 0) = plNrm(n, 0, 0);
       rot(n, 2, 1) = plNrm(n, 1, 0);
       rot(n, 2, 2) = plNrm(n, 2, 0);
+    }
+
+    // get local parameters
+    MPlexHV xd;//fixme vectorize
+    for (int n = 0; n < N_proc; ++n) {
+      xd(n,0,0) = psPar(n,0,0)-plPnt(n,0,0);
+      xd(n,0,1) = psPar(n,0,1)-plPnt(n,0,1);
+      xd(n,0,2) = psPar(n,0,2)-plPnt(n,0,2);
+    }
+    MPlex2V xlo;
+    RotateResidualsOnPlane(prj, xd, xlo);//fixme: template?
+
+    MPlexHV pgl;//fixme vectorize, cache sin and cos
+    for (int n = 0; n < N_proc; ++n) {
+      pgl(n,0,0) = std::cos(psPar(n, 4, 0))/psPar(n, 3, 0);
+      pgl(n,0,1) = std::sin(psPar(n, 4, 0))/psPar(n, 3, 0);
+      pgl(n,0,2) = std::cos(psPar(n, 5, 0))/std::sin(psPar(n, 5, 0))/psPar(n, 3, 0);
+    }
+
+    MPlexHV plo;
+    RotateVectorOnPlane(rot, pgl, plo);
+    MPlex5V lp;//fixme vectorize
+    for (int n = 0; n < N_proc; ++n) {
+      lp(n,0,0) = inChg(n,0,0)*psPar(n, 3, 0)*std::sin(psPar(n, 5, 0));
+      lp(n,0,1) = plo(n,0,0)/plo(n,0,2);
+      lp(n,0,2) = plo(n,0,1)/plo(n,0,2);
+      lp(n,0,3) = xlo(n,0,0);
+      lp(n,0,4) = xlo(n,0,1);
+    }
+    MPlexQI pzSign;//fixme vectorize
+    for (int n = 0; n < N_proc; ++n) {
+      pzSign(n,0,0) = plo(n,0,2)>0.f ? 1 : -1;
     }
     /*
     printf("prj:\n");
@@ -1339,65 +1368,28 @@ namespace mkfit {
       printf("%8f ", plPnt.constAt(0, 0, i));
     }
     printf("\n");
-    */
-
-    // get local parameters
-    MPlexHV xd;
-    for (int n = 0; n < N_proc; ++n) {
-      xd(n,0,0) = psPar(n,0,0)-plPnt(n,0,0);
-      xd(n,0,1) = psPar(n,0,1)-plPnt(n,0,1);
-      xd(n,0,2) = psPar(n,0,2)-plPnt(n,0,2);
-    }
-    MPlex2V xlo;
-    RotateResidualsOnPlane(prj, xd, xlo);
-    /*
     printf("xlo:\n");
     for (int i = 0; i < 2; ++i) {
       printf("%8f ", xlo.At(0, i, 0));
     }
     printf("\n");
-    */
-    MPlexHV pgl;
-    for (int n = 0; n < N_proc; ++n) {
-      pgl(n,0,0) = std::cos(psPar(n, 4, 0))/psPar(n, 3, 0);
-      pgl(n,0,1) = std::sin(psPar(n, 4, 0))/psPar(n, 3, 0);
-      pgl(n,0,2) = std::cos(psPar(n, 5, 0))/std::sin(psPar(n, 5, 0))/psPar(n, 3, 0);
-    }
-    /*
     printf("pgl:\n");
     for (int i = 0; i < 3; ++i) {
       printf("%8f ", pgl.At(0, i, 0));
     }
     printf("\n");
-    */
-    MPlexHV plo;
-    RotateVectorOnPlane(rot, pgl, plo);
-    /*
     printf("plo:\n");
     for (int i = 0; i < 3; ++i) {
       printf("%8f ", plo.At(0, i, 0));
     }
     printf("\n");
-    */
-    MPlex5V lp;
-    for (int n = 0; n < N_proc; ++n) {
-      lp(n,0,0) = inChg(n,0,0)*psPar(n, 3, 0)*std::sin(psPar(n, 5, 0));
-      lp(n,0,1) = plo(n,0,0)/plo(n,0,2);
-      lp(n,0,2) = plo(n,0,1)/plo(n,0,2);
-      lp(n,0,3) = xlo(n,0,0);
-      lp(n,0,4) = xlo(n,0,1);
-    }
-    MPlexQI pzSign;
-    for (int n = 0; n < N_proc; ++n) {
-      pzSign(n,0,0) = plo(n,0,2)>0.f ? 1 : -1;
-    }
-    /*
     printf("lp:\n");
     for (int i = 0; i < 5; ++i) {
       printf("%8f ", lp.At(0, i, 0));
     }
     printf("\n");
     */
+
     //now we need the jacobian to convert from CCS to curvilinear
     // code from TrackState::jacobianCCSToCurvilinear
     MPlex56 jacCCS2Curv(0.f); // todo: cache sin and cosine
@@ -1425,30 +1417,16 @@ namespace mkfit {
       vn(n,0,0) = -pgl(n,0,2)*std::abs(lp(n,0,0))*un(n,0,1);
       vn(n,0,1) =  pgl(n,0,2)*std::abs(lp(n,0,0))*un(n,0,0);
     }
-
     MPlexHV u;
     RotateVectorOnPlane(rot, un, u);
     MPlexHV v;
     RotateVectorOnPlane(rot, vn, v);
-    /*
-    printf("un:\n");
-    for (int i = 0; i < 3; ++i) {
-      printf("%8f ", un.At(0, i, 0));
-    }
-    printf("\n");
-    printf("u:\n");
-    for (int i = 0; i < 3; ++i) {
-      printf("%8f ", u.At(0, i, 0));
-    }
-    printf("\n");
-    */
     MPlex55 jacCurv2Loc(0.f);
     for (int n = 0; n < N_proc; ++n) {
       // fixme? //(pf.use_param_b_field ? 0.01f * Const::sol * Config::bFieldFromZR(psPar(n, 2, 0), hipo(psPar(n, 0, 0), psPar(n, 1, 0))) : 0.01f * Const::sol * Config::Bfield);
       const float bF = 0.01f * Const::sol * Config::Bfield;
       const float qh2 = bF * lp(n,0,0);//fixme check sign
       const float t1r = std::sqrt(1. + lp(n,0,1)*lp(n,0,1) + lp(n,0,2)*lp(n,0,2))*pzSign(n,0,0);
-      //std::cout << "t1r=" << t1r << std::endl;
       //
       float t2r = t1r*t1r;
       float t3r = t1r*t2r;
@@ -1470,58 +1448,17 @@ namespace mkfit {
       jacCurv2Loc(n,2,4) = vi*(v(n,0,0)*cosz);
       //
     }
-    /*
-    printf("jacCCS2Curv:\n");
-    for (int i = 0; i < 5; ++i) {
-      for (int j = 0; j < 6; ++j)
-	printf("%8f ", jacCCS2Curv.At(0, i, j));
-      printf("\n");
-    }
-    printf("\n");
-    printf("jacCurv2Loc:\n");
-    for (int i = 0; i < 5; ++i) {
-      for (int j = 0; j < 5; ++j)
-	printf("%8f ", jacCurv2Loc.At(0, i, j));
-      printf("\n");
-    }
-    printf("\n");
-    */
+
     // jacobian for converting from CCS to Loc (via Curv)
     MPlex56 jacCCS2Loc;
     Matriplex::multiplyGeneral(jacCurv2Loc, jacCCS2Curv, jacCCS2Loc);
-    /*
-    printf("jacCCS2Loc:\n");
-    for (int i = 0; i < 5; ++i) {
-      for (int j = 0; j < 6; ++j)
-	printf("%8f ", jacCCS2Loc.At(0, i, j));
-      printf("\n");
-    }
-    printf("\n");
-    */
 
     // local error!
     MPlex55 psErrLoc;//fixme not sym
     MPlex56 temp56;
     MultFull(jacCCS2Loc, 5, 6, psErr, 6, 6, temp56, 5, 6);
-    /*
-    printf("temp56:\n");
-    for (int i = 0; i < 5; ++i) {
-      for (int j = 0; j < 6; ++j)
-	printf("%8f ", temp56.At(0, i, j));
-      printf("\n");
-    }
-    printf("\n");
-    */
     MultTranspFull(temp56, 5, 6, jacCCS2Loc, 5, 6, psErrLoc, 5, 5);
-    /*
-    printf("psErrLoc:\n");
-    for (int i = 0; i < 5; ++i) {
-      for (int j = 0; j < 5; ++j)
-	printf("%8f ", psErrLoc.At(0, i, j));
-      printf("\n");
-    }
-    printf("\n");
-    */
+
     MPlexHV md;
     for (int n = 0; n < N_proc; ++n) {
       md(n,0,0) = msPar(n,0,0)-plPnt(n,0,0);
@@ -1549,6 +1486,51 @@ namespace mkfit {
       resErr_loc(n,1,1) = psErrLoc(n,4,4) + msErr_loc(n,1,1);
     }
     /*
+    printf("jacCCS2Curv:\n");
+    for (int i = 0; i < 5; ++i) {
+      for (int j = 0; j < 6; ++j)
+	printf("%8f ", jacCCS2Curv.At(0, i, j));
+      printf("\n");
+    }
+    printf("un:\n");
+    for (int i = 0; i < 3; ++i) {
+      printf("%8f ", un.At(0, i, 0));
+    }
+    printf("\n");
+    printf("u:\n");
+    for (int i = 0; i < 3; ++i) {
+      printf("%8f ", u.At(0, i, 0));
+    }
+    printf("\n");
+    printf("\n");
+    printf("jacCurv2Loc:\n");
+    for (int i = 0; i < 5; ++i) {
+      for (int j = 0; j < 5; ++j)
+	printf("%8f ", jacCurv2Loc.At(0, i, j));
+      printf("\n");
+    }
+    printf("\n");
+    printf("jacCCS2Loc:\n");
+    for (int i = 0; i < 5; ++i) {
+      for (int j = 0; j < 6; ++j)
+	printf("%8f ", jacCCS2Loc.At(0, i, j));
+      printf("\n");
+    }
+    printf("\n");
+    printf("temp56:\n");
+    for (int i = 0; i < 5; ++i) {
+      for (int j = 0; j < 6; ++j)
+	printf("%8f ", temp56.At(0, i, j));
+      printf("\n");
+    }
+    printf("\n");
+    printf("psErrLoc:\n");
+    for (int i = 0; i < 5; ++i) {
+      for (int j = 0; j < 5; ++j)
+	printf("%8f ", psErrLoc.At(0, i, j));
+      printf("\n");
+    }
+    printf("\n");
     printf("res_loc:\n");
     for (int i = 0; i < 2; ++i) {
       printf("%8f ", res_loc.At(0, i, 0));
@@ -1596,7 +1578,7 @@ namespace mkfit {
       MPlex5V lp_upd;
       MultResidualsAdd(K, lp, res_loc, lp_upd);
 
-      MPlex55 ImKH(0.f);
+      MPlex55 ImKH(0.f);//fixme vectorize
       for (int n = 0; n < N_proc; ++n) {
 	for (int j = 0; j < 5; ++j) {
 	  ImKH(n,j,j) = 1.f;
@@ -1606,21 +1588,7 @@ namespace mkfit {
       }
       MPlex55 psErrLoc_upd;//fixme not sym
       MultFull(ImKH, 5, 5, psErrLoc, 5, 5, psErrLoc_upd, 5, 5);
-      /*
-      printf("\n");
-      printf("lp_upd:\n");
-      for (int i = 0; i < 5; ++i) {
-	printf("%8f ", lp_upd.At(0, i, 0));
-      }
-      printf("\n");
-      printf("psErrLoc_upd:\n");
-      for (int i = 0; i < 5; ++i) {
-        for (int j = 0; j < 5; ++j)
-          printf("%8f ", psErrLoc_upd.At(0, i, j));
-        printf("\n");
-      }
-      printf("\n");
-      */
+
       //convert local updated parameters into CCS
       MPlexHV lxu;
       MPlexHV lpu;
@@ -1641,44 +1609,17 @@ namespace mkfit {
       }
       MPlexHV gpu;
       RotateVectorOnPlaneTransp(rot, lpu, gpu);
-      /*
-      printf("lxu:\n");
-      for (int i = 0; i < 3; ++i) {
-	printf("%8f ", lxu.At(0, i, 0));
-      }
-      printf("\n");
-      printf("lpu:\n");
-      for (int i = 0; i < 3; ++i) {
-	printf("%8f ", lpu.At(0, i, 0));
-      }
-      printf("\n");
-      printf("gxu:\n");
-      for (int i = 0; i < 3; ++i) {
-	printf("%8f ", gxu.At(0, i, 0));
-      }
-      printf("\n");
-      printf("gpu:\n");
-      for (int i = 0; i < 3; ++i) {
-	printf("%8f ", gpu.At(0, i, 0));
-      }
-      printf("\n");
-      */
-      for (int n = 0; n < N_proc; ++n) {
-	outPar(n, 0, 0) = gxu.At(0, 0, 0);
-	outPar(n, 0, 1) = gxu.At(0, 0, 1);
-	outPar(n, 0, 2) = gxu.At(0, 0, 2);
-	float pt = std::sqrt(gpu.At(0, 0, 0)*gpu.At(0, 0, 0) + gpu.At(0, 0, 1)*gpu.At(0, 0, 1));
+
+      for (int n = 0; n < N_proc; ++n) {//fixme vectorize
+	outPar(n, 0, 0) = gxu.At(n, 0, 0);
+	outPar(n, 0, 1) = gxu.At(n, 0, 1);
+	outPar(n, 0, 2) = gxu.At(n, 0, 2);
+	float pt = std::sqrt(gpu.At(n, 0, 0)*gpu.At(n, 0, 0) + gpu.At(n, 0, 1)*gpu.At(n, 0, 1));
 	outPar(n, 0, 3) = 1.f/pt;
-	outPar(n, 0, 4) = getPhi(gpu.At(0, 0, 0), gpu.At(0, 0, 1));
-	outPar(n, 0, 5) = getTheta(pt, gpu.At(0, 0, 2));
+	outPar(n, 0, 4) = getPhi(gpu.At(n, 0, 0), gpu.At(n, 0, 1));
+	outPar(n, 0, 5) = getTheta(pt, gpu.At(n, 0, 2));
       }
-      /*
-      printf("outPar:\n");
-      for (int i = 0; i < 6; ++i) {
-	printf("%8f ", outPar.At(0, i, 0));
-      }
-      printf("\n");
-      */
+
       //now we need the jacobian to convert from curvilinear to CCS
       // code from TrackState::jacobianCurvilinearToCCS
       MPlex65  jacCurv2CCS(0.f); // todo: cache sin and cosine
@@ -1712,7 +1653,88 @@ namespace mkfit {
 	vn(n,0,0) = -tn(n,0,2)*un(n,0,1);
 	vn(n,0,1) =  tn(n,0,2)*un(n,0,0);
       }
+      MPlex55 jacLoc2Curv(0.f);
+      for (int n = 0; n < N_proc; ++n) {
+	// fixme? //(pf.use_param_b_field ? 0.01f * Const::sol * Config::bFieldFromZR(psPar(n, 2, 0), hipo(psPar(n, 0, 0), psPar(n, 1, 0))) : 0.01f * Const::sol * Config::Bfield);
+	const float bF = 0.01f * Const::sol * Config::Bfield;
+	const float qh2 = bF * lp_upd(n,0,0);//fixme check sign
+	double cosl1 = 1./vn(n,0,2);
+	double uj = un(n,0,0)*rot(n,0,0) + un(n,0,1)*rot(n,0,1);
+	double uk = un(n,0,0)*rot(n,1,0) + un(n,0,1)*rot(n,1,1);
+	double vj = vn(n,0,0)*rot(n,0,0) + vn(n,0,1)*rot(n,0,1) + vn(n,0,2)*rot(n,0,2);
+	double vk = vn(n,0,0)*rot(n,1,0) + vn(n,0,1)*rot(n,1,1) + vn(n,0,2)*rot(n,1,2);
+	double cosz = vn(n,0,2)*qh2;
+	jacLoc2Curv(n,0,0) = 1.;
+	jacLoc2Curv(n,1,1) = tnl(n,0,2)*vj;
+	jacLoc2Curv(n,1,2) = tnl(n,0,2)*vk;
+	jacLoc2Curv(n,2,1) = tnl(n,0,2)*uj*cosl1;
+	jacLoc2Curv(n,2,2) = tnl(n,0,2)*uk*cosl1;
+	jacLoc2Curv(n,3,3) = uj;
+	jacLoc2Curv(n,3,4) = uk;
+	jacLoc2Curv(n,4,3) = vj;
+	jacLoc2Curv(n,4,4) = vk;
+	//
+	jacLoc2Curv(n,2,3) = tnl(n,0,0)*(cosz*cosl1);
+	jacLoc2Curv(n,2,4) = tnl(n,0,1)*(cosz*cosl1);
+      }
+
+      // jacobian for converting from Loc to CCS (via Curv)
+      MPlex65 jacLoc2CCS;
+      Matriplex::multiplyGeneral(jacCurv2CCS, jacLoc2Curv, jacLoc2CCS);
+
+      // CCS error!
+      MPlexLL psErrCCS;//fixme not sym
+      MPlex65 temp65;
+      MultFull(jacLoc2CCS, 6, 5, psErrLoc_upd, 5, 5, temp65, 6, 5);
+      MultTranspFull(temp65, 6, 5, jacLoc2CCS, 6, 5, psErrCCS, 6, 6);
+
+      //convert to outErr!
+      for (int n = 0; n < N_proc; ++n) {//fixme vectorize
+	for (int i = 0; i < 6; ++i) {
+	  for (int j = i; j < 6; ++j) {
+	    outErr(n,i,j) = psErrCCS.At(n, i, j);
+	  }
+	}
+      }
       /*
+      printf("\n");
+      printf("lp_upd:\n");
+      for (int i = 0; i < 5; ++i) {
+	printf("%8f ", lp_upd.At(0, i, 0));
+      }
+      printf("\n");
+      printf("psErrLoc_upd:\n");
+      for (int i = 0; i < 5; ++i) {
+        for (int j = 0; j < 5; ++j)
+          printf("%8f ", psErrLoc_upd.At(0, i, j));
+        printf("\n");
+      }
+      printf("\n");
+      printf("lxu:\n");
+      for (int i = 0; i < 3; ++i) {
+	printf("%8f ", lxu.At(0, i, 0));
+      }
+      printf("\n");
+      printf("lpu:\n");
+      for (int i = 0; i < 3; ++i) {
+	printf("%8f ", lpu.At(0, i, 0));
+      }
+      printf("\n");
+      printf("gxu:\n");
+      for (int i = 0; i < 3; ++i) {
+	printf("%8f ", gxu.At(0, i, 0));
+      }
+      printf("\n");
+      printf("gpu:\n");
+      for (int i = 0; i < 3; ++i) {
+	printf("%8f ", gpu.At(0, i, 0));
+      }
+      printf("\n");
+      printf("outPar:\n");
+      for (int i = 0; i < 6; ++i) {
+	printf("%8f ", outPar.At(0, i, 0));
+      }
+      printf("\n");
       printf("tnl:\n");
       for (int i = 0; i < 3; ++i) {
 	printf("%8f ", tnl.At(0, i, 0));
@@ -1733,33 +1755,6 @@ namespace mkfit {
 	printf("%8f ", vn.At(0, i, 0));
       }
       printf("\n");
-      */
-      MPlex55 jacLoc2Curv(0.f);
-      for (int n = 0; n < N_proc; ++n) {
-	// fixme? //(pf.use_param_b_field ? 0.01f * Const::sol * Config::bFieldFromZR(psPar(n, 2, 0), hipo(psPar(n, 0, 0), psPar(n, 1, 0))) : 0.01f * Const::sol * Config::Bfield);
-	const float bF = 0.01f * Const::sol * Config::Bfield;
-	const float qh2 = bF * lp_upd(n,0,0);//fixme check sign
-	double cosl1 = 1./vn(n,0,2);
-	double uj = un(n,0,0)*rot(n,0,0) + un(n,0,1)*rot(n,0,1);
-	double uk = un(n,0,0)*rot(n,1,0) + un(n,0,1)*rot(n,1,1);
-	double vj = vn(n,0,0)*rot(n,0,0) + vn(n,0,1)*rot(n,0,1) + vn(n,0,2)*rot(n,0,2);
-	double vk = vn(n,0,0)*rot(n,1,0) + vn(n,0,1)*rot(n,1,1) + vn(n,0,2)*rot(n,1,2);
-	double cosz = vn(n,0,2)*qh2;
-	//std::cout << "uj=" << uj << " uk=" << uk << " sinz=" << 0 << " vj=" << vj << " vk=" << vk << " cosz=" << cosz << std::endl;
-	jacLoc2Curv(n,0,0) = 1.;
-	jacLoc2Curv(n,1,1) = tnl(n,0,2)*vj;
-	jacLoc2Curv(n,1,2) = tnl(n,0,2)*vk;
-	jacLoc2Curv(n,2,1) = tnl(n,0,2)*uj*cosl1;
-	jacLoc2Curv(n,2,2) = tnl(n,0,2)*uk*cosl1;
-	jacLoc2Curv(n,3,3) = uj;
-	jacLoc2Curv(n,3,4) = uk;
-	jacLoc2Curv(n,4,3) = vj;
-	jacLoc2Curv(n,4,4) = vk;
-	//
-	jacLoc2Curv(n,2,3) = tnl(n,0,0)*(cosz*cosl1);
-	jacLoc2Curv(n,2,4) = tnl(n,0,1)*(cosz*cosl1);
-      }
-      /*
       printf("jacLoc2Curv:\n");
       for (int i = 0; i < 5; ++i) {
 	for (int j = 0; j < 5; ++j)
@@ -1767,17 +1762,6 @@ namespace mkfit {
 	printf("\n");
       }
       printf("\n");
-      */
-      // jacobian for converting from Loc to CCS (via Curv)
-      MPlex65 jacLoc2CCS;
-      Matriplex::multiplyGeneral(jacCurv2CCS, jacLoc2Curv, jacLoc2CCS);
-
-      // CCS error!
-      MPlexLL psErrCCS;//fixme not sym
-      MPlex65 temp65;
-      MultFull(jacLoc2CCS, 6, 5, psErrLoc_upd, 5, 5, temp65, 6, 5);
-      MultTranspFull(temp65, 6, 5, jacLoc2CCS, 6, 5, psErrCCS, 6, 6);
-      /*
       printf("psErrCCS:\n");
       for (int i = 0; i < 6; ++i) {
         for (int j = 0; j < 6; ++j)
@@ -1785,16 +1769,6 @@ namespace mkfit {
         printf("\n");
       }
       printf("\n");
-      */
-      //convert to outErr!
-      for (int n = 0; n < N_proc; ++n) {
-	for (int i = 0; i < 6; ++i) {
-	  for (int j = i; j < 6; ++j) {
-	    outErr(n,i,j) = psErrCCS.At(n, i, j);
-	  }
-	}
-      }
-      /*
       printf("outErr:\n");
       for (int i = 0; i < 6; ++i) {
         for (int j = 0; j < 6; ++j)
@@ -1809,8 +1783,8 @@ namespace mkfit {
         dmutex_guard;
         if (kfOp & KFO_Local_Cov) {
           printf("psErrLoc_upd:\n");
-          for (int i = 0; i < 6; ++i) {
-            for (int j = 0; j < 6; ++j)
+          for (int i = 0; i < 5; ++i) {
+            for (int j = 0; j < 5; ++j)
               printf("% 8e ", psErrLoc_upd.At(0, i, j));
             printf("\n");
           }
@@ -1822,13 +1796,6 @@ namespace mkfit {
             printf("%8f ", resErr_loc.At(0, i, j));
           printf("\n");
         }
-        // printf("\n");
-	// printf("tempH2:\n");
-	// for (int i = 0; i < 3; ++i) {
-	//   for (int j = 0; j < 2; ++j)
-	//     printf("%8f ", tempH2.At(0, i, j));
-	//   printf("\n");
-	// }
 	printf("\n");
         printf("K:\n");
         for (int i = 0; i < 6; ++i) {
@@ -1836,13 +1803,6 @@ namespace mkfit {
             printf("%8f ", K.At(0, i, j));
           printf("\n");
         }
-        // printf("\n");
-	// printf("tempLL:\n");
-	// for (int i = 0; i < 6; ++i) {
-	//   for (int j = 0; j < 6; ++j)
-	//     printf("%8f ", tempLL.At(0, i, j));
-	//   printf("\n");
-	// }
         printf("\n");
         printf("outPar:\n");
         for (int i = 0; i < 6; ++i) {
