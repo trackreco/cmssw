@@ -290,13 +290,12 @@ namespace Matriplex {
     _ass_ std::_func_(__VA_ARGS__);
 #else
 #define VDT_INVOKE(_ass_, _func_, ...) \
+  static_assert(std::is_floating_point<T>::value, "Unsupported type"); \
   for (idx_t i = 0; i < kTotSize; ++i) \
-    if constexpr (std::is_same<T, float>()) \
+    if constexpr (std::is_same<float, typename std::remove_cv<T>::type>::value) \
       _ass_ vdt::fast_ ## _func_ ## f(__VA_ARGS__); \
-    else if constexpr (std::is_same<T, double>()) \
-      _ass_ vdt::fast_ ## _func_(__VA_ARGS__); \
     else \
-      static_assert(false && "unsupportet type")
+      _ass_ vdt::fast_ ## _func_(__VA_ARGS__)
 #endif
 
     Matriplex& fast_isqrt(const Matriplex& a) {
