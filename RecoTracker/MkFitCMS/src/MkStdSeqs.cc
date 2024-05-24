@@ -755,7 +755,7 @@ namespace mkfit {
       //float penalty = 8;
       //float tailPenalty = 3;
       //float overlapBonus = 0;
-      if(inFindCandidates){
+      if(inFindCandidates==false){
         bonus = 0.2 * nfoundhits + 4;
 	penalty = 8;
         tailPenalty = 3;
