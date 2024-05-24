@@ -755,6 +755,12 @@ namespace mkfit {
       //float penalty = 8;
       //float tailPenalty = 3;
       //float overlapBonus = 0;
+      if(inFindCandidates){
+        bonus = 0.2 * nfoundhits + 4;
+	penalty = 8;
+        tailPenalty = 3;
+	overlapBonus = 0;
+      }
       if (pt < 0.9) {
         penalty *= inFindCandidates ? 1.7f : 1.5f;
         bonus = std::min(bonus * (inFindCandidates ? 0.9f : 1.0f), maxBonus);
