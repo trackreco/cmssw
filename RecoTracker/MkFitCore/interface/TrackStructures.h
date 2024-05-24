@@ -257,6 +257,7 @@ namespace mkfit {
   }
 
   inline float getScoreCand(const track_score_func& score_func,
+                            const IterationParams& params,
                             const TrackCand& cand1,
                             bool penalizeTailMissHits = false,
                             bool inFindCandidates = false) {
@@ -269,7 +270,7 @@ namespace mkfit {
     // Do not allow for chi2<0 in score calculation
     if (chi2 < 0)
       chi2 = 0.f;
-    return score_func(nfoundhits, ntailmisshits, noverlaphits, nmisshits, chi2, pt, inFindCandidates);
+    return score_func(nfoundhits, ntailmisshits, noverlaphits, nmisshits, chi2, pt, inFindCandidates, params);
   }
 
   // CombCandidate -- a set of candidates from a given seed.
@@ -369,7 +370,8 @@ namespace mkfit {
       m_nTailMinusOneHits_before_bkwsearch = -1;
     }
 
-    void importSeed(const Track& seed, int seed_idx, const track_score_func& score_func, int region);
+    void importSeed(
+        const Track& seed, int seed_idx, const IterationParams& params, const track_score_func& score_func, int region);
 
     int addHit(const HitOnTrack& hot, float chi2, int prev_idx) {
       m_hots.push_back({hot, chi2, prev_idx});
@@ -626,10 +628,15 @@ namespace mkfit {
       m_n_seeds_inserted -= n_removed;
     }
 
-    void insertSeed(const Track& seed, int seed_idx, const track_score_func& score_func, int region, int pos) {
+    void insertSeed(const Track& seed,
+                    int seed_idx,
+                    const IterationParams& params,
+                    const track_score_func& score_func,
+                    int region,
+                    int pos) {
       assert(pos < m_size);
 
-      m_candidates[pos].importSeed(seed, seed_idx, score_func, region);
+      m_candidates[pos].importSeed(seed, seed_idx, params, score_func, region);
 
       ++m_n_seeds_inserted;
     }

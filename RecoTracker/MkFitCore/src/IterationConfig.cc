@@ -65,7 +65,12 @@ namespace mkfit {
                                    /* bool */ useHitSelectionV2,
                                    /* int */ minHitsQF,
                                    /* float */ minPtCut,
-                                   /* unsigned int */ maxClusterSize)
+                                   /* unsigned int */ maxClusterSize,
+                                   /* float */ validHitBonus,
+                                   /* float */ validHitSlope,
+                                   /* float */ overlapHitBonus,  // set to negative for penalty
+                                   /* float */ missingHitPenalty,
+                                   /* float */ tailMissingHitPenalty)
 
   ITCONF_DEFINE_TYPE_NON_INTRUSIVE(mkfit::IterationConfig,
                                    /* int */ m_iteration_index,

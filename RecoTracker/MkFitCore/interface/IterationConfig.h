@@ -101,6 +101,12 @@ namespace mkfit {
 
     //max cluster size cut for SiStrip hits
     unsigned int maxClusterSize = 8;
+
+    float validHitBonus = 4;
+    float validHitSlope = 0.2;
+    float overlapHitBonus = 0;  // set to negative for penalty
+    float missingHitPenalty = 8;
+    float tailMissingHitPenalty = 3;
   };
 
   //==============================================================================

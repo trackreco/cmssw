@@ -743,12 +743,18 @@ namespace mkfit {
                             const int nmisshits,
                             const float chi2,
                             const float pt,
-                            const bool inFindCandidates) {
+                            const bool inFindCandidates,
+                            const IterationParams &m_params) {
+      //m_params are passed so one needs to be careful about the backward and forward directions
       float maxBonus = 8.0;
-      float bonus = Config::validHitSlope_ * nfoundhits + Config::validHitBonus_;
-      float penalty = Config::missingHitPenalty_;
-      float tailPenalty = Config::tailMissingHitPenalty_;
-      float overlapBonus = Config::overlapHitBonus_;
+      float bonus = m_params.validHitSlope * nfoundhits + m_params.validHitBonus;
+      float penalty = m_params.missingHitPenalty;
+      float tailPenalty = m_params.tailMissingHitPenalty;
+      float overlapBonus = m_params.overlapHitBonus;
+      //float bonus = 0.2 * nfoundhits + 4;
+      //float penalty = 8;
+      //float tailPenalty = 3;
+      //float overlapBonus = 0;
       if (pt < 0.9) {
         penalty *= inFindCandidates ? 1.7f : 1.5f;
         bonus = std::min(bonus * (inFindCandidates ? 0.9f : 1.0f), maxBonus);

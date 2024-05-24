@@ -13,6 +13,7 @@ namespace mkfit {
   class MkJob;
   class IterationConfig;
   class IterationSeedPartition;
+  class IterationParams;
 
   typedef std::vector<Track> TrackVec;
 
@@ -36,7 +37,8 @@ namespace mkfit {
                                const int nmisshits,
                                const float chi2,
                                const float pt,
-                               const bool inFindCandidates);
+                               const bool inFindCandidates,
+                               const IterationParams &);
   using track_score_func = std::function<track_score_cf>;
 
 }  // end namespace mkfit
