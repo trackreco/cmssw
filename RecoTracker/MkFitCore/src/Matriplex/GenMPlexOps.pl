@@ -476,7 +476,6 @@ $temp56->{name} = 'b';
 $m->dump_multiply_std_and_intrinsic("PsErrLocTransp.ah",
                                     $temp56, $jac_c2lT, $locErr);
 
-
 ##################### psErrLoc_upd #####################
 
 # psErrLoc_upd[5S] = ImKH[55] * psErrLoc[5S]
@@ -498,3 +497,70 @@ $m = new GenMul::Multiply;
 
 $m->dump_multiply_std_and_intrinsic("PsErrLocUpd.ah",
                                     $imkh, $pserrloc, $pserrlocupd);
+
+##################### jacLoc2CCS #####################
+
+# jacLoc2CCS[65] = jacCurv2CCS[65] * jacLoc2Curv[55]
+
+$jc2ccs = new GenMul::Matrix('name'=>'a', 'M'=>6, 'N'=>5);
+$jc2ccs->set_pattern(<<"FNORD");
+0 0 0 x x
+0 0 0 x x
+0 0 0 0 x
+x x 0 0 0
+0 0 1 0 0
+0 x 0 0 0
+FNORD
+
+$jl2c = new GenMul::Matrix('name'=>'b', 'M'=>5, 'N'=>5);
+$jl2c->set_pattern(<<"FNORD");
+1 0 0 0 0
+0 x x 0 0
+0 x x x x
+0 0 0 x x
+0 0 0 x x
+FNORD
+
+$jl2ccs = new GenMul::Matrix('name'=>'c', 'M'=>6, 'N'=>5);
+
+$m = new GenMul::Multiply;
+
+$m->dump_multiply_std_and_intrinsic("JacLoc2CCS.ah",
+                                    $jc2ccs, $jl2c, $jl2ccs);
+
+##################### OutErrCCS #####################
+
+# temp65 = jacLoc2CCS[65] * psErrLoc_upd[55]
+
+$jacl2ccs = new GenMul::Matrix('name'=>'a', 'M'=>6, 'N'=>5);
+$jacl2ccs->set_pattern(<<"FNORD");
+0 0 0 x x
+0 0 0 x x
+0 0 0 x x
+x x x 0 0
+0 x x x x
+0 x x 0 0
+FNORD
+
+$psErrLU = new GenMul::MatrixSym('name'=>'b', 'M'=>5, 'N'=>5);
+
+$temp65   = new GenMul::Matrix('name'=>'c', 'M'=>6, 'N'=>5);
+
+$jacl2ccsT = new GenMul::MatrixTranspose($jacl2ccs);
+$jacl2ccsT->print_info();
+$jacl2ccsT->print_pattern();
+
+# ----------------------------------------------------------------------
+
+$m = new GenMul::Multiply;
+
+$m->dump_multiply_std_and_intrinsic("OutErrCCS.ah",
+                                    $jacl2ccs, $psErrLU, $temp65);
+
+$outErr = new GenMul::MatrixSym('name'=>'c', 'M'=>6, 'N'=>6);
+
+$temp65->{name} = 'b';
+
+$m->dump_multiply_std_and_intrinsic("OutErrCCSTransp.ah",
+                                    $temp65, $jacl2ccsT, $outErr);
+

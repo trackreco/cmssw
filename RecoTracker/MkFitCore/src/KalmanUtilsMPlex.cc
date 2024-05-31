@@ -863,6 +863,54 @@ namespace {
 #include "Matriplex/PsErrLocUpd.ah"
   }
 
+  void JacLoc2CCS(const MPlex65& A, const MPlex55& B, MPlex65& C) {
+    // C = A * B;
+
+    typedef float T;
+    const Matriplex::idx_t N = NN;
+
+    const T* a = A.fArray;
+    ASSUME_ALIGNED(a, 64);
+    const T* b = B.fArray;
+    ASSUME_ALIGNED(b, 64);
+    T* c = C.fArray;
+    ASSUME_ALIGNED(c, 64);
+
+#include "Matriplex/JacLoc2CCS.ah"
+  }
+
+  void OutErrCCS(const MPlex65& A, const MPlex5S& B, MPlex65& C) {
+    // C = A * B
+
+    typedef float T;
+    const Matriplex::idx_t N = NN;
+
+    const T* a = A.fArray;
+    ASSUME_ALIGNED(a, 64);
+    const T* b = B.fArray;
+    ASSUME_ALIGNED(b, 64);
+    T* c = C.fArray;
+    ASSUME_ALIGNED(c, 64);
+
+#include "Matriplex/OutErrCCS.ah"
+  }
+
+  void OutErrCCSTransp(const MPlex65& B, const MPlex65& A, MPlexLS& C) {
+    // C = B * AT;
+
+    typedef float T;
+    const Matriplex::idx_t N = NN;
+
+    const T* a = A.fArray;
+    ASSUME_ALIGNED(a, 64);
+    const T* b = B.fArray;
+    ASSUME_ALIGNED(b, 64);
+    T* c = C.fArray;
+    ASSUME_ALIGNED(c, 64);
+
+#include "Matriplex/OutErrCCSTransp.ah"
+  }
+
   //Warning: MultFull is not vectorized!
   template <typename T1, typename T2, typename T3>
   void MultFull(const T1& A, int nia, int nja, const T2& B, int nib, int njb, T3& C, int nic, int njc) {
@@ -1800,23 +1848,14 @@ namespace mkfit {
       }
 
       // jacobian for converting from Loc to CCS (via Curv)
-      MPlex65 jacLoc2CCS;//fixme genmul
-      Matriplex::multiplyGeneral(jacCurv2CCS, jacLoc2Curv, jacLoc2CCS);
+      MPlex65 jacLoc2CCS;
+      JacLoc2CCS(jacCurv2CCS, jacLoc2Curv, jacLoc2CCS);
 
       // CCS error!
-      MPlexLL psErrCCS;//fixme not sym, vectorize?
       MPlex65 temp65;
-      MultFull(jacLoc2CCS, 6, 5, psErrLoc_upd, 5, 5, temp65, 6, 5);
-      MultTranspFull(temp65, 6, 5, jacLoc2CCS, 6, 5, psErrCCS, 6, 6);
+      OutErrCCS(jacLoc2CCS, psErrLoc_upd, temp65);
+      OutErrCCSTransp(temp65, jacLoc2CCS, outErr);
 
-      //convert to outErr!
-      for (int n = 0; n < N_proc; ++n) {//fixme vectorize
-	for (int i = 0; i < 6; ++i) {
-	  for (int j = i; j < 6; ++j) {
-	    outErr(n,i,j) = psErrCCS.At(n, i, j);
-	  }
-	}
-      }
       /*
       printf("\n");
       printf("lp_upd:\n");
