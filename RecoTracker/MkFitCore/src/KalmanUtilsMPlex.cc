@@ -812,7 +812,7 @@ namespace {
     T* c = C.fArray;
     ASSUME_ALIGNED(c, 64);
 
-#include "Matriplex/JacCCS2Loc.ah"
+#include "JacCCS2Loc.ah"
   }
 
   void PsErrLoc(const MPlex56& A, const MPlexLS& B, MPlex56& C) {
@@ -828,7 +828,7 @@ namespace {
     T* c = C.fArray;
     ASSUME_ALIGNED(c, 64);
 
-#include "Matriplex/PsErrLoc.ah"
+#include "PsErrLoc.ah"
   }
 
   void PsErrLocTransp(const MPlex56& B, const MPlex56& A, MPlex5S& C) {
@@ -844,7 +844,7 @@ namespace {
     T* c = C.fArray;
     ASSUME_ALIGNED(c, 64);
 
-#include "Matriplex/PsErrLocTransp.ah"
+#include "PsErrLocTransp.ah"
   }
 
   void PsErrLocUpd(const MPlex55& A, const MPlex5S& B, MPlex5S& C) {
@@ -860,7 +860,7 @@ namespace {
     T* c = C.fArray;
     ASSUME_ALIGNED(c, 64);
 
-#include "Matriplex/PsErrLocUpd.ah"
+#include "PsErrLocUpd.ah"
   }
 
   void JacLoc2CCS(const MPlex65& A, const MPlex55& B, MPlex65& C) {
@@ -876,7 +876,7 @@ namespace {
     T* c = C.fArray;
     ASSUME_ALIGNED(c, 64);
 
-#include "Matriplex/JacLoc2CCS.ah"
+#include "JacLoc2CCS.ah"
   }
 
   void OutErrCCS(const MPlex65& A, const MPlex5S& B, MPlex65& C) {
@@ -892,7 +892,7 @@ namespace {
     T* c = C.fArray;
     ASSUME_ALIGNED(c, 64);
 
-#include "Matriplex/OutErrCCS.ah"
+#include "OutErrCCS.ah"
   }
 
   void OutErrCCSTransp(const MPlex65& B, const MPlex65& A, MPlexLS& C) {
@@ -908,7 +908,7 @@ namespace {
     T* c = C.fArray;
     ASSUME_ALIGNED(c, 64);
 
-#include "Matriplex/OutErrCCSTransp.ah"
+#include "OutErrCCSTransp.ah"
   }
 
   //Warning: MultFull is not vectorized!
@@ -1920,13 +1920,6 @@ namespace mkfit {
 	for (int j = 0; j < 5; ++j)
 	  printf("%8f ", jacLoc2Curv.At(0, i, j));
 	printf("\n");
-      }
-      printf("\n");
-      printf("psErrCCS:\n");
-      for (int i = 0; i < 6; ++i) {
-        for (int j = 0; j < 6; ++j)
-          printf("%8f ", psErrCCS.At(0, i, j));
-        printf("\n");
       }
       printf("\n");
       printf("outErr:\n");
