@@ -831,7 +831,7 @@ namespace {
 #include "Matriplex/PsErrLoc.ah"
   }
 
-  void PsErrLocTransp(const MPlex56& A, const MPlex56& B, MPlex5S& C) {
+  void PsErrLocTransp(const MPlex56& B, const MPlex56& A, MPlex5S& C) {
     // C = B * AT;
 
     typedef float T;
