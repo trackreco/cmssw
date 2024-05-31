@@ -476,3 +476,25 @@ $temp56->{name} = 'b';
 $m->dump_multiply_std_and_intrinsic("PsErrLocTransp.ah",
                                     $temp56, $jac_c2lT, $locErr);
 
+
+##################### psErrLoc_upd #####################
+
+# psErrLoc_upd[5S] = ImKH[55] * psErrLoc[5S]
+
+$imkh = new GenMul::Matrix('name'=>'a', 'M'=>5, 'N'=>5);
+$imkh->set_pattern(<<"FNORD");
+1 0 0 x x
+0 1 0 x x
+0 0 1 x x
+0 0 0 x x
+0 0 0 x x
+FNORD
+
+$pserrloc = new GenMul::MatrixSym('name'=>'b', 'M'=>5, 'N'=>5);
+
+$pserrlocupd = new GenMul::MatrixSym('name'=>'c', 'M'=>5, 'N'=>5);
+
+$m = new GenMul::Multiply;
+
+$m->dump_multiply_std_and_intrinsic("PsErrLocUpd.ah",
+                                    $imkh, $pserrloc, $pserrlocupd);

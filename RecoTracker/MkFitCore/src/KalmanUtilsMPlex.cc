@@ -847,6 +847,22 @@ namespace {
 #include "Matriplex/PsErrLocTransp.ah"
   }
 
+  void PsErrLocUpd(const MPlex55& A, const MPlex5S& B, MPlex5S& C) {
+    // C = A * B;
+
+    typedef float T;
+    const Matriplex::idx_t N = NN;
+
+    const T* a = A.fArray;
+    ASSUME_ALIGNED(a, 64);
+    const T* b = B.fArray;
+    ASSUME_ALIGNED(b, 64);
+    T* c = C.fArray;
+    ASSUME_ALIGNED(c, 64);
+
+#include "Matriplex/PsErrLocUpd.ah"
+  }
+
   //Warning: MultFull is not vectorized!
   template <typename T1, typename T2, typename T3>
   void MultFull(const T1& A, int nia, int nja, const T2& B, int nib, int njb, T3& C, int nic, int njc) {
@@ -1564,7 +1580,7 @@ namespace mkfit {
 
     MPlex2S resErr_loc; //covariance sum in local position coordinates
 #pragma omp simd
-    for (int n = 0; n < N_proc; ++n) {
+    for (int n = 0; n < NN; ++n) {
       resErr_loc(n,0,0) = psErrLoc(n,3,3) + msErr_loc(n,0,0);
       resErr_loc(n,0,1) = psErrLoc(n,3,4) + msErr_loc(n,0,1);
       resErr_loc(n,1,1) = psErrLoc(n,4,4) + msErr_loc(n,1,1);
@@ -1652,7 +1668,9 @@ namespace mkfit {
     if (kfOp & KFO_Update_Params) {
 
       MPlex52 K; // kalman gain
-      for (int n = 0; n < N_proc; ++n) {//fixme vectorize
+#pragma omp simd
+      for (int n = 0; n < NN; ++n) {
+#pragma GCC unroll 5
 	for (int j = 0; j < 5; ++j) {
 	  K(n,j,0) = resErr_loc(n,0,0)*psErrLoc(n,j,3) + resErr_loc(n,0,1)*psErrLoc(n,j,4);
 	  K(n,j,1) = resErr_loc(n,0,1)*psErrLoc(n,j,3) + resErr_loc(n,1,1)*psErrLoc(n,j,4);
@@ -1662,21 +1680,24 @@ namespace mkfit {
       MPlex5V lp_upd;
       MultResidualsAdd(K, lp, res_loc, lp_upd);
 
-      MPlex55 ImKH(0.f);//fixme vectorize
-      for (int n = 0; n < N_proc; ++n) {
+      MPlex55 ImKH(0.f);
+#pragma omp simd
+      for (int n = 0; n < NN; ++n) {
+#pragma GCC unroll 5
 	for (int j = 0; j < 5; ++j) {
 	  ImKH(n,j,j) = 1.f;
 	  ImKH(n,j,3) -= K(n,j,0);
 	  ImKH(n,j,4) -= K(n,j,1);
 	}
       }
-      MPlex55 psErrLoc_upd;//fixme not sym
-      MultFull(ImKH, 5, 5, psErrLoc, 5, 5, psErrLoc_upd, 5, 5);
+      MPlex5S psErrLoc_upd;
+      PsErrLocUpd(ImKH, psErrLoc, psErrLoc_upd);
 
       //convert local updated parameters into CCS
       MPlexHV lxu;
       MPlexHV lpu;
-      for (int n = 0; n < N_proc; ++n) {//fixme vectorize
+#pragma omp simd
+      for (int n = 0; n < NN; ++n) {
 	lxu(n,0,0) = lp_upd(n,0,3);
 	lxu(n,0,1) = lp_upd(n,0,4);
 	lxu(n,0,2) = 0.f;
@@ -1686,7 +1707,8 @@ namespace mkfit {
       }
       MPlexHV gxu;
       RotateVectorOnPlaneTransp(rot, lxu, gxu);
-      for (int n = 0; n < N_proc; ++n) {//fixme vectorize
+#pragma omp simd
+      for (int n = 0; n < NN; ++n) {
 	gxu(n,0,0) += plPnt(n,0,0);
 	gxu(n,0,1) += plPnt(n,0,1);
 	gxu(n,0,2) += plPnt(n,0,2);
@@ -1694,27 +1716,39 @@ namespace mkfit {
       MPlexHV gpu;
       RotateVectorOnPlaneTransp(rot, lpu, gpu);
 
-      for (int n = 0; n < N_proc; ++n) {//fixme vectorize,use cached pt?
+      MPlexQF p;
+#pragma omp simd
+    for (int n = 0; n < NN; ++n) {
+      pt(n,0,0) = std::sqrt(gpu.At(n, 0, 0)*gpu.At(n, 0, 0) + gpu.At(n, 0, 1)*gpu.At(n, 0, 1));
+      p(n,0,0) = std::sqrt(pt.At(n, 0, 0)*pt.At(n, 0, 0) + gpu.At(n, 0, 2)*gpu.At(n, 0, 2));
+      sinP(n,0,0) = gpu.At(n, 0, 1)/pt(n,0,0);
+      cosP(n,0,0) = gpu.At(n, 0, 0)/pt(n,0,0);
+      sinT(n,0,0) = pt(n,0,0)/p(n,0,0);
+      cosT(n,0,0) = gpu.At(n, 0, 2)/p(n,0,0);
+    }
+
+#pragma omp simd
+      for (int n = 0; n < NN; ++n) {
 	outPar(n, 0, 0) = gxu.At(n, 0, 0);
 	outPar(n, 0, 1) = gxu.At(n, 0, 1);
 	outPar(n, 0, 2) = gxu.At(n, 0, 2);
-	const float pt = std::sqrt(gpu.At(n, 0, 0)*gpu.At(n, 0, 0) + gpu.At(n, 0, 1)*gpu.At(n, 0, 1));
-	outPar(n, 0, 3) = 1.f/pt;
-	outPar(n, 0, 4) = getPhi(gpu.At(n, 0, 0), gpu.At(n, 0, 1));
-	outPar(n, 0, 5) = getTheta(pt, gpu.At(n, 0, 2));
+	outPar(n, 0, 3) = 1.f/pt(n,0,0);
+	outPar(n, 0, 4) = getPhi(gpu.At(n, 0, 0), gpu.At(n, 0, 1));//fixme VDT or something?
+	outPar(n, 0, 5) = getTheta(pt(n,0,0), gpu.At(n, 0, 2));
       }
 
       //now we need the jacobian to convert from curvilinear to CCS
       // code from TrackState::jacobianCurvilinearToCCS
-      MPlex65  jacCurv2CCS(0.f); // fixme: cache sin and cosine, vectorize
-      for (int n = 0; n < N_proc; ++n) {
-	jacCurv2CCS(n, 0, 3) = -std::sin(outPar(n, 4, 0));
-	jacCurv2CCS(n, 0, 4) = -std::cos(outPar(n, 5, 0)) * std::cos(outPar(n, 4, 0));
-	jacCurv2CCS(n, 1, 3) = std::cos(outPar(n, 4, 0));
-	jacCurv2CCS(n, 1, 4) = -std::cos(outPar(n, 5, 0)) * std::sin(outPar(n, 4, 0));
-	jacCurv2CCS(n, 2, 4) = std::sin(outPar(n, 5, 0));
-	jacCurv2CCS(n, 3, 0) = inChg(n, 0, 0) / std::sin(outPar(n, 5, 0));
-	jacCurv2CCS(n, 3, 1) = outPar(n, 3, 0) * std::cos(outPar(n, 5, 0)) / std::sin(outPar(n, 5, 0));
+      MPlex65  jacCurv2CCS(0.f);
+#pragma omp simd
+      for (int n = 0; n < NN; ++n) {
+	jacCurv2CCS(n, 0, 3) = -sinP(n,0,0);
+	jacCurv2CCS(n, 0, 4) = -cosT(n,0,0) * cosP(n,0,0);
+	jacCurv2CCS(n, 1, 3) = cosP(n,0,0);
+	jacCurv2CCS(n, 1, 4) = -cosT(n,0,0) * sinP(n,0,0);
+	jacCurv2CCS(n, 2, 4) = sinT(n,0,0);
+	jacCurv2CCS(n, 3, 0) = inChg(n, 0, 0) / sinT(n,0,0);
+	jacCurv2CCS(n, 3, 1) = outPar(n, 3, 0) * cosT(n,0,0) / sinT(n,0,0);
 	jacCurv2CCS(n, 4, 2) = 1.f;
 	jacCurv2CCS(n, 5, 1) = -1.f;
       }
@@ -1722,14 +1756,17 @@ namespace mkfit {
       //now we need the jacobian from local to curv
       // code from TrackingTools/AnalyticalJacobians/src/JacobianLocalToCurvilinear.cc
       MPlexHV tnl;
-      for (int n = 0; n < N_proc; ++n) {//fixme vectorize
-	tnl(n,0,0) = lpu(n,0,0)*std::max(std::abs(lp_upd(n,0,0)),1.e-9f);
-	tnl(n,0,1) = lpu(n,0,1)*std::max(std::abs(lp_upd(n,0,0)),1.e-9f);
-	tnl(n,0,2) = lpu(n,0,2)*std::max(std::abs(lp_upd(n,0,0)),1.e-9f);
+#pragma omp simd
+      for (int n = 0; n < NN; ++n) {
+	const float abslpupd00 = std::max(std::abs(lp_upd(n,0,0)),1.e-9f);
+	tnl(n,0,0) = lpu(n,0,0)*abslpupd00;
+	tnl(n,0,1) = lpu(n,0,1)*abslpupd00;
+	tnl(n,0,2) = lpu(n,0,2)*abslpupd00;
       }
       MPlexHV tn;
       RotateVectorOnPlaneTransp(rot, tnl, tn);
-      for (int n = 0; n < N_proc; ++n) {//fixme vectorize
+#pragma omp simd
+      for (int n = 0; n < NN; ++n) {
 	vn(n,0,2) = std::max(1.e-30f,std::sqrt(tn(n,0,0)*tn(n,0,0)+tn(n,0,1)*tn(n,0,1)));
 	un(n,0,0) = -tn(n,0,1)/vn(n,0,2);
 	un(n,0,1) =  tn(n,0,0)/vn(n,0,2);
@@ -1738,17 +1775,18 @@ namespace mkfit {
 	vn(n,0,1) =  tn(n,0,2)*un(n,0,0);
       }
       MPlex55 jacLoc2Curv(0.f);
-      for (int n = 0; n < N_proc; ++n) {//fixme vectorize
+#pragma omp simd
+      for (int n = 0; n < NN; ++n) {
 	// fixme? //(pf.use_param_b_field ? 0.01f * Const::sol * Config::bFieldFromZR(psPar(n, 2, 0), hipo(psPar(n, 0, 0), psPar(n, 1, 0))) : 0.01f * Const::sol * Config::Bfield);
 	const float bF = 0.01f * Const::sol * Config::Bfield;//fixme: cache?
 	const float qh2 = bF * lp_upd(n,0,0);
-	const float cosl1 = 1./vn(n,0,2);
+	const float cosl1 = 1.f/vn(n,0,2);
 	const float uj = un(n,0,0)*rot(n,0,0) + un(n,0,1)*rot(n,0,1);
 	const float uk = un(n,0,0)*rot(n,1,0) + un(n,0,1)*rot(n,1,1);
 	const float vj = vn(n,0,0)*rot(n,0,0) + vn(n,0,1)*rot(n,0,1) + vn(n,0,2)*rot(n,0,2);
 	const float vk = vn(n,0,0)*rot(n,1,0) + vn(n,0,1)*rot(n,1,1) + vn(n,0,2)*rot(n,1,2);
 	const float cosz = vn(n,0,2)*qh2;
-	jacLoc2Curv(n,0,0) = 1.;
+	jacLoc2Curv(n,0,0) = 1.f;
 	jacLoc2Curv(n,1,1) = tnl(n,0,2)*vj;
 	jacLoc2Curv(n,1,2) = tnl(n,0,2)*vk;
 	jacLoc2Curv(n,2,1) = tnl(n,0,2)*uj*cosl1;
