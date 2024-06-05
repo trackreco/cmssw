@@ -22,11 +22,13 @@
 #include "TROOT.h"
 #include "TRint.h"
 
+#ifdef WITH_REVE
 #include "TRandom.h"
 #include "ROOT/REveJetCone.hxx"
 #include "ROOT/REveManager.hxx"
 #include "ROOT/REveScene.hxx"
 #include "ROOT/REveBoxSet.hxx"
+#endif
 
 #include "oneapi/tbb/task_arena.h"
 
@@ -85,6 +87,8 @@ namespace mkfit {
            b2a(g_debug), b2a(Config::useDeadModules),
            b2a(m_clean_seeds), b2a(m_backward_fit), b2a(m_remove_duplicates));
   }
+
+  TrackerInfo* Shell::tracker_info() { return &Config::TrkInfo; }
 
   //===========================================================================
   // Event navigation / processing
@@ -571,7 +575,7 @@ namespace mkfit {
   // Visualization helpers
   //===========================================================================
 
-  TrackerInfo* Shell::tracker_info() { return &Config::TrkInfo; }
+#ifdef WITH_REVE
 
   void Shell::ShowTracker() {
     namespace REX = ROOT::Experimental;
@@ -647,5 +651,7 @@ namespace mkfit {
     }
     eveMng->Show();
   }
+
+#endif // WITH_REVE
 
 }

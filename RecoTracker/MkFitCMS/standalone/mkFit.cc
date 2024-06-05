@@ -14,7 +14,7 @@
 
 #include "RecoTracker/MkFitCore/standalone/Event.h"
 
-#ifndef NO_ROOT
+#ifdef WITH_ROOT
 #include "RecoTracker/MkFitCore/standalone/Validation.h"
 #include "RecoTracker/MkFitCore/standalone/RntDumper/RntDumper.h"
 #endif
@@ -802,7 +802,7 @@ int main(int argc, const char* argv[]) {
     } else if (*i == "--loop-over-file") {
       Config::loopOverFile = true;
     } else if (*i == "--shell") {
-#ifdef NO_ROOT
+#ifndef WITH_ROOT
       std::cerr << "--shell option is only supported when compiled with ROOT.\n";
       exit(1);
 #endif
@@ -1008,7 +1008,7 @@ int main(int argc, const char* argv[]) {
          sizeof(Track), sizeof(Hit), sizeof(SVector3), sizeof(SMatrixSym33), sizeof(MCHitInfo));
 
   if (run_shell) {
-#ifndef NO_ROOT
+#ifdef WITH_ROOT
     tbb::global_control global_limit(tbb::global_control::max_allowed_parallelism, Config::numThreadsFinder);
 
     initGeom();
@@ -1021,7 +1021,7 @@ int main(int argc, const char* argv[]) {
     test_standard();
   }
 
-#ifndef NO_ROOT
+#ifdef WITH_ROOT
   RntDumper::FinalizeAll();
 #endif
 

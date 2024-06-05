@@ -61,8 +61,9 @@ namespace mkfit {
 
     // --------------------------------------------------------
     // Visualization stuff
-
+#ifdef WITH_REVE
     void ShowTracker();
+#endif
 
   private:
     std::vector<DeadVec> &m_deadvectors;
