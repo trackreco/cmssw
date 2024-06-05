@@ -19,18 +19,14 @@
 
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 
-#ifndef NO_ROOT
 #include "TROOT.h"
 #include "TRint.h"
 
-// #include "Math/SVector.h"
 #include "TRandom.h"
 #include "ROOT/REveJetCone.hxx"
-
 #include "ROOT/REveManager.hxx"
 #include "ROOT/REveScene.hxx"
 #include "ROOT/REveBoxSet.hxx"
-#endif
 
 #include "oneapi/tbb/task_arena.h"
 
@@ -68,7 +64,6 @@ namespace mkfit {
   }
 
   void Shell::Run() {
-#ifndef NO_ROOT
     std::vector<const char *> argv = { "mkFit", "-l" };
     int argc = argv.size();
     TRint rint("mkFit-shell", &argc, const_cast<char**>(argv.data()));
@@ -80,10 +75,6 @@ namespace mkfit {
 
     rint.Run(true);
     printf("Shell::Run finished\n");
-#else
-    printf("Shell::Run() no root, we rot -- erroring out. Recompile with WITH_ROOT=1.\n");
-    exit(1);
-#endif
   }
 
   void Shell::Status() {
@@ -618,7 +609,10 @@ namespace mkfit {
       bs->Reset(REX::REveBoxSet::kBT_InstancedScaledRotated, true, li.n_modules());
       bs->SetMainColorPtr(new Color_t);
       bs->UseSingleColor();
-      bs->SetMainColor(kMagenta);
+      if (li.is_pixel())
+        bs->SetMainColor(li.is_barrel() ? kBlue - 3 : kCyan - 3);
+      else
+        bs->SetMainColor(li.is_barrel() ? kMagenta - 3 : kGreen - 3);
 
       float t[16];
       t[3] = t[7] = t[11] = 0;
@@ -646,7 +640,7 @@ namespace mkfit {
 
         bs->AddInstanceMat4(t);
       }
-      bs->SetMainTransparency(50);
+      bs->SetMainTransparency(60);
       bs->RefitPlex();
 
       eveMng->GetEventScene()->AddElement(bs);
