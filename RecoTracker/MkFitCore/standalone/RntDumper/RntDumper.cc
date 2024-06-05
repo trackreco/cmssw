@@ -2,6 +2,7 @@
 
 #include <ROOT/RNTuple.hxx>
 #include <ROOT/RNTupleModel.hxx>
+#include <ROOT/RNTupleWriter.hxx>
 
 #include "TFile.h"
 #include "TTree.h"
