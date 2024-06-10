@@ -665,7 +665,7 @@ namespace mkfit {
       const BeamSpot &bspot = j.m_beam_spot;
       const TrackerInfo &tk_info = j.m_trk_info;
       float d0BS = t.d0BeamSpot(bspot.x, bspot.y);
-      float d0_max = 0.05;  // 0.5 mm, max for somewhat prompt
+      float d0_max = j.params().d0_maxf;  // 0.5 mm, max for somewhat prompt
 
       int encoded;
       encoded = t.nLayersByTypeEncoded(tk_info);
@@ -678,16 +678,16 @@ namespace mkfit {
 
       // based on fr and eff vs pt and eta (convert to native invpt and theta)
       float invpt = t.invpT();
-      float invptmin = 1.11;  // =1/0.9
+      float invptmin = j.params().invptmin;  // =1/0.9
 
       float thetasym = std::abs(t.theta() - Const::PIOver2);
-      float thetasymmin = 1.11;  // -> |eta|=1.45
+      float thetasymmin = j.params().thetasymmin;  // -> |eta|=1.45
 
       // accept longer tracks, reject too short and displaced
-      return (((t.nFoundHits() - seedReduction >= 4 && invpt < invptmin) ||
-               (t.nFoundHits() - seedReduction >= 3 && invpt > invptmin && thetasym <= thetasymmin) ||
-               (t.nFoundHits() - seedReduction >= 4 && invpt > invptmin && thetasym > thetasymmin)) &&
-              !((nLyrs <= 4 || nHits <= 4) && std::abs(d0BS) > d0_max && invpt < invptmin));
+      return (((t.nFoundHits() - seedReduction >= j.params().f1 && invpt < invptmin) ||
+               (t.nFoundHits() - seedReduction >= j.params().f2 && invpt > invptmin && thetasym <= thetasymmin) ||
+               (t.nFoundHits() - seedReduction >= j.params().f3 && invpt > invptmin && thetasym > thetasymmin)) &&
+              !((nLyrs <= j.params().ly4 || nHits <= j.params().h4) && std::abs(d0BS) > d0_max && invpt < invptmin));
     }
 
     /// quality filter tuned for pixelLess iteration during backward search
@@ -697,7 +697,7 @@ namespace mkfit {
       const BeamSpot &bspot = j.m_beam_spot;
       const TrackerInfo &tk_info = j.m_trk_info;
       float d0BS = t.d0BeamSpot(bspot.x, bspot.y);
-      float d0_max = 0.1;  // 1 mm
+      float d0_max = j.params_bks().d0_max;  // 1 mm
 
       int encoded;
       encoded = t.nLayersByTypeEncoded(tk_info);
@@ -707,17 +707,17 @@ namespace mkfit {
 
       // based on fr and eff vs pt and eta (convert to native invpt and theta)
       float invpt = t.invpT();
-      float invptmin = 1.11;  // =1/0.9
+      float invptmin = j.params_bks().invptmin;  // =1/0.9
 
       float thetasym = std::abs(t.theta() - Const::PIOver2);
-      float thetasymmin_l = 0.80;  // -> |eta|=0.9
-      float thetasymmin_h = 1.11;  // -> |eta|=1.45
+      float thetasymmin_l = j.params_bks().thetasymmin_l;  // -> |eta|=0.9
+      float thetasymmin_h = j.params_bks().thetasymmin_h;  // -> |eta|=1.45
 
       // reject too short or too displaced tracks
       return !(
-          ((nLyrs <= 3 || nHits <= 3)) ||
-          ((nLyrs <= 4 || nHits <= 4) && (invpt < invptmin || (thetasym > thetasymmin_l && std::abs(d0BS) > d0_max))) ||
-          ((nLyrs <= 5 || nHits <= 5) && (invpt > invptmin && thetasym > thetasymmin_h && std::abs(d0BS) > d0_max)));
+          ((nLyrs <= j.params_bks().ly3 || nHits <= j.params_bks().h3)) ||
+          ((nLyrs <= j.params_bks().ly4 || nHits <= j.params_bks().h4) && (invpt < invptmin || (thetasym > thetasymmin_l && std::abs(d0BS) > d0_max))) ||
+          ((nLyrs <= j.params_bks().ly5 || nHits <= j.params_bks().h5) && (invpt > invptmin && thetasym > thetasymmin_h && std::abs(d0BS) > d0_max)));
     }
 
     namespace {
@@ -755,11 +755,11 @@ namespace mkfit {
       //float penalty = 8;
       //float tailPenalty = 3;
       //float overlapBonus = 0;
-      if(inFindCandidates==false){
+      if (inFindCandidates == false) {
         bonus = 0.2 * nfoundhits + 4;
-	penalty = 8;
+        penalty = 8;
         tailPenalty = 3;
-	overlapBonus = 0;
+        overlapBonus = 0;
       }
       if (pt < 0.9) {
         penalty *= inFindCandidates ? 1.7f : 1.5f;

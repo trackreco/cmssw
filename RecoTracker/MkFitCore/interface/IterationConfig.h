@@ -107,6 +107,22 @@ namespace mkfit {
     float overlapHitBonus = 0;  // set to negative for penalty
     float missingHitPenalty = 8;
     float tailMissingHitPenalty = 3;
+
+    float thetasymmin = 1.11;
+    float thetasymmin_l = 0.80;
+    float thetasymmin_h = 1.11;
+    float invptmin = 1.11;
+    float d0_max = 0.1;
+    float d0_maxf = 0.05;
+    int f1 = 4;
+    int f2 = 3;
+    int f3 = 4;
+    int h3 = 3;
+    int h4 = 4;
+    int h5 = 5;
+    int ly3 = 3;
+    int ly4 = 4;
+    int ly5 = 5;
   };
 
   //==============================================================================

@@ -6,7 +6,6 @@
 #include "TTree.h"
 #include "TFile.h"
 
-
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/one/EDAnalyzer.h"
@@ -62,27 +61,26 @@ private:
   TTree* output_tree_;
   std::vector<edm::InputTag> trackLabels_;
   edm::EDGetTokenT<ClusterTPAssociation> tpMap_;
-//   edm::EDGetTokenT<std::vector<PileupSummaryInfo>>  infoPileUp_;
+  //   edm::EDGetTokenT<std::vector<PileupSummaryInfo>>  infoPileUp_;
   std::vector<edm::EDGetTokenT<edm::View<reco::Track>>> trackTokens_;
   edm::EDGetTokenT<reco::TrackToTrackingParticleAssociator> trackAssociatorToken_;
   edm::EDGetTokenT<TrackingParticleCollection> trackingParticleToken_;
 
-//   const double sharingFraction_;
-//   const double sharingFractionForTriplets_;
-
-
+  //   const double sharingFraction_;
+  //   const double sharingFractionForTriplets_;
 };
 
 SimpleValidation::SimpleValidation(const edm::ParameterSet& iConfig)
     : trackLabels_(iConfig.getParameter<std::vector<edm::InputTag>>("trackLabels")),
       // tpMap_(consumes(iConfig.getParameter<edm::InputTag>("tpMap"))),
-    //   infoPileUp_(consumes(iConfig.getParameter< edm::InputTag >("infoPileUp"))),
-      trackAssociatorToken_(consumes<reco::TrackToTrackingParticleAssociator>(iConfig.getUntrackedParameter<edm::InputTag>("trackAssociator"))),
-      trackingParticleToken_(consumes<TrackingParticleCollection>(iConfig.getParameter< edm::InputTag >("trackingParticles")))
-    //   sharingFraction_(iConfig.getUntrackedParameter<double>("sharingFraction")),
-    //   sharingFractionForTriplets_(iConfig.getUntrackedParameter<double>("sharingFractionForTriplets"))
+      //   infoPileUp_(consumes(iConfig.getParameter< edm::InputTag >("infoPileUp"))),
+      trackAssociatorToken_(consumes<reco::TrackToTrackingParticleAssociator>(
+          iConfig.getUntrackedParameter<edm::InputTag>("trackAssociator"))),
+      trackingParticleToken_(
+          consumes<TrackingParticleCollection>(iConfig.getParameter<edm::InputTag>("trackingParticles")))
+//   sharingFraction_(iConfig.getUntrackedParameter<double>("sharingFraction")),
+//   sharingFractionForTriplets_(iConfig.getUntrackedParameter<double>("sharingFractionForTriplets"))
 {
-
   for (auto& itag : trackLabels_) {
     trackTokens_.push_back(consumes<edm::View<reco::Track>>(itag));
     // edm::LogPrint("TrackValidator") << itag.label() << "\n";
@@ -129,14 +127,14 @@ SimpleValidation::~SimpleValidation() {
 void SimpleValidation::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
   using namespace edm;
 
-//   auto const& tpClust = iEvent.get(tpMap_);
+  //   auto const& tpClust = iEvent.get(tpMap_);
   auto const& associatorByHits = iEvent.get(trackAssociatorToken_);
-  
+
   TrackingParticleRefVector tpCollection;
   TrackingParticleRefVector selectedTPCollection;
   edm::Handle<TrackingParticleCollection> TPCollectionH;
   iEvent.getByToken(trackingParticleToken_, TPCollectionH);
-//   auto const& tp = iEvent.get(trackingParticleToken_);
+  //   auto const& tp = iEvent.get(trackingParticleToken_);
 
   for (size_t i = 0, size = TPCollectionH->size(); i < size; ++i) {
     auto tp = TrackingParticleRef(TPCollectionH, i);
@@ -145,17 +143,15 @@ void SimpleValidation::analyze(const edm::Event& iEvent, const edm::EventSetup& 
       selectedTPCollection.push_back(tp);
     }
   }
-  
-  for (const auto& trackToken : trackTokens_) 
-  {
 
+  for (const auto& trackToken : trackTokens_) {
     edm::Handle<edm::View<reco::Track>> tracksHandle;
     iEvent.getByToken(trackToken, tracksHandle);
     const edm::View<reco::Track>& tracks = *tracksHandle;
-    
+
     edm::RefToBaseVector<reco::Track> trackRefs;
     for (edm::View<reco::Track>::size_type i = 0; i < tracks.size(); ++i) {
-        trackRefs.push_back(tracks.refAt(i));
+      trackRefs.push_back(tracks.refAt(i));
     }
 
     reco::RecoToSimCollection recSimColl = associatorByHits.associateRecoToSim(trackRefs, tpCollection);
@@ -171,26 +167,26 @@ void SimpleValidation::analyze(const edm::Event& iEvent, const edm::EventSetup& 
     int nhitsS = 0;
     for (const auto& track : trackRefs) {
       rt++;
-      nhits+=track->found();//numberOfValidHits();
+      nhits += track->found();  //numberOfValidHits();
       auto foundTP = recSimColl.find(track);
-        if (foundTP != recSimColl.end()) {
-          const auto& tp = foundTP->val;
-          if (!tp.empty()) {
-            at++;
-	    nhitsA+=track->found();
+      if (foundTP != recSimColl.end()) {
+        const auto& tp = foundTP->val;
+        if (!tp.empty()) {
+          at++;
+          nhitsA += track->found();
+        }
+        if (simRecColl.find(tp[0].first) != simRecColl.end()) {
+          if (simRecColl[tp[0].first].size() > 1) {
+            dt++;
           }
-          if (simRecColl.find(tp[0].first) != simRecColl.end()) {
-            if (simRecColl[tp[0].first].size() > 1) {
-              dt++;
-            }
-          }
+        }
       }
     }
     for (const TrackingParticleRef& tpr : selectedTPCollection) {
       auto foundTrack = simRecColl.find(tpr);
       if (foundTrack != simRecColl.end() && !simRecColl[tpr].empty()) {
-          ast++;
-          nhitsS+=tpr->numberOfTrackerHits();	  
+        ast++;
+        nhitsS += tpr->numberOfTrackerHits();
       }
     }
     // if (trackLabels_[0].label().compare("pixelTracks0") == 0) {
@@ -208,7 +204,7 @@ void SimpleValidation::analyze(const edm::Event& iEvent, const edm::EventSetup& 
     global_dt_ += dt;
     global_ast_ += ast;
     global_nhits_ += nhits;
-    global_nhitsa_ += nhitsA; 
+    global_nhitsa_ += nhitsA;
     global_nhitss_ += nhitsS;
   }
 }

@@ -70,7 +70,22 @@ namespace mkfit {
                                    /* float */ validHitSlope,
                                    /* float */ overlapHitBonus,  // set to negative for penalty
                                    /* float */ missingHitPenalty,
-                                   /* float */ tailMissingHitPenalty)
+                                   /* float */ tailMissingHitPenalty,
+                                   /* float */ thetasymmin,
+                                   /* float */ thetasymmin_l,
+                                   /* float */ thetasymmin_h,
+                                   /* float */ invptmin,
+                                   /* float */ d0_max,
+                                   /* float */ d0_maxf,
+                                   /* int */ f1,
+                                   /* int */ f2,
+                                   /* int */ f3,
+                                   /* int */ h3,
+                                   /* int */ h4,
+                                   /* int */ h5,
+                                   /* int */ ly3,
+                                   /* int */ ly4,
+                                   /* int */ ly5)
 
   ITCONF_DEFINE_TYPE_NON_INTRUSIVE(mkfit::IterationConfig,
                                    /* int */ m_iteration_index,
