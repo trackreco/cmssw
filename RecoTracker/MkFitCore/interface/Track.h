@@ -14,6 +14,8 @@
 
 namespace mkfit {
 
+  class IterationParams;
+
   typedef std::pair<int, int> SimTkIDInfo;
   typedef std::vector<int> HitIdxVec;
   typedef std::map<int, std::vector<int> > HitLayerMap;
@@ -599,6 +601,7 @@ namespace mkfit {
   }
 
   inline float getScoreCand(const track_score_func& score_func,
+                            const IterationParams& itparams,
                             const Track& cand1,
                             bool penalizeTailMissHits = false,
                             bool inFindCandidates = false) {
@@ -611,10 +614,12 @@ namespace mkfit {
     // Do not allow for chi2<0 in score calculation
     if (chi2 < 0)
       chi2 = 0.f;
-    return score_func(nfoundhits, ntailmisshits, noverlaphits, nmisshits, chi2, pt, inFindCandidates);
+    return score_func(nfoundhits, ntailmisshits, noverlaphits, nmisshits, chi2, pt, inFindCandidates, itparams);
   }
 
-  inline float getScoreStruct(const track_score_func& score_func, const IdxChi2List& cand1) {
+  inline float getScoreStruct(const track_score_func& score_func,
+                              const IterationParams& itparams,
+                              const IdxChi2List& cand1) {
     int nfoundhits = cand1.nhits;
     int ntailholes = cand1.ntailholes;
     int noverlaphits = cand1.noverlaps;
@@ -624,7 +629,7 @@ namespace mkfit {
     // Do not allow for chi2<0 in score calculation
     if (chi2 < 0)
       chi2 = 0.f;
-    return score_func(nfoundhits, ntailholes, noverlaphits, nmisshits, chi2, pt, true /*inFindCandidates*/);
+    return score_func(nfoundhits, ntailholes, noverlaphits, nmisshits, chi2, pt, true /*inFindCandidates*/, itparams);
   }
 
   template <typename Vector>
