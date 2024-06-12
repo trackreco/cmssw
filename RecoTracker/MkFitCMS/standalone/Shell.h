@@ -3,6 +3,7 @@
 
 #include "RecoTracker/MkFitCore/interface/Hit.h"
 #include "RecoTracker/MkFitCore/interface/Track.h"
+#include "RecoTracker/MkFitCore/interface/DeadRegion.h"
 
 #include <map>
 
@@ -12,6 +13,7 @@ namespace mkfit {
   class Event;
   class EventOfHits;
   class MkBuilder;
+  class TrackerInfo;
 
   class Shell {
   public:
@@ -39,6 +41,7 @@ namespace mkfit {
     Event *event() { return m_event; }
     EventOfHits *eoh() { return m_eoh; }
     MkBuilder *builder() { return m_builder; }
+    TrackerInfo *tracker_info();
 
     const TrackVec &seeds() const { return m_seeds; }
     const TrackVec &tracks() const { return m_tracks; }
@@ -55,6 +58,12 @@ namespace mkfit {
     // Analysis drivers / main functions / Comparators
 
     void Compare();
+
+    // --------------------------------------------------------
+    // Visualization stuff
+#ifdef WITH_REVE
+    void ShowTracker();
+#endif
 
   private:
     std::vector<DeadVec> &m_deadvectors;

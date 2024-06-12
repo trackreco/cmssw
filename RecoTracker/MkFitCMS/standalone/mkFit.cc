@@ -14,7 +14,7 @@
 
 #include "RecoTracker/MkFitCore/standalone/Event.h"
 
-#ifndef NO_ROOT
+#ifdef WITH_ROOT
 #include "RecoTracker/MkFitCore/standalone/Validation.h"
 #include "RecoTracker/MkFitCore/standalone/RntDumper/RntDumper.h"
 #endif
@@ -40,11 +40,6 @@
 using namespace mkfit;
 
 //==============================================================================
-
-namespace mkfit::internal {
-  // Filled in geometry plugin.
-  std::vector<DeadVec> deadvectors;
-}  // namespace mkfit::internal
 
 void initGeom() {
   std::cout << "Constructing geometry '" << Config::geomPlugin << "'\n";
@@ -807,6 +802,10 @@ int main(int argc, const char* argv[]) {
     } else if (*i == "--loop-over-file") {
       Config::loopOverFile = true;
     } else if (*i == "--shell") {
+#ifndef WITH_ROOT
+      std::cerr << "--shell option is only supported when compiled with ROOT.\n";
+      exit(1);
+#endif
       run_shell = true;
     } else if (*i == "--num-tracks") {
       next_arg_or_die(mArgs, i);
@@ -1009,16 +1008,20 @@ int main(int argc, const char* argv[]) {
          sizeof(Track), sizeof(Hit), sizeof(SVector3), sizeof(SMatrixSym33), sizeof(MCHitInfo));
 
   if (run_shell) {
+#ifdef WITH_ROOT
     tbb::global_control global_limit(tbb::global_control::max_allowed_parallelism, Config::numThreadsFinder);
 
     initGeom();
     Shell s(mkfit::internal::deadvectors, g_input_file, g_start_event);
     s.Run();
+#else
+    std::cerr << "shell selected on a non-ROOT build.\n";
+#endif
   } else {
     test_standard();
   }
 
-#ifndef NO_ROOT
+#ifdef WITH_ROOT
   RntDumper::FinalizeAll();
 #endif
 
