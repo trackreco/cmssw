@@ -20,6 +20,7 @@ namespace mkfit {
     enum SeedSelect_e { SS_UseAll = 0, SS_Label, SS_IndexPreCleaning, SS_IndexPostCleaning };
 
     Shell(std::vector<DeadVec> &dv, const std::string &in_file, int start_ev);
+    ~Shell();
     void Run();
 
     void Status();

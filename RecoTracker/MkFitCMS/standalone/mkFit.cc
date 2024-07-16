@@ -1007,13 +1007,16 @@ int main(int argc, const char* argv[]) {
          MPT_SIZE, Config::numThreadsEvents, Config::numThreadsFinder,
          sizeof(Track), sizeof(Hit), sizeof(SVector3), sizeof(SMatrixSym33), sizeof(MCHitInfo));
 
+#ifdef WITH_ROOT
+  Shell *shell = nullptr;
+#endif
   if (run_shell) {
 #ifdef WITH_ROOT
     tbb::global_control global_limit(tbb::global_control::max_allowed_parallelism, Config::numThreadsFinder);
 
     initGeom();
-    Shell s(mkfit::internal::deadvectors, g_input_file, g_start_event);
-    s.Run();
+    shell = new Shell(mkfit::internal::deadvectors, g_input_file, g_start_event);
+    shell->Run();
 #else
     std::cerr << "shell selected on a non-ROOT build.\n";
 #endif
@@ -1023,6 +1026,9 @@ int main(int argc, const char* argv[]) {
 
 #ifdef WITH_ROOT
   RntDumper::FinalizeAll();
+  if (run_shell) {
+    delete shell;
+  }
 #endif
 
   // clang-format on

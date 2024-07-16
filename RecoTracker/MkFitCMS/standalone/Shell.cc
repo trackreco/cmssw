@@ -65,17 +65,26 @@ namespace mkfit {
     }
   }
 
+  Shell::~Shell() {
+    delete m_event;
+    delete m_data_file;
+    delete m_builder;
+    delete m_eoh;
+    delete gApplication;
+  }
+
   void Shell::Run() {
     std::vector<const char *> argv = { "mkFit", "-l" };
     int argc = argv.size();
-    TRint rint("mkFit-shell", &argc, const_cast<char**>(argv.data()));
+    gApplication = new TRint("mkFit-shell", &argc, const_cast<char**>(argv.data()));
 
     char buf[256];
     sprintf(buf, "mkfit::Shell &s = * (mkfit::Shell*) %p;", this);
     gROOT->ProcessLine(buf);
-    printf("Shell &s variable is set\n");
+    printf("Shell &s variable is set: ");
+    gROOT->ProcessLine("s");
 
-    rint.Run(true);
+    gApplication->Run(true);
     printf("Shell::Run finished\n");
   }
 
