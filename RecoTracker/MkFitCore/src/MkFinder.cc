@@ -1414,7 +1414,7 @@ namespace mkfit {
       MPlexLV propPar;
       clearFailFlag();
 
-      if constexpr (Config::usePropToPlane) {
+      if /*constexpr*/ (Config::usePropToPlane) {
         // Maybe could use 2 matriplex packers ... ModuleInfo has 3 * SVector3 and uint
 	MPlexHV norm, dir, pnt;
 	packModuleNormDirPnt(layer_of_hits, hit_cnt, norm, dir, pnt, N_proc);
@@ -1688,7 +1688,7 @@ namespace mkfit {
       MPlexLV propPar;
       clearFailFlag();
 
-      if constexpr (Config::usePropToPlane) {
+      if /*constexpr*/ (Config::usePropToPlane) {
         // Maybe could use 2 matriplex packers ... ModuleInfo has 3 * SVector3 and uint
         MPlexHV norm, dir, pnt;
         packModuleNormDirPnt(layer_of_hits, hit_cnt, norm, dir, pnt, N_proc);
@@ -1870,7 +1870,7 @@ namespace mkfit {
     // See comment in MkBuilder::find_tracks_in_layer() about intra / inter flags used here
     // for propagation to the hit.
     clearFailFlag();
-    if constexpr (Config::usePropToPlane) {
+    if /*constexpr*/ (Config::usePropToPlane) {
       MPlexHV norm, dir, pnt;
       packModuleNormDirPnt(layer_of_hits, 0, norm, dir, pnt, N_proc);
       kalmanPropagateAndUpdatePlane(m_Err[iP],

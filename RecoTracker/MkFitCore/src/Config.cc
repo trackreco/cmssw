@@ -3,6 +3,8 @@
 namespace mkfit {
 
   namespace Config {
+    bool usePropToPlane = true;
+
     // Multi threading configuration
 #if defined(MKFIT_STANDALONE)
     int numThreadsFinder = 1;

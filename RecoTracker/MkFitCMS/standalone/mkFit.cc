@@ -564,6 +564,7 @@ int main(int argc, const char* argv[]) {
           "                           (def: do search if backward-fit is enabled and available in given iteration)\n"
           "  --include-pca            do the backward fit to point of closest approach, does not imply "
           "'--backward-fit' (def: %s)\n"
+          "  --use-p2p <0|1>          use prop-to-plane (def: %d)\n"
           "\n----------------------------------------------------------------------------------------------------------"
           "\n\n"
           "Validation options\n\n"
@@ -708,6 +709,7 @@ int main(int argc, const char* argv[]) {
           b2a(Config::kludgeCmsHitErrors),
           b2a(Config::backwardFit),
           b2a(Config::includePCA),
+          int(Config::usePropToPlane),
 
           b2a(Config::quality_val),
           b2a(Config::dumpForPlots),
@@ -882,6 +884,9 @@ int main(int argc, const char* argv[]) {
       Config::backwardSearch = false;
     } else if (*i == "--include-pca") {
       Config::includePCA = true;
+    } else if (*i == "--use-p2p") {
+      next_arg_or_die(mArgs, i);
+      Config::usePropToPlane = (bool) atoi(i->c_str());
     } else if (*i == "--quality-val") {
       Config::quality_val = true;
     } else if (*i == "--dump-for-plots") {
