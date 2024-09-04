@@ -156,7 +156,8 @@ namespace mkfit {
             m_seeds.push_back(s);
           } else if (seed_select == SS_Label && s.label() == selected_seed) {
             m_seeds.push_back(s);
-            break;
+            if (--count <= 0)
+              break;
           } else if (seed_select == SS_IndexPreCleaning && n_algo >= selected_seed) {
             m_seeds.push_back(s);
             if (--count <= 0)
