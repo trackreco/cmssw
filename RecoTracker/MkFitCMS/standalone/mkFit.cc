@@ -426,6 +426,10 @@ void test_standard() {
       std::cout << " Iteration " << i << " build time (event > 1) = " << t_skip_iter[i] << " \n";
     printf("================================================================\n");
   }
+  if (Config::quality_val) {
+    printf("Sum up of quality-val:\n");
+    StdSeq::Quality::s_quality_sum.quality_print();
+  }
   if (g_operation == "read") {
     data_file.close();
   }
