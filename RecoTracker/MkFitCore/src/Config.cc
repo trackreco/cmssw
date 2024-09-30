@@ -3,7 +3,9 @@
 namespace mkfit {
 
   namespace Config {
-    bool usePropToPlane = true;
+
+    bool usePropToPlane = false;
+    bool usePtMultScat = false;
 
     // Multi threading configuration
 #if defined(MKFIT_STANDALONE)
