@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 import fnmatch
 import os
@@ -23,13 +24,15 @@ def print_help():
     This script runs HLT test configurations for the CMS Phase2 upgrade.
 
     Arguments:
-    --globaltag    : GlobalTag for the CMS conditions (required)
-    --geometry     : Geometry setting for the CMS process (required)
-    --events       : Number of events to process (default: 1)
-    --threads      : Number of threads to use (default: 1)
+    --globaltag       : GlobalTag for the CMS conditions (required)
+    --geometry        : Geometry setting for the CMS process (required)
+    --events          : Number of events to process (default: 1)
+    --threads         : Number of threads to use (default: 1)
+    --restrictPathsTo : Restrict paths to be run to a user defined subset (e.g. "HLT_Ele*")
+    --procModifiers   : Optionally use one (or more) cmssw processModifier
 
     Example usage:
-    python script.py --globaltag auto:phase2_realistic_T33 --geometry Extended2026D110 --events 10 --threads 4
+    hltPhase2UpgradeIntegrationTests --globaltag auto:phase2_realistic_T33 --geometry Extended2026D110 --events 10 --threads 4
     """
     print(help_text)
 
@@ -44,7 +47,29 @@ def run_command(command, log_file=None, workdir=None):
         return e.returncode  # Return the error code
        
     return 0  # Return 0 for success
-       
+
+# Function to compare the single file HLT results with the respect to a the base
+def compare_single_file(root_file, base_root_file, num_events, output_dir):
+    root_path = os.path.join(output_dir, root_file)
+    print(f"Comparing {root_path} with {base_root_file} using hltDiff...")
+
+    # Run the hltDiff command
+    hlt_diff_command = f"hltDiff -o {base_root_file} -n {root_path}"
+    result = subprocess.run(hlt_diff_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    # Decode and process the output
+    output = result.stdout.decode("utf-8")
+    print(output)  # Print for debug purposes
+
+    # Use a dynamic check based on the number of events configured
+    expected_match_string = f"Found {num_events} matching events, out of which 0 have different HLT results"
+
+    # Check if the output contains the expected match string
+    if expected_match_string not in output:
+        return f"Error: {root_file} has different HLT results!"
+
+    return None  # Return None if no issues are found
+
 # Argument Parser for command-line configuration
 parser = argparse.ArgumentParser(description="Run HLT Test Configurations")
 parser.add_argument("--globaltag", default=_PH2_GLOBAL_TAG, help="GlobalTag for the CMS conditions")
@@ -54,7 +79,7 @@ parser.add_argument("--events", type=int, default=10, help="Number of events to 
 parser.add_argument("--parallelJobs", type=int, default=4, help="Number of parallel cmsRun HLT jobs")
 parser.add_argument("--threads", type=int, default=1, help="Number of threads to use")
 parser.add_argument("--restrictPathsTo", nargs='+', default=[], help="List of HLT paths to restrict to")
-
+parser.add_argument("--procModifiers", default=None, help="Optional process modifier for cmsDriver")  # New argument for procModifiers
 
 # Step 0: Capture the start time and print the start timestamp
 start_time = time.time()
@@ -77,19 +102,23 @@ num_events = args.events
 num_threads = args.threads
 num_parallel_jobs = args.parallelJobs
 restrict_paths_to = args.restrictPathsTo
+proc_modifiers = args.procModifiers  # Store the procModifiers option
 
 # Print the values in a nice formatted manner
 print(f"{'Configuration Summary':^40}")
 print("=" * 40)
-print(f"Global Tag:    {global_tag}")
-print(f"Geometry:      {geometry}")
-print(f"Era:           {era}")
-print(f"Num Events:    {num_events}")
-print(f"Num Threads:   {num_threads}")
-print(f"Num Par. Jobs: {num_parallel_jobs}")
+print(f"Global Tag:           {global_tag}")
+print(f"Geometry:             {geometry}")
+print(f"Era:                  {era}")
+print(f"Num Events:           {num_events}")
+print(f"Num Threads:          {num_threads}")
+print(f"Num Parallel Jobs:    {num_parallel_jobs}")
 # Print restrictPathsTo if provided
 if restrict_paths_to:
     print(f"Restricting paths to: {', '.join(restrict_paths_to)}")
+# Print procModifiers if provided
+if proc_modifiers:
+    print(f"Proc Modifiers:       {proc_modifiers}")
 print("=" * 40)
 
 # Directory where all test configurations will be stored
@@ -110,6 +139,10 @@ base_cmsdriver_command = (
     f"--customise SLHCUpgradeSimulations/Configuration/aging.customise_aging_1000 "
     f'--customise_commands "process.options.wantSummary=True"'
 )
+
+# Add procModifiers if provided
+if proc_modifiers:
+    base_cmsdriver_command += f" --procModifiers {proc_modifiers}"
 
 # The base configuration file and the dumped configuration file
 base_config_file = os.path.join(output_dir, "Phase2_L1P2GT_HLT.py")
@@ -278,50 +311,46 @@ with ThreadPoolExecutor(max_workers=num_parallel_jobs) as executor:
             print(f"cmsRun for {config_file} generated an exception: {exc}")
 
 if error_occurred:
+    print("-" * 40)
     print("One or more cmsRun jobs failed. Exiting with failure.")
+    print("-" * 40)
     exit(1)
 
 print("All cmsRun jobs submitted.")
 
 # Step 9: Compare all HLT root files using hltDiff
-def compare_hlt_results():
-    # List all root files starting with "HLT_" in the output directory
-    root_files = [f for f in os.listdir(output_dir) if f.endswith(".root") and (f.startswith("HLT_") or f.startswith("L1T_"))]
-    
+def compare_hlt_results(input_dir, num_events, max_workers=4):
+    # List all root files starting with "HLT_" or "L1T_" in the output directory
+    root_files = [f for f in os.listdir(input_dir) if f.endswith(".root") and (f.startswith("HLT_") or f.startswith("L1T_"))]
+
     # Base file (hltrun output) to compare against
-    base_root_file = os.path.join(output_dir, "hlt.root")
-    
+    base_root_file = os.path.join(input_dir, "hlt.root")
+
     # Check if base_root_file exists
     if not os.path.exists(base_root_file):
         print(f"Base root file {base_root_file} not found! Exiting...")
         exit(1)
 
-    # Compare each root file with the base using hltDiff
-    for root_file in root_files:
-        root_path = os.path.join(output_dir, root_file)
-        print(f"Comparing {root_path} with {base_root_file} using hltDiff...")
-        
-        # Run the hltDiff command
-        hlt_diff_command = f"hltDiff -o {base_root_file} -n {root_path}"
-        result = subprocess.run(hlt_diff_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        
-        # Decode and process the output
-        output = result.stdout.decode("utf-8")
-        print(output)  # Print for debug purposes
+    # Use ThreadPoolExecutor to run comparisons in parallel
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = []
+        for root_file in root_files:
+            futures.append(executor.submit(compare_single_file, root_file, base_root_file, num_events, input_dir))
 
-        # Use a dynamic check based on the number of events configured
-        expected_match_string = f"Found {num_events} matching events, out of which 0 have different HLT results"
-
-        # Check if the output contains the expected match string
-        if expected_match_string not in output:
-            print(f"Error: {root_file} has different HLT results!")
-            exit(1)  # Exit with failure if differences are found
+        # Collect results as they complete
+        for future in as_completed(futures):
+            result = future.result()
+            if result:  # If there is an error message, print it and exit
+                print("-" * 40)
+                print(result)
+                print("-" * 40)
+                exit(1)
 
     print("All HLT comparisons passed with no differences.")
 
 # Step 10: Once all cmsRun jobs are completed, perform the hltDiff comparisons
 print("Performing HLT result comparisons...")
-compare_hlt_results()
+compare_hlt_results(output_dir,num_events,num_parallel_jobs)  # Adjust max_workers based on your CPU cores
 
 # Step 11: Capture the end time and print the end timestamp
 end_time = time.time()
