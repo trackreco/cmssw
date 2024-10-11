@@ -4,19 +4,25 @@ import FWCore.ParameterSet.Config as cms
 from Configuration.ProcessModifiers.trackingMkFitCommon_cff import trackingMkFitCommon
 trackingMkFit = cms.ModifierChain(trackingMkFitCommon)
 
+###################################################################
+# Set default phase-2 settings
+###################################################################
+import Configuration.Geometry.defaultPhase2ConditionsEra_cff as _settings
+_PH2_GLOBAL_TAG, _PH2_ERA = _settings.get_era_and_conditions(_settings.DEFAULT_VERSION)
+
 # No era in Fireworks/Geom reco dumper
-process = cms.Process('DUMP',Phase2C17I13M9,trackingMkFit)
+process = cms.Process('DUMP', _PH2_ERA, trackingMkFit)
 
 # import of standard configurations
 process.load('Configuration.StandardSequences.Services_cff')
 process.load('FWCore.MessageService.MessageLogger_cfi')
-process.load('Configuration.Geometry.GeometryExtended2026D110Reco_cff')
+process.load('Configuration.Geometry.GeometryExtended2026DefaultReco_cff')
 process.load('Configuration.StandardSequences.MagneticField_cff')
 process.load('Configuration.StandardSequences.Reconstruction_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
 from Configuration.AlCa.GlobalTag import GlobalTag
-process.GlobalTag = GlobalTag(process.GlobalTag, "auto:phase2_realistic_T33", '')
+process.GlobalTag = GlobalTag(process.GlobalTag, _PH2_GLOBAL_TAG, '')
 
 # In Fireworks/Geom reco dumper:
 # from Configuration.AlCa.autoCond import autoCond
