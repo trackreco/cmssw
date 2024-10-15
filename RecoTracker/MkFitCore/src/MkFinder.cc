@@ -1010,8 +1010,6 @@ namespace mkfit {
             float new_q, new_phi, new_ddphi, new_ddq;
             bool prop_fail;
 
-            //X bool dumpehit = false;
-
             if (L.is_barrel()) {
               const Hit &hit = L.refHit(hi_orig);
               unsigned int mid = hit.detIDinLayer();
@@ -1088,14 +1086,6 @@ namespace mkfit {
                 false, IdxChi2List()
               });
               ci.hmi.back().ic2list.reset(); // zero initialize
-
-              //X if (dumpehit) {
-              //   printf("Was a %s hit. presel=%d q-presel=%d phi-presel=%d, q_hl=%.3f, track_dq=%.3f\n",
-              //          (sim_lbl == hit_lbl) ? "GOOD" : "BAD", dqdphi_presel,
-              //          new_ddq < B.dq_track[itrack] + DDQ_PRESEL_FAC * L.hit_q_half_length(hi),
-              //          new_ddphi < B.dphi_track[itrack] + DDPHI_PRESEL_FAC * 0.0123f,
-              //          L.hit_q_half_length(hi), B.dq_track[itrack]);
-              //X }
 
               bool new_dec = dqdphi_presel && !prop_fail;
               ++ci.n_all_hits;
