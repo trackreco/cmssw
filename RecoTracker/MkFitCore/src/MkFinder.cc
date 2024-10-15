@@ -1470,9 +1470,11 @@ namespace mkfit {
                   isStripQCompatible(itrack, layer_of_hits.is_barrel(), m_Err[iP], propPar, m_msErr, m_msPar);
 
               //rescale strip charge to track parameters and reapply the cut
-              isCompatible &= passStripChargePCMfromTrack(
+              if (isCompatible && layer_of_hits.layer_info().has_charge()) {
+                isCompatible = passStripChargePCMfromTrack(
                   itrack, layer_of_hits.is_barrel(), charge_pcm[itrack], Hit::minChargePerCM(), propPar, m_msErr);
-            }
+	      }
+	    }
             // Select only SiStrip hits with cluster size < maxClusterSize
             if (!layer_of_hits.is_pixel()) {
               if (layer_of_hits.refHit(m_XHitArr.At(itrack, hit_cnt, 0)).spanRows() >=
