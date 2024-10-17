@@ -626,7 +626,8 @@ namespace mkfit {
     m_event_of_comb_cands.reset((int)in_seeds.size(), m_job->max_max_cands());
 
     import_seeds(in_seeds, seeds_sorted, [&](const Track &seed, int seed_idx, int region, int pos) {
-      m_event_of_comb_cands.insertSeed(seed, seed_idx, m_job->steering_params(region).m_track_scorer, region, pos);
+      m_event_of_comb_cands.insertSeed(
+          seed, seed_idx, m_job->m_iter_config.m_params, m_job->steering_params(region).m_track_scorer, region, pos);
     });
   }
 
@@ -1178,11 +1179,11 @@ namespace mkfit {
           // chi2 check. To use it we should retune scoring function (might be even simpler).
           auto chi2Ovlp = mkfndr->m_Chi2[fi];
           if (mkfndr->m_FailFlag[fi] == 0 && chi2Ovlp >= 0.0f && chi2Ovlp <= 60.0f) {
-            auto scoreCand =
-                getScoreCand(st_par.m_track_scorer, tc, true /*penalizeTailMissHits*/, true /*inFindCandidates*/);
+            auto scoreCand = getScoreCand(
+                st_par.m_track_scorer, iter_params, tc, true /*penalizeTailMissHits*/, true /*inFindCandidates*/);
             tc.addHitIdx(seed_cand_overlap_idx[ii].ovlp_idx, curr_layer, chi2Ovlp);
             tc.incOverlapCount();
-            auto scoreCandOvlp = getScoreCand(st_par.m_track_scorer, tc, true, true);
+            auto scoreCandOvlp = getScoreCand(st_par.m_track_scorer, iter_params, tc, true, true);
             if (scoreCand > scoreCandOvlp)
               tc.popOverlap();
           }
@@ -1215,7 +1216,7 @@ namespace mkfit {
 
     // final sorting
     for (int iseed = start_seed; iseed < end_seed; ++iseed) {
-      eoccs[iseed].mergeCandsAndBestShortOne(m_job->params(), st_par.m_track_scorer, true, true);
+      eoccs[iseed].mergeCandsAndBestShortOne(iter_params, st_par.m_track_scorer, true, true);
     }
   }
 
@@ -1258,7 +1259,7 @@ namespace mkfit {
   void MkBuilder::fit_cands_BH(MkFinder *mkfndr, int start_cand, int end_cand, int region) {
     const SteeringParams &st_par = m_job->steering_params(region);
     const PropagationConfig &prop_config = m_job->m_trk_info.prop_config();
-    mkfndr->setup_bkfit(prop_config, st_par, m_event);
+    mkfndr->setup_bkfit(prop_config, st_par, m_event, m_job->m_iter_config.m_backward_params);
 #ifdef DEBUG_FINAL_FIT
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
     bool debug = true;
@@ -1355,7 +1356,7 @@ namespace mkfit {
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
     const SteeringParams &st_par = m_job->steering_params(region);
     const PropagationConfig &prop_config = m_job->m_trk_info.prop_config();
-    mkfndr->setup_bkfit(prop_config, st_par, m_event);
+    mkfndr->setup_bkfit(prop_config, st_par, m_event, m_job->m_iter_config.m_backward_params);
 
     int step = NN;
     for (int icand = start_cand; icand < end_cand; icand += step) {

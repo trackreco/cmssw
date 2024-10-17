@@ -57,7 +57,7 @@ namespace mkfit {
                const Event *ev,
                int region,
                bool infwd);
-    void setup_bkfit(const PropagationConfig &pc, const SteeringParams &sp, const Event *ev);
+    void setup_bkfit(const PropagationConfig &pc, const SteeringParams &sp, const Event *ev, const IterationParams &ip);
     void release();
 
     void begin_layer(const LayerOfHits &layer_of_hits);
