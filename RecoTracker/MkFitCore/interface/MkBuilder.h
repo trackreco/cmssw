@@ -116,6 +116,12 @@ namespace mkfit {
     void backwardFit();
     void fit_cands(MkFinder *mkfndr, int start_cand, int end_cand, int region);
 
+    //refit
+
+    void fittracks();
+    void fit_tracks(MkFinder *mkfndr, int nFoundTracks, std::vector<int> inds, int start_trk, int end_trk);
+    void check_tracks(std::vector<int> inds, int start_trk, int end_trk);
+
   private:
     void fit_one_seed_set(TrackVec &simtracks, int itrack, int end, MkFitter *mkfttr, const bool is_brl[]);
 

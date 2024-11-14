@@ -1404,4 +1404,119 @@ namespace mkfit {
     mkfndr->release();
   }
 
+  //==============================================================================
+  // ReFit
+  //==============================================================================
+
+  void MkBuilder::fit_tracks(MkFinder *mkfndr, int nFoundHits, std::vector<int> inds, int start_trk, int end_trk) {
+    //could be wrapped into some setup_fit
+    const TrackerInfo &ti = m_job->m_trk_info;
+    PropagationFlags my_flags = PropagationFlags(PF_use_param_b_field | PF_apply_material);
+    my_flags.tracker_info = &ti;
+    mkfndr->refit_flags = &my_flags;
+
+    mkfndr->m_event = m_event;
+
+    for (int icand = start_trk; icand < end_trk; icand += NN) {
+      const int end = std::min(icand + NN, end_trk);
+
+      bool chi_debug = false;
+
+      std::cout << end << " " << chi_debug << std::endl;
+
+      // input candidate tracks
+      mkfndr->fwdFitInputTracks(m_tracks, inds, icand, end);
+
+      // fit the tracks from the input in fwd direction
+      mkfndr->fwdFitFitTracks(m_job->m_event_of_hits, end - icand, nFoundHits, chi_debug);
+
+      // fwdFitOutput
+      mkfndr->reFitOutputTracks(m_tracks, inds, icand, end, nFoundHits);
+
+      // input candidate tracks
+      mkfndr->bkReFitInputTracks(m_tracks, inds, icand, end);
+
+      // fit the tracks from the input in bkw direction
+      mkfndr->bkReFitFitTracks(m_job->m_event_of_hits, end - icand, nFoundHits, chi_debug);
+
+      // fwdFitOutput
+      mkfndr->reFitOutputTracks(m_tracks, inds, icand, end, nFoundHits, true);
+    }
+
+    mkfndr->release();
+  }
+
+  void MkBuilder::check_tracks(std::vector<int> inds, int start_trk, int end_trk) {
+    for (int icand = start_trk; icand < end_trk; icand += NN) {
+      const int end = std::min(icand + NN, end_trk);
+
+      std::cout << " this is the region "
+                << " strt " << start_trk << " end " << end_trk << " end " << end_trk - start_trk << " NN " << NN
+                << std::endl;
+      for (int i = start_trk; i < end; ++i) {
+        const Track &trk = m_tracks[inds[i]];
+
+        std::cout << "trk pt " << trk.pT() << " trk eta " << trk.momEta() << " trk phi " << trk.momPhi() << std::endl;
+        std::cout << "trk nTotalHits " << trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
+
+        std::cout << "END CHECK" << std::endl;
+      }
+    }
+  }
+
+  void MkBuilder::fittracks() {
+#ifdef DEBUG_FIT
+    std::cout << "here are N tracks " << m_tracks.size() << std::endl;
+#endif
+    int N = 0;
+
+    std::map<int, std::vector<int>> mapFoundHits;
+    for (auto &t : m_tracks) {
+#ifdef DEBUG_FIT
+      std::cout << "nhits " << N << " NNN " << t.nFoundHits() << std::endl;
+      std::cout << "trk pt " << t.pT() << " trk eta " << t.momEta() << std::endl;
+      std::cout << "trk nTotalHits " << t.nTotalHits() << " trk nFoundHits " << t.nFoundHits() << std::endl;
+      std::cout << "trk last l " << t.getLastFoundHitLyr() << " trk last idx " << t.getLastFoundHitIdx() << std::endl;
+      std::cout << "______________ " << std::endl;
+      for (int i = 0; i < t.nTotalHits(); i++) {
+        std::cout << "index " << t.getHitIdx(i) << " layer " << t.getHitLyr(i) << std::endl;
+      }
+#endif
+      int foundh = t.nFoundHits();
+      if (mapFoundHits.count(foundh)) {
+        mapFoundHits[foundh].push_back(N);
+      } else
+        mapFoundHits[foundh] = {N};
+      N++;
+    }
+#ifdef DEBUG_FIT
+    for (auto &m : mapFoundHits) {
+      std::cout << m.first << " the key " << std::endl;
+      for (auto i : m.second) {
+        std::cout << i << " index ";
+      }
+      std::cout << "\n";
+    }
+#endif
+    auto mkfndr = g_exe_ctx.m_finders.makeOrGet();
+    for (auto &m : mapFoundHits) {
+      int ntimes = m.second.size() / NN;
+#ifdef DEBUG_FIT
+      std::cout << "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << std::endl;
+      std::cout << "ntimes " << ntimes << " size  " << m.second.size() << " extra " << m.second.size() - NN * ntimes
+                << std::endl;
+#endif
+      for (int i = 0; i < ntimes; i++) {
+#ifdef DEBUG_FIT
+        check_tracks(m.second, NN * i, NN * (i + 1));
+#endif
+        fit_tracks(mkfndr.get(), m.first, m.second, NN * i, NN * (i + 1));
+      }
+#ifdef DEBUG_FIT
+      check_tracks(m.second, NN * ntimes, m.second.size());
+#endif
+      fit_tracks(mkfndr.get(), m.first, m.second, NN * ntimes, m.second.size());
+    }
+  }
+
 }  // end namespace mkfit
