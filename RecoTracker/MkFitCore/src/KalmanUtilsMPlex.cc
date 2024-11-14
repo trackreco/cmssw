@@ -1310,12 +1310,13 @@ namespace mkfit {
                                             const int N_proc,
                                             const PropagationFlags& propFlags,
                                             const bool propToHit,
-                                            const MPlexQI *noMatEffPtr) {
+                                            const MPlexQI* noMatEffPtr) {
     if (propToHit) {
       MPlexLS propErr;
       MPlexLV propPar;
 
-      propagateHelixToPlaneMPlex(psErr, psPar, Chg, plPnt, plNrm, propErr, propPar, outFailFlag, N_proc, propFlags, noMatEffPtr);
+      propagateHelixToPlaneMPlex(
+          psErr, psPar, Chg, plPnt, plNrm, propErr, propPar, outFailFlag, N_proc, propFlags, noMatEffPtr);
 
       kalmanOperationPlaneLocal(KFO_Calculate_Chi2 | KFO_Update_Params | KFO_Local_Cov,
                                 propErr,

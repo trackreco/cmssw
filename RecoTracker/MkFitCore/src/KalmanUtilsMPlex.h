@@ -158,7 +158,7 @@ namespace mkfit {
                                             const int N_proc,
                                             const PropagationFlags& propFlags,
                                             const bool propToHit,
-                                            const MPlexQI *noMatEffPtr = nullptr);
+                                            const MPlexQI* noMatEffPtr = nullptr);
 
   void kalmanComputeChi2Plane(const MPlexLS& psErr,
                               const MPlexLV& psPar,
