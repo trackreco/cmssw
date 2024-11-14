@@ -562,6 +562,12 @@ namespace mkfit {
 
         builder.export_tracks(ev.fitTracks_);
       }
+
+      ////main call to fit - this is where you can measure the time as for findTracksCloneEngine
+      //builder.fittracks();
+      ////export tracks as "fit" tracks instead of the ones coming from backward fit (should remove the export above)
+      //builder.export_tracks(ev.fitTracks_);
+
       ev.resetCurrentSeedTracks();
 
       builder.end_event();
