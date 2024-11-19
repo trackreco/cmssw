@@ -611,10 +611,8 @@ def customizeHLTIter0ToMkFitMaxCand3RelaxedHPMaxClusterSize4(process):
     process.hltIter0PFlowTrackCandidatesMkFitConfig.config = 'RecoTracker/MkFit/data/mkfit-phase1-hlt-mc3.json'
 
     process.hltIter0PFlowTrackCutClassifier.mva.maxChi2 = cms.vdouble( 999.0, 25.0, 99.0 )
-    process.hltIter0PFlowTrackCutClassifierSerialSync.mva.maxChi2 = cms.vdouble( 999.0, 25.0, 99.0 )
 
     process.hltIter0PFlowTrackCutClassifier.mva.maxChi2n = cms.vdouble( 1.2, 1.0, 999.0 )
-    process.hltIter0PFlowTrackCutClassifierSerialSync.mva.maxChi2n = cms.vdouble( 1.2, 1.0, 999.0 )
 
     process.hltIter0PFlowTrackCutClassifier.mva.dr_par = cms.PSet( 
         d0err = cms.vdouble( 0.003, 0.003, 0.003 ),
@@ -628,19 +626,22 @@ def customizeHLTIter0ToMkFitMaxCand3RelaxedHPMaxClusterSize4(process):
         dz_par2 = cms.vdouble( 3.40282346639E38, 0.51, 0.51 ),
         dz_exp = cms.vint32( 4, 4, 4 )
     )
-    
-    process.hltIter0PFlowTrackCutClassifierSerialSync.mva.dr_par = cms.PSet( 
-        d0err = cms.vdouble( 0.003, 0.003, 0.003 ),
-        dr_par1 = cms.vdouble( 3.40282346639E38, 0.6, 0.6 ),
-        dr_par2 = cms.vdouble( 3.40282346639E38, 0.45, 0.45 ),
-        dr_exp = cms.vint32( 4, 4, 4 ),
-        d0err_par = cms.vdouble( 0.001, 0.001, 0.001 )
-    )
-    process.hltIter0PFlowTrackCutClassifierSerialSync.mva.dz_par = cms.PSet( 
-        dz_par1 = cms.vdouble( 3.40282346639E38, 0.6, 0.6 ),
-        dz_par2 = cms.vdouble( 3.40282346639E38, 0.51, 0.51 ),
-        dz_exp = cms.vint32( 4, 4, 4 )
-    )
+
+    if hasattr(process, 'hltIter0PFlowTrackCutClassifierSerialSync'):
+        process.hltIter0PFlowTrackCutClassifierSerialSync.mva.maxChi2 = cms.vdouble( 999.0, 25.0, 99.0 )
+        process.hltIter0PFlowTrackCutClassifierSerialSync.mva.maxChi2n = cms.vdouble( 1.2, 1.0, 999.0 )
+        process.hltIter0PFlowTrackCutClassifierSerialSync.mva.dr_par = cms.PSet( 
+            d0err = cms.vdouble( 0.003, 0.003, 0.003 ),
+            dr_par1 = cms.vdouble( 3.40282346639E38, 0.6, 0.6 ),
+            dr_par2 = cms.vdouble( 3.40282346639E38, 0.45, 0.45 ),
+            dr_exp = cms.vint32( 4, 4, 4 ),
+            d0err_par = cms.vdouble( 0.001, 0.001, 0.001 )
+        )
+        process.hltIter0PFlowTrackCutClassifierSerialSync.mva.dz_par = cms.PSet( 
+            dz_par1 = cms.vdouble( 3.40282346639E38, 0.6, 0.6 ),
+            dz_par2 = cms.vdouble( 3.40282346639E38, 0.51, 0.51 ),
+            dz_exp = cms.vint32( 4, 4, 4 )
+        )
     
     return process
 
