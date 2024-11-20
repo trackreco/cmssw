@@ -19,6 +19,7 @@
 #endif
 
 //#define DEBUG
+//#define DEBUG_FIT
 #include "Debug.h"
 //#define DEBUG_FINAL_FIT
 
@@ -1420,15 +1421,14 @@ namespace mkfit {
     for (int icand = start_trk; icand < end_trk; icand += NN) {
       const int end = std::min(icand + NN, end_trk);
 
-      bool chi_debug = false;
-
-      std::cout << end << " " << chi_debug << std::endl;
-
       // input candidate tracks
       mkfndr->fwdFitInputTracks(m_tracks, inds, icand, end);
 
+      //prepare indices
+      std::vector<std::vector<int>> indices_R2 = mkfndr->reFitIndices(m_job->m_event_of_hits, end - icand, nFoundHits);
+
       // fit the tracks from the input in fwd direction
-      mkfndr->fwdFitFitTracks(m_job->m_event_of_hits, end - icand, nFoundHits, chi_debug);
+      mkfndr->fwdFitFitTracks(m_job->m_event_of_hits, end - icand, nFoundHits, indices_R2);
 
       // fwdFitOutput
       mkfndr->reFitOutputTracks(m_tracks, inds, icand, end, nFoundHits);
@@ -1437,7 +1437,7 @@ namespace mkfit {
       mkfndr->bkReFitInputTracks(m_tracks, inds, icand, end);
 
       // fit the tracks from the input in bkw direction
-      mkfndr->bkReFitFitTracks(m_job->m_event_of_hits, end - icand, nFoundHits, chi_debug);
+      mkfndr->bkReFitFitTracks(m_job->m_event_of_hits, end - icand, nFoundHits, indices_R2);
 
       // fwdFitOutput
       mkfndr->reFitOutputTracks(m_tracks, inds, icand, end, nFoundHits, true);
@@ -1450,15 +1450,15 @@ namespace mkfit {
     for (int icand = start_trk; icand < end_trk; icand += NN) {
       const int end = std::min(icand + NN, end_trk);
 
-      std::cout << " this is the region "
-                << " strt " << start_trk << " end " << end_trk << " end " << end_trk - start_trk << " NN " << NN
+      std::cout << "BEGIN CHECKs" << std::endl;
+      std::cout << " strt " << start_trk << " end " << end_trk << " end " << end_trk - start_trk << " NN " << NN
                 << std::endl;
+
       for (int i = start_trk; i < end; ++i) {
         const Track &trk = m_tracks[inds[i]];
 
         std::cout << "trk pt " << trk.pT() << " trk eta " << trk.momEta() << " trk phi " << trk.momPhi() << std::endl;
         std::cout << "trk nTotalHits " << trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
-
         std::cout << "END CHECK" << std::endl;
       }
     }
@@ -1473,11 +1473,11 @@ namespace mkfit {
     std::map<int, std::vector<int>> mapFoundHits;
     for (auto &t : m_tracks) {
 #ifdef DEBUG_FIT
-      std::cout << "nhits " << N << " NNN " << t.nFoundHits() << std::endl;
+      std::cout << "______________ " << std::endl;
+      std::cout << "track N " << N << " nhits " << t.nFoundHits() << std::endl;
       std::cout << "trk pt " << t.pT() << " trk eta " << t.momEta() << std::endl;
       std::cout << "trk nTotalHits " << t.nTotalHits() << " trk nFoundHits " << t.nFoundHits() << std::endl;
       std::cout << "trk last l " << t.getLastFoundHitLyr() << " trk last idx " << t.getLastFoundHitIdx() << std::endl;
-      std::cout << "______________ " << std::endl;
       for (int i = 0; i < t.nTotalHits(); i++) {
         std::cout << "index " << t.getHitIdx(i) << " layer " << t.getHitLyr(i) << std::endl;
       }
