@@ -175,6 +175,21 @@ namespace mkfit {
 
     //----------------------------------------------------------------------------
 
+    void fwdFitInputTracks(TrackVec &cands, std::vector<int> inds, int beg, int end);
+    void fwdFitFitTracks(const EventOfHits &eventofhits,
+                         const int N_proc,
+                         int nFoundHits,
+                         std::vector<std::vector<int>> indices_R2Z);
+    void bkReFitInputTracks(TrackVec &cands, std::vector<int> inds, int beg, int end);
+    void bkReFitFitTracks(const EventOfHits &eventofhits,
+                          const int N_proc,
+                          int nFoundHits,
+                          std::vector<std::vector<int>> indices_R2Z);
+    void reFitOutputTracks(TrackVec &cands, std::vector<int> inds, int beg, int end, int nFoundHits, bool bkw = false);
+    std::vector<std::vector<int>> reFitIndices(const EventOfHits &eventofhits, const int N_proc, int nFoundHits);
+
+    //----------------------------------------------------------------------------
+
   private:
     void copy_in(const Track &trk, const int mslot, const int tslot) {
       m_Err[tslot].copyIn(mslot, trk.errors().Array());
@@ -341,6 +356,7 @@ namespace mkfit {
     const SteeringParams *m_steering_params = nullptr;
     const std::vector<bool> *m_iteration_hit_mask = nullptr;
     const Event *m_event = nullptr;
+    const PropagationFlags *refit_flags = nullptr;
     int m_current_region = -1;
     bool m_in_fwd = true;
 
