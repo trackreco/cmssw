@@ -39,11 +39,13 @@ def customizeHLTIter0ToMkFit(process):
 
     process.hltIter0PFlowCkfTrackCandidatesMkFitSiPixelHits = mkFitSiPixelHitConverter_cfi.mkFitSiPixelHitConverter.clone(
         hits = "hltSiPixelRecHits",
+        clusters = "hltSiPixelClusters",
         ttrhBuilder = ":hltESPTTRHBWithTrackAngle",
     )
     process.hltIter0PFlowCkfTrackCandidatesMkFitSiStripHits = mkFitSiStripHitConverter_cfi.mkFitSiStripHitConverter.clone(
         rphiHits = "hltSiStripRecHits:rphiRecHit",
         stereoHits = "hltSiStripRecHits:stereoRecHit",
+        clusters = "hltSiStripRawToClustersFacility",
         ttrhBuilder = ":hltESPTTRHBWithTrackAngle",
         minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutLoose'),
     )
@@ -127,11 +129,13 @@ def customizeHLTIter0ToMkFitRelaxedHP(process):
 
     process.hltIter0PFlowCkfTrackCandidatesMkFitSiPixelHits = mkFitSiPixelHitConverter_cfi.mkFitSiPixelHitConverter.clone(
         hits = "hltSiPixelRecHits",
+        clusters = "hltSiPixelClusters",
         ttrhBuilder = ":hltESPTTRHBWithTrackAngle",
     )
     process.hltIter0PFlowCkfTrackCandidatesMkFitSiStripHits = mkFitSiStripHitConverter_cfi.mkFitSiStripHitConverter.clone(
         rphiHits = "hltSiStripRecHits:rphiRecHit",
         stereoHits = "hltSiStripRecHits:stereoRecHit",
+        clusters = "hltSiStripRawToClustersFacility",
         ttrhBuilder = ":hltESPTTRHBWithTrackAngle",
         minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutLoose'),
     )
@@ -279,11 +283,13 @@ def customizeHLTIter0ToMkFitRelaxedHPMaxClusterSize4(process):
 
     process.hltIter0PFlowCkfTrackCandidatesMkFitSiPixelHits = mkFitSiPixelHitConverter_cfi.mkFitSiPixelHitConverter.clone(
         hits = "hltSiPixelRecHits",
+        clusters = "hltSiPixelClusters",
         ttrhBuilder = ":hltESPTTRHBWithTrackAngle",
     )
     process.hltIter0PFlowCkfTrackCandidatesMkFitSiStripHits = mkFitSiStripHitConverter_cfi.mkFitSiStripHitConverter.clone(
         rphiHits = "hltSiStripRecHits:rphiRecHit",
         stereoHits = "hltSiStripRecHits:stereoRecHit",
+        clusters = "hltSiStripRawToClustersFacility",
         ttrhBuilder = ":hltESPTTRHBWithTrackAngle",
         minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutLoose'),
     )
@@ -398,11 +404,13 @@ def customizeHLTIter0ToMkFitMaxCand3RelaxedHP(process):
 
     process.hltIter0PFlowCkfTrackCandidatesMkFitSiPixelHits = mkFitSiPixelHitConverter_cfi.mkFitSiPixelHitConverter.clone(
         hits = "hltSiPixelRecHits",
+        clusters = "hltSiPixelClusters",
         ttrhBuilder = ":hltESPTTRHBWithTrackAngle",
     )
     process.hltIter0PFlowCkfTrackCandidatesMkFitSiStripHits = mkFitSiStripHitConverter_cfi.mkFitSiStripHitConverter.clone(
         rphiHits = "hltSiStripRecHits:rphiRecHit",
         stereoHits = "hltSiStripRecHits:stereoRecHit",
+        clusters = "hltSiStripRawToClustersFacility",
         ttrhBuilder = ":hltESPTTRHBWithTrackAngle",
         minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutLoose'),
     )
@@ -552,11 +560,13 @@ def customizeHLTIter0ToMkFitMaxCand3RelaxedHPMaxClusterSize4(process):
 
     process.hltIter0PFlowCkfTrackCandidatesMkFitSiPixelHits = mkFitSiPixelHitConverter_cfi.mkFitSiPixelHitConverter.clone(
         hits = "hltSiPixelRecHits",
+        clusters = "hltSiPixelClusters",
         ttrhBuilder = ":hltESPTTRHBWithTrackAngle",
     )
     process.hltIter0PFlowCkfTrackCandidatesMkFitSiStripHits = mkFitSiStripHitConverter_cfi.mkFitSiStripHitConverter.clone(
         rphiHits = "hltSiStripRecHits:rphiRecHit",
         stereoHits = "hltSiStripRecHits:stereoRecHit",
+        clusters = "hltSiStripRawToClustersFacility",
         ttrhBuilder = ":hltESPTTRHBWithTrackAngle",
         minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutLoose'),
     )

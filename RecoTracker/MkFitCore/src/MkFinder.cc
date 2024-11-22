@@ -623,7 +623,7 @@ namespace mkfit {
                 float hx = thishit.x();
                 float hy = thishit.y();
                 float hz = thishit.z();
-                float hr = std::hypot(hx, hy);
+                float hr = hipo(hx, hy);
                 float hphi = std::atan2(hy, hx);
                 float hex = ngr( std::sqrt(thishit.exx()) );
                 float hey = ngr( std::sqrt(thishit.eyy()) );
@@ -636,7 +636,7 @@ namespace mkfit {
                 float tx = m_Par[iI].At(itrack, 0, 0);
                 float ty = m_Par[iI].At(itrack, 1, 0);
                 float tz = m_Par[iI].At(itrack, 2, 0);
-                float tr = std::hypot(tx, ty);
+                float tr = hipo(tx, ty);
                 float tphi = std::atan2(ty, tx);
                 // float tchi2 = ngr( m_Chi2(itrack, 0, 0) ); // unused
                 float tex = ngr( std::sqrt(m_Err[iI].At(itrack, 0, 0)) );
@@ -648,7 +648,7 @@ namespace mkfit {
                 float tephi = ngr( std::sqrt(
                     (ty * ty * tex * tex + tx * tx * tey * tey - 2.0f * tx * ty * m_Err[iI].At(itrack, 0, 1)) /
                     (tr * tr * tr * tr)) );
-                float ht_dxy = std::hypot(hx - tx, hy - ty);
+                float ht_dxy = hipo(hx - tx, hy - ty);
                 float ht_dz = hz - tz;
                 float ht_dphi = cdist(std::abs(hphi - tphi));
 
@@ -1012,7 +1012,7 @@ namespace mkfit {
               new_q = mp_s.z;
             } else {
               prop_fail = mp_is.propagate_to_z(mp::PA_Exact, L.hit_qbar(hi), mp_s, true);
-              new_q = std::hypot(mp_s.x, mp_s.y);
+              new_q = hipo(mp_s.x, mp_s.y);
             }
 
             new_phi = vdt::fast_atan2f(mp_s.y, mp_s.x);
@@ -1235,7 +1235,7 @@ namespace mkfit {
         }
 
         dprint("ADD FAKE HIT FOR TRACK #" << itrack << " withinBounds=" << (fake_hit_idx != Hit::kHitEdgeIdx)
-                                          << " r=" << std::hypot(m_Par[iP](itrack, 0, 0), m_Par[iP](itrack, 1, 0)));
+                                          << " r=" << hipo(m_Par[iP](itrack, 0, 0), m_Par[iP](itrack, 1, 0)));
 
         m_msErr.setDiagonal3x3(itrack, 666);
         m_msPar(itrack, 0, 0) = m_Par[iP](itrack, 0, 0);
@@ -1590,7 +1590,7 @@ namespace mkfit {
       }
 
       dprint("ADD FAKE HIT FOR TRACK #" << itrack << " withinBounds=" << (fake_hit_idx != Hit::kHitEdgeIdx)
-                                        << " r=" << std::hypot(m_Par[iP](itrack, 0, 0), m_Par[iP](itrack, 1, 0)));
+                                        << " r=" << hipo(m_Par[iP](itrack, 0, 0), m_Par[iP](itrack, 1, 0)));
 
       // QQQ as above, only create and add if score better
       TrackCand newcand;
@@ -2120,8 +2120,8 @@ namespace mkfit {
 #ifdef DEBUG_BACKWARD_FIT_BH
       // Dump per hit chi2
       for (int i = 0; i < N_proc; ++i) {
-        float r_h = std::hypot(m_msPar.At(i, 0, 0), m_msPar.At(i, 1, 0));
-        float r_t = std::hypot(m_Par[iC].At(i, 0, 0), m_Par[iC].At(i, 1, 0));
+        float r_h = hipo(m_msPar.At(i, 0, 0), m_msPar.At(i, 1, 0));
+        float r_t = hipo(m_Par[iC].At(i, 0, 0), m_Par[iC].At(i, 1, 0));
 
         // if ((std::isnan(tmp_chi2[i]) || std::isnan(r_t)))
         // if ( ! std::isnan(tmp_chi2[i]) && tmp_chi2[i] > 0) // && tmp_chi2[i] > 30)
@@ -2151,7 +2151,7 @@ namespace mkfit {
               m_Par[ti].At(i, 5, 0),                                     // pt, phi, theta
               std::atan2(m_msPar.At(i, 1, 0), m_msPar.At(i, 0, 0)),      // phi_h
               std::atan2(m_Par[ti].At(i, 1, 0), m_Par[ti].At(i, 0, 0)),  // phi_t
-              1e4f * std::hypot(m_msPar.At(i, 0, 0) - m_Par[ti].At(i, 0, 0),
+              1e4f * hipo(m_msPar.At(i, 0, 0) - m_Par[ti].At(i, 0, 0),
                                 m_msPar.At(i, 1, 0) - m_Par[ti].At(i, 1, 0)),  // d_xy
               1e4f * (m_msPar.At(i, 2, 0) - m_Par[ti].At(i, 2, 0))             // d_z
               // e2s((m_msErr.At(i,0,0) + m_msErr.At(i,1,1)) / (r_h * r_h)),     // ephi_h
@@ -2384,7 +2384,7 @@ namespace mkfit {
               bb.pT(), beg_cur_sep, 1.0f / m_Par[ti].At(i, 3, 0),
               bb.posEta(),
               bb.posPhi(), beg_cur_sep, std::atan2(m_Par[ti].At(i, 1, 0), m_Par[ti].At(i, 0, 0)),
-              std::hypot(m_Par[ti].At(i, 0, 0), m_Par[ti].At(i, 1, 0)),
+              hipo(m_Par[ti].At(i, 0, 0), m_Par[ti].At(i, 1, 0)),
               m_Par[ti].At(i, 2, 0),
               chi_prnt,
               std::isnan(chi), std::isfinite(chi), chi > 0,
@@ -2396,7 +2396,7 @@ namespace mkfit {
               e2s(std::abs(m_Err[ti].At(i, 0, 0))),
               e2s(std::abs(m_Err[ti].At(i, 1, 1))),
               e2s(std::abs(m_Err[ti].At(i, 2, 2))),  // sx_t sy_t sz_t -- track errors
-              1e4f * std::hypot(m_msPar.At(i, 0, 0) - m_Par[ti].At(i, 0, 0),
+              1e4f * hipo(m_msPar.At(i, 0, 0) - m_Par[ti].At(i, 0, 0),
                                 m_msPar.At(i, 1, 0) - m_Par[ti].At(i, 1, 0)),  // d_xy
               1e4f * (m_msPar.At(i, 2, 0) - m_Par[ti].At(i, 2, 0))             // d_z
           );
