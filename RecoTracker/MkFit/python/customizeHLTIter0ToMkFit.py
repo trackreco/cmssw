@@ -68,7 +68,7 @@ def customizeHLTIter0ToMkFit(process):
         eventOfHits = "hltIter0PFlowCkfTrackCandidatesMkFitEventOfHits",
         seeds = "hltIter0PFlowCkfTrackCandidatesMkFitSeeds",
         config = ('', 'hltIter0PFlowTrackCandidatesMkFitConfig'),
-        minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutLoose'),
+        minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutNone'),
     )
     process.hltIter0PFlowCkfTrackCandidates = mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
         seeds = "hltIter0PFLowPixelSeedsFromPixelTracks",
@@ -158,7 +158,7 @@ def customizeHLTIter0ToMkFitRelaxedHP(process):
         eventOfHits = "hltIter0PFlowCkfTrackCandidatesMkFitEventOfHits",
         seeds = "hltIter0PFlowCkfTrackCandidatesMkFitSeeds",
         config = ('', 'hltIter0PFlowTrackCandidatesMkFitConfig'),
-        minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutLoose'),
+        minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutNone'),
     )
     process.hltIter0PFlowCkfTrackCandidates = mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
         seeds = "hltIter0PFLowPixelSeedsFromPixelTracks",
@@ -312,7 +312,7 @@ def customizeHLTIter0ToMkFitRelaxedHPMaxClusterSize4(process):
         eventOfHits = "hltIter0PFlowCkfTrackCandidatesMkFitEventOfHits",
         seeds = "hltIter0PFlowCkfTrackCandidatesMkFitSeeds",
         config = ('', 'hltIter0PFlowTrackCandidatesMkFitConfig'),
-        minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutLoose'),
+        minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutNone'),
     )
     process.hltIter0PFlowCkfTrackCandidates = mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
         seeds = "hltIter0PFLowPixelSeedsFromPixelTracks",
@@ -433,7 +433,7 @@ def customizeHLTIter0ToMkFitMaxCand3RelaxedHP(process):
         eventOfHits = "hltIter0PFlowCkfTrackCandidatesMkFitEventOfHits",
         seeds = "hltIter0PFlowCkfTrackCandidatesMkFitSeeds",
         config = ('', 'hltIter0PFlowTrackCandidatesMkFitConfig'),
-        minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutLoose'),
+        minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutNone'),
     )
     process.hltIter0PFlowCkfTrackCandidates = mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
         seeds = "hltIter0PFLowPixelSeedsFromPixelTracks",
@@ -589,7 +589,7 @@ def customizeHLTIter0ToMkFitMaxCand3RelaxedHPMaxClusterSize4(process):
         eventOfHits = "hltIter0PFlowCkfTrackCandidatesMkFitEventOfHits",
         seeds = "hltIter0PFlowCkfTrackCandidatesMkFitSeeds",
         config = ('', 'hltIter0PFlowTrackCandidatesMkFitConfig'),
-        minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutLoose'),
+        minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutNone'),
     )
     process.hltIter0PFlowCkfTrackCandidates = mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
         seeds = "hltIter0PFLowPixelSeedsFromPixelTracks",
