@@ -55,6 +55,7 @@ namespace mkfit {
       const auto ilay = mkFitGeom.mkFitLayerNumber(detid);
       const auto uniqueIdInLayer = mkFitGeom.uniqueIdInLayer(ilay, detid.rawId());
       const auto chargeScale = traits.chargeScale(detid);
+      const auto& surf = detset.begin()->det()->surface();
 
       for (const auto& hit : detset) {
         auto clusterRef = hit.firstClusterRef();
@@ -70,9 +71,9 @@ namespace mkfit {
         if (!traits.passCCC(charge))
           continue;
 
-        const auto& gpos = hit.globalPosition();
+        const auto& gpos = surf.toGlobal(hit.localPosition());
         SVector3 pos(gpos.x(), gpos.y(), gpos.z());
-        const auto& gerr = hit.globalPositionError();
+        const auto& gerr = ErrorFrameTransformer::transform(hit.localPositionError(), surf);
         SMatrixSym33 err{{float(gerr.cxx()),
                           float(gerr.cyx()),
                           float(gerr.cyy()),
