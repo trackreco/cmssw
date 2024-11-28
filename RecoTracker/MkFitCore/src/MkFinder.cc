@@ -20,7 +20,9 @@
 #include "RecoTracker/MkFitCore/standalone/RntDumper/MkFinder_selectHitIndices.icc"
 #endif
 
-#include "vdt/atan2.h"
+#include <vdt/atan2.h>
+#include <vdt/sin.h>
+#include <vdt/tan.h>
 
 #include <algorithm>
 #include <queue>
@@ -403,15 +405,15 @@ namespace mkfit {
 
         const float z = m_Par[iI].constAt(itrack, 2, 0);
         const float dz = std::abs(nSigmaZ * std::sqrt(m_Err[iI].constAt(itrack, 2, 2)));
-        const float edgeCorr =
-            std::abs(0.5f * (L.layer_info().rout() - L.layer_info().rin()) / std::tan(m_Par[iI].constAt(itrack, 5, 0)));
+        const float edgeCorr = std::abs(0.5f * (L.layer_info().rout() - L.layer_info().rin()) /
+                                        vdt::fast_tanf(m_Par[iI].constAt(itrack, 5, 0)));
         // XXX-NUM-ERR above, m_Err(2,2) gets negative!
 
         m_XWsrResult[itrack] = L.is_within_z_sensitive_region(z, std::sqrt(dz * dz + edgeCorr * edgeCorr));
         assignbins(itrack, z, dz, phi, dphi, min_dq, max_dq, min_dphi, max_dphi);
 
         // Relax propagation-fail detection to be in line with pre-43145.
-        if (m_FailFlag[itrack] && std::sqrt(r2) >= L.layer_info().rin()) {
+        if (m_FailFlag[itrack] && r2 >= sqr(L.layer_info().rin())) {
           m_FailFlag[itrack] = 0;
         }
       }
@@ -442,11 +444,10 @@ namespace mkfit {
         const float r2Inv = 1.f / r2;
         const float dphidx = -y * r2Inv, dphidy = x * r2Inv;
         const float phi = getPhi(x, y);
-        const float dphi2 =
-            calcdphi2(itrack, dphidx, dphidy)
-            //range from finite layer thickness
-            + std::pow(layerD * std::tan(m_Par[iI].At(itrack, 5, 0)) * std::sin(m_Par[iI].At(itrack, 4, 0) - phi), 2) *
-                  r2Inv;
+        const float tanT = vdt::fast_tanf(m_Par[iI].At(itrack, 5, 0));
+        const float dphi2 = calcdphi2(itrack, dphidx, dphidy)
+                            //range from finite layer thickness
+                            + std::pow(layerD * tanT * vdt::fast_sinf(m_Par[iI].At(itrack, 4, 0) - phi), 2) * r2Inv;
 #ifdef HARD_CHECK
         assert(dphi2 >= 0);
 #endif
@@ -458,8 +459,7 @@ namespace mkfit {
                                                       y * y * m_Err[iI].constAt(itrack, 1, 1) +
                                                       2 * x * y * m_Err[iI].constAt(itrack, 0, 1)) /
                                              r2);
-        const float edgeCorr = std::abs(0.5f * (L.layer_info().zmax() - L.layer_info().zmin()) *
-                                        std::tan(m_Par[iI].constAt(itrack, 5, 0)));
+        const float edgeCorr = std::abs(0.5f * (L.layer_info().zmax() - L.layer_info().zmin()) * tanT);
 
         m_XWsrResult[itrack] = L.is_within_r_sensitive_region(r, std::sqrt(dr * dr + edgeCorr * edgeCorr));
         assignbins(itrack, r, dr, phi, dphi, min_dq, max_dq, min_dphi, max_dphi);
@@ -624,7 +624,7 @@ namespace mkfit {
                 float hy = thishit.y();
                 float hz = thishit.z();
                 float hr = hipo(hx, hy);
-                float hphi = std::atan2(hy, hx);
+                float hphi = vdt::fast_atan2f(hy, hx);
                 float hex = ngr( std::sqrt(thishit.exx()) );
                 float hey = ngr( std::sqrt(thishit.eyy()) );
                 float hez = ngr( std::sqrt(thishit.ezz()) );
@@ -1317,16 +1317,17 @@ namespace mkfit {
                              msErr.constAt(itrack, 1, 1) * hitT2inv};
       const bool detXY_OK =
           std::abs(proj[0] * proj[2] - proj[1] * proj[1]) < 0.1f;  //check that zero-direction is close
-      const float cosP = cos(pPar.constAt(itrack, 4, 0));
-      const float sinP = sin(pPar.constAt(itrack, 4, 0));
-      const float sinT = std::abs(sin(pPar.constAt(itrack, 5, 0)));
+      float sinP;
+      float cosP;
+      vdt::fast_sincosf(pPar.constAt(itrack, 4, 0), sinP, cosP);
+      const float sinT = std::abs(vdt::fast_sinf(pPar.constAt(itrack, 5, 0)));
       //qSF = sqrt[(px,py)*(1-proj)*(px,py)]/p = sinT*sqrt[(cosP,sinP)*(1-proj)*(cosP,sinP)].
       qSF = detXY_OK ? sinT * std::sqrt(std::abs(1.f + cosP * cosP * proj[0] + sinP * sinP * proj[2] -
                                                  2.f * cosP * sinP * proj[1]))
                      : 1.f;
     } else {  //project on z
       // p_zLocal/p = p_z/p = cosT
-      qSF = std::abs(cos(pPar.constAt(itrack, 5, 0)));
+      qSF = std::abs(vdt::fast_cosf(pPar.constAt(itrack, 5, 0)));
     }
 
     const float qCorr = pcm * qSF;
