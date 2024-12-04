@@ -17,8 +17,9 @@ namespace mkfit {
 
   class Shell {
   public:
-    enum SeedSelect_e { SS_UseAll = 0, SS_Label, SS_IndexPreCleaning, SS_IndexPostCleaning };
+    enum SeedSelect_e { SS_UseAll = 0, SS_Label, SS_IndexPreCleaning, SS_IndexPostCleaning, SS_PreSet };
 
+    Shell();
     Shell(std::vector<DeadVec> &dv, const std::string &in_file, int start_ev);
     ~Shell();
     void Run();
@@ -61,10 +62,24 @@ namespace mkfit {
     void Compare();
 
     // --------------------------------------------------------
+    // Seed study prototype
+    using seed_selector_cf = bool(const Track &);
+    using seed_selector_func = std::function<seed_selector_cf>;
+
+    void StudySimAndSeeds();
+    void PreSelectSeeds(int iter_idx, seed_selector_func selector = [](const Track&) {return true;});
+
+    void WriteSimTree();
+    void ReadSimTree();
+
+    // --------------------------------------------------------
     // Visualization stuff
 #ifdef WITH_REVE
     void ShowTracker();
 #endif
+
+  protected:
+    int select_seeds_for_algo(int algo, TrackVec &seeds);
 
   private:
     std::vector<DeadVec> &m_deadvectors;

@@ -28,9 +28,9 @@ namespace mkfit {
 
   SimSeedInfo evsi2ssinfo(const Event *ev, int seed_idx) {
     SimSeedInfo ssi;
-    Event::SimLabelFromHits slfh = ev->simLabelForCurrentSeed(seed_idx);
-    if (slfh.is_set()) {
-      ssi.s_sim = track2state(ev->simTracks_[slfh.label]);
+    Event::SimInfoFromHits sifh = ev->SimInfoForCurrentSeed(seed_idx);
+    if (sifh.is_set()) {
+      ssi.s_sim = track2state(ev->simTracks_[sifh.label]);
       ssi.sim_lbl = slfh.label;
       ssi.n_hits = slfh.n_hits;
       ssi.n_match = slfh.n_match;
