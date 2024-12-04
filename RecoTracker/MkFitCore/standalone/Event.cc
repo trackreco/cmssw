@@ -825,6 +825,44 @@ namespace mkfit {
   // Handling of current seed vectors and MC label reconstruction from hit data
   //==============================================================================
 
+  Event::SimInfoFromHits Event::simInfoForTrack(const Track &s) const {
+    std::map<int, int> lab_cnt;
+    for (int hi = 0; hi < s.nTotalHits(); ++hi) {
+      auto hot = s.getHitOnTrack(hi);
+      // printf(" %d", hot.index);
+      if (hot.index < 0)
+        continue;
+      const Hit &h = layerHits_[hot.layer][hot.index];
+      int hl = simHitsInfo_[h.mcHitID()].mcTrackID_;
+      // printf(" (%d)", hl);
+      if (hl >= 0)
+        ++lab_cnt[hl];
+    }
+    int max_c = -1, max_l = -1;
+    for (auto &x : lab_cnt) {
+      if (x.second > max_c) {
+        max_l = x.first;
+        max_c = x.second;
+      } else if (x.second == max_c) {
+        max_l = -1;
+      }
+    }
+    if (max_c < 0) {
+      max_c = 0;
+      max_l = -1;
+    }
+    // printf(" ] -> %d %d => %d\n", s.nTotalHits(), max_c, max_l);
+    return { s.nTotalHits(), max_c, max_l };
+  }
+
+  Event::SimInfoFromHits Event::simInfoForTrack(Track &s, bool relabel) {
+    auto sifh = simInfoForTrack(s);
+    if (relabel) {
+      s.setLabel(sifh.label);
+    }
+    return sifh;
+  }
+
   void Event::setCurrentSeedTracks(const TrackVec &seeds) {
     currentSeedTracks_ = &seeds;
     currentSeedSimFromHits_.clear();
@@ -832,7 +870,7 @@ namespace mkfit {
 
   const Track &Event::currentSeed(int i) const { return (*currentSeedTracks_)[i]; }
 
-  Event::SimLabelFromHits Event::simLabelForCurrentSeed(int i) const {
+  Event::SimInfoFromHits Event::simInfoForCurrentSeed(int i) const {
     assert(currentSeedTracks_ != nullptr);
 
     if (currentSeedSimFromHits_.empty()) {
@@ -841,33 +879,7 @@ namespace mkfit {
       for (int si = 0; si < (int)currentSeedTracks_->size(); ++si) {
         const Track &s = currentSeed(si);
         // printf("%3d (%d): [", si, s.label());
-        std::map<int, int> lab_cnt;
-        for (int hi = 0; hi < s.nTotalHits(); ++hi) {
-          auto hot = s.getHitOnTrack(hi);
-          // printf(" %d", hot.index);
-          if (hot.index < 0)
-            continue;
-          const Hit &h = layerHits_[hot.layer][hot.index];
-          int hl = simHitsInfo_[h.mcHitID()].mcTrackID_;
-          // printf(" (%d)", hl);
-          if (hl >= 0)
-            ++lab_cnt[hl];
-        }
-        int max_c = -1, max_l = -1;
-        for (auto &x : lab_cnt) {
-          if (x.second > max_c) {
-            max_l = x.first;
-            max_c = x.second;
-          } else if (x.second == max_c) {
-            max_l = -1;
-          }
-        }
-        if (max_c < 0) {
-          max_c = 0;
-          max_l = -1;
-        }
-        // printf(" ] -> %d %d => %d\n", s.nTotalHits(), max_c, max_l);
-        currentSeedSimFromHits_[si] = {s.nTotalHits(), max_c, max_l};
+        currentSeedSimFromHits_[si] = simInfoForTrack(s);
       }
     }
 
@@ -1030,9 +1042,8 @@ namespace mkfit {
   //==============================================================================
 
   void print(std::string pfx, int itrack, const Track &trk, const Event &ev) {
-    std::cout << std::endl
-              << pfx << ": " << itrack << " hits: " << trk.nFoundHits() << " label: " << trk.label()
-              << " State:" << std::endl;
+    std::cout << pfx << ": " << itrack << " hits: " << trk.nFoundHits() << " label: " << trk.label()
+              << " State:" << "\n";
     print(trk.state());
 
     for (int i = 0; i < trk.nTotalHits(); ++i) {
@@ -1041,10 +1052,24 @@ namespace mkfit {
       if (hot.index >= 0) {
         auto &h = ev.layerHits_[hot.layer][hot.index];
         int hl = ev.simHitsInfo_[h.mcHitID()].mcTrackID_;
-        printf("  %4d  %8.3f %8.3f %8.3f  r=%.3f\n", hl, h.x(), h.y(), h.z(), h.r());
+        printf("  %4d  x=%8.3f y=%8.3f z=%8.3f r=%8.3f | e_z=%8.3g e_r=%8.3g | pix=%d str=%d brl=%d\n",
+                hl, h.x(), h.y(), h.z(), h.r(),
+                std::sqrt(h.ezz()),
+                std::sqrt(getRadErr2(h.x(), h.y(), h.exx(), h.eyy(), h.exy())),
+                Config::TrkInfo[hot.layer].is_pixel(),
+                Config::TrkInfo[hot.layer].is_stereo(),
+                Config::TrkInfo[hot.layer].is_barrel()
+                );
       } else {
         printf("\n");
       }
+    }
+  }
+
+  void print(std::string pfx, const TrackVec &tvec, const Event &ev) {
+    int nt = tvec.size();
+    for (int i = 0; i < nt; ++i) {
+      print(pfx, i, tvec[i], ev);
     }
   }
 
