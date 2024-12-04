@@ -19,6 +19,7 @@ namespace mkfit {
   public:
     enum SeedSelect_e { SS_UseAll = 0, SS_Label, SS_IndexPreCleaning, SS_IndexPostCleaning };
 
+    Shell();
     Shell(std::vector<DeadVec> &dv, const std::string &in_file, int start_ev);
     ~Shell();
     void Run();
@@ -61,10 +62,21 @@ namespace mkfit {
     void Compare();
 
     // --------------------------------------------------------
+    // Seed study prototype
+
+    void StudySimAndSeeds();
+
+    void WriteSimTree();
+    void ReadSimTree();
+
+    // --------------------------------------------------------
     // Visualization stuff
 #ifdef WITH_REVE
     void ShowTracker();
 #endif
+
+  protected:
+    int select_seeds_for_algo(int algo, TrackVec &seeds);
 
   private:
     std::vector<DeadVec> &m_deadvectors;
