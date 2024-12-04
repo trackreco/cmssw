@@ -22,6 +22,9 @@
 #include "TROOT.h"
 #include "TRint.h"
 
+#include "TFile.h"
+#include "TTree.h"
+
 #ifdef WITH_REVE
 #include "TRandom.h"
 #include "ROOT/REveJetCone.hxx"
@@ -39,11 +42,20 @@
 namespace {
   constexpr int algos[] = {4, 22, 23, 5, 24, 7, 8, 9, 10, 6};  // 10 iterations
   constexpr int n_algos = sizeof(algos) / sizeof(int);
+  constexpr int end_algo = 24 + 1;
 
   const char* b2a(bool b) { return b ? "true" : "false"; }
+
+  std::vector<mkfit::DeadVec> loc_dummy_deadvec;
 }
 
 namespace mkfit {
+
+  Shell::Shell()
+    : m_deadvectors(loc_dummy_deadvec)
+  {
+    // Constructor for use in plain ROOT, easy to crash!
+  }
 
   Shell::Shell(std::vector<DeadVec> &dv, const std::string &in_file, int start_ev)
     : m_deadvectors(dv)
@@ -138,8 +150,10 @@ namespace mkfit {
   }
 
   void Shell::ProcessEvent(SeedSelect_e seed_select, int selected_seed, int count) {
-    // count is only used for SS_IndexPreCleaning and SS_IndexPostCleaning.
-    //       There are no checks for upper bounds, ie, if requested seeds beyond the first one exist.
+    // count is mostly used for SS_IndexPreCleaning and SS_IndexPostCleaning.
+    // It is also honoured for SS_Label, as (especially without cleaning) there might be several
+    // seeds with the same label.
+    // There are no checks for upper bounds, ie, if requested seeds beyond the first one exist.
 
     const IterationConfig &itconf = Config::ItrInfo[m_it_index];
     IterationMaskIfc mask_ifc;
@@ -360,30 +374,15 @@ namespace mkfit {
     mkfit labels are seed indices in given iteration after cleaning (at seed load-time).
           This is no longer true -- was done like that in branch where this code originated from.
           It seems the label is the same as seed label.
+          CombCandidate does have m_seed_origin_index -- index of seed after cleaning.
   */
 
   int Shell::LabelFromHits(Track &t, bool replace, float good_frac) {
-    std::map<int, int> lab_cnt;
-    for (int hi = 0; hi < t.nTotalHits(); ++hi) {
-      auto hot = t.getHitOnTrack(hi);
-      if (hot.index < 0)
-        continue;
-      const Hit &h = m_event->layerHits_[hot.layer][hot.index];
-      int hl = m_event->simHitsInfo_[h.mcHitID()].mcTrackID_;
-      if (hl >= 0)
-        ++lab_cnt[hl];
-    }
-    int max_c = -1, max_l = -1;
-    for (auto& x : lab_cnt) {
-      if (x.second > max_c) {
-        max_l = x.first;
-        max_c = x.second;
-      }
-    }
-    bool success = max_c >= good_frac * t.nFoundHits();
-    int relabel = success ? max_l : -1;
+    auto sifh = m_event->simInfoForTrack(t);
+    bool success = sifh.good_frac()>= good_frac;
+    int relabel = success ? sifh.label : -1;
     // printf("found_hits=%d, best_lab %d (%d hits), existing label=%d (replace flag=%s)\n",
-    //        t.nFoundHits(), max_l, max_c, t.label(), b2a(replace));
+    //        t.nFoundHits(), sifh.label, sifh.n_match, t.label(), b2a(replace));
     if (replace)
         t.setLabel(relabel);
     return relabel;
@@ -579,6 +578,195 @@ namespace mkfit {
     printf("-------------------------------------------------------------------------------------------\n");
     printf("-------------------------------------------------------------------------------------------\n");
     printf("\n");
+  }
+
+  //===========================================================================
+  // Seed study prototype
+  //===========================================================================
+
+  int Shell::select_seeds_for_algo(int algo, TrackVec &seeds) {
+    int n_algo = 0; // seeds are grouped by algo
+    for (auto &s : m_event->seedTracks_) {
+      if (s.algoint() == algo) {
+        seeds.push_back(s);
+        ++n_algo;
+      } else if (n_algo > 0)
+        break;
+    }
+    return n_algo;
+  }
+
+  // SeedEntry, to be extended with parameter matching information
+  struct SeedE { int index; float frac; };
+  // SeedEntryVector
+  // struct SeedEV {};
+  using SeedEV = std::vector<SeedE>;
+  // SeedQualities
+  struct SeedQs {
+    SeedEV v99, v80, v65, v50, v25;
+
+    void add_seed(int idx, float frac) {
+      if (frac > 0.99f)       v99.push_back({idx,frac});
+      else if (frac >= 0.8f)  v80.push_back({idx,frac});
+      else if (frac >= 0.65f) v65.push_back({idx,frac});
+      else if (frac >= 0.5f)  v50.push_back({idx,frac});
+      else if (frac >= 0.25f) v25.push_back({idx,frac});
+    }
+
+    SeedE best_seed() {
+      if ( ! v99.empty()) return v99[0];
+      if ( ! v80.empty()) return v80[0];
+      if ( ! v65.empty()) return v65[0];
+      if ( ! v50.empty()) return v50[0];
+      if ( ! v25.empty()) return v25[0];
+      return { -1, 0.0f };
+    }
+  };
+  // SeedeXtendedInfo
+  struct SeedXI {
+    SeedQs orig;
+    SeedQs clnd;
+  };
+  using SXIMap = std::map<int, SeedXI>;
+
+  void Shell::StudySimAndSeeds() {
+    std::unordered_map<int,int> seed_counts;
+    auto frac_or_0 = [](int a, int b) -> double { return b ? ((double) a / b) : 0.0; };
+
+    std::vector<int> algo_to_idx(end_algo, -1);
+    for (int i = 0; i < n_algos; ++i) {
+      int a = algos[i];
+      algo_to_idx[a] = i;
+    }
+
+    int n_sim   = m_event->simTracks_.size();
+    int n_seed  = m_event->seedTracks_.size();
+    int n_cmssw = m_event->cmsswTracks_.size();
+    for (int si = 0; si < n_seed; ++si) {
+      const Track &t = m_event->seedTracks_[si];
+      ++seed_counts[ t.algoint() ];
+    }
+    int n_seed_sum = 0, n_seed_sum_post_clean = 0;
+    std::set<int> algos_left;
+    for (auto [a, v] : seed_counts) algos_left.insert(a);
+    printf("Event %4d | N_sim = %5d | N_seed = %5d | N_cmssw = %5d |\n", m_event->evtID(), n_sim, n_seed, n_cmssw);
+    printf("  Seeds by index / algo:\n");
+
+    for (int i = 0; i < n_algos; ++i) {
+      int a = algos[i];
+      n_seed_sum += seed_counts[a];
+      algos_left.erase(a);
+
+      const IterationConfig &itconf = Config::ItrInfo[i];
+      assert(a == itconf.m_track_algorithm);
+      m_seeds.clear();
+      int ns2 = select_seeds_for_algo(itconf.m_track_algorithm, m_seeds);
+      assert(ns2 == seed_counts[a]);
+
+      SXIMap sxi_map;
+
+      // Count number of good seeds for each track
+      std::map<int, int> lbl_to_good_seed;
+      int max_good_seeds = 0;
+      for (int ti = 0; ti < (int) m_seeds.size(); ++ti) {
+        Track &t = m_seeds[ti];
+        auto sifh = m_event->simInfoForTrack(t, true);
+        if (sifh.good_frac() >= 1.0f) {
+          ++lbl_to_good_seed[t.label()];
+          max_good_seeds = std::max(lbl_to_good_seed[t.label()], max_good_seeds);
+        }
+        if (sifh.label >= 0) {
+          sxi_map[sifh.label].orig.add_seed(ti, sifh.good_frac());
+        }
+      }
+      printf("    %d / %2d -> %5d (%5d, %2d)", i, a,
+             seed_counts[a], (int) lbl_to_good_seed.size(), max_good_seeds);
+
+      TrackVec orig_seeds = m_seeds;
+
+      std::map<int, int> lbl_to_good_cl_seed;
+      int max_good_cl_seeds = 0;
+      if (itconf.m_seed_cleaner) {
+        itconf.m_seed_cleaner(m_seeds, itconf, m_eoh->refBeamSpot());
+        for (int ti = 0; ti < (int) m_seeds.size(); ++ti) {
+          Track &t = m_seeds[ti];
+          auto sifh = m_event->simInfoForTrack(t, true);
+          if (sifh.good_frac() >= 1.0f) {
+            ++lbl_to_good_cl_seed[t.label()];
+            max_good_cl_seeds = std::max(lbl_to_good_cl_seed[t.label()], max_good_cl_seeds);
+          }
+          if (sifh.label >= 0) {
+            sxi_map[sifh.label].clnd.add_seed(ti, sifh.good_frac());
+          }
+        }
+        int ns_post_clean = m_seeds.size();
+        n_seed_sum_post_clean += ns_post_clean;
+        printf(" -> post-cleaning %5d (%5d, %2d) [%0.3f]",
+              ns_post_clean, (int) lbl_to_good_cl_seed.size(), max_good_cl_seeds,
+              frac_or_0(ns_post_clean, seed_counts[a]));
+      }
+      printf("\n");
+
+      if ( ! itconf.m_seed_cleaner)
+        continue;
+
+      for (auto [lab, sxi] : sxi_map) {
+        if ( ! sxi.orig.v99.empty() && sxi.clnd.v99.empty()) {
+          Track &s = orig_seeds[sxi.orig.v99[0].index];
+          printf("Lost 99p seed label %d, n_h=%d,  pt=%.3f, eta=%.3f\n", lab, s.nTotalHits(), s.pT(), s.momEta());
+          auto se = sxi.clnd.best_seed();
+          if (se.index >= 0) {
+            Track &cs = m_seeds[se.index];
+            printf("  Best cleaned n_h=%d, %.3f\n", cs.nTotalHits(), se.frac);
+          }
+        }
+      }
+    }
+    if ( ! algos_left.empty()) {
+      printf("  Additional algos, not in mkFit 10-index mapping\n");
+      for (auto a : algos_left) {
+        n_seed_sum += seed_counts[a];
+        printf("        %2d -> %5d\n", a, seed_counts[a]);
+      }
+    }
+    printf("  Total       %5d -> post-cleaning %5d [%0.3f]\n",
+           n_seed_sum, n_seed_sum_post_clean, frac_or_0(n_seed_sum_post_clean, n_seed_sum));
+  }
+
+  void Shell::WriteSimTree() {
+    TFile *F = TFile::Open("s.root", "RECREATE");
+    TTree *T = new TTree("T", "mkfit sim-seed stuff");
+
+    TrackVec * tvp = & m_event->simTracks_;
+    TBranch *bv = T->Branch("s", tvp);
+
+    const long long N_EVENTS = 10;
+    for (int ev = 1; ev <= N_EVENTS; ++ev) {
+        GoToEvent(ev);
+
+        bv->Fill();
+    }
+    T->SetEntries();
+    T->Write();
+    F->Close();
+    delete F;
+  }
+
+  void Shell::ReadSimTree() {
+    TFile *F = TFile::Open("s.root", "READ");
+    TTree *T = (TTree*) F->Get("T");
+
+    TrackVec tv, *tvp = &tv;
+    T->SetBranchAddress("s", &tvp);
+
+    const long long N_EVENTS = 10;
+    for (int ev = 1; ev <= N_EVENTS; ++ev) {
+        T->GetEntry(ev - 1);
+        printf("Ev:%d N_sim=%d\n", ev, (int) tv.size());
+    }
+
+    F->Close();
+    delete F;
   }
 
   //===========================================================================
