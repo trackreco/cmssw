@@ -461,7 +461,7 @@ def customizeHLTforAlpakaPixelRecoTracking(process):
         pixelRecHitSrc = cms.InputTag('hltSiPixelRecHitsSoA'),
         frameSoA = cms.string('FrameSoAPhase1Strip'),
         ptmin = cms.double(0.9),
-        maxNumberOfDoublets = cms.uint32(10*256*1024),
+        maxNumberOfDoublets = cms.uint32(4*256*1024),
         CAThetaCutBarrel = cms.double(0.002),
         CAThetaCutForward = cms.double(0.003),
         hardCurvCut = cms.double(0.0328407225),
@@ -487,9 +487,9 @@ def customizeHLTforAlpakaPixelRecoTracking(process):
 	cellZ0Cut = cms.double(10.0),
         cellPtCut = cms.double(0.5),
         doPtCut = cms.bool(True),
-        useRemovers = cms.bool(False),
+        useRemovers = cms.bool(True),
         useRiemannFit = cms.bool(False),
-        doSharedHitCut = cms.bool(False), #originall True                                                                                              
+        doSharedHitCut = cms.bool(True), #originall True                                                                                              
         dupPassThrough = cms.bool(False), #originall False                                                                                             
         useSimpleTripletCleaner = cms.bool(True),#originally True,                                                                                     
         idealConditions = cms.bool(False),
@@ -515,7 +515,7 @@ def customizeHLTforAlpakaPixelRecoTracking(process):
 #     522, 730, 730, 522, 730, 626, 626, 522, 522, 522, 626, 522, 1200, 1200, 626, 730, 626, 626, 522, 5000, 5000, 5000, 5000, 0, 5000, 0, 0, 0, 0, 5000, 5000, 5000, 5000, 0, 0, 5000, 5000, 0, 5000, 0, 5000, 5000, 5000, 5000, 5000, 0, 5000, 626, 0, 0, 0, 0, 522, 5000, 5000, 5000, 5000, 0, 0, 0, 0, 5000, 5000, 5000, 5000, 0, 5000, 5000, 0 ,
                                                #),
 phiCuts = cms.vint32(
-     522, 730, 730, 522, 730, 626, 626, 522, 522, 522, 626, 522, 1200, 1200, 626, 730, 626, 626, 522, 2000, 2000, 2000, 2000,  2000, 2000, 2000, 2000, 2000, 2000, 2000,  2000,  2000, 2000, 2000, 2000, 2000, 2000, 626,  522, 2000, 2000, 2000, 2000,  2000, 2000, 2000, 2000, 2000, 2000),
+     522, 730, 730, 522, 730, 626, 626, 522, 522, 522, 626, 522, 1200, 1200, 626, 730, 626, 626, 522, 1200, 1200, 1200, 1200,  1200, 1200, 1200, 1200, 1200, 1200, 1200,  1200,  1200, 626,  522, 1200, 1200, 1200, 1200),
 
 
 ## Good Cuts for TTbar PU and No PU                                               

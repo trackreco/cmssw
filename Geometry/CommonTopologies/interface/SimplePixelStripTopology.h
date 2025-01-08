@@ -100,30 +100,19 @@ namespace phase1PixelStripTopology {
   { TIB1,     TIB2,       phi5deg,  -55.,   55.,   1000.        }, // 22
   { FPIX2Neg, TIB1,       phi5deg,  -70.,   70.,   1000.        }, // 23 
   { FPIX3Neg, TIB1,       phi5deg,  -70.,   70.,   1000.        }, // 24
-  { FPIX3Neg, TID1Neg2D,  phi5deg,  -70.,   70.,   1000.        }, // 25
-  { FPIX3Neg, TID2Neg2D,  phi5deg,  -70.,   70.,   1000.        }, // 26
-  { FPIX3Neg, TID3Neg2D,  phi5deg,  -70.,   70.,   1000.        }, // 27
-  { TID1Neg2D,TID2Neg2D,  phi5deg,  -1000., 1000., 1000.        }, // 28
-  { TID2Neg2D,TID3Neg2D,  phi5deg,  -1000., 1000., 1000.        }, // 29
-  { TIB1,     TID1Neg2D,  phi5deg,  -55.,   0.,    1000.        }, // 30
-  { TIB2,     TID1Neg2D,  phi5deg,  -55.,   0.,    1000.        }, // 31
-  { BPIX2,    TIB1,       phi5deg,  -22.,   0.,    1000.        }, // 32 
-  { BPIX2,    TIB2,       phi5deg,  -22.,   0.,    1000.        }, // 33
-  { BPIX1,    TIB1,       phi5deg,  -22.,   0.,    1000.        }, // 34
-  { BPIX3,    TIB2,       phi5deg,  -22.,   22.,   1000.        }, // 35
-  { BPIX4,    TID1Neg2D,  phi5deg,  -55.,  0.,    1000.         }, // 36
-  { FPIX1Pos, FPIX3Pos,   phi0p06,  -70.,   70.,      9.        }, // 37
-  { FPIX1Neg, FPIX3Neg,   phi0p05,  -70.,   70.,      9.        }, // 38
-  { FPIX1Neg, TIB2,       phi5deg,  -70.,   70.,   1000.        }, // 39
-  { FPIX1Neg, TID1Neg2D,  phi5deg,  -70.,   70.,   1000.        }, // 40
-  { FPIX1Neg, TID2Neg2D,  phi5deg,  -70.,   70.,   1000.        }, // 41
-  { FPIX2Pos, TID3Pos2D,  phi5deg,  -70.,   70.,   1000.        }, // 42
-  { FPIX2Neg, TIB2,       phi5deg,  -70.,   70.,   1000.        }, // 43
-  { FPIX2Neg, TID1Neg2D,  phi5deg,  -70.,   70.,   1000.        }, // 44
-  { FPIX2Neg, TID2Neg2D,  phi5deg,  -70.,   70.,   1000.        }, // 45
-  { FPIX2Neg, TID3Neg2D,  phi5deg,  -70.,   70.,   1000.        }, // 46
-  { FPIX3Neg, TIB2,       phi5deg,  -70.,   70.,   1000.        }, // 47
-  { BPIX2,    FPIX2Neg,   phi5deg,  -30.,   0.,   1000.         } //  48
+  { TIB1,     TID1Neg2D,  phi5deg,  -55.,   0.,    1000.        }, // 25
+  { TIB2,     TID1Neg2D,  phi5deg,  -55.,   0.,    1000.        }, // 26
+  { BPIX2,    TIB1,       phi5deg,  -22.,   0.,    1000.        }, // 27 
+  { BPIX2,    TIB2,       phi5deg,  -22.,   0.,    1000.        }, // 28
+  { BPIX1,    TIB1,       phi5deg,  -22.,   0.,    1000.        }, // 29
+  { BPIX3,    TIB2,       phi5deg,  -22.,   22.,   1000.        }, // 30
+  { BPIX4,    TID1Neg2D,  phi5deg,  -55.,  0.,    1000.         }, // 31
+  { FPIX1Pos, FPIX3Pos,   phi0p06,  -70.,   70.,      9.        }, // 32
+  { FPIX1Neg, FPIX3Neg,   phi0p05,  -70.,   70.,      9.        }, // 33
+  { FPIX1Neg, TIB2,       phi5deg,  -70.,   70.,   1000.        }, // 34
+  { FPIX2Neg, TIB2,       phi5deg,  -70.,   70.,   1000.        }, // 35
+  { FPIX3Neg, TIB2,       phi5deg,  -70.,   70.,   1000.        }, // 36
+  { BPIX2,    FPIX2Neg,   phi5deg,  -30.,   0.,   1000.         } //  37
   };
   
   constexpr uint32_t maxNumClustersPerModules = 1024;
