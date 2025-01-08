@@ -77,7 +77,11 @@ def configureFrameSoAESProducers(process):
         'Phase1Strip': ('frameSoAESProducerPhase1Strip', 'FrameSoAPhase1Strip', 'FrameSoAESProducerPhase1Strip@alpaka'),
     }
 
-    
+    has_alpaka_named_module = any("Alpaka" in name for name in process.__dict__.keys())
+
+    if not has_alpaka_named_module:
+        print("No modules with 'Alpaka' in their names found in the process. Skipping configuration of FrameSoAESProducers.")
+        return process
     for pixel_topology, (es_name, component_name, producer_type) in topology_to_es_producer.items():
         if not hasattr(process, es_name):
             # If the producer does not exist, create and add it

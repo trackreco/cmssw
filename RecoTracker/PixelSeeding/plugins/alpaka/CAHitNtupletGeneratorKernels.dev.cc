@@ -19,8 +19,8 @@
 #include "CAHitNtupletGeneratorKernelsImpl.h"
 
 //#define GPU_DEBUG
-#define NTUPLE_DEBUG
-#define NTUPLE_DEBUGS
+//#define NTUPLE_DEBUG
+//#define NTUPLE_DEBUGS
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
