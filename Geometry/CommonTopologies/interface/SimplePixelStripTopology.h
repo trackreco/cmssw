@@ -249,7 +249,7 @@ namespace pixelTopology {
     static constexpr uint32_t avgHitsPerTrack = 7;//7
     static constexpr uint32_t maxCellsPerHit = 256;
     static constexpr uint32_t avgTracksPerHit = 10;//10
-    static constexpr uint32_t maxNumberOfTuples = 256*1024*2;// 256 * 2048*10; //256*2048
+    static constexpr uint32_t maxNumberOfTuples = 32 * 1024 * 2;//256*1024*2;// 256 * 2048*10; //256*2048
     //this is well above thanks to maxNumberOfTuples
     static constexpr uint32_t maxHitsForContainers = avgHitsPerTrack * maxNumberOfTuples;
     static constexpr uint32_t maxNumberOfDoublets = 10 * 256 * 1024;
