@@ -752,7 +752,252 @@ namespace mkfit {
   }
 
   //------------------------------------------------------------------------------
-  // FindTracksCombinatorial: Standard TBB
+  // findTracksStandardv2p2 -- thin-thick layers version
+  //------------------------------------------------------------------------------
+
+  void MkBuilder::findTracksStandardv2p2(SteeringParams::IterationType_e iteration_dir) {
+    // debug = true;
+
+    EventOfCombCandidates &eoccs = m_event_of_comb_cands;
+
+    TBB_PARALLEL_FOR_EACH(m_job->regions_begin(), m_job->regions_end(), [&](int region) {
+      if (iteration_dir == SteeringParams::IT_BkwSearch && !m_job->steering_params(region).has_bksearch_plan()) {
+        printf("No backward search plan for region %d\n", region);
+        return;
+      }
+
+      const TrackerInfo &trk_info = m_job->m_trk_info;
+      const SteeringParams &st_par = m_job->steering_params(region);
+      const IterationParams &params = m_job->params();
+      const PropagationConfig &prop_config = trk_info.prop_config();
+
+      const RegionOfSeedIndices rosi(m_seedEtaSeparators, region);
+
+      // adaptive seeds per task based on the total estimated amount of work to divide among all threads
+      const int adaptiveSPT = std::clamp(
+          Config::numThreadsEvents * eoccs.size() / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
+      dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.size() << " region " << region);
+
+      // loop over seeds
+      TBB_PARALLEL_FOR(rosi.tbb_blk_rng_std(adaptiveSPT), [&](const tbb::blocked_range<int> &seeds) {
+        auto mkfndr = g_exe_ctx.m_finders.makeOrGet();
+
+        const int start_seed = seeds.begin();
+        const int end_seed = seeds.end();
+        const int n_seeds = end_seed - start_seed;
+
+        std::vector<std::vector<TrackCand>> tmp_cands(n_seeds);
+        for (size_t iseed = 0; iseed < tmp_cands.size(); ++iseed) {
+          tmp_cands[iseed].reserve(2 * params.maxCandsPerSeed);  //factor 2 seems reasonable to start with
+        }
+
+        std::vector<std::pair<int, int>> seed_cand_idx;
+        seed_cand_idx.reserve(n_seeds * params.maxCandsPerSeed);
+
+        auto layer_plan_it = st_par.make_iterator(iteration_dir);
+
+        dprintf("Made iterator for %d, first layer=%d ... end layer=%d\n",
+                iteration_dir,
+                layer_plan_it.layer(),
+                layer_plan_it.last_layer());
+
+        assert(layer_plan_it.is_pickup_only());
+
+        int curr_layer = layer_plan_it.layer(), prev_layer;
+
+        dprintf("\nMkBuilder::FindTracksStandard region=%d, seed_pickup_layer=%d, first_layer=%d\n",
+                region,
+                curr_layer,
+                layer_plan_it.next_layer());
+
+        auto &iter_params = (iteration_dir == SteeringParams::IT_BkwSearch) ? m_job->m_iter_config.m_backward_params
+                                                                            : m_job->m_iter_config.m_params;
+
+        // Loop over layers, starting from after the seed.
+        while (++layer_plan_it) {
+          prev_layer = curr_layer;
+          curr_layer = layer_plan_it.layer();
+          mkfndr->setup(prop_config,
+                        m_job->m_iter_config,
+                        iter_params,
+                        m_job->m_iter_config.m_layer_configs[curr_layer],
+                        st_par,
+                        m_job->get_mask_for_layer(curr_layer),
+                        m_event,
+                        region,
+                        m_job->m_in_fwd);
+
+          const LayerOfHits &layer_of_hits = m_job->m_event_of_hits[curr_layer];
+          const LayerInfo &layer_info = trk_info.layer(curr_layer);
+          const FindingFoos &fnd_foos = FindingFoos::get_finding_foos(layer_info.is_barrel());
+
+          dprintf("\n* Processing layer %d\n", curr_layer);
+          mkfndr->begin_layer(layer_of_hits);
+
+          int theEndCand = find_tracks_unroll_candidates(seed_cand_idx,
+                                                         start_seed,
+                                                         end_seed,
+                                                         curr_layer,
+                                                         prev_layer,
+                                                         layer_plan_it.is_pickup_only(),
+                                                         iteration_dir);
+
+          dprintf("  Number of candidates to process: %d, nHits in layer: %d\n", theEndCand, layer_of_hits.nHits());
+
+          if (layer_plan_it.is_pickup_only() || theEndCand == 0)
+            continue;
+
+          // vectorized loop
+          for (int itrack = 0; itrack < theEndCand; itrack += NN) {
+            int end = std::min(itrack + NN, theEndCand);
+
+            dprint("processing track=" << itrack << ", label="
+                                       << eoccs[seed_cand_idx[itrack].first][seed_cand_idx[itrack].second].label());
+
+            //fixme find a way to deal only with the candidates needed in this thread
+            mkfndr->inputTracksAndHitIdx(eoccs.refCandidates(), seed_cand_idx, itrack, end, false);
+
+            //propagate to layer
+            mkfndr->clearFailFlag();
+            (mkfndr.get()->*fnd_foos.m_propagate_foo)(
+                layer_info.propagate_to(), end - itrack, prop_config.finding_inter_layer_pflags);
+
+            dprint("now get hit range");
+
+            mkfndr->selectHitIndicesV2(layer_of_hits, end - itrack);
+
+            // BEGIN SHIT-IN: mono-stereo hit pickup test. To be run with MPT_SIZE = 1
+            if ( ! layer_of_hits.is_stereo()) {
+              const LayerOfHits &layer_of_hits2 = m_job->m_event_of_hits[curr_layer + 1];
+              if (layer_of_hits2.is_stereo()) {
+                printf("Picking up layer pair %d and %d\n", curr_layer, curr_layer + 1);
+              } else {
+                printf("XXXX !@#$#!!!!\n");
+              }
+
+              int mi = 0;
+
+              const Track &seed = m_event->currentSeed(mkfndr->m_SeedOriginIdx[mi]);
+              auto sifs = m_event->simInfoForCurrentSeed(mkfndr->m_SeedOriginIdx[mi]);
+
+              printf("Seed idx %d label=%d pt=%.2f, eta=%.2f\n",
+                      mkfndr->m_SeedOriginIdx[mi], sifs.label, seed.pT(), seed.momEta());
+
+              // Copy out hit-indices, state
+              {
+                int matching_hits = 0;
+                for (int nh = 0; nh < mkfndr->m_XHitSize[mi]; ++nh) {
+                  const Hit &hit = layer_of_hits.refHit(mkfndr->m_XHitArr.At(mi, nh, 0));
+                  int hl = m_event->simHitsInfo_[hit.mcHitID()].mcTrackID_;
+                  if (hl == sifs.label)
+                    ++matching_hits;
+                }
+
+                printf("  layer %d: wsr=%d, n_hits=%d, matching=%d\n", curr_layer,
+                      mkfndr->m_XWsrResult[mi].m_wsr, mkfndr->m_XHitSize[mi], matching_hits);
+              }
+
+              // Rerun for the stereo hits
+              mkfndr->selectHitIndicesV2(layer_of_hits2, end - itrack);
+
+              // Copy out the new hit-indices, state
+              {
+                int matching_hits = 0;
+                for (int nh = 0; nh < mkfndr->m_XHitSize[mi]; ++nh) {
+                  const Hit &hit = layer_of_hits2.refHit(mkfndr->m_XHitArr.At(mi, nh, 0));
+                  int hl = m_event->simHitsInfo_[hit.mcHitID()].mcTrackID_;
+                  if (hl == sifs.label)
+                    ++matching_hits;
+                }
+
+                printf("  layer %d: wsr=%d, n_hits=%d, matching=%d\n", curr_layer + 1,
+                      mkfndr->m_XWsrResult[mi].m_wsr, mkfndr->m_XHitSize[mi], matching_hits);
+              }
+
+              // Print, sort, analyse
+
+              // Continue, we're only testing first layer here.
+              continue;
+            }
+            // Rerun original
+            mkfndr->selectHitIndicesV2(layer_of_hits, end - itrack);
+
+            // END SHIT-IN
+
+            find_tracks_handle_missed_layers(
+                mkfndr.get(), layer_info, tmp_cands, seed_cand_idx, region, start_seed, itrack, end);
+
+            dprint("make new candidates");
+            mkfndr->findCandidates(layer_of_hits, tmp_cands, start_seed, end - itrack, fnd_foos);
+
+          }  //end of vectorized loop
+
+          // sort the input candidates
+          for (int is = 0; is < n_seeds; ++is) {
+            dprint("dump seed n " << is << " with N_input_candidates=" << tmp_cands[is].size());
+
+            std::sort(tmp_cands[is].begin(), tmp_cands[is].end(), sortCandByScore);
+          }
+
+          // now fill out the output candidates
+          for (int is = 0; is < n_seeds; ++is) {
+            if (!tmp_cands[is].empty()) {
+              eoccs[start_seed + is].clear();
+
+              // Put good candidates into eoccs, process -2 candidates.
+              int n_placed = 0;
+              bool first_short = true;
+              for (int ii = 0; ii < (int)tmp_cands[is].size() && n_placed < params.maxCandsPerSeed; ++ii) {
+                TrackCand &tc = tmp_cands[is][ii];
+
+                // See if we have an overlap hit available, but only if we have a true hit in this layer
+                // and pT is above the pTCutOverlap
+                if (tc.pT() > params.pTCutOverlap && tc.getLastHitLyr() == curr_layer && tc.getLastHitIdx() >= 0) {
+                  CombCandidate &ccand = eoccs[start_seed + is];
+
+                  HitMatch *hm = ccand[tc.originIndex()].findOverlap(
+                      tc.getLastHitIdx(), layer_of_hits.refHit(tc.getLastHitIdx()).detIDinLayer());
+
+                  if (hm) {
+                    tc.addHitIdx(hm->m_hit_idx, curr_layer, hm->m_chi2);
+                    tc.incOverlapCount();
+                  }
+                }
+
+                if (tc.getLastHitIdx() != -2) {
+                  eoccs[start_seed + is].emplace_back(tc);
+                  ++n_placed;
+                } else if (first_short) {
+                  first_short = false;
+                  if (tc.score() > eoccs[start_seed + is].refBestShortCand().score()) {
+                    eoccs[start_seed + is].setBestShortCand(tc);
+                  }
+                }
+              }
+
+              tmp_cands[is].clear();
+            }
+          }
+          mkfndr->end_layer();
+
+          // SHIT-IN: Exit, we're only testing first layer here.
+          // return;
+
+        }  // end of layer loop
+        mkfndr->release();
+
+        // final sorting
+        for (int iseed = start_seed; iseed < end_seed; ++iseed) {
+          eoccs[iseed].mergeCandsAndBestShortOne(m_job->params(), st_par.m_track_scorer, true, true);
+        }
+      });  // end parallel-for over chunk of seeds within region
+    });    // end of parallel-for-each over eta regions
+
+    // debug = false;
+  }
+
+  //------------------------------------------------------------------------------
+  // findTracksStandard -- original version
   //------------------------------------------------------------------------------
 
   void MkBuilder::findTracksStandard(SteeringParams::IterationType_e iteration_dir) {
@@ -955,6 +1200,9 @@ namespace mkfit {
         printf("No backward search plan for region %d\n", region);
         return;
       }
+
+      // Only do barrel
+      //if (region != 2) return;
 
       const RegionOfSeedIndices rosi(m_seedEtaSeparators, region);
 

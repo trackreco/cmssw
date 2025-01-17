@@ -108,6 +108,7 @@ namespace mkfit {
 
     void findTracksBestHit(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
     void findTracksStandard(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
+    void findTracksStandardv2p2(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
     void findTracksCloneEngine(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
 
     void backwardFitBH();
