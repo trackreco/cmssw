@@ -140,5 +140,7 @@ namespace mkfit {
 
   void print(std::string pfx, int itrack, const Track &trk, const Event &ev);
 
+  void print(std::string pfx, const TrackVec &tvec, const Event &ev);
+
 }  // end namespace mkfit
 #endif

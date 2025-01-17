@@ -36,6 +36,7 @@
 #include "oneapi/tbb/task_arena.h"
 
 #include <vector>
+#include <set>
 
 // clang-format off
 
@@ -159,10 +160,10 @@ namespace mkfit {
     IterationMaskIfc mask_ifc;
     m_event->fill_hitmask_bool_vectors(itconf.m_track_algorithm, mask_ifc.m_mask_vector);
 
-    m_seeds.clear();
     m_tracks.clear();
 
-    {
+    if (seed_select != SS_PreSet) {
+      m_seeds.clear();
       int n_algo = 0; // seeds are grouped by algo
       for (auto &s : m_event->seedTracks_) {
         if (s.algoint() == itconf.m_track_algorithm) {
@@ -194,7 +195,7 @@ namespace mkfit {
       MkBuilder &builder = *m_builder;
       TrackVec &seeds = m_seeds;
       TrackVec &out_tracks = m_tracks;
-      bool do_seed_clean = m_clean_seeds;
+      bool do_seed_clean = m_clean_seeds && seed_select != SS_PreSet;
       bool do_backward_fit = m_backward_fit;
       bool do_remove_duplicates = m_remove_duplicates;
 
@@ -249,7 +250,10 @@ namespace mkfit {
 
       builder.find_tracks_load_seeds(seeds, do_seed_clean);
 
-      builder.findTracksCloneEngine();
+      // Hmmh, can make this configurable through Shell / MkJob / MkBuilder?
+      // builder.findTracksCloneEngine();
+      printf("Shell::ProcessEvent running MkBuilder::findTracksStandardv2p2() -- HARDCODED for now.\n");
+      builder.findTracksStandardv2p2();
 
       printf("Shell::ProcessEvent post fwd search: %d comb-cands\n", builder.ref_eocc().size());
 
@@ -634,7 +638,7 @@ namespace mkfit {
     auto frac_or_0 = [](int a, int b) -> double { return b ? ((double) a / b) : 0.0; };
 
     std::vector<int> algo_to_idx(end_algo, -1);
-    for (int i = 0; i < n_algos; ++i) {
+    for (int i = 0; i < Config::nItersCMSSW; ++i) {
       int a = algos[i];
       algo_to_idx[a] = i;
     }
@@ -652,7 +656,7 @@ namespace mkfit {
     printf("Event %4d | N_sim = %5d | N_seed = %5d | N_cmssw = %5d |\n", m_event->evtID(), n_sim, n_seed, n_cmssw);
     printf("  Seeds by index / algo:\n");
 
-    for (int i = 0; i < n_algos; ++i) {
+    for (int i = 0; i < Config::nItersCMSSW; ++i) {
       int a = algos[i];
       n_seed_sum += seed_counts[a];
       algos_left.erase(a);
@@ -731,6 +735,30 @@ namespace mkfit {
     }
     printf("  Total       %5d -> post-cleaning %5d [%0.3f]\n",
            n_seed_sum, n_seed_sum_post_clean, frac_or_0(n_seed_sum_post_clean, n_seed_sum));
+  }
+
+  void Shell::PreSelectSeeds(int iter_idx, Shell::seed_selector_func selector) {
+    const IterationConfig &itconf = Config::ItrInfo[iter_idx];
+    int a = algos[iter_idx];
+    assert(a == itconf.m_track_algorithm);
+
+    m_seeds.clear();
+    select_seeds_for_algo(itconf.m_track_algorithm, m_seeds);
+    if (itconf.m_seed_cleaner) {
+      itconf.m_seed_cleaner(m_seeds, itconf, m_eoh->refBeamSpot());
+    }
+
+    // Select seeds with non-neg label and all good hits. Yay.
+    TrackVec selected_seeds;
+    for (int ti = 0; ti < (int) m_seeds.size(); ++ti) {
+      Track &t = m_seeds[ti];
+      auto sifh = m_event->simInfoForTrack(t, true);
+      if (sifh.label >= 0 && sifh.good_frac() >= 1.0f && selector(t)) {
+        selected_seeds.push_back(t);
+      }
+    }
+    m_seeds.swap(selected_seeds);
+    printf("Selected %d seeds.\n", (int) m_seeds.size());
   }
 
   void Shell::WriteSimTree() {

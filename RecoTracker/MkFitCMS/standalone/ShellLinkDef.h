@@ -31,4 +31,7 @@
 #pragma link C++ class mkfit::LayerInfo + ;
 #pragma link C++ class mkfit::TrackerInfo + ;
 
+#pragma link C++ class mkfit::MkBuilder + ;
+#pragma link C++ class mkfit::MkJob + ;
+
 #pragma link C++ class RntDumper;
