@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <stdexcept>
+#include <cassert>
 
 namespace mkfit {
 
@@ -116,6 +117,14 @@ namespace mkfit {
     void fill_plan(int first, int last) {
       for (int i = first; i <= last; ++i)
         append_plan(i);
+    }
+
+    void fill_plan_swap_pairs(int first, int last) {
+      assert((last - first + 1) % 2 == 0 && "swap_pairs requires even number of layers");
+      for (int i = first; i <= last; i += 2) {
+        append_plan(i + 1);
+        append_plan(i);
+      }
     }
 
     void set_iterator_limits(int fwd_search_pu, int bkw_fit_last, int bkw_search_pu = -1) {
