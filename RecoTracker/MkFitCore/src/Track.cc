@@ -401,7 +401,8 @@ namespace mkfit {
 
   void print(const TrackState& s) {
     std::cout << " x:  " << s.parameters[0] << " y:  " << s.parameters[1] << " z:  " << s.parameters[2] << std::endl
-              << " px: " << s.parameters[3] << " py: " << s.parameters[4] << " pz: " << s.parameters[5] << std::endl
+              << " px: " << s.parameters[3] << " py: " << s.parameters[4] << " pz: " << s.parameters[5]
+              << " pT: " << s.pT() << " p_eta: " << s.momEta() << " p_phi: " << s.momPhi() << "\n"
               << "valid: " << s.valid << " errors: " << std::endl;
     dumpMatrix(s.errors);
     std::cout << std::endl;

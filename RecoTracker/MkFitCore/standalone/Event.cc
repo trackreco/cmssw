@@ -1039,9 +1039,8 @@ namespace mkfit {
   //==============================================================================
 
   void print(std::string pfx, int itrack, const Track &trk, const Event &ev) {
-    std::cout << std::endl
-              << pfx << ": " << itrack << " hits: " << trk.nFoundHits() << " label: " << trk.label()
-              << " State:" << std::endl;
+    std::cout << pfx << ": " << itrack << " hits: " << trk.nFoundHits() << " label: " << trk.label()
+              << " State:" << "\n";
     print(trk.state());
 
     for (int i = 0; i < trk.nTotalHits(); ++i) {
@@ -1050,10 +1049,24 @@ namespace mkfit {
       if (hot.index >= 0) {
         auto &h = ev.layerHits_[hot.layer][hot.index];
         int hl = ev.simHitsInfo_[h.mcHitID()].mcTrackID_;
-        printf("  %4d  %8.3f %8.3f %8.3f  r=%.3f\n", hl, h.x(), h.y(), h.z(), h.r());
+        printf("  %4d  x=%8.3f y=%8.3f z=%8.3f r=%8.3f | e_z=%8.3g e_r=%8.3g | pix=%d str=%d brl=%d\n",
+                hl, h.x(), h.y(), h.z(), h.r(),
+                std::sqrt(h.ezz()),
+                std::sqrt(getRadErr2(h.x(), h.y(), h.exx(), h.eyy(), h.exy())),
+                Config::TrkInfo[hot.layer].is_pixel(),
+                Config::TrkInfo[hot.layer].is_stereo(),
+                Config::TrkInfo[hot.layer].is_barrel()
+                );
       } else {
         printf("\n");
       }
+    }
+  }
+
+  void print(std::string pfx, const TrackVec &tvec, const Event &ev) {
+    int nt = tvec.size();
+    for (int i = 0; i < nt; ++i) {
+      print(pfx, i, tvec[i], ev);
     }
   }
 
