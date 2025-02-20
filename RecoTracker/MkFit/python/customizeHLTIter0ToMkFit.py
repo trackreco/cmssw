@@ -57,7 +57,7 @@ def customizeHLTIter0ToMkFit(process):
         )
     )
     process.hltSiStripRawToClustersFacility.onDemand = False
-    process.hltSiStripRawToClustersFacility.Clusterizer.MaxClusterSize = 8
+    process.hltSiStripRawToClustersFacility.Clusterizer.MaxClusterSize = 16
 
     process.hltSiStripRecHits = SiStripRecHitConverter_cfi.siStripMatchedRecHits.clone(
         ClusterProducer = "hltSiStripRawToClustersFacility",
