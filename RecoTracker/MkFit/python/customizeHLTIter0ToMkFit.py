@@ -236,30 +236,8 @@ def modifyMinOutputModuleForTrackingValidation(process, filename="output.root"):
             print(f'# WARNING: customize command failed (object with label "{objLabel}" not found) - no customisation applied !')
             return process
 
-    process.hltOutputMinimal.outputCommands = cms.untracked.vstring(
-        'drop *',
-        'keep edmTriggerResults_*_*_*',
-        'keep triggerTriggerEvent_*_*_*',
-        'keep GlobalAlgBlkBXVector_*_*_*',
-        'keep GlobalExtBlkBXVector_*_*_*',
-        'keep l1tEGammaBXVector_*_EGamma_*',
-        'keep l1tEtSumBXVector_*_EtSum_*',
-        'keep l1tJetBXVector_*_Jet_*',
-        'keep l1tMuonBXVector_*_Muon_*',
-        'keep l1tTauBXVector_*_Tau_*',
-        'keep *_*_*_HLTX',
-        'drop *_hltHbherecoLegacy_*_*',
-        'drop *_hlt*Pixel*SoA*_*_*',
-        'keep recoGenParticles_genParticles_*_*',
-        'keep TrackingParticles_*_*_*',
-        'keep *_*_MergedTrackTruth_*',
-        'keep *_simSiPixelDigis_*_*',
-        'keep *_simSiStripDigis_*_*',
-        'keep PSimHits_g4SimHits_*_*',
-        'keep SimTracks_g4SimHits_*_*',
-        'keep SimVertexs_g4SimHits_*_*',
-        'keep PileupSummaryInfos_addPileupInfo_*_*',
-    )
+    process.load('Configuration.EventContent.EventContent_cff')
+    process.hltOutputMinimal.outputCommands = process.FEVTDEBUGHLTEventContent.outputCommands
     process.hltOutputMinimal.fileName = filename
     process.schedule.remove( process.DQMOutput )
     return process

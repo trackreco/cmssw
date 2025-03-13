@@ -398,7 +398,6 @@ namespace mkfit {
               continue;
             if (track2.pT() == 0)
               continue;
-
             if (std::abs((1 / track2.pT()) - (1 / pt1)) < Config::maxdPt) {
               if (Config::useHitsForDuplicates) {
                 float numHitsShared = 0;
@@ -503,12 +502,14 @@ namespace mkfit {
     }
 
     void clean_duplicates_sharedhits_pixelseed(TrackVec &tracks, const IterationConfig &itconf) {
-      const float fraction = itconf.dc_fracSharedHits;
+      const auto ishlt = (itconf.m_iteration_index >= 100);
+      const float fractionHits = itconf.dc_fracSharedHits;
       const float drth_central = itconf.dc_drth_central;
       const float drth_obarrel = itconf.dc_drth_obarrel;
       const float drth_forward = itconf.dc_drth_forward;
       const auto ntracks = tracks.size();
-
+      const float invpt_rhlt = 0.2f;
+      const float fmin_maxdR_rhlt = 0.01f;
       std::vector<float> ctheta(ntracks);
       for (auto itrack = 0U; itrack < ntracks; itrack++) {
         auto &trk = tracks[itrack];
@@ -542,6 +543,11 @@ namespace mkfit {
           else if (std::abs(ctheta1) > Config::maxcth_ob)
             maxdRSquared = drth_obarrel * drth_obarrel;
           dr2 = dphi * dphi + dctheta * dctheta;
+          //For hlt tracks w/ pT>5 GeV, relax requirement
+          if (ishlt && invpt1 < invpt_rhlt) {
+            const float f_maxdR_rhlt = std::min(fmin_maxdR_rhlt, invpt1 / invpt_rhlt);
+            maxdRSquared *= (f_maxdR_rhlt * f_maxdR_rhlt);
+          }
           if (dr2 < maxdRSquared) {
             //Keep track with best score
             if (trk.score() > track2.score())
@@ -554,6 +560,10 @@ namespace mkfit {
           if (std::abs(track2.invpT() - invpt1) > Config::maxd1pt)
             continue;
 
+          float fraction = fractionHits;
+          if (ishlt && invpt1 < invpt_rhlt) {
+            fraction *= 1.5f;
+          }
           auto sharedCount = 0;
           auto sharedFirst = 0;
           const auto minFoundHits = std::min(trk.nFoundHits(), track2.nFoundHits());
