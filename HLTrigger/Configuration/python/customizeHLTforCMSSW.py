@@ -203,4 +203,3 @@ def customizeHLTforCMSSW(process, menuType="GRun"):
     process = customizeHLTfor48957(process)
 
     return process
-
