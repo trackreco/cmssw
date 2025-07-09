@@ -1079,10 +1079,35 @@ namespace mkfit {
 
   void print(std::string pfx, int itrack, const Track &trk, const Event &ev) {
     std::cout << pfx << ": " << itrack << " hits: " << trk.nFoundHits() << " label: " << trk.label()
-              << " State:" << "\n";
+              << " algo: " << trk.algoint() << "\n";
     print(trk.state());
 
     for (int i = 0; i < trk.nTotalHits(); ++i) {
+      auto hot = trk.getHitOnTrack(i);
+      printf("  %2d: lyr %2d idx %5d", i, hot.layer, hot.index);
+      if (hot.index >= 0) {
+        auto &h = ev.layerHits_[hot.layer][hot.index];
+        int hl = ev.simHitsInfo_[h.mcHitID()].mcTrackID_;
+        printf("  %4d  x=%8.3f y=%8.3f z=%8.3f r=%8.3f | e_z=%8.3g e_r=%8.3g | pix=%d str=%d brl=%d\n",
+                hl, h.x(), h.y(), h.z(), h.r(),
+                std::sqrt(h.ezz()),
+                std::sqrt(getRadErr2(h.x(), h.y(), h.exx(), h.eyy(), h.exy())),
+                Config::TrkInfo[hot.layer].is_pixel(),
+                Config::TrkInfo[hot.layer].is_stereo(),
+                Config::TrkInfo[hot.layer].is_barrel()
+                );
+      } else {
+        printf("\n");
+      }
+    }
+  }
+
+  void print(std::string pfx, int itrack, const Track &trk, int hit_begin, int hit_end, const Event &ev) {
+    std::cout << pfx << ": " << itrack << " hits: " << trk.nFoundHits() << " label: " << trk.label()
+              << " algo: " << trk.algoint() << "\n";
+    print(trk.state());
+
+    for (int i = hit_begin; i < hit_end; ++i) {
       auto hot = trk.getHitOnTrack(i);
       printf("  %2d: lyr %2d idx %5d", i, hot.layer, hot.index);
       if (hot.index >= 0) {

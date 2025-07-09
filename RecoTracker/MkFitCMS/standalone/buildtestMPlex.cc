@@ -479,7 +479,10 @@ namespace mkfit {
 
       double time = dtime();
 
-      builder.findTracksCloneEngine();
+      if (Config::mimiUseV2p2)
+        builder.findTracksStandardv2p2();
+      else
+        builder.findTracksCloneEngine();
 
       timevec[it] = dtime() - time;
       timevec[n] += timevec[it];

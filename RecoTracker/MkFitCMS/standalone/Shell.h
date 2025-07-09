@@ -7,6 +7,13 @@
 
 #include <map>
 
+#ifdef WITH_REVE
+namespace ROOT::Experimental {
+  class REveManager;
+  class REveTrackPropagator;
+}
+#endif
+
 namespace mkfit {
 
   class DataFile;
@@ -39,6 +46,7 @@ namespace mkfit {
     void SetBackwardFit(bool b);
     void SetRemoveDuplicates(bool b);
     void SetUseDeadModules(bool b);
+    void SetUseV2p2(bool b);
 
     Event *event() { return m_event; }
     EventOfHits *eoh() { return m_eoh; }
@@ -69,13 +77,19 @@ namespace mkfit {
     void StudySimAndSeeds();
     void PreSelectSeeds(int iter_idx, seed_selector_func selector = [](const Track&) {return true;});
 
+    void FindInterestingSimTracks();
+
     void WriteSimTree();
     void ReadSimTree();
 
     // --------------------------------------------------------
     // Visualization stuff
 #ifdef WITH_REVE
-    void ShowTracker();
+    void ReveInit();
+    void ShowTracker(int lay_first, int lay_last);
+    void ShowSimTrack(int sim_idx);
+
+    ROOT::Experimental::REveManager& EveMgr() { return *m_reve_mgr; }
 #endif
 
   protected:
@@ -100,6 +114,12 @@ namespace mkfit {
     using map_i = map_t::iterator;
 
     std::map<int, Track *> m_ckf_map, m_sim_map, m_seed_map, m_mkf_map;
+
+#ifdef WITH_REVE
+    ROOT::Experimental::REveManager *m_reve_mgr = nullptr;
+    ROOT::Experimental::REveTrackPropagator *m_reve_track_prop = nullptr;
+#endif
+
   };
 
 }  // namespace mkfit
