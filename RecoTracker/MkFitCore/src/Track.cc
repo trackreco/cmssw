@@ -400,12 +400,13 @@ namespace mkfit {
   //==============================================================================
 
   void print(const TrackState& s) {
-    std::cout << " x:  " << s.parameters[0] << " y:  " << s.parameters[1] << " z:  " << s.parameters[2] << std::endl
+    std::cout << "State: "
+              << " x:  " << s.parameters[0] << " y:  " << s.parameters[1] << " z:  " << s.parameters[2]
+              << " valid: " << s.valid << "\n"
+              << "       "
               << " px: " << s.parameters[3] << " py: " << s.parameters[4] << " pz: " << s.parameters[5]
-              << " pT: " << s.pT() << " p_eta: " << s.momEta() << " p_phi: " << s.momPhi() << "\n"
-              << "valid: " << s.valid << " errors: " << std::endl;
-    dumpMatrix(s.errors);
-    std::cout << std::endl;
+              << " pT: " << s.pT() << " p_eta: " << s.momEta() << " p_phi: " << s.momPhi() << "\n";
+    dumpMatrix(s.errors, "Errors: ", "       ");
   }
 
   void print(std::string pfx, int itrack, const Track& trk, bool print_hits) {

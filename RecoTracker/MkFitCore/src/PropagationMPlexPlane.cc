@@ -44,11 +44,7 @@ namespace {
 #include "MultHelixPlanePropTransp.ah"
   }
 
-}  // namespace
-
-// ============================================================================
-// BEGIN STUFF FROM PropagationMPlex.icc
-namespace {
+  // ==========================================================================
 
   using MPF = MPlexQF;
 
@@ -121,21 +117,18 @@ namespace {
 
   //*****************************************************************************************************
 
-  //should kinv and D be templated???
-  void parsAndErrPropFromPathL_impl(const MPlexLV& __restrict__ inPar,
-                                    const MPlexQI& __restrict__ inChg,
-                                    MPlexLV& __restrict__ outPar,
-                                    const MPlexQF& __restrict__ kinv,
-                                    const MPlexQF& __restrict__ s,
-                                    MPlexLL& __restrict__ errorProp,
-                                    const int N_proc,
-                                    const PropagationFlags& pf) {
-    //iteration should return the path length s, then update parameters and compute errors
+  void errPropFromPathL_impl(const MPlexLV& __restrict__ inPar,
+                             const MPlexQI& __restrict__ inChg,
+                             MPlexLV& __restrict__ outPar,
+                             const MPlexQF& __restrict__ kinv,
+                             const MPlexQF& __restrict__ s,
+                             MPlexLL& __restrict__ errorProp,
+                             const int N_proc,
+                             const PropagationFlags& pf) {
+    // iteration should return the path length s, then update parameters and compute errors
 
     namespace mpt = Matriplex;
     using MPF = MPlexQF;
-
-    parsFromPathL_impl(inPar, outPar, kinv, s);
 
     MPF sinPin, cosPin;
     mpt::fast_sincos(inPar(4, 0), sinPin, cosPin);
@@ -388,6 +381,7 @@ namespace {
                          const MPlexQI& __restrict__ inChg,
                          const MPlexHV& __restrict__ plPnt,
                          const MPlexHV& __restrict__ plNrm,
+                         const MPlexQF& __restrict__ kinv,
                          MPlexQF& __restrict__ s,
                          MPlexLV& __restrict__ outPar,
                          MPlexLL& __restrict__ errorProp,
@@ -408,13 +402,6 @@ namespace {
                     << " inPar(n, 5, 0)=" << std::setprecision(9) << inPar(n, 5, 0));
     }
 #endif
-
-    MPF kinv = mpt::negate_if_ltz(MPF(-Const::sol_over_100), inChg);
-    if (pf.use_param_b_field) {
-      kinv *= getBFieldFromZXY(inPar(2, 0), inPar(0, 0), inPar(1, 0));
-    } else {
-      kinv *= Config::Bfield;
-    }
 
     MPF delta0 = inPar(0, 0) - plPnt(0, 0);
     MPF delta1 = inPar(1, 0) - plPnt(1, 0);
@@ -498,11 +485,12 @@ namespace {
     if (debug)
       std::cout << "s=" << s[0] << std::endl;
 #endif
-    parsAndErrPropFromPathL_impl(inPar, inChg, outPar, kinv, s, errorProp, N_proc, pf);
+    parsFromPathL_impl(inPar, outPar, kinv, s);
+    errPropFromPathL_impl(inPar, inChg, outPar, kinv, s, errorProp, N_proc, pf);
   }
 
 }  // namespace
-// END STUFF FROM PropagationMPlex.icc
+
 // ============================================================================
 
 namespace mkfit {
@@ -511,16 +499,37 @@ namespace mkfit {
                     const MPlexQI& inChg,
                     const MPlexHV& plPnt,
                     const MPlexHV& plNrm,
+                    const MPlexQF* sPerp,
                     MPlexQF& pathL,
                     MPlexLV& outPar,
                     MPlexLL& errorProp,
                     MPlexQI& outFailFlag,
                     const int N_proc,
                     const PropagationFlags& pflags) {
+    // Propagate parameters and calculate propagation error matrix to the plane.
+    //
+    // If sPerp != nullptr, it is assumed that:
+    //   a) *sPerp holds path-length in transverse plane; and
+    //   b) outPar contains track parameters at the intersection with the plane.
+    //   Thus only propagation error matrix is computed (this requires inPar on previous hit / point).
+
     errorProp.setVal(0.f);
     outFailFlag.setVal(0.f);
 
-    helixAtPlane_impl(inPar, inChg, plPnt, plNrm, pathL, outPar, errorProp, outFailFlag, N_proc, pflags);
+    MPlexQF kinv = Matriplex::negate_if_ltz(MPlexQF(-Const::sol_over_100), inChg);
+    if (pflags.use_param_b_field) {
+      kinv *= getBFieldFromZXY(inPar(2, 0), inPar(0, 0), inPar(1, 0));
+    } else {
+      kinv *= Config::Bfield;
+    }
+
+    if (sPerp == nullptr) {
+      helixAtPlane_impl(inPar, inChg, plPnt, plNrm, kinv, pathL, outPar, errorProp, outFailFlag, N_proc, pflags);
+    } else {
+      pathL = *sPerp / Matriplex::fast_sin(inPar(5, 0));
+      errPropFromPathL_impl(inPar, inChg, outPar, kinv, pathL, errorProp, N_proc, pflags);
+      // fail flag not set as propagation of parameters happens outside,
+    }
   }
 
   void propagateHelixToPlaneMPlex(const MPlexLS& inErr,
@@ -528,21 +537,30 @@ namespace mkfit {
                                   const MPlexQI& inChg,
                                   const MPlexHV& plPnt,
                                   const MPlexHV& plNrm,
+                                  const MPlexQF* sPerp,
                                   MPlexLS& outErr,
                                   MPlexLV& outPar,
                                   MPlexQI& outFailFlag,
                                   const int N_proc,
                                   const PropagationFlags& pflags,
                                   const MPlexQI* noMatEffPtr) {
+    // Propagate parameters and error matrix to the plane, apply material.
+    //
+    // If sPerp != nullptr, it is assumed that:
+    //   a) *sPerp holds path-length in transverse plane; and
+    //   b) outPar contains track parameters at the intersection with the plane.
+    //   Thus only error matrix is propagated (this requires inPar on previous hit / point).
+
     // debug = true;
 
-    outErr = inErr;
-    outPar = inPar;
+    // MT commented out
+    // outErr = inErr; // not needed
+    // outPar = inPar; // can not use with sPerp, also not needed
 
     MPlexQF pathL;
     MPlexLL errorProp;
 
-    helixAtPlane(inPar, inChg, plPnt, plNrm, pathL, outPar, errorProp, outFailFlag, N_proc, pflags);
+    helixAtPlane(inPar, inChg, plPnt, plNrm, sPerp, pathL, outPar, errorProp, outFailFlag, N_proc, pflags);
 
 #ifdef DEBUG
     for (int n = 0; n < N_proc; ++n) {
@@ -574,18 +592,14 @@ namespace mkfit {
         }
         dprintf("\n");
 
-        for (int kk = 0; kk < N_proc; ++kk) {
-          dprintf("plNrm %d\n", kk);
-          for (int j = 0; j < 3; ++j)
-            dprintf("%8f ", plNrm.constAt(kk, 0, j));
-        }
+        dprintf("plNrm %d\n", kk);
+        for (int j = 0; j < 3; ++j)
+          dprintf("%8f ", plNrm.constAt(kk, 0, j));
         dprintf("\n");
 
-        for (int kk = 0; kk < N_proc; ++kk) {
-          dprintf("pathL %d\n", kk);
-          for (int j = 0; j < 1; ++j)
-            dprintf("%8f ", pathL.constAt(kk, 0, j));
-        }
+        dprintf("pathL %d\n", kk);
+        for (int j = 0; j < 1; ++j)
+          dprintf("%8f ", pathL.constAt(kk, 0, j));
         dprintf("\n");
 
         dprintf("errorProp %d\n", kk);
@@ -602,7 +616,7 @@ namespace mkfit {
     // Matriplex version of:
     // result.errors = ROOT::Math::Similarity(errorProp, outErr);
     MPlexLL temp;
-    MultHelixPlaneProp(errorProp, outErr, temp);
+    MultHelixPlaneProp(errorProp, inErr, temp);
     MultHelixPlanePropTransp(errorProp, temp, outErr);
     // MultHelixPropFull(errorProp, outErr, temp);
     // for (int kk = 0; kk < 1; ++kk) {
