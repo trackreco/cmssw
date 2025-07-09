@@ -7,6 +7,7 @@
 #include "KalmanUtilsMPlex.h"
 #include "MatriplexPackers.h"
 #include "MiniPropagators.h"
+#include "MkBins.h"
 
 //#define DEBUG
 #include "Debug.h"
@@ -754,115 +755,12 @@ namespace mkfit {
   }
 
   //==============================================================================
-  // Helpers for SelectHitIndicesV2
+  // SelectHitIndicesV2
   //==============================================================================
-
-  namespace mp = mini_propagators;
 
   namespace {
     constexpr int NEW_MAX_HIT = 6;  // 4 - 6 give about the same # of tracks in quality-val
-    constexpr float DDPHI_PRESEL_FAC = 2.0f;
-    constexpr float DDQ_PRESEL_FAC = 1.2f;
-    constexpr float PHI_BIN_EXTRA_FAC = 2.75f;
-    constexpr float Q_BIN_EXTRA_FAC = 1.6f;
   }
-
-  struct Bins {
-
-    MPlexQUH q0, q1, q2, p1, p2;
-    mp::InitialStatePlex isp;
-    mp::StatePlex sp1, sp2;
-    int n_proc;
-
-    MPlexQF dphi_track, dq_track;  // 3 sigma track errors at initial state
-
-    // debug & ntuple dump -- to be local in functions
-    MPlexQF phi_c, dphi;
-    MPlexQF q_c, qmin, qmax;
-
-    Bins(const MPlexLV &par, const MPlexQI &chg, int np = NN) : isp(par, chg), n_proc(np) {}
-
-    void prop_to_limits(const LayerInfo &li) {
-      // Positions 1 and 2 should really be by "propagation order", 1 is the closest/
-      // This should also work for backward propagation so not exactly trivial.
-      // Also, do not really need propagation to center.
-      if (li.is_barrel()) {
-        isp.propagate_to_r(mp::PA_Exact, li.rin(), sp1, true, n_proc);
-        isp.propagate_to_r(mp::PA_Exact, li.rout(), sp2, true, n_proc);
-      } else {
-        isp.propagate_to_z(mp::PA_Exact, li.zmin(), sp1, true, n_proc);
-        isp.propagate_to_z(mp::PA_Exact, li.zmax(), sp2, true, n_proc);
-      }
-    }
-
-    void find_bin_ranges(const LayerInfo &li, const LayerOfHits &loh, const MPlexLS &err) {
-      // Below made members for debugging
-      // MPlexQF phi_c, dphi_min, dphi_max;
-      // phi_c = mp::fast_atan2(isp.y, isp.x);  // calculated below as difference
-
-      // Matriplex::min_max(sp1.dphi, sp2.dphi, dphi_min, dphi_max);
-      // the above is wrong: dalpha is not dphi --> renamed variable in State
-      MPlexQF xp1, xp2, pmin, pmax;
-      xp1 = mp::fast_atan2(sp1.y, sp1.x);
-      xp2 = mp::fast_atan2(sp2.y, sp2.x);
-      Matriplex::min_max(xp1, xp2, pmin, pmax);
-      // Matriplex::min_max(mp::fast_atan2(sp1.y, sp1.x), smp::fast_atan2(sp2.y, sp2.x), pmin, pmax);
-      MPlexQF dp = pmax - pmin;
-      phi_c = 0.5f * (pmax + pmin);
-      for (int ii = 0; ii < NN; ++ii) {
-        if (ii < n_proc) {
-          if (dp[ii] > Const::PI) {
-            std::swap(pmax[ii], pmin[ii]);
-            dp[ii] = Const::TwoPI - dp[ii];
-            phi_c[ii] = Const::PI - phi_c[ii];
-          }
-          dphi[ii] = 0.5f * dp[ii];
-          // printf("phic: %f  p1: %f  p2: %f   pmin: %f  pmax: %f   dphi: %f\n",
-          //       phi_c[ii], xp1[ii], xp2[ii], pmin[ii], pmax[ii], dphi[ii]);
-        }
-      }
-
-      const auto calc_err_xy = [&](const MPlexQF &x, const MPlexQF &y) {
-        return x * x * err.ReduceFixedIJ(0, 0) + y * y * err.ReduceFixedIJ(1, 1) +
-                2.0f * x * y * err.ReduceFixedIJ(0, 1);
-      };
-
-      // Calculate dphi_track, dq_track differs for barrel/endcap
-      MPlexQF r2_c = isp.x * isp.x + isp.y * isp.y;
-      MPlexQF r2inv_c = 1.0f / r2_c;
-      MPlexQF dphidx_c = -isp.y * r2inv_c;
-      MPlexQF dphidy_c = isp.x * r2inv_c;
-      dphi_track = 3.0f * calc_err_xy(dphidx_c, dphidy_c).abs().sqrt();
-
-      // MPlexQF qmin, qmax;
-      if (li.is_barrel()) {
-        Matriplex::min_max(sp1.z, sp2.z, qmin, qmax);
-        q_c = isp.z;
-        dq_track = 3.0f * err.ReduceFixedIJ(2, 2).abs().sqrt();
-      } else {
-        Matriplex::min_max(Matriplex::hypot(sp1.x, sp1.y), Matriplex::hypot(sp2.x, sp2.y), qmin, qmax);
-        q_c = Matriplex::sqrt(r2_c);
-        dq_track = 3.0f * (r2inv_c * calc_err_xy(isp.x, isp.y).abs()).sqrt();
-      }
-
-      for (int i = 0; i < p1.kTotSize; ++i) {
-        // Clamp crazy sizes. This actually only happens when prop-fail flag is set.
-        // const float dphi_clamp = 0.1;
-        // if (dphi_min[i] > 0.0f || dphi_min[i] < -dphi_clamp) dphi_min[i] = -dphi_clamp;
-        // if (dphi_max[i] < 0.0f || dphi_max[i] > dphi_clampf) dphi_max[i] = dphi_clamp;
-        p1[i] = loh.phiBinChecked(pmin[i] - dphi_track[i] - PHI_BIN_EXTRA_FAC * 0.0123f);
-        p2[i] = loh.phiBinChecked(pmax[i] + dphi_track[i] + PHI_BIN_EXTRA_FAC * 0.0123f);
-
-        q0[i] = loh.qBinChecked(q_c[i]);
-        q1[i] = loh.qBinChecked(qmin[i] - dq_track[i] - Q_BIN_EXTRA_FAC * 0.5f * li.q_bin());
-        q2[i] = loh.qBinChecked(qmax[i] + dq_track[i] + Q_BIN_EXTRA_FAC * 0.5f * li.q_bin()) + 1;
-      }
-    }
-  };
-
-  //==============================================================================
-  // SelectHitIndicesV2
-  //==============================================================================
 
   void MkFinder::selectHitIndicesV2(const LayerOfHits &layer_of_hits, const int N_proc) {
     // bool debug = true;
@@ -895,9 +793,14 @@ namespace mkfit {
     m_FailFlag = ff_stash;
 #endif
 
-    Bins B(m_Par[iI], m_Chg, N_proc);
+    MkBins B(m_Par[iI], m_Chg, LI.is_barrel(), N_proc);
     B.prop_to_limits(LI);
-    B.find_bin_ranges(LI, L, m_Err[iI]);
+
+    MkBinTrackCovExtract TCE(m_Err[iI]);
+    B.determine_bin_windows(TCE);
+
+    MkBinLimits BL;
+    B.find_bin_ranges(L, BL);
 
     for (int i = 0; i < NN; ++i) {
       if (i < N_proc) {
@@ -907,9 +810,9 @@ namespace mkfit {
           m_XWsrResult[i].m_wsr = WSR_Failed;
         } else {
           if (LI.is_barrel()) {
-            m_XWsrResult[i] = L.is_within_z_sensitive_region(B.q_c[i], 0.5f * (B.q2[i] - B.q1[i]));
+            m_XWsrResult[i] = L.is_within_z_sensitive_region(B.m_q_center[i], 0.5f * (BL.q2[i] - BL.q1[i]));
           } else {
-            m_XWsrResult[i] = L.is_within_r_sensitive_region(B.q_c[i], 0.5f * (B.q2[i] - B.q1[i]));
+            m_XWsrResult[i] = L.is_within_r_sensitive_region(B.m_q_center[i], 0.5f * (BL.q2[i] - BL.q1[i]));
           }
         }
       }
@@ -924,19 +827,19 @@ namespace mkfit {
 #ifdef RNT_DUMP_MkF_SelHitIdcs
     for (auto i : rnt_shi.f_h_idcs) {
       CandInfo &ci = (*rnt_shi.ci)[rnt_shi.f_h_remap[i]];
-      ci.bsn = BinSearch({B.phi_c[i],
-                          B.dphi[i],
-                          B.q_c[i],
-                          0.5f * (B.q2[i] - B.q1[i]),
-                          B.p1[i],
-                          B.p2[i],
-                          B.q1[i],
-                          B.q2[i],
+      ci.bsn = BinSearch({B.m_phi_center[i],
+                          B.m_phi_delta[i],
+                          B.m_q_center[i],
+                          0.5f * (B.m_q_max[i] - B.m_q_min[i]),
+                          BL.p1[i],
+                          BL.p2[i],
+                          BL.q1[i],
+                          BL.q2[i],
                           m_XWsrResult[i].m_wsr,
                           m_XWsrResult[i].m_in_gap,
                           false});
-      ci.ps_min = statep2propstate(B.sp1, i);
-      ci.ps_max = statep2propstate(B.sp2, i);
+      ci.ps_min = statep2propstate(B.m_sp1, i);
+      ci.ps_max = statep2propstate(B.m_sp2, i);
     }
 #endif
 
@@ -966,11 +869,11 @@ namespace mkfit {
 
       // New binning -- known to be too restrictive, so scaled up. Probably esp. in stereo layers.
       // Also, could take track covariance dphi / dq extras + known tilt stuff.
-      const bidx_t qb = B.q0[itrack];
-      const bidx_t qb1 = B.q1[itrack];
-      const bidx_t qb2 = B.q2[itrack];
-      const bidx_t pb1 = B.p1[itrack];
-      const bidx_t pb2 = B.p2[itrack];
+      const bidx_t qb = BL.q0[itrack];
+      const bidx_t qb1 = BL.q1[itrack];
+      const bidx_t qb2 = BL.q2[itrack];
+      const bidx_t pb1 = BL.p1[itrack];
+      const bidx_t pb2 = BL.p2[itrack];
 
       // clang-format off
       dprintf("  %2d/%2d: %6.3f %6.3f %6.6f %7.5f %3u %3u %4u %4u\n",
@@ -1029,7 +932,7 @@ namespace mkfit {
 
               // This could work well instead of prop-to-r, too. Limit to 0.05 rad, 2.85 deg.
               if (std::abs(mi.zdir(2)) > 0.05f) {
-                prop_fail = mp_is.propagate_to_plane(mp::PA_Line, mi, mp_s, true);
+                prop_fail = mp_is.propagate_to_plane(mp::PA_Line, mi.pos, mi.zdir, mp_s, true);
                 new_q = mp_s.z;
                 /*
                 // This for calculating ddq on the dector plane, along the "strip" direction.
@@ -1056,8 +959,8 @@ namespace mkfit {
 
             new_phi = vdt::fast_atan2f(mp_s.y, mp_s.x);
             new_ddphi = cdist(std::abs(new_phi - L.hit_phi(hi)));
-            bool dqdphi_presel = new_ddq < B.dq_track[itrack] + DDQ_PRESEL_FAC * L.hit_q_half_length(hi) &&
-                                 new_ddphi < B.dphi_track[itrack] + DDPHI_PRESEL_FAC * 0.0123f;
+            bool dqdphi_presel = new_ddq < B.m_dq_track[itrack] + MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hi) &&
+                                 new_ddphi < B.m_dphi_track[itrack] + MkBins::DDPHI_PRESEL_FAC * 0.0123f;
 
             // clang-format off
             dprintf("     SHI %3u %4u %5u  %6.3f %6.3f %6.4f %7.5f  PROP-%s  %s\n",
@@ -1112,7 +1015,7 @@ namespace mkfit {
 
             if (prop_fail || !dqdphi_presel)
               continue;
-            if (pqueue_size < NEW_MAX_HIT) {
+            if (pqueue_size < MkBins::NEW_MAX_HIT) {
               pqueue.push({new_ddphi, hi_orig});
               ++pqueue_size;
             } else if (new_ddphi < pqueue.top().score) {
@@ -1144,201 +1047,6 @@ namespace mkfit {
       }
       // clang-format off
 #endif
-      // Reverse hits so best dphis/scores come first in the hit-index list.
-      m_XHitSize[itrack] = pqueue_size;
-      while (pqueue_size) {
-        --pqueue_size;
-        m_XHitArr.At(itrack, pqueue_size, 0) = pqueue.top().hit_index;
-        dprintf("   %d: %f %d", pqueue_size, pqueue.top().score, pqueue.top().hit_index);
-        pqueue.pop();
-      }
-      dprintf("\n");
-
-    }  //itrack
-  }
-
-  //==============================================================================
-  // SelectHitIndicesV2p2
-  //==============================================================================
-
-  struct HitSelection {
-
-  };
-
-  void MkFinder::selectHitIndicesV2p2(const LayerOfHits &layer_of_hits, const int N_proc) {
-    // bool debug = true;
-    using bidx_t = LayerOfHits::bin_index_t;
-    using bcnt_t = LayerOfHits::bin_content_t;
-    const LayerOfHits &L = layer_of_hits;
-    const LayerInfo &LI = L.layer_info();
-
-    const int iI = iP;
-
-    dprintf("LayerOfHits::SelectHitIndicesV2 %s layer=%d N_proc=%d\n",
-            L.is_barrel() ? "barrel" : "endcap",
-            L.layer_id(),
-            N_proc);
-
-    Bins B(m_Par[iI], m_Chg, N_proc);
-    B.prop_to_limits(LI);
-    B.find_bin_ranges(LI, L, m_Err[iI]);
-
-    for (int i = 0; i < NN; ++i) {
-      if (i < N_proc) {
-        m_XHitSize[i] = 0;
-        // Notify failure. Ideally should be detected before selectHitIndices().
-        if (m_FailFlag[i]) {
-          m_XWsrResult[i].m_wsr = WSR_Failed;
-        } else {
-          if (LI.is_barrel()) {
-            m_XWsrResult[i] = L.is_within_z_sensitive_region(B.q_c[i], 0.5f * (B.q2[i] - B.q1[i]));
-          } else {
-            m_XWsrResult[i] = L.is_within_r_sensitive_region(B.q_c[i], 0.5f * (B.q2[i] - B.q1[i]));
-          }
-        }
-      }
-    }
-
-    // for (int i = 0; i < N_proc; ++i) {
-    //   printf("BinCheck %c %+8.6f %+8.6f | %3d %3d - %3d %3d ||  | %2d %2d - %2d %2d\n", LI.is_barrel() ? 'B' : 'E',
-    //          B.phi[i], B.dphi[i], B.p1[i], B.p2[i], pb1v[i], pb2v[i],
-    //          B.q[i], B.dq[i], B.q1[i], B.q2[i], qb1v[i], qb2v[i]);
-    // }
-
-    struct PQE {
-      float score;
-      unsigned int hit_index;
-    };
-    auto pqe_cmp = [](const PQE &a, const PQE &b) { return a.score < b.score; };
-    std::priority_queue<PQE, std::vector<PQE>, decltype(pqe_cmp)> pqueue(pqe_cmp);
-    int pqueue_size = 0;
-
-    // Vectorizing this makes it run slower!
-    //#pragma omp simd
-    for (int itrack = 0; itrack < NN; ++itrack) {
-      if (itrack >= N_proc) {
-        continue;
-      }
-
-      if (m_FailFlag[itrack]) {
-        m_XWsrResult[itrack].m_wsr = WSR_Failed;
-        continue;
-      }
-
-      if (m_XWsrResult[itrack].m_wsr == WSR_Outside) {
-        continue;
-      }
-
-      // New binning -- known to be too restrictive, so scaled up. Probably esp. in stereo layers.
-      // Also, could take track covariance dphi / dq extras + known tilt stuff.
-      const bidx_t qb = B.q0[itrack];
-      const bidx_t qb1 = B.q1[itrack];
-      const bidx_t qb2 = B.q2[itrack];
-      const bidx_t pb1 = B.p1[itrack];
-      const bidx_t pb2 = B.p2[itrack];
-
-      // clang-format off
-      dprintf("  %2d/%2d: %6.3f %6.3f %6.6f %7.5f %3u %3u %4u %4u\n",
-              L.layer_id(), itrack, B.q_c[itrack], B.phi_c[itrack],
-              B.qmax[itrack] - B.qmin[itrack], B.dphi[itrack],
-              qb1, qb2, pb1, pb2);
-      // clang-format on
-
-      namespace mp = mini_propagators;
-      mp::InitialState mp_is(m_Par[iI], m_Chg, itrack);
-      mp::State mp_s;
-
-      for (bidx_t qi = qb1; qi != qb2; ++qi) {
-        for (bidx_t pi = pb1; pi != pb2; pi = L.phiMaskApply(pi + 1)) {
-          // Limit to central Q-bin
-          if (qi == qb && L.isBinDead(pi, qi) == true) {
-            dprint("dead module for track in layer=" << L.layer_id() << " qb=" << qi << " pi=" << pi
-                                                     << " q=" << B.q_c[itrack] << " phi=" << B.phi_c[itrack]);
-            m_XWsrResult[itrack].m_in_gap = true;
-          }
-
-          // It might make sense to make first loop to extract bin indices
-          // and issue prefetches at the same time.
-          // Then enter vectorized loop to actually collect the hits in proper order.
-
-          //SK: ~20x1024 bin sizes give mostly 1 hit per bin. Commented out for 128 bins or less
-          // #pragma nounroll
-          auto pbi = L.phiQBinContent(pi, qi);
-          for (bcnt_t hi = pbi.begin(); hi < pbi.end(); ++hi) {
-            // MT: Access into m_hit_zs and m_hit_phis is 1% run-time each.
-
-            const unsigned int hi_orig = L.getOriginalHitIndex(hi);
-
-            if (m_iteration_hit_mask && (*m_iteration_hit_mask)[hi_orig]) {
-              dprintf(
-                  "Yay, denying masked hit on layer %u, hi %u, orig idx %u\n", L.layer_info().layer_id(), hi, hi_orig);
-              continue;
-            }
-
-            float new_q, new_phi, new_ddphi, new_ddq;
-            bool prop_fail;
-
-            if (L.is_barrel()) {
-              const Hit &hit = L.refHit(hi_orig);
-              unsigned int mid = hit.detIDinLayer();
-              const ModuleInfo &mi = LI.module_info(mid);
-
-              // Original condition, for phase2
-              // if (L.layer_id() >= 4 && L.layer_id() <= 9 && std::abs(mp_is.z) > 10.f) {
-
-              // This could work well instead of prop-to-r, too. Limit to 0.05 rad, 2.85 deg.
-              if (std::abs(mi.zdir(2)) > 0.05f) {
-                prop_fail = mp_is.propagate_to_plane(mp::PA_Line, mi, mp_s, true);
-                new_q = mp_s.z;
-                /*
-                // This for calculating ddq on the dector plane, along the "strip" direction.
-                // NOTE -- should take full covariance and project it onto ydir.
-                SVector3 ydir = mi.calc_ydir();
-                new_ddq = (mp_s.x - mi.pos(0)) * ydir(0) +
-                          (mp_s.y - mi.pos(1)) * ydir(1) +
-                          (mp_s.z - mi.pos(2)) * ydir(2);
-                new_ddq = std::abs(new_ddq);
-                */
-                new_ddq = std::abs(new_q - L.hit_q(hi));
-                // dq from z direction is actually projected, so just take plain dz.
-
-              } else {
-                prop_fail = mp_is.propagate_to_r(mp::PA_Exact, L.hit_qbar(hi), mp_s, true);
-                new_q = mp_s.z;
-                new_ddq = std::abs(new_q - L.hit_q(hi));
-              }
-            } else {
-              prop_fail = mp_is.propagate_to_z(mp::PA_Exact, L.hit_qbar(hi), mp_s, true);
-              new_q = std::hypot(mp_s.x, mp_s.y);
-              new_ddq = std::abs(new_q - L.hit_q(hi));
-            }
-
-            new_phi = vdt::fast_atan2f(mp_s.y, mp_s.x);
-            new_ddphi = cdist(std::abs(new_phi - L.hit_phi(hi)));
-            bool dqdphi_presel = new_ddq < B.dq_track[itrack] + DDQ_PRESEL_FAC * L.hit_q_half_length(hi) &&
-                                 new_ddphi < B.dphi_track[itrack] + DDPHI_PRESEL_FAC * 0.0123f;
-
-            // clang-format off
-            dprintf("     SHI %3u %4u %5u  %6.3f %6.3f %6.4f %7.5f  PROP-%s  %s\n",
-                    qi, pi, hi, L.hit_q(hi), L.hit_phi(hi),
-                    new_ddq, new_ddphi, prop_fail ? "FAIL" : "OK", dqdphi_presel ? "PASS" : "REJECT");
-            // clang-format on
-
-            if (prop_fail || !dqdphi_presel)
-              continue;
-            if (pqueue_size < NEW_MAX_HIT) {
-              pqueue.push({new_ddphi, hi_orig});
-              ++pqueue_size;
-            } else if (new_ddphi < pqueue.top().score) {
-              pqueue.pop();
-              pqueue.push({new_ddphi, hi_orig});
-            }
-          }  //hi
-        }  //pi
-      }  //qi
-
-      dprintf(" PQUEUE (%d)", pqueue_size);
-
       // Reverse hits so best dphis/scores come first in the hit-index list.
       m_XHitSize[itrack] = pqueue_size;
       while (pqueue_size) {

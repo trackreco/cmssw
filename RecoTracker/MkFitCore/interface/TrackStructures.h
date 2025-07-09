@@ -359,7 +359,7 @@ namespace mkfit {
       // expected_num_hots is different for CloneEngine and Std, especially as long as we
       // instantiate all candidates before purging them.
       // ce:  N_layer * N_cands ~~ 20 * 6 = 120
-      // std: i don't know, maybe double?
+      // std: i don't know, maybe double? no -- we copy back a limited subset.
       m_hots.reserve(expected_num_hots);
       m_hots_size = 0;
       m_hots.clear();

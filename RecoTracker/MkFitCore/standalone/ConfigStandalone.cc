@@ -19,6 +19,7 @@ namespace mkfit {
     int nTracks = 10000;
     int nEvents = 20;
     int nItersCMSSW = 0;
+    bool mimiUseV2p2 = false;
     bool loopOverFile = false;
 
     seedOpts seedInput = simSeeds;
