@@ -27,10 +27,13 @@
 
 #ifdef WITH_REVE
 #include "TRandom.h"
-#include "ROOT/REveJetCone.hxx"
 #include "ROOT/REveManager.hxx"
 #include "ROOT/REveScene.hxx"
+#include "ROOT/REveBox.hxx"
 #include "ROOT/REveBoxSet.hxx"
+#include "ROOT/REveTrack.hxx"
+#include "ROOT/REveTrackPropagator.hxx"
+#include "ROOT/REvePointSet.hxx"
 #endif
 
 #include "oneapi/tbb/task_arena.h"
@@ -250,10 +253,14 @@ namespace mkfit {
 
       builder.find_tracks_load_seeds(seeds, do_seed_clean);
 
-      // Hmmh, can make this configurable through Shell / MkJob / MkBuilder?
-      // builder.findTracksCloneEngine();
-      printf("Shell::ProcessEvent running MkBuilder::findTracksStandardv2p2() -- HARDCODED for now.\n");
-      builder.findTracksStandardv2p2();
+      // enable through --build-mimi-v2p2
+      if (Config::mimiUseV2p2) {
+        printf("Shell::ProcessEvent running MkBuilder::findTracksStandardv2p2()\n");
+        builder.findTracksStandardv2p2();
+      } else {
+        printf("Shell::ProcessEvent running MkBuilder::findTracksCloneEngine()\n");
+        builder.findTracksCloneEngine();
+      }
 
       printf("Shell::ProcessEvent post fwd search: %d comb-cands\n", builder.ref_eocc().size());
 
@@ -365,6 +372,7 @@ namespace mkfit {
   void Shell::SetBackwardFit(bool b) { m_backward_fit = b; }
   void Shell::SetRemoveDuplicates(bool b) { m_remove_duplicates = b; }
   void Shell::SetUseDeadModules(bool b) { Config::useDeadModules = b; }
+  void Shell::SetUseV2p2(bool b) { Config::mimiUseV2p2 = b; }
 
   //===========================================================================
   // Analysis helpers
@@ -439,7 +447,7 @@ namespace mkfit {
       }
     }
 
-    // Pick mkfit tracks, label by 
+    // Pick mkfit tracks, label by
     for (auto &t : m_tracks) {
       int label = LabelFromHits(t, false, 0.5);
       if (label >= 0) {
@@ -761,6 +769,46 @@ namespace mkfit {
     printf("Selected %d seeds.\n", (int) m_seeds.size());
   }
 
+  //----------------------------------------------------------------------------
+
+  void Shell::FindInterestingSimTracks() {
+    int ns = m_event->simTracks_.size();
+    for (int si = 0; si < ns; ++si) {
+      const Track &s = m_event->simTracks_[si];
+
+      // Phase2: find overlaps in the tilted layers.
+      // Count number of hits in layers 4 & 5
+      const float MinPt = 0.4;
+      const float MinEta = 0.7;
+      const int MinHits = 5;
+      if (s.pT() < MinPt || std::abs(s.momEta()) < MinEta)
+        continue;
+      int n4o5 = 0, hi_first = -1, hi_last;
+      int nh = s.nTotalHits();
+      for (int hi = 0; hi < nh; ++hi) {
+        HitOnTrack hot = s.getHitOnTrack(hi);
+        if (hot.layer == 4 || hot.layer == 5) {
+          if (hi_first < 0)
+            hi_first = hi;
+          hi_last = hi;
+          ++n4o5;
+        }
+        if (hot.layer > 5)
+          break;
+      }
+      if (n4o5 >= MinHits) {
+        printf("%03d %5d %2d %6.3f %+6.3f\n", m_event->evtID(), si, n4o5, s.pT(), s.momEta());
+        print("Track", si, s, hi_first, hi_last + 1, *m_event);
+        // for (int hi = hi_first; hi <= hi_last) {
+        //   // const Hit &h = m_event->simHitsInfo_
+        // }
+        printf("\n");
+      }
+    }
+  }
+
+  //----------------------------------------------------------------------------
+
   void Shell::WriteSimTree() {
     TFile *F = TFile::Open("s.root", "RECREATE");
     TTree *T = new TTree("T", "mkfit sim-seed stuff");
@@ -803,12 +851,14 @@ namespace mkfit {
 
 #ifdef WITH_REVE
 
-  void Shell::ShowTracker() {
-    namespace REX = ROOT::Experimental;
-    auto eveMng = REX::REveManager::Create();
-    eveMng->AllowMultipleRemoteConnections(false, false);
+  void Shell::ReveInit() {
+    if (m_reve_mgr) return;
 
-    {
+    namespace REX = ROOT::Experimental;
+    m_reve_mgr = REX::REveManager::Create();
+    m_reve_mgr->AllowMultipleRemoteConnections(false, false);
+
+/*     {
       REX::REveElement *holder = new REX::REveElement("Jets");
 
       int N_Jets = 4;
@@ -829,20 +879,59 @@ namespace mkfit {
 
           holder->AddElement(jet);
       }
-      eveMng->GetEventScene()->AddElement(holder);
+      m_reve_mgr->GetEventScene()->AddElement(holder);
     }
+ */
+    auto box = new REX::REveBox("Tracker Box");
+    box->SetMainColor(kBlack);
+    const float R = 120, Z = 300;
+    // Invert sense so inside surfaces are drawn (like a display box)
+    box->SetVertex(0, R, -R, Z);
+    box->SetVertex(1, R, -R, -Z);
+    box->SetVertex(2, -R, -R, -Z);
+    box->SetVertex(3, -R, -R, Z);
+    box->SetVertex(4, R, R, Z);
+    box->SetVertex(5, R, R, -Z);
+    box->SetVertex(6, -R, R, -Z);
+    box->SetVertex(7, -R, R, Z);
+    m_reve_mgr->GetGlobalScene()->AddElement(box);
+
+    auto prop = m_reve_track_prop = new REX::REveTrackPropagator();
+    prop->SetMagFieldObj(new REX::REveMagFieldDuo(350, 3.5, -2.0));
+    prop->SetMaxR(1.1f * R);
+    prop->SetMaxZ(1.2f * Z);
+    prop->SetMaxOrbs(6);
+
+    m_reve_mgr->Show();
+}
+
+  void Shell::ShowTracker(int lay_first, int lay_last) {
+    namespace REX = ROOT::Experimental;
+    ReveInit();
 
     auto &ti = Config::TrkInfo;
-    for (int l = 0; l < ti.n_layers(); ++l) {
-      auto &li = ti[l];
+    if (lay_first < 0 || lay_first >= ti.n_layers())
+      throw std::runtime_error("first layer out of range");
+    if (lay_last < 0 || lay_last >= ti.n_layers())
+      throw std::runtime_error("last layer out of range");
+    if (lay_first > lay_last)
+      throw std::runtime_error("first layer greater than the last");
+
+    // for (int l = 0; l < ti.n_layers(); ++l) {
+    for (int l = lay_first; l <= lay_last; ++l) {
+        auto &li = ti[l];
       auto* bs = new REX::REveBoxSet(Form("Layer %d", l));
       bs->Reset(REX::REveBoxSet::kBT_InstancedScaledRotated, true, li.n_modules());
       bs->SetMainColorPtr(new Color_t);
       bs->UseSingleColor();
-      if (li.is_pixel())
-        bs->SetMainColor(li.is_barrel() ? kBlue - 3 : kCyan - 3);
-      else
-        bs->SetMainColor(li.is_barrel() ? kMagenta - 3 : kGreen - 3);
+
+      // if (li.is_pixel())
+      //   bs->SetMainColor(li.is_barrel() ? kBlue - 3 : kCyan - 3);
+      // else
+      //   bs->SetMainColor(li.is_barrel() ? kMagenta - 3 : kGreen - 3);
+      bs->SetMainColor(li.is_pixel() || l == 5 || l == 7 || l == 9 ? kBlue : kGreen);
+      // bs->SetPickable(true);
+      // bs->SetAlwaysSecSelect(true);
 
       float t[16];
       t[3] = t[7] = t[11] = 0;
@@ -870,14 +959,57 @@ namespace mkfit {
 
         bs->AddInstanceMat4(t);
       }
-      bs->SetMainTransparency(60);
+      // bs->SetMainTransparency(40);
       bs->RefitPlex();
 
-      eveMng->GetEventScene()->AddElement(bs);
+      m_reve_mgr->BeginChange();
+      m_reve_mgr->GetEventScene()->AddElement(bs);
+      m_reve_mgr->EndChange();
     }
-    eveMng->Show();
   }
 
-#endif // WITH_REVE
+  void Shell::ShowSimTrack(int sim_idx) {
+    namespace REX = ROOT::Experimental;
+    ReveInit();
+
+    const Track &s = m_event->simTracks_[sim_idx];
+
+    auto p = new TParticle();
+    // int pdg = 11 * (r.Integer(2) > 0 ? 1 : -1);
+    // p->SetPdgCode(pdg);
+    p->SetProductionVertex(s.x(), s.y(), s.z(), 0);
+    p->SetMomentum(s.px(), s.py(), s.pz(), std::sqrt(s.p() + 0.14f*0.14f));
+
+    auto track = new REX::REveTrack(p, sim_idx, m_reve_track_prop);
+    track->SetCharge(s.charge());
+    track->MakeTrack();
+    track->SetMainColor(kYellow);
+    track->SetLineWidth(6);
+    track->SetName(Form("Sim_Track_%d", sim_idx));
+    track->SetTitle(Form("pT=%.3f, P=(%.3f,%.3f,%.3f)\nV=(%.3f,%.3f,%.3f)",
+                    s.pT(), s.px(), s.py(), s.pz(), s.x(), s.y(), s.z()));
+
+    int nh = s.nTotalHits();
+    auto ps = new REX::REvePointSet(Form("Hits_of_Sim_Track_%d", sim_idx), "", nh);
+    for (int hi = 0; hi < nh; ++hi) {
+      auto hot = s.getHitOnTrack(hi);
+      if (hot.index >= 0) {
+        auto &h = m_event->layerHits_[hot.layer][hot.index];
+        // int hl = ev.simHitsInfo_[h.mcHitID()].mcTrackID_;
+        ps->SetNextPoint(h.x(), h.y(), h.z());
+      }
+    }
+    ps->SetMarkerColor(kRed);
+    ps->SetMarkerSize(16);
+    ps->SetMarkerStyle(3);
+    ps->SetAlwaysSecSelect(true);
+    track->AddElement(ps);
+
+    m_reve_mgr->BeginChange();
+    m_reve_mgr->GetEventScene()->AddElement(track);
+    m_reve_mgr->EndChange();
+  }
+
+  #endif // WITH_REVE
 
 }

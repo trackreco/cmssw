@@ -61,9 +61,7 @@ namespace mkfit {
         : pos(p), zdir(zd), xdir(xd), detid(did), shapeid(sid) {}
 
     SVector3 calc_ydir() const {
-      return {zdir[1] * xdir[2] - zdir[2] * xdir[1],
-              zdir[2] * xdir[0] - zdir[0] * xdir[2],
-              zdir[0] * zdir[1] - zdir[1] * xdir[0]};
+      return ROOT::Math::Cross(zdir, xdir);
     }
   };
 
