@@ -543,6 +543,7 @@ int main(int argc, const char* argv[]) {
           "  --build-std              run standard combinatorial building test (def: %s)\n"
           "  --build-ce               run clone engine combinatorial building test (def: %s)\n"
           "  --build-mimi             run clone engine on multiple-iteration test (def: %s)\n"
+          "  --build-mimi-v2p2        run v2p2 on multiple-iteration test, bk-search still uses CE (def: %s)\n"
           "  --num-iters-cmssw <int>  number of mimi iterations to run (def: set to 3 when --build-mimi is in effect, "
           "0 otherwise)\n"
           "\n"
@@ -699,6 +700,7 @@ int main(int argc, const char* argv[]) {
           b2a(g_run_build_default || g_run_build_std),
           b2a(g_run_build_default || g_run_build_ce),
           b2a(g_run_build_mimi),
+          b2a(Config::mimiUseV2p2),
 
           getOpt(Config::seedInput, g_seed_opts).c_str(),
           getOpt(Config::seedCleaning, g_clean_opts).c_str(),
@@ -850,11 +852,13 @@ int main(int argc, const char* argv[]) {
     } else if (*i == "--build-ce") {
       g_run_build_default = false;
       g_run_build_ce = true;
-    } else if (*i == "--build-mimi") {
+    } else if (*i == "--build-mimi" || *i == "--build-mimi-v2p2") {
       g_run_build_default = false;
       g_run_build_mimi = true;
       if (Config::nItersCMSSW == 0)
         Config::nItersCMSSW = 3;
+      if (*i == "--build-mimi-v2p2")
+        Config::mimiUseV2p2 = true;
     } else if (*i == "--num-iters-cmssw") {
       next_arg_or_die(mArgs, i);
       Config::nItersCMSSW = atoi(i->c_str());
