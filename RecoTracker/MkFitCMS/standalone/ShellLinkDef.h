@@ -13,7 +13,9 @@
 
 #pragma link C++ class mkfit::Shell;
 #pragma link C++ class mkfit::Event;
+#pragma link C++ class mkfit::MeasurementState + ;
 #pragma link C++ class mkfit::Hit + ;
+#pragma link C++ class mkfit::Hit::PackedData + ;
 #pragma link C++ class mkfit::HitOnTrack + ;
 #pragma link C++ class std::vector < mkfit::HitOnTrack> + ;
 #pragma link C++ class mkfit::TrackState + ;

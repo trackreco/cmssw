@@ -7,6 +7,8 @@
 
 #include <map>
 
+class TTree;
+
 #ifdef WITH_REVE
 namespace ROOT::Experimental {
   class REveManager;
@@ -74,13 +76,17 @@ namespace mkfit {
     using seed_selector_cf = bool(const Track &);
     using seed_selector_func = std::function<seed_selector_cf>;
 
-    void StudySimAndSeeds();
+    void StudySimAndSeeds(bool report_lost_seeds=true);
     void PreSelectSeeds(int iter_idx, seed_selector_func selector = [](const Track&) {return true;});
 
     void FindInterestingSimTracks();
 
     void WriteSimTree();
     void ReadSimTree();
+
+    // --------------------------------------------------------
+    // Low-level checks
+    TTree* CheckHitVsModulePosition();
 
     // --------------------------------------------------------
     // Visualization stuff
@@ -91,6 +97,10 @@ namespace mkfit {
 
     ROOT::Experimental::REveManager& EveMgr() { return *m_reve_mgr; }
 #endif
+
+    // --------------------------------------------------------
+    // Experimental phase2 / LST stuff, in Shell-LST.cc
+    void RunLSTintoPix(SeedSelect_e seed_select = SS_UseAll, int selected_seed = -1, int count = 1);
 
   protected:
     int select_seeds_for_algo(int algo, TrackVec &seeds);

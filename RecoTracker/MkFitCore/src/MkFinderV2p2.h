@@ -5,14 +5,12 @@
 #include "RecoTracker/MkFitCore/interface/HitStructures.h"
 #include "RecoTracker/MkFitCore/interface/TrackStructures.h"
 #include "RecoTracker/MkFitCore/interface/MkJob.h"
-#include "RecoTracker/MkFitCore/src/MiniPropagators.h"
 
 #include "MkBase.h"
-#include "HotTub.h"
+#include "MkFinderV2p2Structures.h"
 
 #include <functional>
 #include <list>
-#include <queue>
 
 namespace mkfit {
 
@@ -25,73 +23,13 @@ namespace mkfit {
 
   class MkJob;
 
-  class MkFinderV2p2 : public MkBase {
+  class MkFinderV2p2 : public MkBase { /// XXXXXX do we need mkbase ???
     friend class MkBuilder;
 
-    struct CCandRep;
 
     // Unrolled indices of CombCands and TrackCands.
     struct BatchInfo {
 
-    };
-
-    struct SecTCandRep : public HotTubItem {
-    };
-
-    struct PrimTCandRep {
-      CCandRep *mp_ccrep;
-      int m_origin_tcand_index; // TrackCand index in CombCandidate
-      float m_s_to_boundary; // Or some such thing ... to be seen.
-
-      struct PQE { // Priority-Queue Entry
-        float score;
-        unsigned int hit_orig_index;
-        unsigned int hit_index;
-        int layer;
-        // Hit &
-        // ModuleInfo &
-        mini_propagators::InitialState mixed_state; // state-on-hit, inv_pt, inv_k, theta on last propagated point
-
-        bool operator<(const PQE& o) const { return score < o.score; }
-      };
-      std::priority_queue<PQE, std::vector<PQE>> m_pqueue;
-      int m_pqueue_size = 0;
-
-      struct HIE { // Hit-indices Entry
-        float dalpha;
-        unsigned int hit_orig_index;
-        unsigned int hit_index;
-      };
-      std::vector<PQE> m_layer_hits;
-      std::vector<PQE> m_layer_sec_hits;
-
-      PrimTCandRep(CCandRep *ccr, int orig_idx) {
-        mp_ccrep = ccr;
-        m_origin_tcand_index = orig_idx;
-        m_s_to_boundary = 0.0f;
-      }
-
-      TrackCand& tcand() { return mp_ccrep->m_ccand[m_origin_tcand_index]; }
-
-      // these go to SecTCandRep:
-      // score, params, new hits[4];
-      // index in the CombCand -- thing we will update as needed
-
-      // Hack for best hit
-      TrackState bState;
-      HitOnTrack bHot;
-      float bChi2 = 999.9f;
-    };
-
-    struct CCandRep : public HotTubConsumer<SecTCandRep> {
-      CombCandidate &m_ccand;
-
-      std::vector<PrimTCandRep> m_pTcs; // for now, could be in another hot-tub
-
-      CCandRep(HotTub<SecTCandRep> &htub, CombCandidate& ccand) :
-        HotTubConsumer<SecTCandRep>(htub),
-        m_ccand(ccand)
-      {}
     };
 
     class BatchManager {
@@ -115,6 +53,7 @@ namespace mkfit {
       // or maybe we'll need a sub-manager for those? Or will the finder do that
     public:
       CombCandidate& ccand(int i) const { return (*mp_eoccs)[i]; }
+      CombCandidate* ccand_ptr(int i) const { return &(*mp_eoccs)[i]; }
 
       void setup(EventOfCombCandidates &eoccs, int seed_begin, int seed_end) {
         mp_eoccs = &eoccs;
@@ -147,7 +86,7 @@ namespace mkfit {
       class iterator {
         CombCandidate *m_ccand;
       public:
-        iterator(CombCandidate &bm) : m_ccand(&bm) {}
+        iterator(CombCandidate *bm) : m_ccand(bm) {}
         CombCandidate& operator*() { return *m_ccand; }
         iterator& operator++() {
           ++m_ccand;
@@ -156,8 +95,8 @@ namespace mkfit {
         bool operator!=(const iterator &i) const { return m_ccand != i.m_ccand; }
       };
 
-      iterator begin() const { return iterator(ccand(m_begin)); }
-      iterator end() const { return iterator(ccand(m_end)); }
+      iterator begin() const { return iterator(ccand_ptr(m_begin)); }
+      iterator end() const { return iterator(ccand_ptr(m_end - 1) + 1); }
     }; // end class BatchManager
 
   public:

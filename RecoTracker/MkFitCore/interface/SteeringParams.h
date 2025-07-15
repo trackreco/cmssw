@@ -63,6 +63,7 @@ namespace mkfit {
       int region() const { return m_steering_params.m_region; }
 
       bool is_valid() const { return m_cur_index != -1; }
+      bool is_outward() const { return m_type == IT_FwdSearch; }
 
       const LayerControl* operator->() const { return &layer_control(); }
       const LayerControl& operator*()  const { return layer_control(); }
@@ -139,6 +140,27 @@ namespace mkfit {
     void fill_plan(int first, int last) {
       for (int i = first; i <= last; ++i)
         append_plan(i);
+    }
+
+    void fill_plan_pairs(int first, int last, bool as_single_entry, bool swap_pairs) {
+      assert((last - first + 1) % 2 == 0 && "fill_plan_pairs requires even number of layers");
+      for (int i = first; i <= last; i += 2) {
+        if (as_single_entry) {
+          if (swap_pairs) {
+            m_layer_plan.emplace_back(LayerControl(i+1, i));
+          } else {
+            m_layer_plan.emplace_back(LayerControl(i, i+1));
+          }
+        } else {
+          if (swap_pairs) {
+            m_layer_plan.emplace_back(LayerControl(i+1));
+            m_layer_plan.emplace_back(LayerControl(i));
+          } else {
+            m_layer_plan.emplace_back(LayerControl(i));
+            m_layer_plan.emplace_back(LayerControl(i+1));
+          }
+        }
+      }
     }
 
     void fill_plan_pairs_with_swap(int first, int last) {
