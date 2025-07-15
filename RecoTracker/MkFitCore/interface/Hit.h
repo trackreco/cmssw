@@ -157,8 +157,10 @@ namespace mkfit {
     SMatrixSym33& error_nc() { return state_.err_; }
 
     float r() const {
-      return sqrtf(state_.parameters().At(0) * state_.parameters().At(0) +
-                   state_.parameters().At(1) * state_.parameters().At(1));
+      return hipo(state_.parameters().At(0), state_.parameters().At(1));
+    }
+    float r_sqr() const {
+      return hipo_sqr(state_.parameters().At(0), state_.parameters().At(1));
     }
     float x() const { return state_.parameters().At(0); }
     float y() const { return state_.parameters().At(1); }

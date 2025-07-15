@@ -1,11 +1,8 @@
 #include "MkFinderV2p2.h"
 
 #include "RecoTracker/MkFitCore/interface/cms_common_macros.h"
-#include "FindingFoos.h"
-#include "KalmanUtilsMPlex.h"
+// #include "FindingFoos.h"
 
-#include "MatriplexPackers.h"
-#include "MiniPropagators.h"
 #include "MkBins.h"
 
 #define DEBUG
@@ -80,10 +77,10 @@ namespace mkfit {
   // Per layer initialization / cleanup tasks,
 
   void MkFinderV2p2::begin_layer() {
+    debug = true; // to be disabled at the end of end_layer()
+
     // Count number of awakend ccands and number of non-stopped tcands.
     // Well, I actually know n ccands.
-
-    // debug = true; // to be disabled at the end of end_layer()
 
     dprintf("MkFinderV2p2::begin_layer Expecting %d active ccands\n", (int) m_active_ccreps.size());
     int i = 1;
@@ -233,7 +230,7 @@ namespace mkfit {
     dprintf("MkFinderV2p2::process_pre_select work queue is %d, would process %d of them (NN=%d)\n",
             (int) m_pre_select_queue.size(), N_proc, NN);
 
-    MkBins B(is_barrel, N_proc);
+    MkBins B(is_barrel, spi.is_outward(), N_proc);
     PrimTCandRep *prim_tcand_ptrs[NN];
     MPlexQF phi(0.0f);
     MkBinTrackCovExtract TCE;
@@ -395,7 +392,7 @@ namespace mkfit {
         ddphi = cdist(std::abs(phi - L.hit_phi(hit_idcs[h])));
 
 
-        bool dqdphi_presel = ddq < B.m_dq_track[prim_idcs[h]] + MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]) &&
+        bool dqdphi_presel = ddq < B.m_dq_track[prim_idcs[h]] + 3 * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]) &&
                              ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * 0.0123f;
 
         // To be moved down, only for hits that pass pre-selection, needed here for printout.
@@ -403,16 +400,23 @@ namespace mkfit {
         h3_state.dalpha[h] = B.m_sp1.dalpha[prim_idcs[h]] + h3dop.m_T[h]*(B.m_sp2.dalpha[prim_idcs[h]] - B.m_sp1.dalpha[prim_idcs[h]]);
 
         // clang-format off
-        dprintf("     SelHit %6.3f %6.3f %6.4f %7.5f   %6.4f   %s\n",
+#ifdef DEBUG
+        bool dq_presel = ddq < B.m_dq_track[prim_idcs[h]] + MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]);
+        bool dphi_presel = ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * 0.0123f;
+        dprintf("     SelHit %6.3f %6.3f %6.4f %7.5f   %6.4f   %s [dq = %d, dphi = %d]\n",
                 L.hit_q(hit_idcs[h]), L.hit_phi(hit_idcs[h]),
-                ddq, ddphi, h_plex.dalpha[h], dqdphi_presel ? "PASS" : "REJECT");
+                ddq, ddphi, h_plex.dalpha[h], dqdphi_presel ? "PASS" : "REJECT", dq_presel, dphi_presel);
+        dprintf("       ddq=%.3f, dq_track=%.4f, hit_q_half_len=%.4f, dq_expr=%.4f\n",
+                ddq, B.m_dq_track[prim_idcs[h]], L.hit_q_half_length(hit_idcs[h]),
+                B.m_dq_track[prim_idcs[h]] + MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]))
 
         dprintf("      H3 d0=%.4f d1=%.4f -> d2=%e t2=%e -> d3=%e t3=%e ... dalpha=%6.4f\n",
                d0[h], d1[h], d2[h], t2[h], d3[h], h3dop.m_T[h],
                h3_state.dalpha[h]);
               //  B.m_sp1.dalpha[prim_idcs[h]] + h3dop.m_T[h]*(B.m_sp2.dalpha[prim_idcs[h]] - B.m_sp1.dalpha[prim_idcs[h]]));
         dprintf("      H3 PARS %f %f %f; %f %f %f\n", h3_state.x[h], h3_state.y[h], h3_state.z[h],
-          h3_state.px[h], h3_state.py[h], h3_state.pz[h]);
+                h3_state.px[h], h3_state.py[h], h3_state.pz[h]);
+#endif
         // clang-format on
 
         if (/*prop_fail || */ !dqdphi_presel)
@@ -456,8 +460,8 @@ namespace mkfit {
 
               const unsigned int hi_orig = L.getOriginalHitIndex(hi);
 
-              dprintf(" %d: P_HIT %3u %4u %5u   %6.3f %6.3f %6.3f\n",
-                i, pi, qi, hi, L.hit_phi(hi), L.hit_q(hi), L.hit_qbar(hi));
+              dprintf(" %d: P_HIT %3u %4u %5u [%5u]  %6.3f %6.3f %6.3f\n",
+                i, pi, qi, hi, hi_orig, L.hit_phi(hi), L.hit_q(hi), L.hit_qbar(hi));
 
               if (iteration_hit_mask && (*iteration_hit_mask)[hi_orig]) {
                 dprintf("Yay, denying masked hit on layer %u, hi %u, orig idx %u\n",
@@ -520,105 +524,6 @@ namespace mkfit {
       }
     }
 
-    struct KalmanOpArgs {
-
-      const PropagationConfig *prop_config = nullptr;
-
-      PrimTCandRep *ptcp[NN];
-      HitOnTrack    hot[NN];
-
-      mp::InitialStatePlex tsXyz;
-      MPlexLS tsErr; // input (on prev hit) and output (on current hit) [ts - track-state]
-      MPlexLV tsPar; // ""
-      MPlexQI tsChg; // "" Kalman update can flip it through curvature flip
-      MPlexHS msErr; // input measurement / hit [ms - measurement state]
-      MPlexHV msPar; // ""
-      MPlexHV plNrm; // input detector plane [pl - plane]
-      MPlexHV plDir; // ""
-      MPlexHV plPnt; // ""
-      MPlexQF sPerp; // path-length in transverse plane, calculated from alpha. p2plane really needs 3D path.
-
-      MPlexLS propErr; // intermediate: propagated from tsErr and used as input to Kalman
-      MPlexLV propPar; // input: pre-propagated as part of hit pre-selection
-
-      MPlexQF tsChi2; // output
-      MPlexQI outFailFlag; // dummy, can be detected in pre-propagation, no other errors detected / reported
-      int N_filled = 0;
-
-      void reset() { N_filled = 0; }
-
-      // There will be some more of this state, also secondary or who knows what.
-      void item_begin(PrimTCandRep *ptc, HitOnTrack ht) { ptcp[N_filled] = ptc; hot[N_filled] = ht; }
-      bool item_finished() { return ++N_filled == NN; }
-
-      void load_state_err_chg(const mp::InitialState &state_on_hit, const TrackBase &tb) {
-        tsXyz.copyIn(N_filled, state_on_hit);
-        tsPar.copyIn(N_filled, tb.posArray()); // propToPlane needs initial parameters, too
-        tsErr.copyIn(N_filled, tb.errArray());
-        tsChg[N_filled] = tb.charge();
-      }
-
-      void load_hit_module(const Hit &hit, const ModuleInfo & mi) {
-        msErr.copyIn(N_filled, hit.errArray());
-        msPar.copyIn(N_filled, hit.posArray());
-        plNrm.copyIn(N_filled, mi.zdir.Array());
-        plDir.copyIn(N_filled, mi.xdir.Array());
-        plPnt.copyIn(N_filled, mi.pos.Array());
-      }
-
-      void compute_pars() {
-        // Parameters are stored in StatePlex -- so we can vectorize translation to pt, phi, theta.
-        // Some stuff could be passed over as it won't change before update: pt, theta, k_inv
-        // They are passed in output-parameters as propagation also needs input pars.
-        propPar.aij(0, 0) = tsXyz.x;
-        propPar.aij(1, 0) = tsXyz.y;
-        propPar.aij(2, 0) = tsXyz.z;
-        propPar.aij(3, 0) = tsXyz.inv_pt;
-        propPar.aij(4, 0) = Matriplex::fast_atan2(tsXyz.py, tsXyz.px);
-        propPar.aij(5, 0) = tsXyz.theta;
-
-        sPerp = tsXyz.dalpha / ( tsXyz.inv_pt * tsXyz.inv_k);
-      }
-
-      void do_kalman_stuff() {
-        dprintf("do_kalman_stuff\n");
-        for (int i = 0; i < N_filled; ++i) {
-          dprintf("  %d: %f %f %f : %f %f %f : %f\n", i, tsXyz.x[i], tsXyz.y[i], tsXyz.z[i],
-                 tsXyz.inv_pt[i], vdt::fast_atan2(tsXyz.py[i], tsXyz.px[i]), tsXyz.theta[i],
-                 sPerp[i]);
-        }
-        propagateHelixToPlaneMPlex(tsErr, tsPar, tsChg, plPnt, plNrm, &sPerp,
-                                   propErr, propPar, outFailFlag,
-                                   N_filled, prop_config->finding_inter_layer_pflags, nullptr);
-        kalmanOperationPlaneLocal(KFO_Calculate_Chi2 | KFO_Update_Params | KFO_Local_Cov,
-                                  propErr, propPar, tsChg, msErr, msPar, plNrm, plDir, plPnt,
-                                  tsErr, tsPar, tsChi2, N_filled);
-        kalmanCheckChargeFlip(tsPar, tsChg, N_filled);
-
-        // The original -- but Chi2 only.
-        // kalmanPropagateAndComputeChi2Plane(tsErr, tsPar, tsChg, msErr, msPar, plNrm, plDir, plPnt,
-        //                       nullptr,
-        //                       tsChi2,
-        //                       propPar,
-        //                       outFailFlag,
-        //                       N_filled,
-        //                       prop_config->finding_intra_layer_pflags,
-        //                       prop_config->finding_requires_propagation_to_hit_pos);
-
-        // Update prim candidate state for best hit -- to be generalized
-        dprintf("Kalman post-update check:\n");
-        for (int i = 0; i < N_filled; ++i) {
-          if (tsChi2[i] < ptcp[i]->bChi2) {
-            dprintf("  Updating for i=%d, old-chi2 %f, new %f\n", i, ptcp[i]->bChi2, tsChi2[i]);
-            tsErr.copyOut(i, ptcp[i]->bState.errors.Array());
-            tsPar.copyOut(i, ptcp[i]->bState.parameters.Array());
-            ptcp[i]->bState.charge = tsChg[i];
-            ptcp[i]->bHot = hot[i];
-            ptcp[i]->bChi2 = tsChi2[i];
-          }
-        }
-      }
-    };
 
     // auto call_kalman = [&](KalmanOpArgs& K) {
     // }; // end lambda call_kalman
@@ -671,7 +576,7 @@ namespace mkfit {
         tc.addHitIdx(ptc.bHot.index, ptc.bHot.layer, ptc.bChi2);
         tc.setState(ptc.bState);
       } else {
-        tc.addHitIdx(-1, ptc.bHot.layer, 0.0f);
+        tc.addHitIdx(-1, LI_p.layer_id(), 0.0f);
       }
     }
 
