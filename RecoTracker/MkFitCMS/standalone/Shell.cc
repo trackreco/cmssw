@@ -641,7 +641,7 @@ namespace mkfit {
   };
   using SXIMap = std::map<int, SeedXI>;
 
-  void Shell::StudySimAndSeeds() {
+  void Shell::StudySimAndSeeds(bool report_lost_seeds) {
     std::unordered_map<int,int> seed_counts;
     auto frac_or_0 = [](int a, int b) -> double { return b ? ((double) a / b) : 0.0; };
 
@@ -662,7 +662,7 @@ namespace mkfit {
     std::set<int> algos_left;
     for (auto [a, v] : seed_counts) algos_left.insert(a);
     printf("Event %4d | N_sim = %5d | N_seed = %5d | N_cmssw = %5d |\n", m_event->evtID(), n_sim, n_seed, n_cmssw);
-    printf("  Seeds by index / algo:\n");
+    printf("  Seeds by index / algo -> total-seeds (unique-good-labels, max-good-seeds-per-label)\n");
 
     for (int i = 0; i < Config::nItersCMSSW; ++i) {
       int a = algos[i];
@@ -691,7 +691,7 @@ namespace mkfit {
           sxi_map[sifh.label].orig.add_seed(ti, sifh.good_frac());
         }
       }
-      printf("    %d / %2d -> %5d (%5d, %2d)", i, a,
+      printf("    %-2d / %2d -> %5d (%5d, %2d)", i, a,
              seed_counts[a], (int) lbl_to_good_seed.size(), max_good_seeds);
 
       TrackVec orig_seeds = m_seeds;
@@ -719,17 +719,17 @@ namespace mkfit {
       }
       printf("\n");
 
-      if ( ! itconf.m_seed_cleaner)
+      if ( ! itconf.m_seed_cleaner || ! report_lost_seeds)
         continue;
 
       for (auto [lab, sxi] : sxi_map) {
         if ( ! sxi.orig.v99.empty() && sxi.clnd.v99.empty()) {
           Track &s = orig_seeds[sxi.orig.v99[0].index];
-          printf("Lost 99p seed label %d, n_h=%d,  pt=%.3f, eta=%.3f\n", lab, s.nTotalHits(), s.pT(), s.momEta());
+          printf("      Lost 99%%-sim-match seed label %d, n_h=%d,  pt=%.3f, eta=%.3f\n", lab, s.nTotalHits(), s.pT(), s.momEta());
           auto se = sxi.clnd.best_seed();
           if (se.index >= 0) {
             Track &cs = m_seeds[se.index];
-            printf("  Best cleaned n_h=%d, %.3f\n", cs.nTotalHits(), se.frac);
+            printf("        Best cleaned n_h=%d, %.3f\n", cs.nTotalHits(), se.frac);
           }
         }
       }
@@ -738,7 +738,7 @@ namespace mkfit {
       printf("  Additional algos, not in mkFit 10-index mapping\n");
       for (auto a : algos_left) {
         n_seed_sum += seed_counts[a];
-        printf("        %2d -> %5d\n", a, seed_counts[a]);
+        printf("         %2d -> %5d\n", a, seed_counts[a]);
       }
     }
     printf("  Total       %5d -> post-cleaning %5d [%0.3f]\n",
