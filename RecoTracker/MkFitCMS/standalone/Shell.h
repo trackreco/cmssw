@@ -74,7 +74,7 @@ namespace mkfit {
     using seed_selector_cf = bool(const Track &);
     using seed_selector_func = std::function<seed_selector_cf>;
 
-    void StudySimAndSeeds();
+    void StudySimAndSeeds(bool report_lost_seeds=true);
     void PreSelectSeeds(int iter_idx, seed_selector_func selector = [](const Track&) {return true;});
 
     void FindInterestingSimTracks();
