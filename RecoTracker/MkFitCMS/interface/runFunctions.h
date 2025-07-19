@@ -20,7 +20,8 @@ namespace mkfit {
                         TrackVec &out_tracks,
                         bool do_seed_clean,
                         bool do_backward_fit,
-                        bool do_remove_duplicates);
+                        bool do_remove_duplicates,
+                        cpe_func cpe_function);
 
 }  // end namespace mkfit
 #endif

@@ -540,7 +540,7 @@ _trackValidatorSeedingBuilding = trackValidator.clone( # common for built tracks
 trackValidatorBuilding = _trackValidatorSeedingBuilding.clone(
     dirName = "Tracking/TrackBuilding/",
     doMVAPlots = True,
-    doResolutionPlotsForLabels = ['jetCoreRegionalStepTracks']
+    doResolutionPlotsForLabels = ['jetCoreRegionalStepTracks','initialStepTracks']
 )
 trackValidatorBuildingPreSplitting = trackValidatorBuilding.clone(
     associators = ["quickTrackAssociatorByHitsPreSplitting"],

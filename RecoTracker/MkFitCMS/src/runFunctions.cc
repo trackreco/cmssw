@@ -33,10 +33,11 @@ namespace mkfit {
                         TrackVec &out_tracks,
                         bool do_seed_clean,
                         bool do_backward_fit,
-                        bool do_remove_duplicates) {
+                        bool do_remove_duplicates,
+                        cpe_func cpe_function) {
     IterationMaskIfcCmssw it_mask_ifc(trackerInfo, hit_masks);
 
-    MkJob job({trackerInfo, itconf, eoh, eoh.refBeamSpot(), &it_mask_ifc});
+    MkJob job({trackerInfo, itconf, eoh, eoh.refBeamSpot(), &it_mask_ifc, cpe_function});
 
     builder.begin_event(&job, nullptr, __func__);
 
@@ -102,11 +103,16 @@ namespace mkfit {
     if (do_backward_fit && itconf.m_backward_search)
       builder.endBkwSearch();
 
-    builder.export_best_comb_cands(out_tracks, true);
+    builder.export_best_comb_cands(builder.ref_tracks_nc(), true);
 
     if (do_remove_duplicates && itconf.m_duplicate_cleaner) {
-      itconf.m_duplicate_cleaner(out_tracks, itconf);
+      itconf.m_duplicate_cleaner(builder.ref_tracks_nc(), itconf);
     }
+
+    if (itconf.m_track_algorithm == 4)  //should avoid this for InitialStepPreSplitting
+      builder.fittracks();
+
+    builder.export_tracks(out_tracks);
 
     builder.end_event();
     builder.release_memory();
