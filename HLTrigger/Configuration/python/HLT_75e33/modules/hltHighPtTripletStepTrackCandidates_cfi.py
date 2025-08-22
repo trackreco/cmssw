@@ -24,3 +24,34 @@ hltHighPtTripletStepTrackCandidates = cms.EDProducer("CkfTrackCandidateMaker",
     src = cms.InputTag("hltHighPtTripletStepSeeds"),
     useHitsSplitting = cms.bool(False)
 )
+
+_hltHighPtTripletStepTrackCandidatesMkFit = cms.EDProducer("MkFitOutputConverter",
+        batchSize = cms.int32(16),
+        candCutSel = cms.bool(True),
+        candMinNHitsCut = cms.int32(4),
+        candMinPtCut = cms.double(0.9),
+        candMVASel = cms.bool(False),
+        candWP = cms.double(0),
+        doErrorRescale = cms.bool(True),
+        mightGet = cms.optional.untracked.vstring,
+        mkFitEventOfHits = cms.InputTag("hltMkFitEventOfHits"),
+        mkFitPixelHits = cms.InputTag("hltMkFitSiPixelHits"),
+        mkFitSeeds = cms.InputTag("hltHighPtTripletStepTrackCandidatesMkFitSeeds"),
+        mkFitStripHits = cms.InputTag("hltMkFitSiPhase2Hits"),
+        propagatorAlong = cms.ESInputTag("","PropagatorWithMaterial"),
+        propagatorOpposite = cms.ESInputTag("","PropagatorWithMaterialOpposite"),
+        qualityMaxInvPt = cms.double(100),
+        qualityMaxPosErr = cms.double(100),
+        qualityMaxR = cms.double(120),
+        qualityMaxZ = cms.double(280),
+        qualityMinTheta = cms.double(0.01),
+        qualitySignPt = cms.bool(True),
+        seeds = cms.InputTag("hltHighPtTripletStepSeeds"),
+        tfDnnLabel = cms.string('trackSelectionTf'),
+        tracks = cms.InputTag("hltHighPtTripletStepTrackCandidatesMkFit"),
+        ttrhBuilder = cms.ESInputTag("","WithTrackAngle")
+)
+
+from Configuration.ProcessModifiers.trackingLST_cff import trackingLST
+from Configuration.ProcessModifiers.trackingMkFitHighPtTripletStep_cff import hltTrackingMkFitHighPtTripletStep
+(hltTrackingMkFitHighPtTripletStep & trackingLST).toReplaceWith(hltHighPtTripletStepTrackCandidates,_hltHighPtTripletStepTrackCandidatesMkFit)

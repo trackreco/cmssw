@@ -1,0 +1,15 @@
+import FWCore.ParameterSet.Config as cms
+
+# MkFitSeedConverter options
+hltInitialStepTrackCandidatesMkFitSeeds = cms.EDProducer("MkFitSeedConverter",
+        maxNSeeds = cms.uint32(500000),
+        mightGet = cms.optional.untracked.vstring,
+        seeds = cms.InputTag("hltInitialStepSeeds"),
+        ttrhBuilder = cms.ESInputTag("","WithTrackAngle")
+)
+
+from Configuration.ProcessModifiers.singleIterPatatrack_cff import singleIterPatatrack
+from Configuration.ProcessModifiers.trackingLST_cff import trackingLST
+from Configuration.ProcessModifiers.seedingLST_cff import seedingLST
+from Configuration.ProcessModifiers.trackingMkFitInitialStep_cff import hltTrackingMkFitInitialStep
+(singleIterPatatrack & trackingLST & seedingLST & hltTrackingMkFitInitialStep).toModify(hltInitialStepTrackCandidatesMkFitSeeds, seeds = cms.InputTag("hltInitialStepTrajectorySeedsLST"))

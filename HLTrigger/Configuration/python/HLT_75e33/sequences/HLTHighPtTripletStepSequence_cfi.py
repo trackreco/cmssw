@@ -30,3 +30,24 @@ _HLTHighPtTripletStepSequenceLSTSeeding = cms.Sequence(
 
 from Configuration.ProcessModifiers.seedingLST_cff import seedingLST
 (seedingLST & trackingLST).toReplaceWith(HLTHighPtTripletStepSequence, _HLTHighPtTripletStepSequenceLSTSeeding)
+
+from ..modules.hltMkFitSiPixelHits_cfi import *
+from ..modules.hltMkFitSiStripHits_cfi import *
+from ..modules.hltMkFitSiPhase2Hits_cfi import *
+from ..modules.hltMkFitEventOfHits_cfi import *
+from ..modules.hltHighPtTripletStepTrackCandidatesMkFitSeeds_cfi import *
+from ..modules.hltHighPtTripletStepTrackCandidatesMkFit_cfi import *
+
+_HLTHighPtTripletStepSequenceMkFit = cms.Sequence(
+    hltMkFitSiPixelHits
+    +hltMkFitSiPhase2Hits
+    +hltMkFitEventOfHits
+    +hltHighPtTripletStepTrackCandidatesMkFitSeeds
+    +hltHighPtTripletStepTrackCandidatesMkFit
+    +hltHighPtTripletStepTrackCandidates
+    +hltHighPtTripletStepTracks
+    +hltHighPtTripletStepTrackCutClassifier
+    +hltHighPtTripletStepTrackSelectionHighPurity
+)
+from Configuration.ProcessModifiers.trackingMkFitHighPtTripletStep_cff import hltTrackingMkFitHighPtTripletStep
+(hltTrackingMkFitHighPtTripletStep & trackingLST).toReplaceWith(HLTHighPtTripletStepSequence,_HLTHighPtTripletStepSequenceMkFit)
