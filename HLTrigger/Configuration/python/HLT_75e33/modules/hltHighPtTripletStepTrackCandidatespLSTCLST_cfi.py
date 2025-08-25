@@ -36,7 +36,7 @@ _hltHighPtTripletStepTrackCandidatespLSTCLSTMkFit = cms.EDProducer("MkFitOutputC
         mightGet = cms.optional.untracked.vstring,
         mkFitEventOfHits = cms.InputTag("hltMkFitEventOfHits"),
         mkFitPixelHits = cms.InputTag("hltMkFitSiPixelHits"),
-        mkFitSeeds = cms.InputTag("hltHighPtTripletStepTrackCandidatesMkFitSeeds"),
+        mkFitSeeds = cms.InputTag("hltHighPtTripletStepMkFitSeeds"),
         mkFitStripHits = cms.InputTag("hltMkFitSiPhase2Hits"),
         propagatorAlong = cms.ESInputTag("","PropagatorWithMaterial"),
         propagatorOpposite = cms.ESInputTag("","PropagatorWithMaterialOpposite"),
@@ -52,7 +52,5 @@ _hltHighPtTripletStepTrackCandidatespLSTCLSTMkFit = cms.EDProducer("MkFitOutputC
         ttrhBuilder = cms.ESInputTag("","WithTrackAngle")
 )
 
-from Configuration.ProcessModifiers.trackingLST_cff import trackingLST
-from Configuration.ProcessModifiers.seedingLST_cff import seedingLST
-from Configuration.ProcessModifiers.trackingMkFitHighPtTripletStep_cff import hltTrackingMkFitHighPtTripletStep
-(hltTrackingMkFitHighPtTripletStep & trackingLST).toReplaceWith(hltHighPtTripletStepTrackCandidatespLSTCLST,_hltHighPtTripletStepTrackCandidatespLSTCLSTMkFit)
+from Configuration.ProcessModifiers.hltTrackingMkFitHighPtTripletStep_cff import hltTrackingMkFitHighPtTripletStep
+hltTrackingMkFitHighPtTripletStep.toReplaceWith(hltHighPtTripletStepTrackCandidatespLSTCLST,_hltHighPtTripletStepTrackCandidatespLSTCLSTMkFit)

@@ -10,13 +10,11 @@ hltHighPtTripletStepTrackCandidatesMkFit = cms.EDProducer("MkFitProducer",
         eventOfHits = cms.InputTag("hltMkFitEventOfHits"),
         limitConcurrency = cms.untracked.bool(False),
         mightGet = cms.optional.untracked.vstring,
-        minGoodStripCharge = cms.PSet(
-            refToPSet_ = cms.string('SiStripClusterChargeCutLoose')
-        ),
+        minGoodStripCharge = cms.PSet(),
         mkFitSilent = cms.untracked.bool(True),
         pixelHits = cms.InputTag("hltMkFitSiPixelHits"),
         removeDuplicates = cms.bool(True),
         seedCleaning = cms.bool(True),
-        seeds = cms.InputTag("hltHighPtTripletStepTrackCandidatesMkFitSeeds"),
+        seeds = cms.InputTag("hltHighPtTripletStepMkFitSeeds"),
         stripHits = cms.InputTag("hltMkFitSiPhase2Hits")
 )
