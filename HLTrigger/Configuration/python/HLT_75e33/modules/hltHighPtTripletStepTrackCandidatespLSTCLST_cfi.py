@@ -1,5 +1,6 @@
 import FWCore.ParameterSet.Config as cms
 
+from ..modules.hltHighPtTripletStepTrackCandidates_cfi import hltHighPtTripletStepTrackCandidates as _hltHighPtTripletStepTrackCandidates
 hltHighPtTripletStepTrackCandidatespLSTCLST = cms.EDProducer("CkfTrackCandidateMaker",
     MeasurementTrackerEvent = cms.InputTag("hltMeasurementTrackerEvent"),
     NavigationSchool = cms.string('SimpleNavigationSchool'),

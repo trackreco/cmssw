@@ -45,4 +45,16 @@ _HLTHighPtTripletStepSequenceMkFit = cms.Sequence(
     +hltHighPtTripletStepTrackSelectionHighPurity
 )
 from Configuration.ProcessModifiers.hltTrackingMkFitHighPtTripletStep_cff import hltTrackingMkFitHighPtTripletStep
-hltTrackingMkFitHighPtTripletStep.toReplaceWith(HLTHighPtTripletStepSequence,_HLTHighPtTripletStepSequenceMkFit)
+(~seedingLST & hltTrackingMkFitHighPtTripletStep).toReplaceWith(HLTHighPtTripletStepSequence,_HLTHighPtTripletStepSequenceMkFit)
+
+_HLTHighPtTripletStepSequenceLSTSeedingMkFit = cms.Sequence(
+    HLTMkFitInputSequence
+    +hltHighPtTripletStepMkFitSeeds
+    +hltHighPtTripletStepTrackCandidatesMkFit
+    +hltHighPtTripletStepTrackCandidatespLSTCLST
+    +hltHighPtTripletStepTrackspLSTCLST
+    +hltHighPtTripletStepTrackCutClassifierpLSTCLST
+    +hltHighPtTripletStepTrackSelectionHighPuritypLSTCLST
+)
+
+(seedingLST & trackingLST & hltTrackingMkFitHighPtTripletStep).toReplaceWith(HLTHighPtTripletStepSequence,_HLTHighPtTripletStepSequenceLSTSeedingMkFit)

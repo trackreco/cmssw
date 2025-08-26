@@ -52,5 +52,10 @@ _hltHighPtTripletStepTrackCandidatesMkFit = cms.EDProducer("MkFitOutputConverter
         ttrhBuilder = cms.ESInputTag("","WithTrackAngle")
 )
 
+from Configuration.ProcessModifiers.seedingLST_cff import seedingLST
+from Configuration.ProcessModifiers.trackingLST_cff import trackingLST
 from Configuration.ProcessModifiers.hltTrackingMkFitHighPtTripletStep_cff import hltTrackingMkFitHighPtTripletStep
-hltTrackingMkFitHighPtTripletStep.toReplaceWith(hltHighPtTripletStepTrackCandidates,_hltHighPtTripletStepTrackCandidatesMkFit)
+(~seedingLST & ~trackingLST & hltTrackingMkFitHighPtTripletStep).toReplaceWith(hltHighPtTripletStepTrackCandidates,_hltHighPtTripletStepTrackCandidatesMkFit)
+
+_hltHighPtTripletStepTrackCandidatesMkFitLSTSeeds = _hltHighPtTripletStepTrackCandidatesMkFit.clone(seeds = cms.InputTag("hltInitialStepTrackCandidates:pLSTSsLST"))
+(seedingLST & trackingLST & hltTrackingMkFitHighPtTripletStep).toReplaceWith(hltHighPtTripletStepTrackCandidates,_hltHighPtTripletStepTrackCandidatesMkFitLSTSeeds)

@@ -81,5 +81,5 @@ from Configuration.ProcessModifiers.hltTrackingMkFitInitialStep_cff import hltTr
 # All useful combinations added to make the code work as expected and for clarity
 (~(singleIterPatatrack & seedingLST) & trackingLST).toReplaceWith(hltInitialStepTrackCandidates, _hltInitialStepTrackCandidatesLST)
 (singleIterPatatrack & trackingLST & seedingLST).toModify(hltInitialStepTrackCandidates, src = "hltInitialStepTrajectorySeedsLST") # All LST seeds
-(~trackingLST & hltTrackingMkFitInitialStep).toReplaceWith(hltInitialStepTrackCandidates, _hltInitialStepTrackCandidatesMkFit)
-(seedingLST & hltTrackingMkFitInitialStep).toReplaceWith(hltInitialStepTrackCandidates, _hltInitialStepTrackCandidatesMkFitLSTSeeds)
+(~seedingLST & ~trackingLST & hltTrackingMkFitInitialStep).toReplaceWith(hltInitialStepTrackCandidates, _hltInitialStepTrackCandidatesMkFit)
+(singleIterPatatrack & seedingLST & trackingLST & hltTrackingMkFitInitialStep).toReplaceWith(hltInitialStepTrackCandidates, _hltInitialStepTrackCandidatesMkFitLSTSeeds)

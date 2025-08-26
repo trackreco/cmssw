@@ -7,3 +7,9 @@ hltHighPtTripletStepMkFitSeeds = cms.EDProducer("MkFitSeedConverter",
         seeds = cms.InputTag("hltHighPtTripletStepSeeds"),
         ttrhBuilder = cms.ESInputTag("","WithTrackAngle")
 )
+
+from Configuration.ProcessModifiers.hltTrackingMkFitHighPtTripletStep_cff import hltTrackingMkFitHighPtTripletStep
+from Configuration.ProcessModifiers.seedingLST_cff import seedingLST
+from Configuration.ProcessModifiers.trackingLST_cff import trackingLST
+(seedingLST & trackingLST & hltTrackingMkFitHighPtTripletStep).toModify(hltHighPtTripletStepMkFitSeeds,seeds = cms.InputTag("hltInitialStepTrackCandidates:pLSTSsLST"))
+

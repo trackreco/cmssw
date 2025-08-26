@@ -24,10 +24,9 @@ def _addProcesshltHighPtTripletStepMkFitConfig(process):
         maxClusterSize = cms.uint32(8),
         minPt = cms.double(0.9)
     )
+    
 from Configuration.ProcessModifiers.trackingLST_cff import trackingLST
 from Configuration.ProcessModifiers.hltTrackingMkFitInitialStep_cff import hltTrackingMkFitInitialStep
 from Configuration.ProcessModifiers.hltTrackingMkFitHighPtTripletStep_cff import hltTrackingMkFitHighPtTripletStep
 modifyConfigurationForTrackingMkFithltInitialStepMkFitConfig_ = hltTrackingMkFitInitialStep.makeProcessModifier(_addProcesshltInitialStepMkFitConfig)
 modifyConfigurationForTrackingMkFithltHighPtTripletStepMkFitConfig_ = hltTrackingMkFitHighPtTripletStep.makeProcessModifier(_addProcesshltHighPtTripletStepMkFitConfig)
-
-
