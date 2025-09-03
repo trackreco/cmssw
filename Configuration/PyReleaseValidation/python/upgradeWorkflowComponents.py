@@ -2011,7 +2011,7 @@ upgradeWFs['HLTTiming75e33AlpakaSingleIterLSTSeedingMkFitBuilding'].step2 = {
     '--datatier':'GEN-SIM-DIGI-RAW,DQMIO',
     '--eventcontent':'FEVTDEBUGHLT,DQMIO'
 }
-upgradeWFs['HLTTiming75e33AlpakaSingleIterLSTSeedingMkFitTracking'].step3 = {
+upgradeWFs['HLTTiming75e33AlpakaSingleIterLSTSeedingMkFitBuilding'].step3 = {
     '-s':'HARVESTING:@hltValidation'
 }
 

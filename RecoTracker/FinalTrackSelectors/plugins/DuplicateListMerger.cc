@@ -72,6 +72,7 @@ namespace {
     std::string priorityName_;
 
     int diffHitsCut_;
+    bool useOriginalMVA_;
   };
 }  // namespace
 
@@ -98,6 +99,7 @@ namespace {
     desc.add<edm::InputTag>("candidateComponents", edm::InputTag());
     desc.add<std::string>("trackAlgoPriorityOrder", "trackAlgoPriorityOrder");
     desc.add<int>("diffHitsCut", 5);
+    desc.add<bool>("useOriginalMVA", true);
     TrackCollectionCloner::fill(desc);
     descriptions.add("DuplicateListMerger", desc);
   }
@@ -107,6 +109,7 @@ namespace {
         mergedTrackSource_(iPara.getParameter<edm::InputTag>("mergedSource"), consumesCollector()),
         originalTrackSource_(iPara.getParameter<edm::InputTag>("originalSource"), consumesCollector()),
         priorityName_(iPara.getParameter<std::string>("trackAlgoPriorityOrder")) {
+    useOriginalMVA_ = iPara.getParameter<bool>("useOriginalMVA");
     diffHitsCut_ = iPara.getParameter<int>("diffHitsCut");
     candidateSource_ = consumes<std::vector<TrackCandidate>>(iPara.getParameter<edm::InputTag>("candidateSource"));
     candidateComponents_ = consumes<CandidateToDuplicate>(iPara.getParameter<edm::InputTag>("candidateComponents"));
@@ -139,7 +142,9 @@ namespace {
     edm::Handle<MVACollection> originalMVAStore;
     edm::Handle<MVACollection> mergedMVAStore;
 
-    iEvent.getByToken(originalMVAValsToken_, originalMVAStore);
+    if (useOriginalMVA_) {
+      iEvent.getByToken(originalMVAValsToken_, originalMVAStore);
+    }
     iEvent.getByToken(mergedMVAValsToken_, mergedMVAStore);
 
     edm::ESHandle<TrackAlgoPriorityOrder> priorityH = iSetup.getHandle(priorityOrderToken_);
@@ -206,7 +211,6 @@ namespace {
       if ((*matchIter0)[0] < 0)
         continue;
       selId.push_back((*matchIter0)[0]);
-
       pmvas->push_back(mergedMVA[(*matchIter0)[0]]);
 
       const reco::Track& inTrk1 = originals[(*matchIter0)[1]];
@@ -245,10 +249,15 @@ namespace {
       if (std::find(inputTracks.begin(), inputTracks.end(), i) != inputTracks.end())
         continue;
       selId.push_back(i);
-      pmvas->push_back((*originalMVAStore)[i]);
-      pquals->push_back(origTrack.qualityMask());
+      if (useOriginalMVA_) {
+        pmvas->push_back((*originalMVAStore)[i]);
+        pquals->push_back(origTrack.qualityMask());
+      }
+      else {
+        pmvas->push_back(1.0);
+        pquals->push_back(origTrack.qualityMask());
+      }
     }
-
     producer(originalTrackSource_, selId);
     assert(producer.selTracks_->size() == pquals->size());
 
