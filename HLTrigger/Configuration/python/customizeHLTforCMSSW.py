@@ -191,7 +191,7 @@ def customizeHLTfor48957(process):
 
     return process
 
-def customizeHLTforXXXXXX(process):
+def customizeHLTfor48921(process):
     """ This customizer
         - renames some of the geometry parameters used to fill the CAGeometry:
             - minZ -> minInner
@@ -336,6 +336,6 @@ def customizeHLTforCMSSW(process, menuType="GRun"):
     
     process = customizeHLTfor47611(process)
     process = customizeHLTfor48957(process)
-    process = customizeHLTforXXXXXX(process)
+    process = customizeHLTfor48921(process)
 
     return process
