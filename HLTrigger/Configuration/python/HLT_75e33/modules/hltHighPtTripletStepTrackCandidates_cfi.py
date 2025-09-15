@@ -24,3 +24,38 @@ hltHighPtTripletStepTrackCandidates = cms.EDProducer("CkfTrackCandidateMaker",
     src = cms.InputTag("hltHighPtTripletStepSeeds"),
     useHitsSplitting = cms.bool(False)
 )
+
+_hltHighPtTripletStepTrackCandidatesMkFit = cms.EDProducer("MkFitOutputConverter",
+        batchSize = cms.int32(16),
+        candCutSel = cms.bool(True),
+        candMinNHitsCut = cms.int32(4),
+        candMinPtCut = cms.double(0.9),
+        candMVASel = cms.bool(False),
+        candWP = cms.double(0),
+        doErrorRescale = cms.bool(True),
+        mightGet = cms.optional.untracked.vstring,
+        mkFitEventOfHits = cms.InputTag("hltMkFitEventOfHits"),
+        mkFitPixelHits = cms.InputTag("hltMkFitSiPixelHits"),
+        mkFitSeeds = cms.InputTag("hltHighPtTripletStepMkFitSeeds"),
+        mkFitStripHits = cms.InputTag("hltMkFitSiPhase2Hits"),
+        propagatorAlong = cms.ESInputTag("","PropagatorWithMaterial"),
+        propagatorOpposite = cms.ESInputTag("","PropagatorWithMaterialOpposite"),
+        qualityMaxInvPt = cms.double(100),
+        qualityMaxPosErr = cms.double(100),
+        qualityMaxR = cms.double(120),
+        qualityMaxZ = cms.double(280),
+        qualityMinTheta = cms.double(0.01),
+        qualitySignPt = cms.bool(True),
+        seeds = cms.InputTag("hltHighPtTripletStepSeeds"),
+        tfDnnLabel = cms.string('trackSelectionTf'),
+        tracks = cms.InputTag("hltHighPtTripletStepTrackCandidatesMkFit"),
+        ttrhBuilder = cms.ESInputTag("","WithTrackAngle")
+)
+
+from Configuration.ProcessModifiers.seedingLST_cff import seedingLST
+from Configuration.ProcessModifiers.trackingLST_cff import trackingLST
+from Configuration.ProcessModifiers.hltTrackingMkFitHighPtTripletStep_cff import hltTrackingMkFitHighPtTripletStep
+(((~seedingLST & ~trackingLST) | (~seedingLST & trackingLST)) & hltTrackingMkFitHighPtTripletStep).toReplaceWith(hltHighPtTripletStepTrackCandidates,_hltHighPtTripletStepTrackCandidatesMkFit)
+
+_hltHighPtTripletStepTrackCandidatesMkFitLSTSeeds = _hltHighPtTripletStepTrackCandidatesMkFit.clone(seeds = cms.InputTag("hltInitialStepTrackCandidates:pLSTSsLST"))
+(seedingLST & trackingLST & hltTrackingMkFitHighPtTripletStep).toReplaceWith(hltHighPtTripletStepTrackCandidates,_hltHighPtTripletStepTrackCandidatesMkFitLSTSeeds)
