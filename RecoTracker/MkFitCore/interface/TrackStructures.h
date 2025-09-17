@@ -649,6 +649,11 @@ namespace mkfit {
       m_cands_in_backward_rep = false;
     }
 
+    void scaleErrors(float scale) {
+      for (int i = 0; i < m_size; ++i)
+        m_candidates[i][0].scaleErrors(scale);
+    }
+
     // Accessors
     int size() const { return m_size; }
 

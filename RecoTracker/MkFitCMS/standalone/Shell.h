@@ -7,6 +7,8 @@
 
 #include <map>
 
+class TTree;
+
 #ifdef WITH_REVE
 namespace ROOT::Experimental {
   class REveManager;
@@ -83,6 +85,10 @@ namespace mkfit {
     void ReadSimTree();
 
     // --------------------------------------------------------
+    // Low-level checks
+    TTree* CheckHitVsModulePosition();
+
+    // --------------------------------------------------------
     // Visualization stuff
 #ifdef WITH_REVE
     void ReveInit();
@@ -91,6 +97,10 @@ namespace mkfit {
 
     ROOT::Experimental::REveManager& EveMgr() { return *m_reve_mgr; }
 #endif
+
+    // --------------------------------------------------------
+    // Experimental phase2 / LST stuff, in Shell-LST.cc
+    void RunLSTintoPix(SeedSelect_e seed_select = SS_UseAll, int selected_seed = -1, int count = 1);
 
   protected:
     int select_seeds_for_algo(int algo, TrackVec &seeds);
