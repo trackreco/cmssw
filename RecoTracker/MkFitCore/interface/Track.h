@@ -178,6 +178,8 @@ namespace mkfit {
     void setScore(float s) { score_ = s; }
     void setLabel(int lbl) { label_ = lbl; }
 
+    void scaleErrors(float scale) { state_.errors *= scale; }
+
     bool hasSillyValues(bool dump, bool fix, const char* pref = "");
     bool hasNanNSillyValues() const;
 
@@ -423,6 +425,11 @@ namespace mkfit {
       hitsOnTrk_.clear();
     }
 
+    void swapOutAndResetHits(std::vector<HitOnTrack> &out) {
+      out.swap(hitsOnTrk_);
+      resetHits();
+    }
+
     // For MkFinder::copy_out and TrackCand::ExportTrack
     void resizeHits(int nHits, int nFoundHits) {
       hitsOnTrk_.resize(nHits);
@@ -563,6 +570,8 @@ namespace mkfit {
 
     // this method sorts the data member hitOnTrk_ and is ONLY to be used by sim track seeding
     void sortHitsByLayer();
+    // sort hitOnTrk_ by radius of hits; temporary needed for import from phase2 bin files
+    void sortHitsByR(const std::vector<HitVec>& globalHitVec);
 
     // used by fittest only (NOT mplex)
     std::vector<int> foundLayers() const {

@@ -72,6 +72,7 @@ namespace mkfit {
     TrackVec &ref_tracks_nc() { return m_tracks; }
 
     const EventOfCombCandidates &ref_eocc() const { return m_event_of_comb_cands; }
+    EventOfCombCandidates &ref_eocc_nc() { return m_event_of_comb_cands; }
 
     // --------
 
