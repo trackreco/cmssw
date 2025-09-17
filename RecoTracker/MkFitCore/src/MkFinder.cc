@@ -321,7 +321,7 @@ namespace mkfit {
   //==============================================================================
 
   void MkFinder::selectHitIndices(const LayerOfHits &layer_of_hits, const int N_proc, bool fill_binsearch_only) {
-    // bool debug = true;
+    bool debug = true;
     using bidx_t = LayerOfHits::bin_index_t;
     using bcnt_t = LayerOfHits::bin_content_t;
     const LayerOfHits &L = layer_of_hits;
@@ -763,7 +763,7 @@ namespace mkfit {
   }
 
   void MkFinder::selectHitIndicesV2(const LayerOfHits &layer_of_hits, const int N_proc) {
-    // bool debug = true;
+    bool debug = true;
     using bidx_t = LayerOfHits::bin_index_t;
     using bcnt_t = LayerOfHits::bin_content_t;
     const LayerOfHits &L = layer_of_hits;
@@ -2458,7 +2458,7 @@ namespace mkfit {
       // clang-format off
 
       m_FailFlag.setVal(0);
-      propagateHelixToPlaneMPlex(m_Err[iC], m_Par[iC], m_Chg, plPnt, plNrm,
+      propagateHelixToPlaneMPlex(m_Err[iC], m_Par[iC], m_Chg, plPnt, plNrm, nullptr,
                                  m_Err[iP], m_Par[iP], m_FailFlag,
                                  N_proc, m_prop_config->backward_fit_pflags, nullptr);
       kalmanOperationPlaneLocal(KFO_Calculate_Chi2 | KFO_Update_Params | KFO_Local_Cov,
