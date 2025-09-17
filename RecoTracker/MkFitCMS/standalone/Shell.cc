@@ -116,7 +116,7 @@ namespace mkfit {
   TrackerInfo* Shell::tracker_info() { return &Config::TrkInfo; }
 
   //===========================================================================
-  // Event navigation / processing
+  #pragma region Event navigation
   //===========================================================================
 
   void Shell::GoToEvent(int eid) {
@@ -152,6 +152,12 @@ namespace mkfit {
   void Shell::NextEvent(int skip) {
     GoToEvent(m_event->evtID() + skip);
   }
+
+  #pragma endregion Event navigation
+
+  //===========================================================================
+  #pragma region Event processing
+  //===========================================================================
 
   void Shell::ProcessEvent(SeedSelect_e seed_select, int selected_seed, int count) {
     // count is mostly used for SS_IndexPreCleaning and SS_IndexPostCleaning.
@@ -333,8 +339,10 @@ namespace mkfit {
            (int) m_tracks.size(), (int) m_seeds.size());
   }
 
+  #pragma endregion Event processing
+
   //===========================================================================
-  // Iteration selection
+  #pragma region Iteration selection
   //===========================================================================
 
   void Shell::SelectIterationIndex(int itidx) {
@@ -363,8 +371,10 @@ namespace mkfit {
       printf("%d %2d %s\n", i, algos[i], TrackBase::algoint_to_cstr(algos[i]));
   }
 
+  #pragma endregion Iteration selection
+
   //===========================================================================
-  // Flags / status setters
+  #pragma region Setters
   //===========================================================================
 
   void Shell::SetDebug(bool b) { g_debug = b; }
@@ -374,8 +384,10 @@ namespace mkfit {
   void Shell::SetUseDeadModules(bool b) { Config::useDeadModules = b; }
   void Shell::SetUseV2p2(bool b) { Config::mimiUseV2p2 = b; }
 
+  #pragma endregion Setters
+
   //===========================================================================
-  // Analysis helpers
+  #pragma region Analysis helpers
   //===========================================================================
 
   /*
@@ -484,8 +496,10 @@ namespace mkfit {
     return ret;
   }
 
+  #pragma endregion Analysis helpers
+
   //===========================================================================
-  // Analysis drivers / main functions / Comparators
+  #pragma region Analysis drivers
   //===========================================================================
 
   void Shell::Compare() {
@@ -592,8 +606,10 @@ namespace mkfit {
     printf("\n");
   }
 
+  #pragma endregion Analysis drivers
+
   //===========================================================================
-  // Seed study prototype
+  #pragma region Seed study
   //===========================================================================
 
   int Shell::select_seeds_for_algo(int algo, TrackVec &seeds) {
@@ -845,8 +861,57 @@ namespace mkfit {
     delete F;
   }
 
+  #pragma endregion Seed study
+
   //===========================================================================
-  // Visualization helpers
+  #pragma region Low-level checks
+  //===========================================================================
+
+  TTree* Shell::CheckHitVsModulePosition() {
+    auto F = TFile::Open("dxyz.root", "RECREATE");
+    TTree *T = new TTree("T", "hit vs module pos");
+    int layer;
+    float dx, dy, dz;
+    Hit thit;
+    T->Branch("layer", &layer);
+    T->Branch("dx", &dx);
+    T->Branch("dy", &dy);
+    T->Branch("dz", &dz);
+    T->Branch("hit", &thit);
+
+    int n_lay = tracker_info()->n_layers();
+    for (int l = 0; l < n_lay; ++l) {
+      int n_hit = m_event->layerHits_[l].size();
+      const LayerInfo &linfo = tracker_info()->layer(l);
+      printf("%2d : n_hit=%d, n_module=%d\n", l, n_hit, linfo.n_modules());
+      for (int h = 0; h < n_hit; ++h) {
+        const Hit &hit = m_event->layerHits_[l][h];
+        thit = hit;
+        auto mid = hit.detIDinLayer();
+        const ModuleInfo& minfo = linfo.module_info(mid);
+        const SVector3 &mp = minfo.pos, &hp = hit.position();
+        SVector3 dvec = hp - mp;
+        dx = ROOT::Math::Dot(dvec, minfo.xdir);
+        dy = ROOT::Math::Dot(dvec, minfo.calc_ydir());
+        dz = ROOT::Math::Dot(dvec, minfo.zdir);
+        layer = l;
+        if (h < 10) {
+          printf("   %d %f %f %f\n", h, dx, dy, dz);
+        }
+        T->Fill();
+      }
+    }
+    T->Write();
+    F->Close();
+    delete F;
+    TFile::Open("dxyz.root", "READ");
+    return (TTree*) gDirectory->Get("T");
+  }
+
+  #pragma endregion Low-level checks
+
+  //===========================================================================
+  #pragma region Visualization
   //===========================================================================
 
 #ifdef WITH_REVE
@@ -1012,4 +1077,5 @@ namespace mkfit {
 
   #endif // WITH_REVE
 
+  #pragma endregion Visualization
 }

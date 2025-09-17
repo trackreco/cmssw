@@ -11,8 +11,6 @@
 
 #include <vector>
 
-namespace REX = ROOT::Experimental;
-
 std::vector<RntDumper *> RntDumper::s_instances;
 
 RntDumper::RntDumper(const char *fname) : m_file(TFile::Open(fname, "recreate")) {

@@ -70,13 +70,14 @@ namespace mkfit {
 
     int m_n_proc;
     bool m_is_barrel;
+    bool m_is_outward;
 
     MPlexQF q_delta() const { return 0.5f * (m_q_max - m_q_min); }
 
     // -----------------------------------------------------
 
-    MkBins(bool is_barrel, int n_proc = NN) :
-      m_n_proc(n_proc), m_is_barrel(is_barrel)
+    MkBins(bool is_barrel, bool is_outward, int n_proc = NN) :
+      m_n_proc(n_proc), m_is_barrel(is_barrel), m_is_outward(is_outward)
     {}
 
     MkBins(const MPlexLV &par, const MPlexQI &chg, bool is_barrel, int n_proc = NN) :
@@ -85,6 +86,8 @@ namespace mkfit {
 
     void prop_to_limits(const LayerInfo &li);
     void prop_to_limits(const MkRZLimits &ls);
+
+    void prop_to_final_edge(const MkRZLimits &ls);
 
     void determine_bin_windows(const MkBinTrackCovExtract &cov_ex);
 

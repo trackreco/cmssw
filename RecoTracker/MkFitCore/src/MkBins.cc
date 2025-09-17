@@ -75,6 +75,29 @@ namespace mkfit {
     }
   }
 
+  void prop_to_final_edge(const MkRZLimits &ls) {
+    // The second implementation for MkFinderV2p2.
+    // m_isp is at the previous hit.
+    // Propagate to final edge of the layer limits.
+    // To be post-processed by finding inner point via hermite.
+    // Also, full error propagation needs to be done for track_dphi / dq.
+    // Compare the difference.
+    //
+    // There is some worry sp1 and sp2 are used later on so as to expect one to be larger.
+
+    if (m_is_barrel) {
+      float r;
+      r = m_is_outward ? ls.m_rin : ls.m_rout;
+      m_isp.propagate_to_r(mp::PA_Exact, r, m_sp1, true, m_n_proc);
+      r = m_is_outward ? ls.m_rout : ls.m_rin;
+      m_isp = m_sp1;
+      m_isp.propagate_to_r(mp::PA_Exact, r, m_sp2, true, m_n_proc);
+    } else {
+      // do i want to know endcap pos / neg? it is in LayerInfo::LayerType_e
+      // maybe better than barrel / pos / neg ... but need to move it somewhere.
+    }
+  }
+
   void MkBins::determine_bin_windows(const MkBinTrackCovExtract &cov_ex) {
     // Below made members for debugging
     // MPlexQF phi_c, dphi_min, dphi_max;
