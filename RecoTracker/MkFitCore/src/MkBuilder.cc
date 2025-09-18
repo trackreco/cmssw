@@ -1473,11 +1473,27 @@ namespace mkfit {
     if (remap) {
       for (int i = 0; i < end_trk - start_trk; i++) {
         //sort by worst
+#ifdef DEBUG_FIT
+        std::cout << "FWD ";
+        for (int j = 0; j < nFoundHits; j++) {
+          std::cout << chi2fwd[j + nFoundHits * i] << " ";
+        }
+        std::cout << "\n ";
+        std::cout << "BKWD ";
+        for (int j = 0; j < nFoundHits; j++) {
+          std::cout << chi2bkwd[nFoundHits - 1 - j + nFoundHits * i] << " ";
+        }
+        std::cout << "\n ";
+#endif
         std::map<float, int> scorerAndIdx;
         for (int j = 0; j < nFoundHits; j++) {
           //95% qunatiles for FWD and BWD didn't work
           //float TF = 23.7 * j / nFoundHits + 0.8;
           //float TB = 23.6 * (nFoundHits - 1 - j) / nFoundHits + 3.6;
+          if (chi2fwd[j + nFoundHits * i] != chi2fwd[j + nFoundHits * i])
+            chi2fwd[j + nFoundHits * i] = 1000000;
+          if (chi2bkwd[nFoundHits - 1 - j + nFoundHits * i] != chi2bkwd[nFoundHits - 1 - j + nFoundHits * i])
+            chi2bkwd[nFoundHits - 1 - j + nFoundHits * i] = 1000000;
           float scorer =
               (chi2fwd[j + nFoundHits * i]) +
               (chi2bkwd[nFoundHits - 1 - j + nFoundHits * i]);  //simpler alternative to metric based on quantiles
@@ -1487,11 +1503,15 @@ namespace mkfit {
         int remove_i = 0;
         for (auto idscore : scorerAndIdx) {
           //if(idscore.first<0)
+#ifdef DEBUG_FIT
+          std::cout << "scorer " << idscore.first << " " << chi2fwd[idscore.second + nFoundHits * i] << " "
+                    << chi2bkwd[nFoundHits - 1 - idscore.second + nFoundHits * i] << " \n";
+#endif
           if ((m_tracks[inds[i + start_trk]].pT() > 1 && -idscore.first > 20 &&
-               chi2fwd[idscore.second + nFoundHits * i] > 8. &&
+               chi2fwd[idscore.second + nFoundHits * i] > 8 &&
                chi2bkwd[nFoundHits - 1 - idscore.second + nFoundHits * i] > 8) ||
               (m_tracks[inds[i + start_trk]].pT() <= 1 && -idscore.first > 15 &&
-               chi2fwd[idscore.second + nFoundHits * i] > 7. &&
+               chi2fwd[idscore.second + nFoundHits * i] > 7 &&
                chi2bkwd[nFoundHits - 1 - idscore.second + nFoundHits * i] > 7)) {
             if ((nFoundHits - remove_i) <= 3)
               continue;  // 3 hits is the minimum...

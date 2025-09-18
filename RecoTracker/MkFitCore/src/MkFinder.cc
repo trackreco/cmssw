@@ -2111,17 +2111,28 @@ namespace mkfit {
     int itrack = 0;
     for (int i = beg; i < end; ++i, ++itrack) {
       Track &trk = cands[inds[i]];
+#ifdef DEBUG_FIT
+      if (bkw) std::cout <<"before trk pt " <<trk.pT() << " trk eta " << trk.momEta() << std::endl;
+      if (bkw) std::cout <<"before trk nTotalHits " <<trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
+      if (!bkw) std::cout <<"before trk pt " <<trk.pT() << " trk eta " << trk.momEta() << std::endl;
+      if (!bkw) std::cout <<"before trk nTotalHits " <<trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
+      if(m_Chi2(itrack, 0, 0)!=m_Chi2(itrack, 0, 0)) std::cout << "nan " << itrack << "nan "<< i << std::endl;
+#endif
+      if(m_Chi2(itrack, 0, 0)!=m_Chi2(itrack, 0, 0)) continue; //trick for the nan so the track is not dead
+
       m_Err[iO].copyOut(itrack, trk.errors_nc().Array());
       m_Par[iO].copyOut(itrack, trk.parameters_nc().Array());
 
 #ifdef DEBUG_FIT_BKW
       if (bkw) std::cout <<"oout trk pt " <<trk.pT() << " trk eta " << trk.momEta() << std::endl;
       if (bkw) std::cout <<"oout trk nTotalHits " <<trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
+      if (bkw) std::cout << "mchi2 " <<  m_Chi2(itrack, 0, 0) << std::endl;
 #endif
 
 #ifdef DEBUG_FIT
       if (!bkw) std::cout <<"oout trk pt " <<trk.pT() << " trk eta " << trk.momEta() << std::endl;
       if (!bkw) std::cout <<"oout trk nTotalHits " <<trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
+      if (!bkw) std::cout << "mchi2 " <<  m_Chi2(itrack, 0, 0) << std::endl;
 #endif
 
       trk.setChi2(m_Chi2(itrack, 0, 0));
