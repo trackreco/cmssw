@@ -98,6 +98,8 @@ def customizeHLTIter0ToMkFit(process):
     process.hltIter0PFlowCkfTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
         pixelHits = "hltIter0PFlowCkfTrackCandidatesMkFitSiPixelHits",
         stripHits = "hltIter0PFlowCkfTrackCandidatesMkFitSiStripHits",
+        mkFitPixelHits = "hltIter0PFlowCkfTrackCandidatesMkFitSiPixelHits",
+        pixelCPE = "PixelCPEGeneric",
         eventOfHits = "hltIter0PFlowCkfTrackCandidatesMkFitEventOfHits",
         seeds = "hltIter0PFlowCkfTrackCandidatesMkFitSeeds",
         config = ('', 'hltIter0PFlowTrackCandidatesMkFitConfig'),
@@ -223,6 +225,8 @@ def customizeHLTDoubletRecoveryToMkFit(process):
     process.hltDoubletRecoveryPFlowCkfTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
         pixelHits = "hltIter0PFlowCkfTrackCandidatesMkFitSiPixelHits",
         stripHits = "hltIter0PFlowCkfTrackCandidatesMkFitSiStripHits",
+        mkFitPixelHits = "hltIter0PFlowCkfTrackCandidatesMkFitSiPixelHits",
+        pixelCPE = "PixelCPEGeneric",
         eventOfHits = "hltIter0PFlowCkfTrackCandidatesMkFitEventOfHits",
         seeds = "hltDoubletRecoveryPFlowCkfTrackCandidatesMkFitSeeds",
         config = cms.ESInputTag('', 'hltDoubletRecoveryPFlowTrackCandidatesMkFitConfig'),
