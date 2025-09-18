@@ -80,6 +80,7 @@ namespace mkfit {
                                    /* bool */ m_backward_search,
                                    /* bool */ m_backward_drop_seed_hits,
                                    /* int */ m_backward_fit_min_hits,
+				   /* bool */ m_final_fit,
                                    /* float */ sc_ptthr_hpt,
                                    /* float */ sc_drmax_bh,
                                    /* float */ sc_dzmax_bh,

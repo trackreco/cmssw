@@ -49,10 +49,6 @@
 #include "DataFormats/TrackReco/interface/Track.h"
 #include "DataFormats/TrackReco/interface/TrackExtra.h"
 
-//extra for DNN with cands
-#include "PhysicsTools/TensorFlow/interface/TfGraphRecord.h"
-#include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
-#include "PhysicsTools/TensorFlow/interface/TfGraphDefWrapper.h"
 #include "TrackingTools/PatternTools/interface/TSCBLBuilderNoMaterial.h"
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"

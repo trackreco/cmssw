@@ -109,7 +109,7 @@ namespace mkfit {
       itconf.m_duplicate_cleaner(builder.ref_tracks_nc(), itconf);
     }
 
-    if (itconf.m_track_algorithm == 4)  //should avoid this for InitialStepPreSplitting
+    if (itconf.m_final_fit) 
       builder.fittracks();
 
     builder.export_tracks(out_tracks);
