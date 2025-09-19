@@ -133,7 +133,7 @@ namespace mkfit {
 
     int m_backward_fit_min_hits = -1;  // Min number of hits to keep when m_backward_drop_seed_hits is true
 
-    bool m_final_fit = true;
+    bool m_final_fit = false;
 
     // seed cleaning params with good defaults (all configurable)
     float sc_ptthr_hpt = 2.0;
