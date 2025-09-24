@@ -33,11 +33,10 @@ namespace mkfit {
                         TrackVec &out_tracks,
                         bool do_seed_clean,
                         bool do_backward_fit,
-                        bool do_remove_duplicates,
-                        cpe_func cpe_function) {
+                        bool do_remove_duplicates) {
     IterationMaskIfcCmssw it_mask_ifc(trackerInfo, hit_masks);
 
-    MkJob job({trackerInfo, itconf, eoh, eoh.refBeamSpot(), &it_mask_ifc, cpe_function});
+    MkJob job({trackerInfo, itconf, eoh, eoh.refBeamSpot(), &it_mask_ifc});
 
     builder.begin_event(&job, nullptr, __func__);
 
@@ -103,14 +102,33 @@ namespace mkfit {
     if (do_backward_fit && itconf.m_backward_search)
       builder.endBkwSearch();
 
-    builder.export_best_comb_cands(builder.ref_tracks_nc(), true);
+    builder.export_best_comb_cands(out_tracks, true);
 
     if (do_remove_duplicates && itconf.m_duplicate_cleaner) {
-      itconf.m_duplicate_cleaner(builder.ref_tracks_nc(), itconf);
+      itconf.m_duplicate_cleaner(out_tracks, itconf);
     }
 
-    if (itconf.m_final_fit)
-      builder.fittracks();
+    builder.export_tracks(out_tracks);
+
+    builder.end_event();
+    builder.release_memory();
+  }
+
+  void run_MkFitFit(const TrackerInfo &trackerInfo,
+                        const IterationConfig &itconf,
+                        const EventOfHits &eoh,
+                        MkBuilder &builder,
+                        const TrackVec &in_tracks,
+                        TrackVec &out_tracks,
+                        cpe_func cpe_function) {
+    MkJob job({trackerInfo, itconf, eoh, eoh.refBeamSpot(), nullptr, cpe_function});
+
+    builder.begin_event(&job, nullptr, __func__);
+
+    //move in_tracks to a container where they can be modified
+    builder.import_tracks(in_tracks);
+
+    builder.fittracks();
 
     builder.export_tracks(out_tracks);
 

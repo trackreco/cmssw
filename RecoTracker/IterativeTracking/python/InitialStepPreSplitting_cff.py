@@ -172,7 +172,6 @@ initialStepTrackCandidatesMkFitConfigPreSplitting = _mkFitIterationConfigESProdu
     config = 'RecoTracker/MkFit/data/mkfit-phase1-initialStep.json',
 )
 initialStepTrackCandidatesMkFitPreSplitting = _mkFitProducer_cfi.mkFitProducer.clone(
-    mkFitPixelHits = 'mkFitSiPixelHitsPreSplitting',
     pixelHits = 'mkFitSiPixelHitsPreSplitting',
     eventOfHits = 'mkFitEventOfHitsPreSplitting',
     seeds = 'initialStepTrackCandidatesMkFitSeedsPreSplitting',

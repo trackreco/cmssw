@@ -17,13 +17,6 @@
 #include "RecoTracker/MkFit/interface/MkFitGeometry.h"
 #include "RecoTracker/Record/interface/TrackerRecoGeometryRecord.h"
 
-//CPE
-#include "RecoLocalTracker/ClusterParameterEstimator/interface/PixelClusterParameterEstimator.h"
-#include "RecoLocalTracker/Records/interface/TkPixelCPERecord.h"
-#include "DataFormats/TrajectoryState/interface/LocalTrajectoryParameters.h"
-#include "DataFormats/TrackerRecHit2D/interface/SiPixelRecHit.h"
-#include "RecoTracker/MkFit/interface/MkFitClusterIndexToHit.h"
-
 // mkFit includes
 #include "RecoTracker/MkFitCMS/interface/LayerNumberConverter.h"
 #include "RecoTracker/MkFitCMS/interface/runFunctions.h"
@@ -59,8 +52,6 @@ private:
   edm::EDGetTokenT<edm::ContainerMask<edmNew::DetSetVector<SiStripCluster>>> stripMaskToken_;
   const edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
   const edm::ESGetToken<mkfit::IterationConfig, TrackerRecoGeometryRecord> mkFitIterConfigToken_;
-  const edm::ESGetToken<PixelClusterParameterEstimator, TkPixelCPERecord> pixelCPEToken_;
-  const edm::EDGetTokenT<MkFitClusterIndexToHit> pixelClusterIndexToHitToken_;
   const edm::EDPutTokenT<MkFitOutputWrapper> putToken_;
   const float minGoodStripCharge_;
   const bool seedCleaning_;
@@ -78,8 +69,6 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
       seedToken_{consumes(iConfig.getParameter<edm::InputTag>("seeds"))},
       mkFitGeomToken_{esConsumes()},
       mkFitIterConfigToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("config"))},
-      pixelCPEToken_(esConsumes(edm::ESInputTag("", iConfig.getParameter<std::string>("pixelCPE")))),
-      pixelClusterIndexToHitToken_{consumes(iConfig.getParameter<edm::InputTag>("mkFitPixelHits"))},
       putToken_{produces<MkFitOutputWrapper>()},
       minGoodStripCharge_{static_cast<float>(
           iConfig.getParameter<edm::ParameterSet>("minGoodStripCharge").getParameter<double>("value"))},
@@ -126,8 +115,6 @@ void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& description
       ->setComment("Valid values are: 'bestHit', 'standard', 'cloneEngine'");
   desc.add<edm::ESInputTag>("config", edm::ESInputTag(""))
       ->setComment("ESProduct that has the mkFit configuration parameters for this iteration");
-  desc.add<std::string>("pixelCPE", "PixelCPETemplateReco");
-  desc.add("mkFitPixelHits", edm::InputTag{"mkFitSiPixelHits"});
   desc.add("seedCleaning", true)->setComment("Clean seeds within mkFit");
   desc.add("removeDuplicates", true)->setComment("Run duplicate removal within mkFit");
   desc.add("backwardFitInCMSSW", false)
@@ -150,9 +137,6 @@ std::unique_ptr<mkfit::MkBuilderWrapper> MkFitProducer::beginStream(edm::StreamI
 }
 
 void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::EventSetup& iSetup) const {
-  const PixelClusterParameterEstimator* pixelCPE = &iSetup.getData(pixelCPEToken_);
-  const auto& hits = iEvent.get(pixelClusterIndexToHitToken_).hits();  //const MkFitClusterIndexToHit&
-
   const auto& pixelHits = iEvent.get(pixelHitsToken_);
   const auto& stripHits = iEvent.get(stripHitsToken_);
   const auto& eventOfHits = iEvent.get(eventOfHitsToken_);
@@ -201,22 +185,6 @@ void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::Ev
   auto seeds_mutable = seeds.seeds();
   mkfit::TrackVec tracks;
 
-  auto cpe = [&](int orig_hit_idx, float ltp_arr[6], float(&hit_arr)[5]) -> bool {
-    auto const& hit = dynamic_cast<SiPixelRecHit const&>(*hits[orig_hit_idx]);
-    LocalTrajectoryParameters ltp =
-        LocalTrajectoryParameters(ltp_arr[0], ltp_arr[1], ltp_arr[2], ltp_arr[3], ltp_arr[4], ltp_arr[5]);
-    const SiPixelCluster& clust = *hit.cluster();
-    auto&& params = pixelCPE->getParameters(clust, *hit.detUnit(), ltp);
-    //need to check validity and in case return false
-    //fill output corr;
-    hit_arr[0] = std::get<0>(params).x();
-    hit_arr[1] = std::get<0>(params).y();
-    hit_arr[2] = std::get<1>(params).xx();
-    hit_arr[3] = std::get<1>(params).xy();
-    hit_arr[4] = std::get<1>(params).yy();
-    return true;
-  };
-
   auto lambda = [&]() {
     mkfit::run_OneIteration(mkFitGeom.trackerInfo(),
                             mkFitIterConfig,
@@ -227,8 +195,7 @@ void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::Ev
                             tracks,
                             seedCleaning_,
                             not backwardFitInCMSSW_,
-                            removeDuplicates_,
-                            cpe);
+                            removeDuplicates_);
   };
 
   if (limitConcurrency_) {
