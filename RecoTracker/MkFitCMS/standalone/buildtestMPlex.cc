@@ -562,6 +562,11 @@ namespace mkfit {
 
         builder.export_tracks(ev.fitTracks_);
       }
+
+      ////this would be the standalone but it's not working anymore with CPE
+      //builder.fittracks();
+      //builder.export_tracks(ev.fitTracks_);
+
       ev.resetCurrentSeedTracks();
 
       builder.end_event();
