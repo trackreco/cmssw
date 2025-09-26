@@ -126,13 +126,8 @@ void MkFitFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm:
   };
 
   auto lambda = [&]() {
-    mkfit::run_MkFitFit(mkFitGeom.trackerInfo(),
-                            mkFitIterConfig,
-                            eventOfHits.get(),
-                            streamCache(iID)->get(),
-                            intracks,
-                            tracks,
-                            cpe);
+    mkfit::run_MkFitFit(
+        mkFitGeom.trackerInfo(), mkFitIterConfig, eventOfHits.get(), streamCache(iID)->get(), intracks, tracks, cpe);
   };
 
   if (limitConcurrency_) {

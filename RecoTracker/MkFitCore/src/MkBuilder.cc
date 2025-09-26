@@ -413,11 +413,11 @@ namespace mkfit {
     }
   }
 
-  void MkBuilder::import_tracks(const TrackVec &in_vec){
+  void MkBuilder::import_tracks(const TrackVec &in_vec) {
     m_tracks.clear();
     m_tracks.reserve(in_vec.size());
-    for (auto it: in_vec)
-        m_tracks.emplace_back(it);	    
+    for (const auto& it : in_vec)
+      m_tracks.emplace_back(it);
   };
 
   //------------------------------------------------------------------------------

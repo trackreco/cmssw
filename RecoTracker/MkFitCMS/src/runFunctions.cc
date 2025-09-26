@@ -115,12 +115,12 @@ namespace mkfit {
   }
 
   void run_MkFitFit(const TrackerInfo &trackerInfo,
-                        const IterationConfig &itconf,
-                        const EventOfHits &eoh,
-                        MkBuilder &builder,
-                        const TrackVec &in_tracks,
-                        TrackVec &out_tracks,
-                        cpe_func cpe_function) {
+                    const IterationConfig &itconf,
+                    const EventOfHits &eoh,
+                    MkBuilder &builder,
+                    const TrackVec &in_tracks,
+                    TrackVec &out_tracks,
+                    cpe_func cpe_function) {
     MkJob job({trackerInfo, itconf, eoh, eoh.refBeamSpot(), nullptr, cpe_function});
 
     builder.begin_event(&job, nullptr, __func__);
