@@ -75,7 +75,7 @@ namespace mkfit {
     }
   }
 
-  void prop_to_final_edge(const MkRZLimits &ls) {
+  void MkBins::prop_to_final_edge(const MkRZLimits &ls) {
     // The second implementation for MkFinderV2p2.
     // m_isp is at the previous hit.
     // Propagate to final edge of the layer limits.
