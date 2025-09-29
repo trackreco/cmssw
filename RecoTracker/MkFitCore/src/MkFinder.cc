@@ -323,7 +323,7 @@ namespace mkfit {
   //==============================================================================
 
   void MkFinder::selectHitIndices(const LayerOfHits &layer_of_hits, const int N_proc, bool fill_binsearch_only) {
-    bool debug = true;
+    // bool debug = true;
     using bidx_t = LayerOfHits::bin_index_t;
     using bcnt_t = LayerOfHits::bin_content_t;
     const LayerOfHits &L = layer_of_hits;
@@ -765,7 +765,7 @@ namespace mkfit {
   }
 
   void MkFinder::selectHitIndicesV2(const LayerOfHits &layer_of_hits, const int N_proc) {
-    bool debug = true;
+    // bool debug = true;
     using bidx_t = LayerOfHits::bin_index_t;
     using bcnt_t = LayerOfHits::bin_content_t;
     const LayerOfHits &L = layer_of_hits;

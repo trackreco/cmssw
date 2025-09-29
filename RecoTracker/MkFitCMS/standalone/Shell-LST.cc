@@ -93,7 +93,7 @@ namespace mkfit {
       job.switch_to_backward();
 
       builder.compactifyHitStorageForBestCand(false, 99); // do not remove anything
-      builder.backwardFit(true); // true: use_prop_to_plane
+      builder.backwardFit(); // prop_to_plane depends on Config::usePropToPlane
       builder.beginBkwSearch();
 
       // On a barrel track, index 1, pt 9.8
