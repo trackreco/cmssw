@@ -4,6 +4,9 @@
 #include "MatriplexPackers.h"
 
 //#define DEBUG
+// #define DEBUG_FIT
+// #define DEBUG_FITi
+// #define DEBUG_FIT_BKW
 #include "Debug.h"
 
 #include <sstream>

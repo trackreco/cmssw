@@ -44,7 +44,6 @@ namespace mkfit {
     void release();
 
   private:
-
     MPlexQF m_Chi2;
 
     // Hit errors / parameters for update.
@@ -57,7 +56,6 @@ namespace mkfit {
     const Event *m_event = nullptr;
     const PropagationFlags *refit_flags = nullptr;
     cpe_func m_cpe_corr_func = nullptr;
-
   };
 
 }  // end namespace mkfit

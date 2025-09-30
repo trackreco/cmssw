@@ -47,7 +47,7 @@ public:
 
 private:
   void produce(edm::StreamID, edm::Event& iEvent, const edm::EventSetup& iSetup) const override;
-  
+
   const edm::EDGetTokenT<MkFitHitWrapper> pixelHitsToken_;
   const edm::EDGetTokenT<MkFitHitWrapper> stripHitsToken_;
   const edm::EDGetTokenT<MkFitEventOfHits> eventOfHitsToken_;
@@ -81,7 +81,7 @@ MkFitFitProducer::~MkFitFitProducer() { mkfit::MkBuilderWrapper::clear(); }
 
 void MkFitFitProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
-  
+
   desc.add("pixelHits", edm::InputTag("mkFitSiPixelHits"));
   desc.add("stripHits", edm::InputTag("mkFitSiStripHits"));
   desc.add("eventOfHits", edm::InputTag("mkFitEventOfHits"));

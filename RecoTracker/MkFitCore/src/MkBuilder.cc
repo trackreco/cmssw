@@ -416,7 +416,7 @@ namespace mkfit {
   void MkBuilder::import_tracks(const TrackVec &in_vec) {
     m_tracks.clear();
     m_tracks.reserve(in_vec.size());
-    for (const auto& it : in_vec)
+    for (const auto &it : in_vec)
       m_tracks.emplace_back(it);
   };
 
@@ -1468,7 +1468,8 @@ namespace mkfit {
       // input candidate tracks
       mkfitter->fwdFitInputTracks(m_tracks, inds, icand, end);
       //prepare indices
-      std::vector<std::vector<int>> indices_R2 = mkfitter->reFitIndices(m_job->m_event_of_hits, end - icand, nFoundHits);
+      std::vector<std::vector<int>> indices_R2 =
+          mkfitter->reFitIndices(m_job->m_event_of_hits, end - icand, nFoundHits);
       // fit the tracks from the input in fwd direction
       mkfitter->fwdFitFitTracks(m_job->m_event_of_hits, end - icand, nFoundHits, indices_R2, chi2fwd);
       // fwdFitOutput
