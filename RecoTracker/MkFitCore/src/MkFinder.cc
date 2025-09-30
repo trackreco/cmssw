@@ -8,7 +8,7 @@
 #include "MatriplexPackers.h"
 #include "MiniPropagators.h"
 
-// #define DEBUG
+//#define DEBUG
 #include "Debug.h"
 
 #if defined(MKFIT_STANDALONE)
@@ -1982,7 +1982,6 @@ namespace mkfit {
     m_Err[iC].scale(100.0f);
   }
 
-
   void MkFinder::bkFitInputTracks(EventOfCombCandidates &eocss, int beg, int end) {
     // Could as well use HotArrays from tracks directly + a local cursor array to last hit.
 
@@ -2657,6 +2656,8 @@ namespace mkfit {
       m_Chi2.add(tmp_chi2);
     }
   }
+
+  //------------------------------------------------------------------------------
 
   void MkFinder::bkFitPropTracksToPCA(const int N_proc) {
     propagateTracksToPCAZ(N_proc, m_prop_config->pca_prop_pflags);
