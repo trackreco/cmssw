@@ -13,11 +13,10 @@
 
 namespace mkfit {
 
-
   void MkFitter::fwdFitInputTracks(TrackVec &cands, std::vector<int> inds, int beg, int end) {
     // Uses HitOnTrack vector from Track directly + a local cursor array to current hit.
 #ifdef DEBUG_FIT_BKW
-    std::cout <<" -- fwdFitInputTracks " << std::endl;
+    std::cout << " -- fwdFitInputTracks " << std::endl;
 #endif
     MatriplexTrackPacker mtp(&cands[inds[beg]]);
 
@@ -26,11 +25,11 @@ namespace mkfit {
     for (int i = beg; i < end; ++i, ++itrack) {
       const Track &trk = cands[inds[i]];
       m_Chg(itrack, 0, 0) = trk.charge();
-      m_CurHit[itrack] = trk.nTotalHits() - 1; //I have to use in reverse... otherwise n hits unknown
+      m_CurHit[itrack] = trk.nTotalHits() - 1;  //I have to use in reverse... otherwise n hits unknown
       m_HoTArr[itrack] = trk.getHitsOnTrackArray();
 #ifdef DEBUG_FIT
-      std::cout <<"trk pt " <<trk.pT() << " trk eta " << trk.momEta() << std::endl;
-      std::cout <<"trk nTotalHits " <<trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
+      std::cout << "trk pt " << trk.pT() << " trk eta " << trk.momEta() << std::endl;
+      std::cout << "trk nTotalHits " << trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
 #endif
       mtp.addInput(trk);
     }
@@ -38,14 +37,12 @@ namespace mkfit {
     m_Chi2.setVal(0);
     mtp.pack(m_Err[iC], m_Par[iC]);
     m_Err[iC].scale(100.0f);
-
   }
-
 
   void MkFitter::bkReFitInputTracks(TrackVec &cands, std::vector<int> inds, int beg, int end) {
     // Uses HitOnTrack vector from Track directly + a local cursor array to current hit.
 #ifdef DEBUG_FIT_BKW
-    std::cout <<" -- bkReFitInputTracks " << std::endl;
+    std::cout << " -- bkReFitInputTracks " << std::endl;
 #endif
     MatriplexTrackPacker mtp(&cands[inds[beg]]);
 
@@ -57,8 +54,8 @@ namespace mkfit {
       m_CurHit[itrack] = trk.nTotalHits() - 1;
       m_HoTArr[itrack] = trk.getHitsOnTrackArray();
 #ifdef DEBUG_FIT_BKW
-      std::cout <<"trk pt " <<trk.pT() << " trk eta " << trk.momEta() << std::endl;
-      std::cout <<"trk nTotalHits " <<trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
+      std::cout << "trk pt " << trk.pT() << " trk eta " << trk.momEta() << std::endl;
+      std::cout << "trk nTotalHits " << trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
 #endif
       mtp.addInput(trk);
     }
@@ -66,54 +63,73 @@ namespace mkfit {
     m_Chi2.setVal(0);
 
     int index;
-    if (cands[inds[beg]].nFoundHits()%2==0)  index=iC;
-    else index = iP;
+    if (cands[inds[beg]].nFoundHits() % 2 == 0)
+      index = iC;
+    else
+      index = iP;
 
     mtp.pack(m_Err[index], m_Par[index]);
     m_Err[index].scale(100.0f);
   }
 
-    void MkFitter::reFitOutputTracks(TrackVec &cands, std::vector<int> inds, int beg, int end, int nFoundHits, bool bkw) {
+  void MkFitter::reFitOutputTracks(TrackVec &cands, std::vector<int> inds, int beg, int end, int nFoundHits, bool bkw) {
     // Only copy out track params / errors / chi2
-    if(bkw) nFoundHits=nFoundHits*2;
+    if (bkw)
+      nFoundHits = nFoundHits * 2;
     int iO;
-    if (nFoundHits%2==0) iO = iC;
-    else iO = iP;
+    if (nFoundHits % 2 == 0)
+      iO = iC;
+    else
+      iO = iP;
 
     int itrack = 0;
     for (int i = beg; i < end; ++i, ++itrack) {
       Track &trk = cands[inds[i]];
 #ifdef DEBUG_FIT
-      if (bkw) std::cout <<"before trk pt " <<trk.pT() << " trk eta " << trk.momEta() << std::endl;
-      if (bkw) std::cout <<"before trk nTotalHits " <<trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
-      if (!bkw) std::cout <<"before trk pt " <<trk.pT() << " trk eta " << trk.momEta() << std::endl;
-      if (!bkw) std::cout <<"before trk nTotalHits " <<trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
-      if(m_Chi2(itrack, 0, 0)!=m_Chi2(itrack, 0, 0)) std::cout << "nan " << itrack << "nan "<< i << std::endl;
+      if (bkw)
+        std::cout << "before trk pt " << trk.pT() << " trk eta " << trk.momEta() << std::endl;
+      if (bkw)
+        std::cout << "before trk nTotalHits " << trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits()
+                  << std::endl;
+      if (!bkw)
+        std::cout << "before trk pt " << trk.pT() << " trk eta " << trk.momEta() << std::endl;
+      if (!bkw)
+        std::cout << "before trk nTotalHits " << trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits()
+                  << std::endl;
+      if (m_Chi2(itrack, 0, 0) != m_Chi2(itrack, 0, 0))
+        std::cout << "nan " << itrack << "nan " << i << std::endl;
 #endif
-      if(m_Chi2(itrack, 0, 0)!=m_Chi2(itrack, 0, 0)) continue; //trick for the nan so the track is not dead
+      if (m_Chi2(itrack, 0, 0) != m_Chi2(itrack, 0, 0))
+        continue;  //trick for the nan so the track is not dead
 
       m_Err[iO].copyOut(itrack, trk.errors_nc().Array());
       m_Par[iO].copyOut(itrack, trk.parameters_nc().Array());
 
 #ifdef DEBUG_FIT_BKW
-      if (bkw) std::cout <<"oout trk pt " <<trk.pT() << " trk eta " << trk.momEta() << std::endl;
-      if (bkw) std::cout <<"oout trk nTotalHits " <<trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
-      if (bkw) std::cout << "mchi2 " <<  m_Chi2(itrack, 0, 0) << std::endl;
+      if (bkw)
+        std::cout << "oout trk pt " << trk.pT() << " trk eta " << trk.momEta() << std::endl;
+      if (bkw)
+        std::cout << "oout trk nTotalHits " << trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
+      if (bkw)
+        std::cout << "mchi2 " << m_Chi2(itrack, 0, 0) << std::endl;
 #endif
 
 #ifdef DEBUG_FIT
-      if (!bkw) std::cout <<"oout trk pt " <<trk.pT() << " trk eta " << trk.momEta() << std::endl;
-      if (!bkw) std::cout <<"oout trk nTotalHits " <<trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
-      if (!bkw) std::cout << "mchi2 " <<  m_Chi2(itrack, 0, 0) << std::endl;
+      if (!bkw)
+        std::cout << "oout trk pt " << trk.pT() << " trk eta " << trk.momEta() << std::endl;
+      if (!bkw)
+        std::cout << "oout trk nTotalHits " << trk.nTotalHits() << " trk nFoundHits " << trk.nFoundHits() << std::endl;
+      if (!bkw)
+        std::cout << "mchi2 " << m_Chi2(itrack, 0, 0) << std::endl;
 #endif
 
       trk.setChi2(m_Chi2(itrack, 0, 0));
     }
   }
 
- //------------------------------------------------------------------------------
+  //------------------------------------------------------------------------------
 
-std::vector<std::vector<int>> MkFitter::reFitIndices(const EventOfHits &eventofhits,
+  std::vector<std::vector<int>> MkFitter::reFitIndices(const EventOfHits &eventofhits,
                                                        const int N_proc,
                                                        int nFoundHits) {
     std::vector<std::vector<int>> indices_R2Z;
