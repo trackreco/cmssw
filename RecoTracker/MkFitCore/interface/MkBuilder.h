@@ -120,7 +120,7 @@ namespace mkfit {
     //refit
 
     void fittracks();
-    void fit_tracks(MkFinder *mkfndr,
+    void fit_tracks(MkFitter *mkfitter,
                     int nFoundTracks,
                     std::vector<int> inds,
                     int start_trk,

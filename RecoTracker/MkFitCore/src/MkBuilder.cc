@@ -1429,7 +1429,7 @@ namespace mkfit {
   // ReFit
   //==============================================================================
 
-  void MkBuilder::fit_tracks(MkFinder *mkfndr,
+  void MkBuilder::fit_tracks(MkFitter *mkfitter,
                              int nFoundHits,
                              std::vector<int> inds,
                              int start_trk,
@@ -1440,10 +1440,10 @@ namespace mkfit {
     PropagationFlags my_flags = PropagationFlags(PF_use_param_b_field | PF_apply_material);
     my_flags.tracker_info = &ti;
     //clean at the end
-    mkfndr->refit_flags = &my_flags;
-    mkfndr->set_cpe(m_job->m_cpe_corr_func);
+    mkfitter->refit_flags = &my_flags;
+    mkfitter->set_cpe(m_job->m_cpe_corr_func);
 
-    mkfndr->m_event = m_event;
+    mkfitter->m_event = m_event;
 
     int size_trks = (end_trk - start_trk);
     int size_hits = size_trks * nFoundHits;
@@ -1466,19 +1466,19 @@ namespace mkfit {
       // size
       const int end = std::min(icand + NN, end_trk);
       // input candidate tracks
-      mkfndr->fwdFitInputTracks(m_tracks, inds, icand, end);
+      mkfitter->fwdFitInputTracks(m_tracks, inds, icand, end);
       //prepare indices
-      std::vector<std::vector<int>> indices_R2 = mkfndr->reFitIndices(m_job->m_event_of_hits, end - icand, nFoundHits);
+      std::vector<std::vector<int>> indices_R2 = mkfitter->reFitIndices(m_job->m_event_of_hits, end - icand, nFoundHits);
       // fit the tracks from the input in fwd direction
-      mkfndr->fwdFitFitTracks(m_job->m_event_of_hits, end - icand, nFoundHits, indices_R2, chi2fwd);
+      mkfitter->fwdFitFitTracks(m_job->m_event_of_hits, end - icand, nFoundHits, indices_R2, chi2fwd);
       // fwdFitOutput
-      mkfndr->reFitOutputTracks(m_tracks, inds, icand, end, nFoundHits);
+      mkfitter->reFitOutputTracks(m_tracks, inds, icand, end, nFoundHits);
       // input candidate tracks
-      mkfndr->bkReFitInputTracks(m_tracks, inds, icand, end);
+      mkfitter->bkReFitInputTracks(m_tracks, inds, icand, end);
       // fit the tracks from the input in bkw direction
-      mkfndr->bkReFitFitTracks(m_job->m_event_of_hits, end - icand, nFoundHits, indices_R2, chi2bkwd);
+      mkfitter->bkReFitFitTracks(m_job->m_event_of_hits, end - icand, nFoundHits, indices_R2, chi2bkwd);
       // fwdFitOutput
-      mkfndr->reFitOutputTracks(m_tracks, inds, icand, end, nFoundHits, true);
+      mkfitter->reFitOutputTracks(m_tracks, inds, icand, end, nFoundHits, true);
 
       if (remap) {
         for (int i = 0; i < end_trk - start_trk; i++) {
@@ -1548,7 +1548,7 @@ namespace mkfit {
       }
     }
 
-    mkfndr->release();
+    mkfitter->release();
   }
 
   void MkBuilder::check_tracks(std::vector<int> inds, int start_trk, int end_trk) {
@@ -1607,7 +1607,7 @@ namespace mkfit {
     }
     std::cout << "total MAP " << n << std::endl;
 #endif
-    auto mkfndr = g_exe_ctx.m_finders.makeOrGet();
+    auto mkfitter = g_exe_ctx.m_fitters.makeOrGet();
     for (auto &m : mapFoundHits) {
       int ntimes = m.second.size() / NN;
 #ifdef DEBUG_FIT
@@ -1619,12 +1619,12 @@ namespace mkfit {
 #ifdef DEBUG_FIT
         check_tracks(m.second, NN * i, NN * (i + 1));
 #endif
-        fit_tracks(mkfndr.get(), m.first, m.second, NN * i, NN * (i + 1), &remap);
+        fit_tracks(mkfitter.get(), m.first, m.second, NN * i, NN * (i + 1), &remap);
       }
 #ifdef DEBUG_FIT
       check_tracks(m.second, NN * ntimes, m.second.size());
 #endif
-      fit_tracks(mkfndr.get(), m.first, m.second, NN * ntimes, m.second.size(), &remap);
+      fit_tracks(mkfitter.get(), m.first, m.second, NN * ntimes, m.second.size(), &remap);
     }
 #ifdef DEBUG_FIT
     n = 0;
@@ -1650,12 +1650,12 @@ namespace mkfit {
 #ifdef DEBUG_FIT
         check_tracks(m.second, NN * i, NN * (i + 1));
 #endif
-        fit_tracks(mkfndr.get(), m.first, m.second, NN * i, NN * (i + 1));
+        fit_tracks(mkfitter.get(), m.first, m.second, NN * i, NN * (i + 1));
       }
 #ifdef DEBUG_FIT
       check_tracks(m.second, NN * ntimes, m.second.size());
 #endif
-      fit_tracks(mkfndr.get(), m.first, m.second, NN * ntimes, m.second.size());
+      fit_tracks(mkfitter.get(), m.first, m.second, NN * ntimes, m.second.size());
     }
   }
 }  // end namespace mkfit
