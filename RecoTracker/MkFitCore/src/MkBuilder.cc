@@ -1451,7 +1451,6 @@ namespace mkfit {
     float chi2fwd[size_hits];
     float chi2bkwd[size_hits];
     int sortedIdxs[size_hits];
-    ;
     int n_removed[(end_trk - start_trk)];
 
     for (int ic = 0; ic < size_trks; ic++)
@@ -1548,8 +1547,6 @@ namespace mkfit {
           (*remap)[nFoundHits - n_removed[i]].push_back(inds[i + start_trk]);  // passed to refit
       }
     }
-
-    mkfitter->release();
   }
 
   void MkBuilder::check_tracks(std::vector<int> inds, int start_trk, int end_trk) {
@@ -1658,5 +1655,6 @@ namespace mkfit {
 #endif
       fit_tracks(mkfitter.get(), m.first, m.second, NN * ntimes, m.second.size());
     }
+    mkfitter.release();
   }
 }  // end namespace mkfit
