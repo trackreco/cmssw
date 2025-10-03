@@ -53,6 +53,14 @@
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 
+#include "RecoTracker/Record/interface/NavigationSchoolRecord.h"
+#include "TrackingTools/DetLayers/interface/GeometricSearchDet.h"
+#include "TrackingTools/DetLayers/interface/NavigationSchool.h"
+#include "TrackingTools/MeasurementDet/interface/MeasurementDet.h"
+#include "RecoTracker/MeasurementDet/interface/MeasurementTracker.h"
+#include "RecoTracker/MeasurementDet/interface/MeasurementTrackerEvent.h"
+#include "TrackingTools/KalmanUpdators/interface/Chi2MeasurementEstimator.h"
+
 namespace {
   template <typename T>
   bool isPhase1Barrel(T subdet) {
@@ -91,18 +99,11 @@ private:
                          const std::vector<const DetLayer*>& detLayers,
                          const mkfit::TrackVec& mkFitSeeds,
                          const reco::BeamSpot* bs,
+                         const NavigationSchool& navSchool,
+                         const MeasurementTrackerEvent& measTk,
                          reco::TrackCollection& trks,
                          std::vector<int>& seedIndices,
                          std::vector<edm::OwnVector<TrackingRecHit>>& hitsVecs) const;
-
-  std::pair<TrajectoryStateOnSurface, const GeomDet*> backwardFit(const FreeTrajectoryState& fts,
-                                                                  const edm::OwnVector<TrackingRecHit>& hits,
-                                                                  const Propagator& propagatorAlong,
-                                                                  const Propagator& propagatorOpposite,
-                                                                  const TkClonerImpl& hitCloner,
-                                                                  const bool isPhase1,
-                                                                  bool lastHitWasInvalid,
-                                                                  bool lastHitWasChanged) const;
 
   std::pair<TrajectoryStateOnSurface, const GeomDet*> convertInnermostState(const FreeTrajectoryState& fts,
                                                                             const edm::OwnVector<TrackingRecHit>& hits,
@@ -133,7 +134,8 @@ private:
   const float qualityMaxPosErrSq_;
   const bool qualitySignPt_;
 
-  const bool doErrorRescale_;
+  const edm::EDGetTokenT<MeasurementTrackerEvent> measurementTrackerEventToken_;
+  const edm::ESGetToken<NavigationSchool, NavigationSchoolRecord> navToken_;
 
   const int algo_;
   const edm::EDGetTokenT<reco::BeamSpot> bsToken_;
@@ -155,9 +157,6 @@ MkFitOutputTrackConverter::MkFitOutputTrackConverter(edm::ParameterSet const& iC
           iConfig.getParameter<edm::ESInputTag>("ttrhBuilder"))},
       mkFitGeomToken_{esConsumes<MkFitGeometry, TrackerRecoGeometryRecord>()},
       tTopoToken_{esConsumes<TrackerTopology, TrackerTopologyRcd>()},
-      //putTrackToken_{produces<reco::TrackCollection>()},
-      //putHitsToken_{produces<TrackingRecHitCollection>()},
-      //putExtraToken_{produces<reco::TrackExtraCollection>()},
       putSeedStopInfoToken_{produces<std::vector<SeedStopInfo>>()},
       qualityMaxInvPt_{float(iConfig.getParameter<double>("qualityMaxInvPt"))},
       qualityMinTheta_{float(iConfig.getParameter<double>("qualityMinTheta"))},
@@ -165,7 +164,8 @@ MkFitOutputTrackConverter::MkFitOutputTrackConverter(edm::ParameterSet const& iC
       qualityMaxZ_{float(iConfig.getParameter<double>("qualityMaxZ"))},
       qualityMaxPosErrSq_{float(pow(iConfig.getParameter<double>("qualityMaxPosErr"), 2))},
       qualitySignPt_{iConfig.getParameter<bool>("qualitySignPt")},
-      doErrorRescale_{iConfig.getParameter<bool>("doErrorRescale")},
+      measurementTrackerEventToken_{consumes<MeasurementTrackerEvent>(edm::InputTag("MeasurementTrackerEvent"))},
+      navToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("NavigationSchool"))},
       algo_{reco::TrackBase::algoByName(
           TString(iConfig.getParameter<edm::InputTag>("seeds").label()).ReplaceAll("Seeds", "").Data())},
       bsToken_(consumes<reco::BeamSpot>(edm::InputTag("offlineBeamSpot"))) {
@@ -194,7 +194,8 @@ void MkFitOutputTrackConverter::fillDescriptions(edm::ConfigurationDescriptions&
   desc.add<double>("qualityMaxPosErr", 100)->setComment("max position error for converted tracks");
   desc.add<bool>("qualitySignPt", true)->setComment("check sign of 1/pt for converted tracks");
 
-  desc.add<bool>("doErrorRescale", true)->setComment("rescale candidate error before final fit");
+  desc.add<edm::ESInputTag>("NavigationSchool", edm::ESInputTag{"", "SimpleNavigationSchool"});
+  //desc.add<std::string>("MeasurementTracker", "");
 
   descriptions.addWithDefaultLabel(desc);
 }
@@ -211,6 +212,15 @@ void MkFitOutputTrackConverter::produce(edm::StreamID iID, edm::Event& iEvent, c
     throw cms::Exception("LogicError") << "TTRHBuilder must be of type TkTransientTrackingRecHitBuilder";
   }
   const auto& mkFitGeom = iSetup.getData(mkFitGeomToken_);
+  const auto& navSchool = iSetup.getData(navToken_);
+
+  //const MeasurementTrackerEvent* measurementTracker;
+  //if (!measurementTrackerEventToken_.isUninitialized()) {
+  edm::Handle<MeasurementTrackerEvent> hmte;
+  iEvent.getByToken(measurementTrackerEventToken_, hmte);
+  const MeasurementTrackerEvent* measurementTracker = hmte.product();
+  //}
+
   //beamspot for trk
   const reco::BeamSpot* beamspot = &iEvent.get(bsToken_);
 
@@ -218,12 +228,8 @@ void MkFitOutputTrackConverter::produce(edm::StreamID iID, edm::Event& iEvent, c
   std::unique_ptr<TrackingRecHitCollection> hits(new TrackingRecHitCollection());
   std::unique_ptr<reco::TrackExtraCollection> extras(new reco::TrackExtraCollection());
 
-  //reco::TrackCollection trks;
   std::vector<int> seedIndices;
   std::vector<edm::OwnVector<TrackingRecHit>> hitsVecs;
-
-  //reco::TrackExtraCollection extras;
-  //TrackingRecHitCollection hits;
 
   // product references
   reco::TrackExtraRefProd ref_trackextras = iEvent.getRefBeforePut<reco::TrackExtraCollection>();
@@ -246,6 +252,8 @@ void MkFitOutputTrackConverter::produce(edm::StreamID iID, edm::Event& iEvent, c
                     mkFitGeom.detLayers(),
                     mkfitSeeds.seeds(),
                     beamspot,
+                    navSchool,
+                    *measurementTracker,
                     *trks,
                     seedIndices,
                     hitsVecs);
@@ -274,10 +282,6 @@ void MkFitOutputTrackConverter::produce(edm::StreamID iID, edm::Event& iEvent, c
     i++;
   }
 
-  // Convert mkfit cands to cmssw tracks
-  //iEvent.emplace(putTrackToken_,trks);
-  //iEvent.emplace(putHitsToken_,hits);
-  //iEvent.emplace(putExtraToken_,extras);
   iEvent.put(std::move(trks));
   iEvent.put(std::move(extras));
   iEvent.put(std::move(hits));
@@ -300,6 +304,8 @@ void MkFitOutputTrackConverter::convertCandidates(const MkFitOutputWrapper& mkFi
                                                   const std::vector<const DetLayer*>& detLayers,
                                                   const mkfit::TrackVec& mkFitSeeds,
                                                   const reco::BeamSpot* bs,
+                                                  const NavigationSchool& navSchool,
+                                                  const MeasurementTrackerEvent& measTk,
                                                   reco::TrackCollection& trks,
                                                   std::vector<int>& seedIndices,
                                                   std::vector<edm::OwnVector<TrackingRecHit>>& hitsVecs) const {
@@ -372,7 +378,7 @@ void MkFitOutputTrackConverter::convertCandidates(const MkFitOutputWrapper& mkFi
     // nTotalHits() gives sum of valid hits (nFoundHits()) and invalid/missing hits.
     const int nhits = cand.nTotalHits();
     //std::cout << candIndex << ": " << nhits << " " << cand.nFoundHits() << std::endl;
-    bool lastHitInvalid = false;
+    //bool lastHitInvalid = false;
     const auto isPhase1 = mkFitGeom.isPhase1();
     for (int i = 0; i < nhits; ++i) {
       const auto& hitOnTrack = cand.getHitOnTrack(i);
@@ -395,7 +401,7 @@ void MkFitOutputTrackConverter::convertCandidates(const MkFitOutputWrapper& mkFi
         // In principle an InvalidTrackingRecHitNoDet could be
         // inserted here, but it seems that it is best to deal with
         // them in the TrackProducer.
-        lastHitInvalid = true;
+        //lastHitInvalid = true;
       } else {
         auto const isPixel = eventOfHits[hitOnTrack.layer].is_pixel();
         auto const& hits = isPixel ? pixelClusterIndexToHit.hits() : stripClusterIndexToHit.hits();
@@ -422,11 +428,11 @@ void MkFitOutputTrackConverter::convertCandidates(const MkFitOutputWrapper& mkFi
                 thit.firstClusterRef().cluster_phase2OT()));
           }
         }
-        LogTrace("MkFitOutputTrackConverter")
-            << "  pos " << recHits.back().globalPosition().x() << " " << recHits.back().globalPosition().y() << " "
-            << recHits.back().globalPosition().z() << " mag2 " << recHits.back().globalPosition().mag2() << " detid "
-            << recHits.back().geographicalId().rawId() << " cluster " << hitOnTrack.index;
-        lastHitInvalid = false;
+       LogTrace("MkFitOutputTrackConverter")
+           << "  pos " << recHits.back().globalPosition().x() << " " << recHits.back().globalPosition().y() << " "
+           << recHits.back().globalPosition().z() << " mag2 " << recHits.back().globalPosition().mag2() << " detid "
+           << recHits.back().geographicalId().rawId() << " cluster " << hitOnTrack.index;
+        //lastHitInvalid = false;
       }
     }
 
@@ -486,6 +492,17 @@ void MkFitOutputTrackConverter::convertCandidates(const MkFitOutputWrapper& mkFi
 
     const bool lastHitChanged = (recHits.back().geographicalId() != lastHitId);  // TODO: make use of the bools
 
+//     for (auto &recHit: recHits){
+//
+//       std::cout  << "sorted  pos " << recHit.globalPosition().x() << " " << recHit.globalPosition().y() << " "
+//             << recHit.globalPosition().z() << " mag2 " << recHit.globalPosition().mag2() << " detid "
+//             << recHit.geographicalId().rawId() << " layer "<< tTopo.layer(recHit.geographicalId()) << " layer "<< mkFitGeom.mkFitLayerNumber(recHit.geographicalId()) << std::endl;
+//
+//
+//     }
+//     std::cout << tTopo.layer(recHits.front().geographicalId()) << std::endl;
+//     std::cout << tTopo.layer(recHits.back().geographicalId()) << std::endl;
+
     // seed
     const auto seedIndex = cand.label();
     LogTrace("MkFitOutputTrackConverter") << " from seed " << seedIndex << " seed hits";
@@ -494,33 +511,16 @@ void MkFitOutputTrackConverter::convertCandidates(const MkFitOutputWrapper& mkFi
     // to be consistent with TransientInitialStateEstimator::innerState used in CkfTrackCandidateMakerBase
     // Error is only rescaled for candidates propagated to first layer;
     // otherwise, candidates undergo backwardFit where error is already rescaled
-    //if (mkFitOutput.propagatedToFirstLayer() && doErrorRescale_)
-    //fts.rescaleError(100.);
-    auto tsosDet = mkFitOutput.propagatedToFirstLayer()
-                       ? convertInnermostState(fts, recHits, propagatorAlong, propagatorOpposite)
-                       : backwardFit(fts,
-                                     recHits,
-                                     propagatorAlong,
-                                     propagatorOpposite,
-                                     hitCloner,
-                                     isPhase1,
-                                     lastHitInvalid,
-                                     lastHitChanged);  ///backward fit should be removed and not used here
+
+    auto tsosDet = convertInnermostState(fts, recHits, propagatorAlong, propagatorOpposite);
+
     if (!tsosDet.first.isValid()) {
       edm::LogInfo("MkFitOutputTrackConverter")
           << "Backward fit of candidate " << candIndex << " failed, ignoring the candidate";
       continue;
     }
 
-    // convert to persistent, from CkfTrackCandidateMakerBase
-    //auto pstate = trajectoryStateTransform::persistentState(tsosDet.first, tsosDet.second->geographicalId().rawId());
-
-    //to do
-
     TrajectoryStateOnSurface tsosState = tsosDet.first;
-
-    //if (mkFitOutput.propagatedToFirstLayer() && doErrorRescale_)
-    //tsosState.rescaleError(1 / 100.f);
 
     TSCBLBuilderNoMaterial tscblBuilder;
 
@@ -550,7 +550,58 @@ void MkFitOutputTrackConverter::convertCandidates(const MkFitOutputWrapper& mkFi
                     stateAtPCA.charge(),
                     stateAtPCA.curvilinearError(),
                     static_cast<reco::TrackBase::TrackAlgorithm>(algo_));
+
     trk.appendHits(recHits.begin(), recHits.end(), tTopo);
+
+    //extra hits
+    const auto* outerLayer = detLayers.at(tTopo.layer(recHits.back().geographicalId()));
+    //const auto* outerLayer = detLayers.at(mkFitGeom.mkFitLayerNumber(recHits.back().geographicalId()));
+    const auto* innerLayer = detLayers.at(tTopo.layer(recHits.front().geographicalId()));
+    //const auto* innerLayer = detLayers.at(mkFitGeom.mkFitLayerNumber(recHits.front().geographicalId()));
+    auto const& innerCompLayers =
+        navSchool.compatibleLayers(*innerLayer, fts, oppositeToMomentum);  //fts only innermost hit here
+    auto const& outerCompLayers =
+        navSchool.compatibleLayers(*outerLayer, fts, alongMomentum);  //fts only innermost hit here
+
+    //use negative sigma=-3.0 in order to use a more conservative definition of isInside() for Bounds classes.
+    Chi2MeasurementEstimator estimator(30., -3.0, 0.5, 2.0, 0.5, 1.e12);  // same as defauts....
+
+    //inner
+    for (auto it : innerCompLayers) {
+      if (it->basicComponents().empty())
+        continue;
+      auto const& detWithState = it->compatibleDets(tsosDet.first, propagatorOpposite, estimator);
+      if (detWithState.empty())
+        continue;
+      DetId id = detWithState.front().first->geographicalId();
+      MeasurementDetWithData const& measDet = measTk.idToDet(id);
+      if (measDet.isActive() && !measDet.hasBadComponents(detWithState.front().second)) {
+        InvalidTrackingRecHit tmpHit(*detWithState.front().first, TrackingRecHit::missing_inner);
+        trk.appendHitPattern(tmpHit, tTopo);
+      } else {
+        InvalidTrackingRecHit tmpHit(*detWithState.front().first, TrackingRecHit::inactive_inner);
+        trk.appendHitPattern(tmpHit, tTopo);
+      }
+    }  //loop layers
+
+    //outer
+    for (auto it : outerCompLayers) {
+      if (it->basicComponents().empty())
+        continue;
+      //tsosDet is innermost (not good, but does it mean anyhting is fully wrong?)
+      auto const& detWithState = it->compatibleDets(tsosDet.first, propagatorAlong, estimator);
+      if (detWithState.empty())
+        continue;
+      DetId id = detWithState.front().first->geographicalId();
+      MeasurementDetWithData const& measDet = measTk.idToDet(id);
+      if (measDet.isActive() && !measDet.hasBadComponents(detWithState.front().second)) {
+        InvalidTrackingRecHit tmpHit(*detWithState.front().first, TrackingRecHit::missing_outer);
+        trk.appendHitPattern(tmpHit, tTopo);
+      } else {
+        InvalidTrackingRecHit tmpHit(*detWithState.front().first, TrackingRecHit::inactive_outer);
+        trk.appendHitPattern(tmpHit, tTopo);
+      }
+    }  //loop layers
 
     trks.push_back(trk);
 
@@ -558,128 +609,6 @@ void MkFitOutputTrackConverter::convertCandidates(const MkFitOutputWrapper& mkFi
     seedIndices.push_back(cand.label());
     hitsVecs.push_back(recHits);
   }
-}
-
-std::pair<TrajectoryStateOnSurface, const GeomDet*> MkFitOutputTrackConverter::backwardFit(
-    const FreeTrajectoryState& fts,
-    const edm::OwnVector<TrackingRecHit>& hits,
-    const Propagator& propagatorAlong,
-    const Propagator& propagatorOpposite,
-    const TkClonerImpl& hitCloner,
-    const bool isPhase1,
-    bool lastHitWasInvalid,
-    bool lastHitWasChanged) const {
-  // First filter valid hits as in TransientInitialStateEstimator
-  TransientTrackingRecHit::ConstRecHitContainer firstHits;
-
-  for (int i = hits.size() - 1; i >= 0; --i) {
-    if (hits[i].det()) {
-      // TransientTrackingRecHit::ConstRecHitContainer has shared_ptr,
-      // and it is passed to backFitter below so it is really needed
-      // to keep the interface. Since we keep the ownership in hits,
-      // let's disable the deleter.
-      firstHits.emplace_back(&(hits[i]), edm::do_nothing_deleter{});
-    }
-  }
-
-  // Then propagate along to the surface of the last hit to get a TSOS
-  const auto& lastHitSurface = firstHits.front()->det()->surface();
-
-  const Propagator* tryFirst = &propagatorAlong;
-  const Propagator* trySecond = &propagatorOpposite;
-  if (lastHitWasInvalid || lastHitWasChanged) {
-    LogTrace("MkFitOutputTrackConverter") << "Propagating first opposite, then along, because lastHitWasInvalid? "
-                                          << lastHitWasInvalid << " or lastHitWasChanged? " << lastHitWasChanged;
-    std::swap(tryFirst, trySecond);
-  } else {
-    bool doSwitch = false;
-    const auto& surfacePos = lastHitSurface.position();
-    const auto& lastHitPos = firstHits.front()->globalPosition();
-    if (isPhase1) {
-      const auto lastHitSubdet = firstHits.front()->geographicalId().subdetId();
-      if (isPhase1Barrel(lastHitSubdet)) {
-        doSwitch = (surfacePos.perp2() < lastHitPos.perp2());
-      } else {
-        doSwitch = (surfacePos.z() < lastHitPos.z());
-      }
-    } else {
-      const auto lastHitSubdet = firstHits.front()->det()->subDetector();
-      if (GeomDetEnumerators::isBarrel(lastHitSubdet)) {
-        doSwitch = (surfacePos.perp2() < lastHitPos.perp2());
-      } else {
-        doSwitch = (surfacePos.z() < lastHitPos.z());
-      }
-    }
-    if (doSwitch) {
-      LogTrace("MkFitOutputTrackConverter")
-          << "Propagating first opposite, then along, because surface is inner than the hit; surface perp2 "
-          << surfacePos.perp() << " hit " << lastHitPos.perp2() << " surface z " << surfacePos.z() << " hit "
-          << lastHitPos.z();
-
-      std::swap(tryFirst, trySecond);
-    }
-  }
-
-  auto tsosDouble = tryFirst->propagateWithPath(fts, lastHitSurface);
-  if (!tsosDouble.first.isValid()) {
-    LogDebug("MkFitOutputTrackConverter") << "Propagating to startingState failed, trying in another direction next";
-    tsosDouble = trySecond->propagateWithPath(fts, lastHitSurface);
-  }
-  auto& startingState = tsosDouble.first;
-
-  if (!startingState.isValid()) {
-    edm::LogWarning("MkFitOutputTrackConverter")
-        << "startingState is not valid, FTS was\n"
-        << fts << " last hit surface surface:"
-        << "\n position " << lastHitSurface.position() << "\n phiSpan " << lastHitSurface.phiSpan().first << ","
-        << lastHitSurface.phiSpan().first << "\n rSpan " << lastHitSurface.rSpan().first << ","
-        << lastHitSurface.rSpan().first << "\n zSpan " << lastHitSurface.zSpan().first << ","
-        << lastHitSurface.zSpan().first;
-    return std::pair<TrajectoryStateOnSurface, const GeomDet*>();
-  }
-
-  // Then return back to the logic from TransientInitialStateEstimator
-  startingState.rescaleError(100.);
-
-  // avoid cloning
-  KFUpdator const aKFUpdator;
-  Chi2MeasurementEstimator const aChi2MeasurementEstimator(100., 3);
-  KFTrajectoryFitter backFitter(
-      &propagatorAlong, &aKFUpdator, &aChi2MeasurementEstimator, firstHits.size(), nullptr, &hitCloner);
-
-  // assume for now that the propagation in mkfit always alongMomentum
-  PropagationDirection backFitDirection = oppositeToMomentum;
-
-  // only direction matters in this context
-  TrajectorySeed fakeSeed(PTrajectoryStateOnDet(), edm::OwnVector<TrackingRecHit>(), backFitDirection);
-
-  // ignore loopers for now
-  Trajectory fitres = backFitter.fitOne(fakeSeed, firstHits, startingState, TrajectoryFitter::standard);
-
-  LogDebug("MkFitOutputTrackConverter") << "using a backward fit of :" << firstHits.size() << " hits, starting from:\n"
-                                        << startingState << " to get the estimate of the initial state of the track.";
-
-  if (!fitres.isValid()) {
-    edm::LogWarning("MkFitOutputTrackConverter") << "FitTester: first hits fit failed";
-    return std::pair<TrajectoryStateOnSurface, const GeomDet*>();
-  }
-
-  TrajectoryMeasurement const& firstMeas = fitres.lastMeasurement();
-
-  // magnetic field can be different!
-  TrajectoryStateOnSurface firstState(firstMeas.updatedState().localParameters(),
-                                      firstMeas.updatedState().localError(),
-                                      firstMeas.updatedState().surface(),
-                                      propagatorAlong.magneticField());
-
-  firstState.rescaleError(100.);
-
-  LogDebug("MkFitOutputTrackConverter") << "the initial state is found to be:\n:" << firstState
-                                        << "\n it's field pointer is: " << firstState.magneticField()
-                                        << "\n the pointer from the state of the back fit was: "
-                                        << firstMeas.updatedState().magneticField();
-
-  return std::make_pair(firstState, firstMeas.recHit()->det());
 }
 
 std::pair<TrajectoryStateOnSurface, const GeomDet*> MkFitOutputTrackConverter::convertInnermostState(
