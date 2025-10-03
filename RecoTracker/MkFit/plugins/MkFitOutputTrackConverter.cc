@@ -553,11 +553,9 @@ void MkFitOutputTrackConverter::convertCandidates(const MkFitOutputWrapper& mkFi
 
     trk.appendHits(recHits.begin(), recHits.end(), tTopo);
 
-    //extra hits
-    const auto* outerLayer = detLayers.at(tTopo.layer(recHits.back().geographicalId()));
-    //const auto* outerLayer = detLayers.at(mkFitGeom.mkFitLayerNumber(recHits.back().geographicalId()));
-    const auto* innerLayer = detLayers.at(tTopo.layer(recHits.front().geographicalId()));
-    //const auto* innerLayer = detLayers.at(mkFitGeom.mkFitLayerNumber(recHits.front().geographicalId()));
+    //extra hits (taken from TrackProducerBase<T>::setSecondHitPattern)
+    const auto* outerLayer = detLayers.at(mkFitGeom.mkFitLayerNumber(recHits.back().geographicalId()));
+    const auto* innerLayer = detLayers.at(mkFitGeom.mkFitLayerNumber(recHits.front().geographicalId()));
     auto const& innerCompLayers =
         navSchool.compatibleLayers(*innerLayer, fts, oppositeToMomentum);  //fts only innermost hit here
     auto const& outerCompLayers =
