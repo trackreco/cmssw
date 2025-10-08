@@ -164,7 +164,7 @@ MkFitOutputTrackConverter::MkFitOutputTrackConverter(edm::ParameterSet const& iC
       qualityMaxZ_{float(iConfig.getParameter<double>("qualityMaxZ"))},
       qualityMaxPosErrSq_{float(pow(iConfig.getParameter<double>("qualityMaxPosErr"), 2))},
       qualitySignPt_{iConfig.getParameter<bool>("qualitySignPt")},
-      measurementTrackerEventToken_{consumes<MeasurementTrackerEvent>(edm::InputTag("MeasurementTrackerEvent"))},
+      measurementTrackerEventToken_{consumes(iConfig.getParameter<edm::InputTag>("measurementTrackerEvent"))},
       navToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("NavigationSchool"))},
       algo_{reco::TrackBase::algoByName(
           TString(iConfig.getParameter<edm::InputTag>("seeds").label()).ReplaceAll("Seeds", "").Data())},
@@ -195,7 +195,7 @@ void MkFitOutputTrackConverter::fillDescriptions(edm::ConfigurationDescriptions&
   desc.add<bool>("qualitySignPt", true)->setComment("check sign of 1/pt for converted tracks");
 
   desc.add<edm::ESInputTag>("NavigationSchool", edm::ESInputTag{"", "SimpleNavigationSchool"});
-  //desc.add<std::string>("MeasurementTracker", "");
+  desc.add<edm::InputTag>("measurementTrackerEvent", edm::InputTag("MeasurementTrackerEvent"));
 
   descriptions.addWithDefaultLabel(desc);
 }
