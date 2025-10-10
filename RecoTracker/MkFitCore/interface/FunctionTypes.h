@@ -39,8 +39,8 @@ namespace mkfit {
                                const bool inFindCandidates);
   using track_score_func = std::function<track_score_cf>;
 
-  using cpe_fc = bool(int orig_hit_idx, float ltp_arr[6], float (&hit_arr)[5]);
-  using cpe_func = std::function<cpe_fc>;
+  using cpe_cf = bool(int orig_hit_idx, float ltp_arr[6], float (&hit_arr)[5]);
+  using cpe_func = std::function<cpe_cf>;
 
 }  // end namespace mkfit
 

@@ -428,10 +428,10 @@ void MkFitOutputTrackConverter::convertCandidates(const MkFitOutputWrapper& mkFi
                 thit.firstClusterRef().cluster_phase2OT()));
           }
         }
-       LogTrace("MkFitOutputTrackConverter")
-           << "  pos " << recHits.back().globalPosition().x() << " " << recHits.back().globalPosition().y() << " "
-           << recHits.back().globalPosition().z() << " mag2 " << recHits.back().globalPosition().mag2() << " detid "
-           << recHits.back().geographicalId().rawId() << " cluster " << hitOnTrack.index;
+        LogTrace("MkFitOutputTrackConverter")
+            << "  pos " << recHits.back().globalPosition().x() << " " << recHits.back().globalPosition().y() << " "
+            << recHits.back().globalPosition().z() << " mag2 " << recHits.back().globalPosition().mag2() << " detid "
+            << recHits.back().geographicalId().rawId() << " cluster " << hitOnTrack.index;
         //lastHitInvalid = false;
       }
     }
@@ -492,16 +492,16 @@ void MkFitOutputTrackConverter::convertCandidates(const MkFitOutputWrapper& mkFi
 
     const bool lastHitChanged = (recHits.back().geographicalId() != lastHitId);  // TODO: make use of the bools
 
-//     for (auto &recHit: recHits){
-//
-//       std::cout  << "sorted  pos " << recHit.globalPosition().x() << " " << recHit.globalPosition().y() << " "
-//             << recHit.globalPosition().z() << " mag2 " << recHit.globalPosition().mag2() << " detid "
-//             << recHit.geographicalId().rawId() << " layer "<< tTopo.layer(recHit.geographicalId()) << " layer "<< mkFitGeom.mkFitLayerNumber(recHit.geographicalId()) << std::endl;
-//
-//
-//     }
-//     std::cout << tTopo.layer(recHits.front().geographicalId()) << std::endl;
-//     std::cout << tTopo.layer(recHits.back().geographicalId()) << std::endl;
+    //     for (auto &recHit: recHits){
+    //
+    //       std::cout  << "sorted  pos " << recHit.globalPosition().x() << " " << recHit.globalPosition().y() << " "
+    //             << recHit.globalPosition().z() << " mag2 " << recHit.globalPosition().mag2() << " detid "
+    //             << recHit.geographicalId().rawId() << " layer "<< tTopo.layer(recHit.geographicalId()) << " layer "<< mkFitGeom.mkFitLayerNumber(recHit.geographicalId()) << std::endl;
+    //
+    //
+    //     }
+    //     std::cout << tTopo.layer(recHits.front().geographicalId()) << std::endl;
+    //     std::cout << tTopo.layer(recHits.back().geographicalId()) << std::endl;
 
     // seed
     const auto seedIndex = cand.label();
