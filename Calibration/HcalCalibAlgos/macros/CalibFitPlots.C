@@ -13,22 +13,22 @@
 //                debug=false
 //
 //             Same as FitHistExtend with summary of each ieta/depth
-//  FitHistExtended2(infile, outfile, prefix, numb, append, iname, debug);
-//      Defaults: numb=50, append=true, iname=3, debug=false
+//  FitHistExtended2(infile, outfile, prefix, numb, type, append, iname, debug);
+//      Defaults: numb=50, type=0, append=true, iname=3, debug=false
 //
 //             For RBX dependence in sets of histograms from CalibMonitor
 //  FitHistRBX(infile, outfile, prefix, append, iname);
-//      Defaults: append=true, iname=2
+//      Defaults: append=true, iname=3
 //
 //             For plotting stored histograms from FitHist's
 //  PlotHist(infile, prefix, text, modePlot, kopt, lumi, ener, isRealData,
 //           drawStatBox, save);
-//      Defaults: modePlot=4, kopt=100, lumi=0, ener=13, isRealData=false,
+//      Defaults: modePlot=4, kopt=100, lumi=0, ener=13.0, isRealData=false,
 //                drawStatBox=true, save=0
 //
 //             For plotting histograms corresponding to individual ieta's
 //  PlotHistEta(infile, prefix, text, iene, numb, ieta, lumi, ener, isRealData,
-//           drawStatBox, save);
+//              drawStatBox, save);
 //      Defaults iene=3, numb=50, ieta=0, lumi=0, ener=13.0, isRealData=false,
 //                drawStatBox=true, save=0
 //
@@ -42,23 +42,27 @@
 //             prefixes residing in the same file with approrprate text
 //  PlotTwoHists(infile, prefix1, text1, prefix2, text2, text0, type, iname,
 //               lumi, ener, drawStatBox, save);
-//      Defaults: type=0; iname=2; lumi=0; ener=13; drawStatBox=true;
+//      Defaults: type=0; iname=3; lumi=0; ener=13.0; drawStatBox=0;
 //                save=0;
 //      Note prefixN, textN have the same meaning as prefix and text for set N
 //           text0 is the text for general title added within ()
 //           type=0 plots response distributions and MPV of response vs ieta
 //               =1 plots MPV of response vs RBX #
+//           *drawStatBox* is of type *int* here specifying the index for
+//           calling SetOptStat and SetOptFit
 //
 //             For plotting stored histograms from CalibTree
 //  PlotFiveHists(infile, text0, prefix0, type, iname, drawStatBox, normalize,
 //                save, prefix1, text1, prefix2, text2, prefix3, text3,
 //                 prefix4, text4, prefix5, text5);
-//      Defaults: type=0; iname=0; drawStatBox=true; normalize=false;
+//      Defaults: type=0; iname=3; drawStatBox=0; normalize=false;
 //                save=0; prefixN=""; textN=""; (for N > 0)
 //      Note prefixN, textN have the same meaning as prefix and text for set N
 //           text0 is the text for general title added within ()
 //           prefix0 is the tag attached to the canvas name
 //           type has the same meaning as in PlotTwoHists
+//           *drawStatBox* is of type *int* here specifying the index for
+//           calling SetOptStat and SetOptFit
 //
 //  PlotHistCorrResults(infile, text, prefixF, save);
 //      Defaults: save=0
@@ -66,14 +70,14 @@
 //             For plotting correction factors
 //  PlotHistCorrFactor(infile, text, prefixF, scale, nmin, isRealData,
 //                     drawStatBox, iformat, save);
-//      Defaults: isRealData=true, drwaStatBox=false, nmin=100, iformat=0,
-//                save=0
+//      Defaults: scale=1.0, nmin=100, isRealData=true, drawStatBox=false,
+//                iformat=0, save=0
 //
 //             For plotting correction factors for a sigle depth
 //  PlotHistCorrFactor(infile, text, depth, prefixF, scale, nmin, isRealData,
 //                     drawStatBox, iformat, save);
-//      Defaults: isRealData=true, drwaStatBox=false, nmin=100, iformat=0,
-//                save=0
+//      Defaults: scale=1.0, nmin=100, isRealData=true, drwaStatBox=false,
+//                iformat=0, save=0
 //
 //             For plotting (fractional) asymmetry in the correction factors
 //
@@ -85,20 +89,23 @@
 //
 //  PlotHistCorrFactors(infile1, text1, infile2, text2, infile3, text3,
 //                      infile4, text4, infile5, text5, prefixF, ratio,
-//                      drawStatBox, nmin, isRealData, year, iformat, save)
+//                      drawStatBox, nmin, isRealData, year, iformat, range,
+//                      save)
 //      Defaults: ratio=false, drawStatBox=true, nmin=100, isRealData=false,
-//                year="2024", iformat=0, save=0
+//                year="2025", iformat=0, range=1, save=0
 //
 //  PlotHistCorr2Factors(infile1, text1, infile2, text2, depth, prefixF, ratio,
-//                      drawStatBox, nmin, isRealData, year, iformat, save)
+//                      drawStatBox, nmin, isRealData, year, iformat, range,
+//                      save)
 //      Defaults: ratio=true, drawStatBox=false, nmin=100, isRealData=true,
-//                year="2024", iformat=0, save=0
+//                year="2025", iformat=0, range=1, save=0
 //
 //  PlotHistCorrDFactors(infile1, text1, infile2, text2, infile3, text3,
 //                      infile4, text4, infile5, text5, depth, prefixF, ratio,
-//                      drawStatBox, nmin, isRealData, year, iformat, save)
+//                      drawStatBox, nmin, isRealData, year, iformat, range,
+//                      save)
 //      Defaults: ratio=true, drawStatBox=false, nmin=100, isRealData=true,
-//                year="2024", iformat=0, save=0
+//                year="2025", iformat=0, range=0, save=0
 //
 //             For plotting correction factors including systematics
 //  PlotHistCorrSys(infilec, conds, text, save)
@@ -115,8 +122,8 @@
 //
 //             For plotting difference of correction factors for a given depth
 //  PlotHistCorrDepth(infile1, infile2, text1, text2, depth, iformat1, iformat2,
-//                    save)
-//      Defaults: iformat1=0, iformat2=0, save=0
+//                    save, debug)
+//      Defaults: iformat1=0, iformat2=0, save=0, debug=1
 //
 //             For plotting four histograms
 //  PlotFourHists(infile, prefix0, type, drawStatBox, normalize, save, prefix1,
@@ -126,26 +133,26 @@
 //
 //            For plotting PU corrected histograms (o/p of CalibPlotCombine)
 //  PlotPUCorrHists(infile, prefix drawStatBox, approve, save)
-//      Defaults: infile = "corrfac.root", prefix = "", drawStatBox = 0,
-//                approve = true, save = 0
+//      Defaults: infile="corrfac.root", prefix="", drawStatBox=0,
+//                approve=true, save=0
 //
 //             For plotting histograms obtained from fits to PU correction
 //             (o/p of CalibFitPU) for a given ieta using 2D/profile/Graphs
 //  PlotHistCorr(infile, prefix, text, eta, mode, drawStatBox, save)
-//      Defaults eta = 0 (all ieta values), mode = 1 (profile histograms),
-//               drawStatBox = true, save = 0
+//      Defaults eta=0 (all ieta values), mode=1 (profile histograms),
+//               drawStatBox=true, save=0
 //
 //             For plotting histograms created by CalibPlotProperties
 //  PlotPropertyHist(infile, prefix, text, etaMax, lumi, ener, isRealData,
 //		     drawStatBox, save)
-//      Defaults etaMax = 25 (draws for eta = 1 .. etaMax), lumi = 0,
-//               ener = 13.0, isRealData = false,  drawStatBox = true, save = 0
+//      Defaults etaMax=25 (draws for eta = 1 .. etaMax), lumi=0,
+//               ener=13.0, isRealData=false,  drawStatBox=true, save=0
 //
 //            For plotting mean response and resolution as a function of
 //            particle momentum
 //  PlotMeanError(infilest, region, resol, save, debug)
-//      Defaults region = 3 (overall), resol = false (response), save = 0,
-//               debug = false
+//      Defaults region=3 (overall), resol=false (response), save=0,
+//               debug=false
 //      Format of the input file:
 //       # of energy points, # of types, # of regions
 //       Then for each type, energy point
@@ -155,18 +162,26 @@
 //
 //            For plotting depth dependent correction factors from muon study
 //  PlotDepthCorrFactor(infile, text, prefix, isRealData, drawStatBox, save)
-//      Defaults prefix = "", isRealData = true, drawStatBox = true, save = 0
+//      Defaults prefix="", isRealData=true, drawStatBox=true, save=0
 //      Format for the input file: ieta and correcrion factor with its
 //             uncertainty for each depth
+//
+//            For plotting histogram defined in "hist0" of phisymmetry
+//  DrawHistPhiSymmetry(hist0, isRealData, drawStatBox, save)
+//      Defaults save=false
+//
+//            For plotting phisymmetry results
+//  PlotPhiSymmetryResults(char* infile, isRealData, drawStatBox, debug, save)
+//      Defaults isRealData=true, drawStatBox=true, debug=false, save=false
 //
 //            For plotting ratio of correction factors as defined in a file
 //            give by infileX for 2 depths (depth1, depth2) as a function of
 //            ieta obaned from 2 sources of data (defined by text1 and text2)
 //  PlotHistCorrRatio(infile1, text1, infile2, text2, depth1, depth2, prefix,
 //                    text0, etaMin, etaMax, doFit, isRealData, year, iformat,
-//                    save)
-//      Defaults etaMin = -1, etaMax = -1, doFit = true, isRealData = true,
-//               year = "2024", iformat = 0, save = 0
+//                    range, save)
+//      Defaults etaMin=-1, etaMax=-1, doFit=true, isRealData=true,
+//               year="2025", iformat=0, range=2, save=0
 //      text0 is a general description common to both sets of corr factors
 //      etaMin < 0 and etaMax > 0 will take ieta range from -etaMax to +etaMax;
 //      etaMin > 0 will select ieta's where |ieta| is greater than etaMin
@@ -235,6 +250,11 @@
 //                           false = response (false)
 //  iformat  (int)         = flag if it is created by standard (0) or by
 //                           Marina's (1) code
+//  range    (int)         = sets the range for y-axis
+//                           if (range == 0) ylow = 0.8; yhigh = 1.2;
+//                           else if (range == 1) ylow = 0.5; yhigh = 1.5;
+//                           else if (range == 2) ylow = 0.0; yhigh = 3.0;
+//                           else ylow = 0.0; yhigh = 2.0;
 //////////////////////////////////////////////////////////////////////////////
 
 #include <TCanvas.h>
@@ -265,6 +285,7 @@
 #include "CalibCorr.C"
 
 const double fitrangeFactor = 1.5;
+const double fitrangeFactor1 = 1.2;
 
 struct cfactors {
   int ieta, depth;
@@ -445,7 +466,7 @@ results fitTwoGauss(TH1D* hist, bool debug) {
   std::pair<double, double> mrms = GetMean(hist, 0.2, 2.0, rms);
   double mean = mrms.first;
   double LowEdge = mean - fitrangeFactor * rms;
-  double HighEdge = mean + fitrangeFactor * rms;
+  double HighEdge = mean + fitrangeFactor1 * rms;
   if (LowEdge < 0.15)
     LowEdge = 0.15;
   std::string option = (hist->GetEntries() > 100) ? "QRS" : "QRWLS";
@@ -482,7 +503,7 @@ results fitTwoGauss(TH1D* hist, bool debug) {
   highValue[5] = 100. * startvalues[5];
   //fitrange[0] = mean - 2.0*rms; fitrange[1] = mean + 2.0*rms;
   fitrange[0] = Fit->Value(1) - fitrangeFactor * Fit->Value(2);
-  fitrange[1] = Fit->Value(1) + fitrangeFactor * Fit->Value(2);
+  fitrange[1] = Fit->Value(1) + fitrangeFactor1 * Fit->Value(2);
   TFitResultPtr Fitfun = functionFit(hist, fitrange, startvalues, lowValue, highValue);
   double wt1 = (Fitfun->Value(0)) * (Fitfun->Value(2));
   double value1 = Fitfun->Value(1);
@@ -514,7 +535,8 @@ results fitOneGauss(TH1D* hist, bool fitTwice, bool debug) {
   std::pair<double, double> mrms = GetMean(hist, 0.2, 2.0, rms);
   double mean = mrms.first;
   double LowEdge = ((mean - fitrangeFactor * rms) < 0.5) ? 0.5 : (mean - fitrangeFactor * rms);
-  double HighEdge = (mean + fitrangeFactor * rms);
+  double diff = mean - LowEdge;
+  double HighEdge = (diff > fitrangeFactor1 * rms) ? (mean + fitrangeFactor1 * rms) : (mean + diff);
   if (debug)
     std::cout << hist->GetName() << " Mean " << mean << " RMS " << rms << " Range " << LowEdge << ":" << HighEdge
               << "\n";
@@ -531,9 +553,11 @@ results fitOneGauss(TH1D* hist, bool fitTwice, bool debug) {
   double werror = Fit1->FitResult::Error(2);
   if (fitTwice) {
     LowEdge = Fit1->Value(1) - fitrangeFactor * Fit1->Value(2);
-    HighEdge = Fit1->Value(1) + fitrangeFactor * Fit1->Value(2);
     if (LowEdge < 0.5)
       LowEdge = 0.5;
+    diff = Fit1->Value(1) - LowEdge;
+    HighEdge =
+        (diff > fitrangeFactor1 * rms) ? (Fit1->Value(1) + fitrangeFactor1 * Fit1->Value(2)) : (Fit1->Value(1) + diff);
     if (HighEdge > 5.0)
       HighEdge = 5.0;
     if (debug)
@@ -549,6 +573,94 @@ results fitOneGauss(TH1D* hist, bool fitTwice, bool debug) {
   std::pair<double, double> rmserr = GetWidth(hist, 0.2, 2.0);
   if (debug) {
     std::cout << "Fit " << value << ":" << error << ":" << hist->GetMeanError() << " Mean " << meaner.first << ":"
+              << meaner.second << " Width " << rmserr.first << ":" << rmserr.second;
+  }
+  double minvalue(0.30);
+  if (value < minvalue || value > 2.0 || error > 0.5) {
+    value = meaner.first;
+    error = meaner.second;
+    width = rmserr.first;
+    werror = rmserr.second;
+  }
+  if (debug) {
+    std::cout << " Final " << value << "+-" << error << ":" << width << "+-" << werror << std::endl;
+  }
+  return results(value, error, width, werror);
+}
+
+double DoubleSidedCrystalballFunction(double* x, double* par) {
+  double alpha_l = par[0];
+  double alpha_h = par[1];
+  double n_l = par[2];
+  double n_h = par[3];
+  double mean = par[4];
+  double sigma = par[5];
+  double N = par[6];
+  float t = (x[0] - mean) / sigma;
+  double result;
+  double fact1TLessMinosAlphaL = alpha_l / n_l;
+  double fact2TLessMinosAlphaL = (n_l / alpha_l) - alpha_l - t;
+  double fact1THihgerAlphaH = alpha_h / n_h;
+  //  double fact2THigherAlphaH = (n_h/alpha_h) - alpha_h + t;
+
+  if (-alpha_l <= t && alpha_h >= t) {
+    result = exp(-0.5 * t * t);
+  } else if (t < -alpha_l) {
+    result = exp(-0.5 * alpha_l * alpha_l) * pow(fact1TLessMinosAlphaL * fact2TLessMinosAlphaL, -n_l);
+  } else if (t > alpha_h) {
+    result = exp(-0.5 * alpha_l * alpha_l) * pow(fact1THihgerAlphaH * fact1THihgerAlphaH, -n_h);
+  }
+  return N * result;
+}
+
+results fitDoubleSidedCrystalball(TH1D* hist, bool /* fitTwice */, bool debug) {
+  double rms;
+  std::pair<double, double> mrms = GetMean(hist, 0.2, 2.0, rms);
+  double mean = mrms.first;
+  double LowEdge = ((mean - fitrangeFactor * rms) < 0.5) ? 0.5 : (mean - fitrangeFactor * rms);
+  double diff = mean - LowEdge;
+  double HighEdge = (diff > fitrangeFactor1 * rms) ? (mean + fitrangeFactor1 * rms) : (mean + diff);
+  if (debug)
+    std::cout << hist->GetName() << " Mean " << mean << " RMS " << rms << " Range " << LowEdge << ":" << HighEdge
+              << "\n";
+  std::string option = (hist->GetEntries() > 100) ? "QRS" : "QRWLS";
+  TObject* ob = gROOT->FindObject("g1");
+  if (ob)
+    ob->Delete();
+  TF1* g1 = new TF1("g1", "gaus", LowEdge, HighEdge);
+  g1->SetLineColor(kGreen);
+  TFitResultPtr Fit1 = hist->Fit(g1, option.c_str(), "");
+  double value = Fit1->Value(1);
+  double error = Fit1->FitResult::Error(1);
+  double width = Fit1->Value(2);
+  double werror = Fit1->FitResult::Error(2);
+
+  LowEdge = Fit1->Value(1) - fitrangeFactor * Fit1->Value(2);
+  if (LowEdge < 0.5)
+    LowEdge = 0.5;
+  diff = Fit1->Value(1) - LowEdge;
+  HighEdge = (diff > fitrangeFactor1 * rms) ? (Fit1->Value(1) + fitrangeFactor1 * Fit1->Value(2))
+                                            : (Fit1->Value(1) + 1.5 * diff);
+  if (HighEdge > 5.0)
+    HighEdge = 5.0;
+  if (debug)
+    std::cout << " Range for second Fit " << LowEdge << ":" << HighEdge << std::endl;
+  TObject* ob2 = gROOT->FindObject("fitDSCB");
+  if (ob2 != nullptr)
+    ob2->Delete();
+  TF1* fitDSCB = new TF1("fitDSCB", DoubleSidedCrystalballFunction, LowEdge, HighEdge, 7);
+  fitDSCB->SetParameters(1, 2, 2, 1, value, width, hist->Integral(LowEdge, HighEdge));
+  fitDSCB->SetParNames("alpha_{low}", "alpha_{high}", "n_{low}", "n_{high}", "mean", "sigma", "Norm");
+  TFitResultPtr Fit = hist->Fit(fitDSCB, option.c_str(), "", LowEdge, HighEdge);
+  value = Fit->Value(4);
+  error = Fit->FitResult::Error(4);
+  width = Fit->Value(5);
+  werror = Fit->FitResult::Error(5);
+
+  std::pair<double, double> meaner = GetMean(hist, 0.2, 2.0, rms);
+  std::pair<double, double> rmserr = GetWidth(hist, 0.2, 2.0);
+  if (debug) {
+    std::cout << "FitDSCB " << value << ":" << error << ":" << hist->GetMeanError() << " Mean " << meaner.first << ":"
               << meaner.second << " Width " << rmserr.first << ":" << rmserr.second;
   }
   double minvalue(0.30);
@@ -636,7 +748,7 @@ void FitHistStandard(std::string infile,
   std::string xname[4] = {"i#eta", "i#eta", "d_{L1}", "# Vertex"};
   int numb[4] = {10, 8, 8, 5};
 
-  if (type == 0) {
+  if ((type % 10) == 0) {
     numb[0] = 8;
     for (int i = 0; i < 9; ++i)
       xbins[i] = xbin0[i];
@@ -679,7 +791,8 @@ void FitHistStandard(std::string infile,
             }
             if (hist->GetEntries() > 4) {
               bool flag = (j == 0) ? true : false;
-              results meaner = fitOneGauss(hist, flag, debug);
+              results meaner = (((type / 10) % 10) == 0) ? fitOneGauss(hist, flag, debug)
+                                                         : fitDoubleSidedCrystalball(hist, flag, debug);
               value = meaner.mean;
               error = meaner.errmean;
               width = meaner.width;
@@ -752,11 +865,11 @@ void FitHistExtended(const char* infile,
   double xbins[99];
   double xbin[23] = {-23.0, -21.0, -19.0, -17.0, -15.0, -13.0, -11.0, -9.0, -7.0, -5.0, -3.0, 0.0,
                      3.0,   5.0,   7.0,   9.0,   11.0,  13.0,  15.0,  17.0, 19.0, 21.0, 23.0};
-  if (type == 2) {
+  if ((type % 10) == 2) {
     numb = 22;
     for (int k = 0; k <= numb; ++k)
       xbins[k] = xbin[k];
-  } else if (type == 1) {
+  } else if ((type % 10) == 1) {
     numb = 1;
     xbins[0] = -25;
     xbins[1] = 25;
@@ -798,7 +911,8 @@ void FitHistExtended(const char* infile,
       }
       if (hist0->GetEntries() > 10) {
         double rms;
-        results meaner0 = fitOneGauss(hist0, true, debug);
+        results meaner0 =
+            (((type / 10) % 10) == 0) ? fitOneGauss(hist0, true, debug) : fitDoubleSidedCrystalball(hist0, true, debug);
         std::pair<double, double> meaner1 = GetMean(hist0, 0.2, 2.0, rms);
         std::pair<double, double> meaner2 = GetWidth(hist0, 0.2, 2.0);
         if (debug) {
@@ -842,13 +956,15 @@ void FitHistExtended(const char* infile,
               TH1D* hist2 = (TH1D*)hist1->Clone(name);
               fitOneGauss(hist2, true, debug);
               hists.push_back(hist2);
-              results meaner = fitOneGauss(hist, true, debug);
+              results meaner = (((type / 10) % 10) == 0) ? fitOneGauss(hist, true, debug)
+                                                         : fitDoubleSidedCrystalball(hist, true, debug);
               value = meaner.mean;
               error = meaner.errmean;
               width = meaner.width;
               werror = meaner.errwidth;
             } else {
-              results meaner = fitOneGauss(hist, true, debug);
+              results meaner = (((type / 10) % 10) == 0) ? fitOneGauss(hist, true, debug)
+                                                         : fitDoubleSidedCrystalball(hist, true, debug);
               value = meaner.mean;
               error = meaner.errmean;
               width = meaner.width;
@@ -919,7 +1035,8 @@ void FitHistExtended(const char* infile,
           if (total > 4) {
             sprintf(name, "%sOne", hist1->GetName());
             TH1D* hist2 = (TH1D*)hist1->Clone(name);
-            results meanerr = fitOneGauss(hist2, true, debug);
+            results meanerr = (((type / 10) % 10) == 0) ? fitOneGauss(hist2, true, debug)
+                                                        : fitDoubleSidedCrystalball(hist2, true, debug);
             value = meanerr.mean;
             error = meanerr.errmean;
             width = meanerr.width;
@@ -936,7 +1053,8 @@ void FitHistExtended(const char* infile,
               hists.push_back(hist3);
             }
             //            results meaner0 = fitTwoGauss(hist, debug);
-            results meaner0 = fitOneGauss(hist, true, debug);
+            results meaner0 = (((type / 10) % 10) == 0) ? fitOneGauss(hist, true, debug)
+                                                        : fitDoubleSidedCrystalball(hist, true, debug);
             value = meaner0.mean;
             error = meaner0.errmean;
             double rms;
@@ -980,6 +1098,7 @@ void FitHistExtended2(const char* infile,
                       const char* outfile,
                       std::string prefix,
                       int numb = 50,
+                      int type = 0,
                       bool append = true,
                       int iname = 3,
                       bool debug = false) {
@@ -1053,13 +1172,15 @@ void FitHistExtended2(const char* infile,
               TH1D* hist2 = (TH1D*)hist1->Clone(name);
               fitOneGauss(hist2, true, debug);
               hists.push_back(hist2);
-              results meaner = fitOneGauss(hist, true, debug);
+              results meaner = (((type / 10) % 10) == 0) ? fitOneGauss(hist, true, debug)
+                                                         : fitDoubleSidedCrystalball(hist, true, debug);
               value = meaner.mean;
               error = meaner.errmean;
               width = meaner.width;
               werror = meaner.errwidth;
             } else {
-              results meaner = fitOneGauss(hist, true, debug);
+              results meaner = (((type / 10) % 10) == 0) ? fitOneGauss(hist, true, debug)
+                                                         : fitDoubleSidedCrystalball(hist, true, debug);
               value = meaner.mean;
               error = meaner.errmean;
               width = meaner.width;
@@ -1135,7 +1256,8 @@ void FitHistExtended2(const char* infile,
           if (total > 4) {
             sprintf(name, "%sOne", hist1->GetName());
             TH1D* hist2 = (TH1D*)hist1->Clone(name);
-            results meanerr = fitOneGauss(hist2, true, debug);
+            results meanerr = (((type / 10) % 10) == 0) ? fitOneGauss(hist2, true, debug)
+                                                        : fitDoubleSidedCrystalball(hist2, true, debug);
             value = meanerr.mean;
             error = meanerr.errmean;
             width = meanerr.width;
@@ -1145,7 +1267,8 @@ void FitHistExtended2(const char* infile,
             std::cout << hist2->GetName() << " MPV " << value << " +- " << error << " Width " << width << " +- "
                       << werror << " W/M " << wbyv << " +- " << wverr << std::endl;
             hists.push_back(hist2);
-            results meaner0 = fitOneGauss(hist, true, debug);
+            results meaner0 = (((type / 10) % 10) == 0) ? fitOneGauss(hist, true, debug)
+                                                        : fitDoubleSidedCrystalball(hist, true, debug);
             value = meaner0.mean;
             error = meaner0.errmean;
             double rms;
@@ -2220,6 +2343,7 @@ void PlotHistCorrFactor(char* infile,
   int nbin = etamax - etamin + 1;
   std::vector<TH1D*> hists;
   std::vector<int> entries;
+  std::vector<int> depths;
   char name[100];
   double dy(0);
   int fits(0);
@@ -2254,17 +2378,20 @@ void PlotHistCorrFactor(char* infile,
       TF1* func = new TF1(name, "pol0", etamin, etamax);
       h->Fit(func, "+QWLR", "");
     }
-    h->SetLineColor(colors[j]);
-    h->SetMarkerColor(colors[j]);
-    h->SetMarkerStyle(mtype[j]);
-    h->GetXaxis()->SetTitle("i#eta");
-    h->GetYaxis()->SetTitle("Correction Factor");
-    h->GetYaxis()->SetLabelOffset(0.005);
-    h->GetYaxis()->SetTitleOffset(1.20);
-    h->GetYaxis()->SetRangeUser(0.0, 2.0);
-    hists.push_back(h);
-    entries.push_back(nent);
-    dy += 0.025;
+    if (nent > 0) {
+      h->SetLineColor(colors[j]);
+      h->SetMarkerColor(colors[j]);
+      h->SetMarkerStyle(mtype[j]);
+      h->GetXaxis()->SetTitle("i#eta");
+      h->GetYaxis()->SetTitle("Correction Factor");
+      h->GetYaxis()->SetLabelOffset(0.005);
+      h->GetYaxis()->SetTitleOffset(1.20);
+      h->GetYaxis()->SetRangeUser(0.0, 2.5);
+      hists.push_back(h);
+      entries.push_back(nent);
+      depths.push_back(j + 1);
+      dy += 0.025;
+    }
   }
   sprintf(name, "c_%sCorrFactor", prefixF.c_str());
   TCanvas* pad = new TCanvas(name, name, 700, 500);
@@ -2292,7 +2419,7 @@ void PlotHistCorrFactor(char* infile,
       st1->SetX2NDC(0.90);
       yh -= dy;
     }
-    sprintf(name, "Depth %d (%s)", k + 1, text.c_str());
+    sprintf(name, "Depth %d (%s)", depths[k], text.c_str());
     legend->AddEntry(hists[k], name, "lp");
   }
   legend->Draw("same");
@@ -2493,7 +2620,7 @@ void PlotHistCorrAsymmetry(
   std::vector<int> entries;
   char name[100];
   double dy(0);
-  int maxd = (depth < 0) ? maxdepth : 1;
+  int maxd = (depth <= 0) ? maxdepth : 1;
   for (int j = 0; j < maxd; ++j) {
     int dep = (depth <= 0) ? (j + 1) : depth;
     sprintf(name, "hd%d", dep);
@@ -2590,8 +2717,9 @@ void PlotHistCorrFactors(char* infile1,
                          bool drawStatBox = true,
                          int nmin = 100,
                          bool isRealData = false,
-                         const char* year = "2024",
+                         const char* year = "2025",
                          int iformat = 0,
+                         int range = 1,
                          int save = 0) {
   std::map<int, cfactors> cfacs[5];
   std::vector<std::string> texts;
@@ -2639,6 +2767,20 @@ void PlotHistCorrFactors(char* infile1,
     gStyle->SetPadColor(kWhite);
     gStyle->SetFillColor(kWhite);
     gStyle->SetOptTitle(0);
+    double ylow, yhigh;
+    if (range == 0) {
+      ylow = 0.8;
+      yhigh = 1.2;
+    } else if (range == 1) {
+      ylow = 0.5;
+      yhigh = 1.5;
+    } else if (range == 2) {
+      ylow = 0.0;
+      yhigh = 3.0;
+    } else {
+      ylow = 0.0;
+      yhigh = 2.0;
+    }
     if ((!ratio) && drawStatBox) {
       gStyle->SetOptStat(10);
       gStyle->SetOptFit(10);
@@ -2701,7 +2843,7 @@ void PlotHistCorrFactors(char* infile1,
           h->GetYaxis()->SetLabelOffset(0.005);
           h->GetYaxis()->SetTitleSize(0.036);
           h->GetYaxis()->SetTitleOffset(1.20);
-          h->GetYaxis()->SetRangeUser(0.50, 1.50);
+          h->GetYaxis()->SetRangeUser(ylow, yhigh);
           hists.push_back(h);
           fitr.push_back(fit);
           htype.push_back(ih);
@@ -2752,7 +2894,7 @@ void PlotHistCorrFactors(char* infile1,
           h->GetYaxis()->SetTitle("Correction Factor");
           h->GetYaxis()->SetLabelOffset(0.005);
           h->GetYaxis()->SetTitleOffset(1.20);
-          h->GetYaxis()->SetRangeUser(0.5, 1.5);
+          h->GetYaxis()->SetRangeUser(ylow, yhigh);
           hists.push_back(h);
           entries.push_back(nent);
           if (drawStatBox)
@@ -2845,8 +2987,9 @@ void PlotHistCorr2Factors(char* infile1,
                           bool drawStatBox = false,
                           int nmin = 100,
                           bool isRealData = true,
-                          const char* year = "2024",
+                          const char* year = "2025",
                           int iformat = 0,
+                          int range = 1,
                           int save = 0) {
   std::map<int, cfactors> cfacs[5];
   std::vector<std::string> texts;
@@ -2873,6 +3016,20 @@ void PlotHistCorr2Factors(char* infile1,
     gStyle->SetPadColor(kWhite);
     gStyle->SetFillColor(kWhite);
     gStyle->SetOptTitle(0);
+    double ylow, yhigh;
+    if (range == 0) {
+      ylow = 0.8;
+      yhigh = 1.2;
+    } else if (range == 1) {
+      ylow = 0.5;
+      yhigh = 1.5;
+    } else if (range == 2) {
+      ylow = 0.0;
+      yhigh = 3.0;
+    } else {
+      ylow = 0.0;
+      yhigh = 2.0;
+    }
     if ((!ratio) && drawStatBox) {
       gStyle->SetOptStat(10);
       gStyle->SetOptFit(10);
@@ -2929,7 +3086,7 @@ void PlotHistCorr2Factors(char* infile1,
         h->GetYaxis()->SetLabelOffset(0.005);
         h->GetYaxis()->SetTitleSize(0.036);
         h->GetYaxis()->SetTitleOffset(1.20);
-        h->GetYaxis()->SetRangeUser(0.80, 1.20);
+        h->GetYaxis()->SetRangeUser(ylow, yhigh);
         hists.push_back(h);
         fitr.push_back(fit);
         htype.push_back(ih);
@@ -2974,7 +3131,7 @@ void PlotHistCorr2Factors(char* infile1,
         h->GetYaxis()->SetTitle("Correction Factor");
         h->GetYaxis()->SetLabelOffset(0.005);
         h->GetYaxis()->SetTitleOffset(1.20);
-        h->GetYaxis()->SetRangeUser(0.8, 1.2);
+        h->GetYaxis()->SetRangeUser(ylow, yhigh);
         hists.push_back(h);
         entries.push_back(nent);
         if (drawStatBox)
@@ -3067,8 +3224,9 @@ void PlotHistCorrDFactors(char* infile1,
                           bool drawStatBox = false,
                           int nmin = 100,
                           bool isRealData = true,
-                          const char* year = "2024",
+                          const char* year = "2025",
                           int iformat = 0,
+                          int range = 0,
                           int save = 0) {
   std::map<int, cfactors> cfacs[5];
   std::vector<std::string> texts;
@@ -3116,6 +3274,20 @@ void PlotHistCorrDFactors(char* infile1,
     gStyle->SetPadColor(kWhite);
     gStyle->SetFillColor(kWhite);
     gStyle->SetOptTitle(0);
+    double ylow, yhigh;
+    if (range == 0) {
+      ylow = 0.8;
+      yhigh = 1.2;
+    } else if (range == 1) {
+      ylow = 0.5;
+      yhigh = 1.5;
+    } else if (range == 2) {
+      ylow = 0.0;
+      yhigh = 3.0;
+    } else {
+      ylow = 0.0;
+      yhigh = 2.0;
+    }
     if ((!ratio) && drawStatBox) {
       gStyle->SetOptStat(10);
       gStyle->SetOptFit(10);
@@ -3176,7 +3348,7 @@ void PlotHistCorrDFactors(char* infile1,
         h->GetYaxis()->SetLabelOffset(0.005);
         h->GetYaxis()->SetTitleSize(0.036);
         h->GetYaxis()->SetTitleOffset(1.20);
-        h->GetYaxis()->SetRangeUser(0.80, 1.20);
+        h->GetYaxis()->SetRangeUser(ylow, yhigh);
         hists.push_back(h);
         fitr.push_back(fit);
         htype.push_back(ih);
@@ -3221,7 +3393,7 @@ void PlotHistCorrDFactors(char* infile1,
         h->GetYaxis()->SetTitle("Correction Factor");
         h->GetYaxis()->SetLabelOffset(0.005);
         h->GetYaxis()->SetTitleOffset(1.20);
-        h->GetYaxis()->SetRangeUser(0.8, 1.2);
+        h->GetYaxis()->SetRangeUser(ylow, yhigh);
         hists.push_back(h);
         entries.push_back(nent);
         if (drawStatBox)
@@ -4330,7 +4502,7 @@ void PlotMeanError(const std::string infilest, int reg = 3, bool resol = false, 
   } else {
     ok = true;
     fInput >> nEner >> nType >> nPts;
-    int nmax = nEner * nType;
+    const int nmax = nEner * nType;
     int type, elow, ehigh;
     double v1[4], e1[4], v2[4], e2[4];
     for (int n = 0; n < nmax; ++n) {
@@ -4406,7 +4578,7 @@ void PlotMeanError(const std::string infilest, int reg = 3, bool resol = false, 
     legend->SetFillColor(kWhite);
     std::string nameg[ntypmx] = {"MAHI", "M0", "M2"};
     for (int n = 0; n < nType; ++n) {
-      unsigned int nmax0 = energy[n].size();
+      const unsigned int nmax0 = energy[n].size();
       double mom[nmax0], dmom[nmax0], mean[nmax0], dmean[nmax0];
       for (unsigned int k = 0; k < nmax0; ++k) {
         mom[k] = energy[n][k];
@@ -4620,7 +4792,7 @@ void PlotDepthCorrFactor(char* infile,
   }
 }
 
-void DrawHistPhiSymmetry(TH1D* hist0, bool isRealData, bool drawStatBox, bool save) {
+void DrawHistPhiSymmetry(TH1D* hist0, bool isRealData, bool drawStatBox, bool save = false) {
   char name[30], namep[30], txt1[30];
   TH1D* hist = (TH1D*)(hist0->Clone());
   sprintf(namep, "c_%s", hist->GetName());
@@ -4788,6 +4960,7 @@ void PlotHistCorrRatio(char* infile1,
                        bool isRealData = true,
                        const char* year = "2024",
                        int iformat = 0,
+                       int range = 2,
                        int save = 0) {
   std::map<int, cfactors> cfacs[2];
   std::vector<std::string> texts;
@@ -4824,6 +4997,20 @@ void PlotHistCorrRatio(char* infile1,
     } else {
       gStyle->SetOptStat(0);
       gStyle->SetOptFit(0);
+    }
+    double ylow, yhigh;
+    if (range == 0) {
+      ylow = 0.8;
+      yhigh = 1.2;
+    } else if (range == 1) {
+      ylow = 0.5;
+      yhigh = 1.5;
+    } else if (range == 2) {
+      ylow = 0.0;
+      yhigh = 3.0;
+    } else {
+      ylow = 0.0;
+      yhigh = 2.0;
     }
     int colors[7] = {1, 6, 4, 7, 2, 9, 3};
     int mtype[7] = {20, 21, 22, 23, 24, 25, 26};
@@ -4875,7 +5062,7 @@ void PlotHistCorrRatio(char* infile1,
       h->GetYaxis()->SetLabelOffset(0.005);
       h->GetYaxis()->SetTitleSize(0.036);
       h->GetYaxis()->SetTitleOffset(1.20);
-      h->GetYaxis()->SetRangeUser(0.0, 3.0);
+      h->GetYaxis()->SetRangeUser(ylow, yhigh);
       if (doFit) {
         TObject* ob = gROOT->FindObject(name);
         if (ob)

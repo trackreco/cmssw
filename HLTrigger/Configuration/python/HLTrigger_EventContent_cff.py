@@ -3,9 +3,9 @@ import FWCore.ParameterSet.Config as cms
 # EventContent for HLT-related products.
 
 # This file exports the following EventContent blocks:
-#   HLTrigger(RAW|RECO|AOD|MINIAOD) [without DEBUG products]
-#   HLTDebug(RAW|FEVT)              [with    DEBUG products]
-#   HLTScouting                     [only Scouting products]
+#   HLTrigger(RAW|RECO|AOD|MINIAOD{SIM}) [without DEBUG products]
+#   HLTDebug(RAW|FEVT)                   [with    DEBUG products]
+#   HLTScouting                          [only Scouting products]
 #
 # as these are used in Configuration/EventContent
 #
@@ -23,6 +23,7 @@ HLTriggerRAW = cms.PSet(
         'keep *_hltScoutingMuonPackerVtx_*_*',
         'keep *_hltScoutingPFPacker_*_*',
         'keep *_hltScoutingPrimaryVertexPacker_*_*',
+        'keep *_hltScoutingRecHitPacker_*_*',
         'keep *_hltScoutingTrackPacker_*_*',
         'keep edmTriggerResults_*_*_*'
     ) )
@@ -40,6 +41,7 @@ HLTriggerRECO = cms.PSet(
         'keep *_hltScoutingMuonPackerVtx_*_*',
         'keep *_hltScoutingPFPacker_*_*',
         'keep *_hltScoutingPrimaryVertexPacker_*_*',
+        'keep *_hltScoutingRecHitPacker_*_*',
         'keep *_hltScoutingTrackPacker_*_*',
         'keep edmTriggerResults_*_*_*'
     ) )
@@ -57,12 +59,28 @@ HLTriggerAOD = cms.PSet(
         'keep *_hltScoutingMuonPackerVtx_*_*',
         'keep *_hltScoutingPFPacker_*_*',
         'keep *_hltScoutingPrimaryVertexPacker_*_*',
+        'keep *_hltScoutingRecHitPacker_*_*',
         'keep *_hltScoutingTrackPacker_*_*',
         'keep edmTriggerResults_*_*_*'
     ) )
 )
 
 HLTriggerMINIAOD = cms.PSet(
+    outputCommands = cms.vstring( *(
+        'drop *_hlt*_*_*',
+        'keep *_hltFEDSelectorL1_*_*',
+        'keep *_hltScoutingEgammaPacker_*_*',
+        'keep *_hltScoutingMuonPackerNoVtx_*_*',
+        'keep *_hltScoutingMuonPackerVtx_*_*',
+        'keep *_hltScoutingPFPacker_*_*',
+        'keep *_hltScoutingPrimaryVertexPacker_*_*',
+        'keep *_hltScoutingRecHitPacker_*_*',
+        'keep *_hltScoutingTrackPacker_*_*',
+        'keep edmTriggerResults_*_*_*'
+    ) )
+)
+
+HLTriggerMINIAODSIM = cms.PSet(
     outputCommands = cms.vstring( *(
         'drop *_hlt*_*_*',
         'keep *_hltFEDSelectorL1_*_*',
@@ -102,11 +120,16 @@ HLTDebugRAW = cms.PSet(
         'keep *_hltDeepCombinedSecondaryVertexBJetTagsPF_*_*',
         'keep *_hltDeepSecondaryVertexTagInfosPF_*_*',
         'keep *_hltDisplacedhltIter4PFlowTrackSelectionHighPurity_*_*',
+        'keep *_hltDoubletRecoveryPFlowCtfWithMaterialTracks_*_*',
         'keep *_hltDoubletRecoveryPFlowTrackSelectionHighPurityPPOnAA_*_*',
         'keep *_hltDoubletRecoveryPFlowTrackSelectionHighPurity_*_*',
         'keep *_hltDt4DSegments_*_*',
+        'keep *_hltEcalDigisSerialSync_*_*',
+        'keep *_hltEcalDigis_*_*',
         'keep *_hltEcalPhiSymFilter_*_*',
         'keep *_hltEcalRecHit_*_*',
+        'keep *_hltEcalUncalibRecHitSerialSync_*_*',
+        'keep *_hltEcalUncalibRecHit_*_*',
         'keep *_hltEgammaCandidates_*_*',
         'keep *_hltEgammaGsfTracks_*_*',
         'keep *_hltFEDSelectorL1_*_*',
@@ -121,6 +144,7 @@ HLTDebugRAW = cms.PSet(
         'keep *_hltGlbTrkMuonCandsNoVtx_*_*',
         'keep *_hltGtStage2Digis_*_*',
         'keep *_hltHITrackingSiStripRawToClustersFacilityFullZeroSuppression_*_*',
+        'keep *_hltHbherecoSerialSync_*_*',
         'keep *_hltHbhereco_*_*',
         'keep *_hltHfreco_*_*',
         'keep *_hltHoreco_*_*',
@@ -183,6 +207,8 @@ HLTDebugRAW = cms.PSet(
         'keep *_hltPFTau35Track_*_*',
         'keep *_hltPFTau35_*_*',
         'keep *_hltPPSCalibrationRaw_*_*',
+        'keep *_hltParticleFlowClusterHCALSerialSync_*_*',
+        'keep *_hltParticleFlowClusterHCAL_*_*',
         'keep *_hltParticleFlowForTaus_*_*',
         'keep *_hltParticleFlow_*_*',
         'keep *_hltParticleNetDiscriminatorsJetTagsAK8_*_*',
@@ -198,8 +224,11 @@ HLTDebugRAW = cms.PSet(
         'keep *_hltSiPixelClustersAfterSplittingPPOnAA_*_*',
         'keep *_hltSiPixelClustersCache_*_*',
         'keep *_hltSiPixelClusters_*_*',
+        'keep *_hltSiPixelDigiErrorsSerialSync_*_*',
+        'keep *_hltSiPixelDigiErrors_*_*',
         'keep *_hltSiStripClusterizerForRawPrime_*_*',
         'keep *_hltSiStripClusters2ApproxClusters_*_*',
+        'keep *_hltSiStripRawToClustersFacilityOnDemand_*_*',
         'keep *_hltSiStripRawToClustersFacility_*_*',
         'keep *_hltTowerMakerForAll_*_*',
         'keep *_hltTriggerSummaryAOD_*_*',
@@ -240,6 +269,7 @@ HLTDebugRAW = cms.PSet(
         'keep *_hltScoutingMuonPackerVtx_*_*',
         'keep *_hltScoutingPFPacker_*_*',
         'keep *_hltScoutingPrimaryVertexPacker_*_*',
+        'keep *_hltScoutingRecHitPacker_*_*',
         'keep *_hltScoutingTrackPacker_*_*',
         'keep edmTriggerResults_*_*_*'
     ) )
@@ -271,11 +301,16 @@ HLTDebugFEVT = cms.PSet(
         'keep *_hltDeepCombinedSecondaryVertexBJetTagsPF_*_*',
         'keep *_hltDeepSecondaryVertexTagInfosPF_*_*',
         'keep *_hltDisplacedhltIter4PFlowTrackSelectionHighPurity_*_*',
+        'keep *_hltDoubletRecoveryPFlowCtfWithMaterialTracks_*_*',
         'keep *_hltDoubletRecoveryPFlowTrackSelectionHighPurityPPOnAA_*_*',
         'keep *_hltDoubletRecoveryPFlowTrackSelectionHighPurity_*_*',
         'keep *_hltDt4DSegments_*_*',
+        'keep *_hltEcalDigisSerialSync_*_*',
+        'keep *_hltEcalDigis_*_*',
         'keep *_hltEcalPhiSymFilter_*_*',
         'keep *_hltEcalRecHit_*_*',
+        'keep *_hltEcalUncalibRecHitSerialSync_*_*',
+        'keep *_hltEcalUncalibRecHit_*_*',
         'keep *_hltEgammaCandidates_*_*',
         'keep *_hltEgammaGsfTracks_*_*',
         'keep *_hltFEDSelectorL1_*_*',
@@ -290,6 +325,7 @@ HLTDebugFEVT = cms.PSet(
         'keep *_hltGlbTrkMuonCandsNoVtx_*_*',
         'keep *_hltGtStage2Digis_*_*',
         'keep *_hltHITrackingSiStripRawToClustersFacilityFullZeroSuppression_*_*',
+        'keep *_hltHbherecoSerialSync_*_*',
         'keep *_hltHbhereco_*_*',
         'keep *_hltHfreco_*_*',
         'keep *_hltHoreco_*_*',
@@ -352,6 +388,8 @@ HLTDebugFEVT = cms.PSet(
         'keep *_hltPFTau35Track_*_*',
         'keep *_hltPFTau35_*_*',
         'keep *_hltPPSCalibrationRaw_*_*',
+        'keep *_hltParticleFlowClusterHCALSerialSync_*_*',
+        'keep *_hltParticleFlowClusterHCAL_*_*',
         'keep *_hltParticleFlowForTaus_*_*',
         'keep *_hltParticleFlow_*_*',
         'keep *_hltParticleNetDiscriminatorsJetTagsAK8_*_*',
@@ -367,8 +405,11 @@ HLTDebugFEVT = cms.PSet(
         'keep *_hltSiPixelClustersAfterSplittingPPOnAA_*_*',
         'keep *_hltSiPixelClustersCache_*_*',
         'keep *_hltSiPixelClusters_*_*',
+        'keep *_hltSiPixelDigiErrorsSerialSync_*_*',
+        'keep *_hltSiPixelDigiErrors_*_*',
         'keep *_hltSiStripClusterizerForRawPrime_*_*',
         'keep *_hltSiStripClusters2ApproxClusters_*_*',
+        'keep *_hltSiStripRawToClustersFacilityOnDemand_*_*',
         'keep *_hltSiStripRawToClustersFacility_*_*',
         'keep *_hltTowerMakerForAll_*_*',
         'keep *_hltTriggerSummaryAOD_*_*',
@@ -409,6 +450,7 @@ HLTDebugFEVT = cms.PSet(
         'keep *_hltScoutingMuonPackerVtx_*_*',
         'keep *_hltScoutingPFPacker_*_*',
         'keep *_hltScoutingPrimaryVertexPacker_*_*',
+        'keep *_hltScoutingRecHitPacker_*_*',
         'keep *_hltScoutingTrackPacker_*_*',
         'keep edmTriggerResults_*_*_*'
     ) )
@@ -422,6 +464,7 @@ HLTScouting = cms.PSet(
         'keep *_hltScoutingMuonPackerVtx_*_*',
         'keep *_hltScoutingPFPacker_*_*',
         'keep *_hltScoutingPrimaryVertexPacker_*_*',
+        'keep *_hltScoutingRecHitPacker_*_*',
         'keep *_hltScoutingTrackPacker_*_*',
         'keep edmTriggerResults_*_*_*'
     ) )

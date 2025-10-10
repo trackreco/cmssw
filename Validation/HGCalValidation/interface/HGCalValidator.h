@@ -32,7 +32,8 @@
 #include "SimDataFormats/Associations/interface/LayerClusterToSimClusterAssociator.h"
 #include "SimDataFormats/Associations/interface/TICLAssociationMap.h"
 
-#include "CommonTools/RecoAlgos/interface/MultiVectorManager.h"
+#include "CommonTools/Utils/interface/StringCutObjectSelector.h"
+#include "DataFormats/Common/interface/MultiSpan.h"
 
 class PileupSummaryInfo;
 
@@ -67,7 +68,7 @@ public:
                                 std::vector<size_t>& selected_cPeff,
                                 unsigned int layers,
                                 std::unordered_map<DetId, const unsigned int> const&,
-                                MultiVectorManager<HGCRecHit> const& hits) const;
+                                edm::MultiSpan<HGCRecHit> const& hits) const;
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
@@ -107,10 +108,10 @@ protected:
   edm::EDGetTokenT<std::vector<SimVertex>> simVertices_;
   std::vector<edm::EDGetTokenT<std::vector<float>>> clustersMaskTokens_;
   edm::EDGetTokenT<std::unordered_map<DetId, const unsigned int>> hitMap_;
-  edm::EDGetTokenT<ticl::RecoToSimCollection> associatorMapRtS;
-  edm::EDGetTokenT<ticl::SimToRecoCollection> associatorMapStR;
-  edm::EDGetTokenT<ticl::SimToRecoCollectionWithSimClusters> associatorMapSimtR;
-  edm::EDGetTokenT<ticl::RecoToSimCollectionWithSimClusters> associatorMapRtSim;
+  edm::EDGetTokenT<ticl::RecoToSimCollectionT<reco::CaloClusterCollection>> associatorMapRtS;
+  edm::EDGetTokenT<ticl::SimToRecoCollectionT<reco::CaloClusterCollection>> associatorMapStR;
+  edm::EDGetTokenT<ticl::SimToRecoCollectionWithSimClustersT<reco::CaloClusterCollection>> associatorMapSimtR;
+  edm::EDGetTokenT<ticl::RecoToSimCollectionWithSimClustersT<reco::CaloClusterCollection>> associatorMapRtSim;
   std::unique_ptr<HGVHistoProducerAlgo> histoProducerAlgo_;
   std::vector<edm::InputTag> hits_label_;
   std::vector<edm::EDGetTokenT<HGCRecHitCollection>> hits_tokens_;
@@ -118,6 +119,7 @@ protected:
   std::vector<edm::EDGetTokenT<TracksterToTracksterMap>> tracksterToTracksterAssociatorsTokens_;
   std::vector<edm::EDGetTokenT<TracksterToTracksterMap>> tracksterToTracksterByHitsAssociatorsTokens_;
   edm::EDGetTokenT<SimClusterToCaloParticleMap> scToCpMapToken_;
+  const StringCutObjectSelector<reco::Track> cutTk_;
 
 private:
   CaloParticleSelector cpSelector;

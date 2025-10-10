@@ -320,6 +320,20 @@
       "HLT-Scouting"
     ]
   },
+  "DST_PFScouting_DoubleEGMonitorJPsi_v": {
+    "online?": true,
+    "owners": [
+      "HLT-Scouting",
+      "EGM"
+    ]
+  },
+  "DST_PFScouting_DoubleEGMonitorZ_v": {
+    "online?": true,
+    "owners": [
+      "HLT-Scouting",
+      "EGM"
+    ]
+  },
   "DST_PFScouting_DoubleEG_v": {
     "online?": true,
     "owners": [
@@ -372,6 +386,20 @@
       "HLT-Scouting"
     ]
   },
+  "DST_PFScouting_SinglePhotonEBMonitorJPsi_v": {
+    "online?": true,
+    "owners": [
+      "HLT-Scouting",
+      "EGM"
+    ]
+  },
+  "DST_PFScouting_SinglePhotonEBMonitorZ_v": {
+    "online?": true,
+    "owners": [
+      "HLT-Scouting",
+      "EGM"
+    ]
+  },
   "DST_PFScouting_SinglePhotonEB_v": {
     "online?": true,
     "owners": [
@@ -379,6 +407,13 @@
       "EXO",
       "HLT-Scouting",
       "SMP"
+    ]
+  },
+  "DST_PFScouting_ZeroBiasVdM_v": {
+    "online?": true,
+    "owners": [
+      "BRIL",
+      "HLT-Scouting"
     ]
   },
   "DST_PFScouting_ZeroBias_v": {
@@ -1373,6 +1408,12 @@
     ]
   },
   "HLT_Dimuon0_Upsilon_NoVertexing_v": {
+    "online?": true,
+    "owners": [
+      "BPH"
+    ]
+  },
+  "HLT_Dimuon0_Upsilon_v": {
     "online?": true,
     "owners": [
       "BPH"
@@ -5357,6 +5398,12 @@
       "TSG"
     ]
   },
+  "HLT_L1SingleMuShower_v": {
+    "online?": true,
+    "owners": [
+      "EXO"
+    ]
+  },
   "HLT_L1Tau_DelayedJet40_DoubleDelay0p5nsTrackless_v": {
     "online?": true,
     "owners": [
@@ -8365,6 +8412,13 @@
   "HLT_TriggersForScoutingPFMonitor_PS500_v": {
     "online?": true,
     "owners": [
+      "HLT-Scouting"
+    ]
+  },
+  "HLT_TriggersForScoutingPFMonitor_SingleMuon_v": {
+    "online?": true,
+    "owners": [
+      "BRIL",
       "HLT-Scouting"
     ]
   },

@@ -99,7 +99,8 @@ HGCalValidator::HGCalValidator(const edm::ParameterSet& pset)
       isTICLv5_(pset.getUntrackedParameter<bool>("isticlv5")),
       hits_label_(pset.getParameter<std::vector<edm::InputTag>>("hits")),
       scToCpMapToken_(
-          consumes<SimClusterToCaloParticleMap>(pset.getParameter<edm::InputTag>("simClustersToCaloParticlesMap"))) {
+          consumes<SimClusterToCaloParticleMap>(pset.getParameter<edm::InputTag>("simClustersToCaloParticlesMap"))),
+      cutTk_(pset.getParameter<std::string>("cutTk")) {
   //In this way we can easily generalize to associations between other objects also.
   const edm::InputTag& label_cp_effic_tag = pset.getParameter<edm::InputTag>("label_cp_effic");
   const edm::InputTag& label_cp_fake_tag = pset.getParameter<edm::InputTag>("label_cp_fake");
@@ -116,8 +117,8 @@ HGCalValidator::HGCalValidator(const edm::ParameterSet& pset)
     clustersMaskTokens_.push_back(consumes<std::vector<float>>(itag));
   }
 
-  associatorMapSimtR = consumes<ticl::SimToRecoCollectionWithSimClusters>(associatorSim_);
-  associatorMapRtSim = consumes<ticl::RecoToSimCollectionWithSimClusters>(associatorSim_);
+  associatorMapSimtR = consumes<ticl::SimToRecoCollectionWithSimClustersT<reco::CaloClusterCollection>>(associatorSim_);
+  associatorMapRtSim = consumes<ticl::RecoToSimCollectionWithSimClustersT<reco::CaloClusterCollection>>(associatorSim_);
 
   simTrackstersMap_ = consumes<std::map<uint, std::vector<uint>>>(pset.getParameter<edm::InputTag>("simTrackstersMap"));
 
@@ -164,8 +165,8 @@ HGCalValidator::HGCalValidator(const edm::ParameterSet& pset)
   simTracksters_ = consumes<ticl::TracksterCollection>(label_simTS);
   simTracksters_fromCPs_ = consumes<ticl::TracksterCollection>(label_simTSFromCP);
 
-  associatorMapRtS = consumes<ticl::RecoToSimCollection>(associator_);
-  associatorMapStR = consumes<ticl::SimToRecoCollection>(associator_);
+  associatorMapRtS = consumes<ticl::RecoToSimCollectionT<reco::CaloClusterCollection>>(associator_);
+  associatorMapStR = consumes<ticl::SimToRecoCollectionT<reco::CaloClusterCollection>>(associator_);
 
   cpSelector = CaloParticleSelector(pset.getParameter<double>("ptMinCP"),
                                     pset.getParameter<double>("ptMaxCP"),
@@ -343,7 +344,7 @@ void HGCalValidator::cpParametersAndSelection(const Histograms& histograms,
                                               std::vector<size_t>& selected_cPeff,
                                               unsigned int layers,
                                               std::unordered_map<DetId, const unsigned int> const& hitMap,
-                                              MultiVectorManager<HGCRecHit> const& hits) const {
+                                              edm::MultiSpan<HGCRecHit> const& hits) const {
   selected_cPeff.reserve(cPeff.size());
 
   size_t j = 0;
@@ -405,10 +406,10 @@ void HGCalValidator::dqmAnalyze(const edm::Event& event,
   tools_->setGeometry(*geom);
   histoProducerAlgo_->setRecHitTools(tools_);
 
-  edm::Handle<ticl::SimToRecoCollection> simtorecoCollectionH;
+  edm::Handle<ticl::SimToRecoCollectionT<reco::CaloClusterCollection>> simtorecoCollectionH;
   event.getByToken(associatorMapStR, simtorecoCollectionH);
   const auto& simRecColl = *simtorecoCollectionH;
-  edm::Handle<ticl::RecoToSimCollection> recotosimCollectionH;
+  edm::Handle<ticl::RecoToSimCollectionT<reco::CaloClusterCollection>> recotosimCollectionH;
   event.getByToken(associatorMapRtS, recotosimCollectionH);
   const auto& recSimColl = *recotosimCollectionH;
 
@@ -416,11 +417,13 @@ void HGCalValidator::dqmAnalyze(const edm::Event& event,
   event.getByToken(hitMap_, hitMapHandle);
   const std::unordered_map<DetId, const unsigned int>& hitMap = *hitMapHandle;
 
-  MultiVectorManager<HGCRecHit> rechitManager;
+  edm::MultiSpan<HGCRecHit> rechitSpan;
   for (const auto& token : hits_tokens_) {
     Handle<HGCRecHitCollection> hitsHandle;
     event.getByToken(token, hitsHandle);
-    rechitManager.addVector(*hitsHandle);
+    if (!hitsHandle.isValid())
+      continue;
+    rechitSpan.add(*hitsHandle);
   }
 
   //Some general info on layers etc.
@@ -440,7 +443,7 @@ void HGCalValidator::dqmAnalyze(const edm::Event& event,
   LogTrace("HGCalValidator") << "\n# of CaloParticles: " << caloParticles.size() << "\n" << std::endl;
   std::vector<size_t> selected_cPeff;
   cpParametersAndSelection(
-      histograms, caloParticles, simVertices, selected_cPeff, totallayers_to_monitor_, hitMap, rechitManager);
+      histograms, caloParticles, simVertices, selected_cPeff, totallayers_to_monitor_, hitMap, rechitSpan);
 
   //get collections from the event
   //simClusters
@@ -451,6 +454,10 @@ void HGCalValidator::dqmAnalyze(const edm::Event& event,
   //Layer clusters
   edm::Handle<reco::CaloClusterCollection> clusterHandle;
   event.getByToken(layerclusters_, clusterHandle);
+
+  if (!clusterHandle.isValid())
+    return;
+
   const reco::CaloClusterCollection& clusters = *clusterHandle;
 
   std::vector<edm::Handle<TracksterToTracksterMap>> tracksterToTracksterMapsHandles;
@@ -504,10 +511,10 @@ void HGCalValidator::dqmAnalyze(const edm::Event& event,
 
       const auto& inputClusterMask = *inputClusterMaskHandle;
 
-      edm::Handle<ticl::SimToRecoCollectionWithSimClusters> simtorecoCollectionH;
+      edm::Handle<ticl::SimToRecoCollectionWithSimClustersT<reco::CaloClusterCollection>> simtorecoCollectionH;
       event.getByToken(associatorMapSimtR, simtorecoCollectionH);
       auto simRecColl = *simtorecoCollectionH;
-      edm::Handle<ticl::RecoToSimCollectionWithSimClusters> recotosimCollectionH;
+      edm::Handle<ticl::RecoToSimCollectionWithSimClustersT<reco::CaloClusterCollection>> recotosimCollectionH;
       event.getByToken(associatorMapRtSim, recotosimCollectionH);
       auto recSimColl = *recotosimCollectionH;
 
@@ -523,7 +530,7 @@ void HGCalValidator::dqmAnalyze(const edm::Event& event,
                                                             totallayers_to_monitor_,
                                                             recSimColl,
                                                             simRecColl,
-                                                            rechitManager);
+                                                            rechitSpan);
 
       //General Info on simClusters
       LogTrace("HGCalValidator") << "\n# of SimClusters: " << nSimClusters
@@ -550,7 +557,7 @@ void HGCalValidator::dqmAnalyze(const edm::Event& event,
                                                     thicknesses_to_monitor_,
                                                     recSimColl,
                                                     simRecColl,
-                                                    rechitManager);
+                                                    rechitSpan);
 
     for (unsigned int layerclusterIndex = 0; layerclusterIndex < clusters.size(); layerclusterIndex++) {
       histoProducerAlgo_->fill_cluster_histos(histograms.histoProducerAlgo, w, clusters[layerclusterIndex]);
@@ -612,7 +619,7 @@ void HGCalValidator::dqmAnalyze(const edm::Event& event,
                                                 selected_cPeff,
                                                 hitMap,
                                                 totallayers_to_monitor_,
-                                                rechitManager,
+                                                rechitSpan,
                                                 mapsFound,
                                                 trackstersToSimTrackstersMapH,
                                                 simTrackstersToTrackstersMapH,
@@ -628,7 +635,7 @@ void HGCalValidator::dqmAnalyze(const edm::Event& event,
 
   // tracksters histograms
   if (doCandidatesPlots_) {
-    candidateVal_->fillCandidateHistos(event, histograms.histoTICLCandidates, simTracksterFromCPHandle);
+    candidateVal_->fillCandidateHistos(event, histograms.histoTICLCandidates, simTracksterFromCPHandle, cutTk_);
   }
 }
 
@@ -883,6 +890,9 @@ void HGCalValidator::fillDescriptions(edm::ConfigurationDescriptions& descriptio
                                  -1,
                              });
   desc.add<std::string>("dirName", "HGCAL/HGCalValidator/");
+  desc.add<std::string>("cutTk",
+                        "1.48 < abs(eta) < 3.0 && pt > 1. && quality(\"highPurity\") && "
+                        "hitPattern().numberOfLostHits(\"MISSING_OUTER_HITS\") < 5");
   desc.addUntracked<bool>("isticlv5", false);
   descriptions.add("hgcalValidator", desc);
 }

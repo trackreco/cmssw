@@ -26,11 +26,11 @@ the worker is reset().
 #include "FWCore/MessageLogger/interface/ExceptionMessages.h"
 #include "FWCore/Framework/interface/TransitionInfoTypes.h"
 #include "FWCore/Framework/interface/maker/WorkerParams.h"
+#include "FWCore/Framework/interface/maker/ModuleSignalSentry.h"
 #include "FWCore/Framework/interface/ExceptionActions.h"
 #include "FWCore/Framework/interface/ModuleContextSentry.h"
 #include "FWCore/Framework/interface/OccurrenceTraits.h"
 #include "FWCore/Framework/interface/ProductResolverIndexAndSkipBit.h"
-#include "FWCore/Framework/interface/ModuleConsumesMinimalESInfo.h"
 #include "FWCore/Concurrency/interface/WaitingTask.h"
 #include "FWCore/Concurrency/interface/WaitingTaskHolder.h"
 #include "FWCore/Concurrency/interface/WaitingTaskList.h"
@@ -40,8 +40,6 @@ the worker is reset().
 #include "FWCore/ServiceRegistry/interface/InternalContext.h"
 #include "FWCore/ServiceRegistry/interface/ModuleCallingContext.h"
 #include "FWCore/ServiceRegistry/interface/ParentContext.h"
-#include "FWCore/ServiceRegistry/interface/PathContext.h"
-#include "FWCore/ServiceRegistry/interface/PlaceInPathContext.h"
 #include "FWCore/ServiceRegistry/interface/ServiceRegistry.h"
 #include "FWCore/ServiceRegistry/interface/ServiceRegistryfwd.h"
 #include "FWCore/Concurrency/interface/SerialTaskQueueChain.h"
@@ -74,10 +72,7 @@ namespace edm {
   class EventPrincipal;
   class EventSetupImpl;
   class EarlyDeleteHelper;
-  class ProductResolverIndexHelper;
   class ProductResolverIndexAndSkipBit;
-  class ProductRegistry;
-  class ThinnedAssociationsHelper;
 
   namespace workerhelper {
     template <typename O>
@@ -182,13 +177,6 @@ namespace edm {
     void callWhenDoneAsync(WaitingTaskHolder task) { waitingTasks_.add(std::move(task)); }
     // Called if filter earlier in the path has failed.
     void skipOnPath(EventPrincipal const& iEvent);
-    void beginJob(GlobalContext const&);
-    void endJob(GlobalContext const&);
-    void beginStream(StreamID, StreamContext const&);
-    void endStream(StreamID, StreamContext const&);
-    void respondToOpenInputFile(FileBlock const& fb) { implRespondToOpenInputFile(fb); }
-    void respondToCloseInputFile(FileBlock const& fb) { implRespondToCloseInputFile(fb); }
-    void respondToCloseOutputFile() { implRespondToCloseOutputFile(); }
 
     void reset() {
       cached_exception_ = std::exception_ptr();
@@ -211,9 +199,6 @@ namespace edm {
     void setActivityRegistry(std::shared_ptr<ActivityRegistry> areg);
 
     void setEarlyDeleteHelper(EarlyDeleteHelper* iHelper);
-
-    virtual std::vector<ModuleConsumesInfo> moduleConsumesInfos() const = 0;
-    virtual std::vector<ModuleConsumesMinimalESInfo> moduleConsumesMinimalESInfos() const = 0;
 
     virtual Types moduleType() const = 0;
     virtual ConcurrencyTypes moduleConcurrencyType() const = 0;
@@ -249,7 +234,6 @@ namespace edm {
 
     virtual void doClearModule() = 0;
 
-    virtual std::string workerType() const = 0;
     virtual bool implDo(EventTransitionInfo const&, ModuleCallingContext const*) = 0;
 
     virtual void itemsToGetForSelection(std::vector<ProductResolverIndexAndSkipBit>&) const = 0;
@@ -276,10 +260,6 @@ namespace edm {
     virtual bool implDoStreamBegin(StreamID, LumiTransitionInfo const&, ModuleCallingContext const*) = 0;
     virtual bool implDoStreamEnd(StreamID, LumiTransitionInfo const&, ModuleCallingContext const*) = 0;
     virtual bool implDoEnd(LumiTransitionInfo const&, ModuleCallingContext const*) = 0;
-    virtual void implBeginJob() = 0;
-    virtual void implEndJob() = 0;
-    virtual void implBeginStream(StreamID) = 0;
-    virtual void implEndStream(StreamID) = 0;
 
     void resetModuleDescription(ModuleDescription const*);
 
@@ -300,10 +280,6 @@ namespace edm {
     virtual void preActionBeforeRunEventAsync(WaitingTaskHolder iTask,
                                               ModuleCallingContext const& moduleCallingContext,
                                               Principal const& iPrincipal) const noexcept = 0;
-
-    virtual void implRespondToOpenInputFile(FileBlock const& fb) = 0;
-    virtual void implRespondToCloseInputFile(FileBlock const& fb) = 0;
-    virtual void implRespondToCloseOutputFile() = 0;
 
     virtual TaskQueueAdaptor serializeRunModule() = 0;
 
@@ -615,61 +591,6 @@ namespace edm {
     bool shouldTryToContinue_ = false;
     bool beginSucceeded_ = false;
   };
-
-  namespace {
-    template <typename T>
-    class ModuleSignalSentry {
-    public:
-      ModuleSignalSentry(ActivityRegistry* a,
-                         typename T::Context const* context,
-                         ModuleCallingContext const* moduleCallingContext)
-          : a_(a), context_(context), moduleCallingContext_(moduleCallingContext) {}
-
-      ~ModuleSignalSentry() {
-        // This destructor does nothing unless we are unwinding the
-        // the stack from an earlier exception (a_ will be null if we are
-        // are not). We want to report the earlier exception and ignore any
-        // addition exceptions from the post module signal.
-        CMS_SA_ALLOW try {
-          if (a_) {
-            T::postModuleSignal(a_, context_, moduleCallingContext_);
-          }
-        } catch (...) {
-        }
-      }
-      void preModuleSignal() {
-        if (a_) {
-          try {
-            convertException::wrap([this]() { T::preModuleSignal(a_, context_, moduleCallingContext_); });
-          } catch (cms::Exception& ex) {
-            ex.addContext("Handling pre module signal, likely in a service function immediately before module method");
-            throw;
-          }
-        }
-      }
-      void postModuleSignal() {
-        if (a_) {
-          auto temp = a_;
-          // Setting a_ to null informs the destructor that the signal
-          // was already run and that it should do nothing.
-          a_ = nullptr;
-          try {
-            convertException::wrap([this, temp]() { T::postModuleSignal(temp, context_, moduleCallingContext_); });
-          } catch (cms::Exception& ex) {
-            ex.addContext("Handling post module signal, likely in a service function immediately after module method");
-            throw;
-          }
-        }
-      }
-
-    private:
-      ActivityRegistry* a_;  // We do not use propagate_const because the registry itself is mutable.
-      typename T::Context const* context_;
-      ModuleCallingContext const* moduleCallingContext_;
-    };
-
-  }  // namespace
-
   namespace workerhelper {
     template <>
     class CallImpl<OccurrenceTraits<EventPrincipal, BranchActionStreamBegin>> {
