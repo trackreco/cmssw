@@ -110,7 +110,7 @@
    "m_region": 0,
    "m_fwd_search_pickup": 2,
    "m_bkw_fit_last": 0,
-   "m_bkw_search_pickup": 3
+   "m_bkw_search_pickup": 5
   },
   {
    "m_layer_plan": [
@@ -151,22 +151,22 @@
      "m_layer": 45
     },
     {
-     "m_layer": 5
-    },
-    {
      "m_layer": 4
     },
     {
-     "m_layer": 7
+     "m_layer": 5
     },
     {
      "m_layer": 6
     },
     {
-     "m_layer": 9
+     "m_layer": 7
     },
     {
      "m_layer": 8
+    },
+    {
+     "m_layer": 9
     },
     {
      "m_layer": 10
@@ -187,41 +187,41 @@
      "m_layer": 15
     },
     {
-     "m_layer": 51
-    },
-    {
      "m_layer": 50
     },
     {
-     "m_layer": 53
+     "m_layer": 51
     },
     {
      "m_layer": 52
     },
     {
-     "m_layer": 55
+     "m_layer": 53
     },
     {
      "m_layer": 54
     },
     {
-     "m_layer": 57
+     "m_layer": 55
     },
     {
      "m_layer": 56
     },
     {
-     "m_layer": 59
+     "m_layer": 57
     },
     {
      "m_layer": 58
+    },
+    {
+     "m_layer": 59
     }
    ],
    "m_track_scorer_name": "",
    "m_region": 1,
    "m_fwd_search_pickup": 2,
    "m_bkw_fit_last": 0,
-   "m_bkw_search_pickup": 4
+   "m_bkw_search_pickup": 15
   },
   {
    "m_layer_plan": [
@@ -238,22 +238,22 @@
      "m_layer": 3
     },
     {
-     "m_layer": 5
-    },
-    {
      "m_layer": 4
     },
     {
-     "m_layer": 7
+     "m_layer": 5
     },
     {
      "m_layer": 6
     },
     {
-     "m_layer": 9
+     "m_layer": 7
     },
     {
      "m_layer": 8
+    },
+    {
+     "m_layer": 9
     },
     {
      "m_layer": 10
@@ -278,7 +278,7 @@
    "m_region": 2,
    "m_fwd_search_pickup": 2,
    "m_bkw_fit_last": 0,
-   "m_bkw_search_pickup": 2
+   "m_bkw_search_pickup": 7
   },
   {
    "m_layer_plan": [
@@ -319,22 +319,22 @@
      "m_layer": 23
     },
     {
-     "m_layer": 5
-    },
-    {
      "m_layer": 4
     },
     {
-     "m_layer": 7
+     "m_layer": 5
     },
     {
      "m_layer": 6
     },
     {
-     "m_layer": 9
+     "m_layer": 7
     },
     {
      "m_layer": 8
+    },
+    {
+     "m_layer": 9
     },
     {
      "m_layer": 10
@@ -355,41 +355,41 @@
      "m_layer": 15
     },
     {
-     "m_layer": 29
-    },
-    {
      "m_layer": 28
     },
     {
-     "m_layer": 31
+     "m_layer": 29
     },
     {
      "m_layer": 30
     },
     {
-     "m_layer": 33
+     "m_layer": 31
     },
     {
      "m_layer": 32
     },
     {
-     "m_layer": 35
+     "m_layer": 33
     },
     {
      "m_layer": 34
     },
     {
-     "m_layer": 37
+     "m_layer": 35
     },
     {
      "m_layer": 36
+    },
+    {
+     "m_layer": 37
     }
    ],
    "m_track_scorer_name": "",
    "m_region": 3,
    "m_fwd_search_pickup": 2,
    "m_bkw_fit_last": 0,
-   "m_bkw_search_pickup": 4
+   "m_bkw_search_pickup": 15
   },
   {
    "m_layer_plan": [
@@ -440,7 +440,7 @@
    "m_region": 4,
    "m_fwd_search_pickup": 2,
    "m_bkw_fit_last": 0,
-   "m_bkw_search_pickup": 3
+   "m_bkw_search_pickup": 5
   }
  ],
  "m_layer_configs": [
