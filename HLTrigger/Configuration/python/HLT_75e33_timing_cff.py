@@ -89,6 +89,7 @@ fragment.load("HLTrigger/Configuration/HLT_75e33/eventsetup/hltPhase2L3MuonPixel
 fragment.load("HLTrigger/Configuration/HLT_75e33/eventsetup/hltPhase2L3MuonTrackAlgoPriorityOrder_cfi")
 fragment.load("HLTrigger/Configuration/HLT_75e33/eventsetup/hltPixelTracksCleanerBySharedHits_cfi")
 fragment.load("HLTrigger/Configuration/HLT_75e33/eventsetup/hltESPTTRHBuilderWithTrackAngle_cfi")
+fragment.load("HLTrigger/Configuration/HLT_75e33/eventsetup/hltESPMkFit_cfi")
 
 fragment.load("HLTrigger/Configuration/HLT_75e33/eventsetup/hltESPKFFittingSmootherForL2Muon_cfi")
 fragment.load("HLTrigger/Configuration/HLT_75e33/eventsetup/hltESPKFTrajectoryFitterForL2Muon_cfi")
