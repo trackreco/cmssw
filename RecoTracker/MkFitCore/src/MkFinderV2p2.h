@@ -6,7 +6,7 @@
 #include "RecoTracker/MkFitCore/interface/TrackStructures.h"
 #include "RecoTracker/MkFitCore/interface/MkJob.h"
 
-#include "MkBase.h"
+#include "MkRZLimits.h"
 #include "MkFinderV2p2Structures.h"
 
 #include <functional>
@@ -19,13 +19,13 @@ namespace mkfit {
   class IterationLayerConfig;
   class SteeringParams;
   struct LayerControl;
+  class LayerInfo;
   class Event;
 
   class MkJob;
 
-  class MkFinderV2p2 : public MkBase { /// XXXXXX do we need mkbase ???
+  class MkFinderV2p2 {
     friend class MkBuilder;
-
 
     // Unrolled indices of CombCands and TrackCands.
     struct BatchInfo {
@@ -139,27 +139,7 @@ namespace mkfit {
 
     //----------------------------------------------------------------------------
 
-
-    //----------------------------------------------------------------------------
-
   private:
-    //----------------------------------------------------------------------------
-    // Candidate search related variables -- first for alignment along with MkBase
-
-    MPlexQF m_Chi2;
-
-    // Hit errors / parameters for hit matching, update.
-    MPlexHS m_msErr{0.0f};
-    MPlexHV m_msPar{0.0f};
-
-    CombCandidate *m_CombCand[NN];
-    // const TrackCand *m_TrkCand[NN]; // hmmh, could get all data through this guy ... but scattered
-    // storing it in now for bkfit debug printouts
-    TrackCand *m_TrkCand[NN];
-
-    //----------------------------------------------------------------------------
-    // Copy in / out functions
-
     //----------------------------------------------------------------------------
     // Job / batch-of-seeds control variables and globel references
     const MkJob *mp_job = nullptr;
@@ -185,7 +165,8 @@ namespace mkfit {
     // Elements are slots in the pTC hot-tub.
     std::list<PrimTCandRep*> m_pre_select_queue;
 
-    //
+    // Per-(di)layer geometrical state
+    MkRZLimits m_rz_limits;
   };
 
 } // end namespace mkfit

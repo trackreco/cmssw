@@ -56,7 +56,7 @@ namespace mkfit::mini_propagators {
   struct StatePlex {
     MPF x, y, z;
     MPF px, py, pz;
-    MPF dalpha{0};
+    MPF dalpha{0.0f};
     MPI fail_flag{0};
 
     StatePlex() = default;
@@ -174,9 +174,9 @@ namespace mkfit::mini_propagators {
   };
 
   struct Hermite3DOnPlane {
-    MPlex4V m_D;    // p(3) for distance to plane
-    //MPlex3V m_dDdt; // derivative of the above
-    MPF     m_T;    // t at solution
+    MP4V m_D;       // p(3) for distance to plane
+    // MP3V m_dDdt; // derivative of the above
+    MPF  m_T;       // t at solution
 
     void init_coeffs(const Hermite3D &h, const MP3V& pos, const MP3V& zdir);
 

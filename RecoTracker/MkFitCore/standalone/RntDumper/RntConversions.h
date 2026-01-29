@@ -1,5 +1,5 @@
 #ifndef RecoTracker_MkFitCore_standalone_RntDumper_RntConversions_h
-#define RecoTracker_MkFitCore_standalone_RntDumper_RRntConversions_h
+#define RecoTracker_MkFitCore_standalone_RntDumper_RntConversions_h
 
 #include "RecoTracker/MkFitCore/standalone/RntDumper/RntStructs.h"
 
@@ -28,12 +28,12 @@ namespace mkfit {
 
   SimSeedInfo evsi2ssinfo(const Event *ev, int seed_idx) {
     SimSeedInfo ssi;
-    Event::SimInfoFromHits sifh = ev->SimInfoForCurrentSeed(seed_idx);
+    Event::SimInfoFromHits sifh = ev->simInfoForCurrentSeed(seed_idx);
     if (sifh.is_set()) {
       ssi.s_sim = track2state(ev->simTracks_[sifh.label]);
-      ssi.sim_lbl = slfh.label;
-      ssi.n_hits = slfh.n_hits;
-      ssi.n_match = slfh.n_match;
+      ssi.sim_lbl = sifh.label;
+      ssi.n_hits = sifh.n_hits;
+      ssi.n_match = sifh.n_match;
       ssi.has_sim = true;
     }
     auto seed = ev->currentSeed(seed_idx);
