@@ -24,24 +24,15 @@ struct HeaderLayer {
   int event, iter_idx, iter_algo, eta_region, layer;
   float qb_min, qb_max;  // qbar layer limits, r for barrel, z for endcap
   bool is_barrel, is_pix, is_stereo;
-
-  HeaderLayer() = default;
-  HeaderLayer& operator=(const HeaderLayer&) = default;
 };
 
 struct State {
   RVec pos, mom;
-
-  State() = default;
-  State& operator=(const State&) = default;
 };
 
 struct PropState : public State {
   float dalpha;  // helix angle during propagation
   int fail_flag;
-
-  PropState() = default;
-  PropState& operator=(const PropState&) = default;
 };
 
 struct SimSeedInfo {
@@ -52,9 +43,6 @@ struct SimSeedInfo {
   bool has_sim = false;
 
   float good_frac() const { return (float)n_match / n_hits; }
-
-  SimSeedInfo() = default;
-  SimSeedInfo& operator=(const SimSeedInfo&) = default;
 };
 
 struct BinSearch {
@@ -65,18 +53,12 @@ struct BinSearch {
   bool has_nans = false;
 
   bool nan_check();
-
-  BinSearch() = default;
-  BinSearch& operator=(const BinSearch&) = default;
 };
 
 struct HitInfo {
   RVec hit_pos;
   float hit_q, hit_qhalflen, hit_qbar, hit_phi;
   int hit_lbl;
-
-  HitInfo() = default;
-  HitInfo& operator=(const HitInfo&) = default;
 };
 
 struct HitMatchInfo : public HitInfo {
@@ -91,9 +73,6 @@ struct HitMatchInfo : public HitInfo {
   mkfit::IdxChi2List ic2list;
 
   bool accept() const { return presel && prop_ok; }
-
-  HitMatchInfo() = default;
-  HitMatchInfo& operator=(const HitMatchInfo&) = default;
 };
 
 struct CandInfo {
@@ -107,6 +86,8 @@ struct CandInfo {
   int ord_first_match = -1;
   float dphi_first_match = -9999.0f, dq_first_match = -9999.0f;
   bool has_nans = false;
+
+  CandInfo() = default;
 
   CandInfo(const SimSeedInfo& s, const State& c) : ssi(s), s_ctr(c) {}
 
@@ -127,9 +108,6 @@ struct CandInfo {
     }
     return false;
   }
-
-  CandInfo() = default;
-  CandInfo& operator=(const CandInfo&) = default;
 };
 
 struct FailedPropInfo {
@@ -138,12 +116,11 @@ struct FailedPropInfo {
   State s_final;
   bool has_nans = false;
 
+  FailedPropInfo() = default;
+
   FailedPropInfo(const SimSeedInfo& s, const State& p, const State& f) : ssi(s), s_prev(p), s_final(f) {}
 
   void nan_check();
-
-  FailedPropInfo() = default;
-  FailedPropInfo& operator=(const FailedPropInfo&) = default;
 };
 
 #endif

@@ -543,7 +543,7 @@ int main(int argc, const char* argv[]) {
           "  --build-std              run standard combinatorial building test (def: %s)\n"
           "  --build-ce               run clone engine combinatorial building test (def: %s)\n"
           "  --build-mimi             run clone engine on multiple-iteration test (def: %s)\n"
-          "  --build-mimi-v2p2        run v2p2 on multiple-iteration test, bk-search still uses CE (def: %s)\n"
+          "  --build-mimi-v2p2        run v2p2 on multiple-iteration test for fwd and bkw search (def: %s)\n"
           "  --num-iters-cmssw <int>  number of mimi iterations to run (def: set to 3 when --build-mimi is in effect, "
           "0 otherwise)\n"
           "\n"

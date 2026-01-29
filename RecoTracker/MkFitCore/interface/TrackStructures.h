@@ -344,8 +344,13 @@ namespace mkfit {
     const TrackCand& operator[](int i) const { return m_trk_cands[i]; }
     TrackCand& front() { return m_trk_cands.front(); }
     const TrackCand& front() const { return m_trk_cands.front(); }
-    trk_cand_vec_type::reference emplace_back(TrackCand& tc) { return m_trk_cands.emplace_back(tc); }
+    // emplace_back not needed as TrackCand has no movable parts
+    // trk_cand_vec_type::reference emplace_back(const TrackCand& tc) { return m_trk_cands.emplace_back(tc); }
+    trk_cand_vec_type::reference push_back(const TrackCand& tc) { m_trk_cands.push_back(tc); return m_trk_cands.back(); }
     void clear() { m_trk_cands.clear(); }
+
+    int capacity() const { return m_trk_cands.capacity(); }
+    bool is_full() const { return m_trk_cands.size() == m_trk_cands.capacity(); }
 
     void reset(int max_cands_per_seed, int expected_num_hots) {
       std::vector<TrackCand, CcAlloc<TrackCand>> tmp(m_trk_cands.get_allocator());

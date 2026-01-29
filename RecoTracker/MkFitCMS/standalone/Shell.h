@@ -58,6 +58,8 @@ namespace mkfit {
     const TrackVec &seeds() const { return m_seeds; }
     const TrackVec &tracks() const { return m_tracks; }
 
+    void SetSeedsFromIdcs(std::vector<int> idcs);
+
     // --------------------------------------------------------
     // Analysis helpers
 
@@ -101,6 +103,8 @@ namespace mkfit {
     // --------------------------------------------------------
     // Experimental phase2 / LST stuff, in Shell-LST.cc
     void RunLSTintoPix(SeedSelect_e seed_select = SS_UseAll, int selected_seed = -1, int count = 1);
+    void LoopNEvents(int N_events);
+    void LoopNEventsHlt(int N_events, const int wanted_algo, const bool dump_all=false);
 
   protected:
     int select_seeds_for_algo(int algo, TrackVec &seeds);

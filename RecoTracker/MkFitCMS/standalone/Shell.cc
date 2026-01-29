@@ -384,6 +384,14 @@ namespace mkfit {
   void Shell::SetUseDeadModules(bool b) { Config::useDeadModules = b; }
   void Shell::SetUseV2p2(bool b) { Config::mimiUseV2p2 = b; }
 
+  void Shell::SetSeedsFromIdcs(std::vector<int> idcs) {
+    m_seeds.clear();
+    m_seeds.reserve(idcs.size());
+    for (int i : idcs) {
+      m_seeds.push_back(m_event->seedTracks_[i]);
+    }
+  }
+
   #pragma endregion Setters
 
   //===========================================================================

@@ -5,6 +5,10 @@
 
 #include "MkBins.h"
 
+#if defined(MKFIT_STANDALONE)
+#include "RecoTracker/MkFitCore/standalone/Event.h"
+#endif
+
 #define DEBUG
 #include "Debug.h"
 
@@ -46,6 +50,9 @@ namespace mkfit {
     // See another XXXX about finalization below in end_layer()
     m_active_ccreps.clear();
 
+    // QQQQ Something stays in (shouldn't). Recheck usage for a logick problem.
+    // Maybe not in every event, this clear got us from 19 to 80 ttbar events.
+    m_pre_select_queue.clear();
   }
 
   //------------------------------------------------------------------------------
@@ -56,6 +63,13 @@ namespace mkfit {
     int count = 0;
     const LayerControl &lc = mp_steeringparams_iter->layer_control();
     for (auto &ccand : m_batch_mgr) {
+
+      // XXXX What do we do with "crossed" cases in double layers?
+      // XXXX   Question is, do we pick them up before (so we could recuperate extra hits)
+      // XXXX   or after (as now) and how we make sure
+      // XXXX   we don't re-find the pre-existing hit.
+      // XXXX Also, should ccand.pickupLayer() be flexible in this respect?
+
       if (ccand.state() == CombCandidate::Dormant &&
           (ccand.pickupLayer() == lc.m_layer || ccand.pickupLayer() == lc.m_layer_sec)) {
         ccand.setState(CombCandidate::Finding);
@@ -63,6 +77,14 @@ namespace mkfit {
         dprintf("MkFinderV2p2::awaken_candidates dummy printout N_TrackCands=%d\n",
                (int) ccand.size());
         ++count;
+
+        #if defined(MKFIT_STANDALONE)
+        // XXXX hmmh, i could really just get it where i need it.
+        auto sifh = mp_event->simInfoForCurrentSeed(ccand.seed_origin_index());
+        ccrep.m_seed_mc_label = sifh.label;
+        ccrep.m_mc_layer_sequence = 0;
+        // ccrep.m_n_mc_hits_in_current_layer set later
+        #endif
       }
     }
     m_batch_mgr.m_n_dormant -= count;
@@ -77,7 +99,7 @@ namespace mkfit {
   // Per layer initialization / cleanup tasks,
 
   void MkFinderV2p2::begin_layer() {
-    debug = true; // to be disabled at the end of end_layer()
+    // debug = true; // to be disabled at the end of end_layer()
 
     // Count number of awakend ccands and number of non-stopped tcands.
     // Well, I actually know n ccands.
@@ -94,6 +116,21 @@ namespace mkfit {
     m_active_ccreps_pos = m_active_ccreps.begin();
     m_active_ccreps_tC_pos = 0;
 
+    { // Setup m_rz_limits.
+      SteeringParams::iterator &spi = *mp_steeringparams_iter;
+
+      const bool is_double_layer = spi->has_second_layer();
+      const LayerInfo &LI_p = mp_job->m_trk_info[ spi->m_layer ];
+      const LayerInfo &LI_s = mp_job->m_trk_info[ is_double_layer ? spi->m_layer_sec : 0 ];
+
+      if (is_double_layer) {
+        assert(LI_p.is_barrel() == LI_s.is_barrel() );
+        m_rz_limits.setup(LI_p, LI_s, spi.is_outward());
+      } else {
+        m_rz_limits.setup(LI_p, spi.is_outward());
+      }
+    }
+
     // Hmmh, nothing to really do here, is it?
 
     // Initialize best short (?) - to what? How was it before? The seed itself?
@@ -104,17 +141,45 @@ namespace mkfit {
   void MkFinderV2p2::begin_next_Ccrep_in_layer() {
     CCandRep &ccrep = * m_active_ccreps_pos;
     CombCandidate &ccand = ccrep.m_ccand;
-    ccrep.m_pTcs.reserve(ccand.size());
-    for (int ic = 0; ic < (int) ccand.size(); ++ic) {
-      // TrackCand &tcand = ccand[ic];
-      // XXXX V1 also did: min-pt-cut, apogee stop; and setting ccand.setState(CombCandidate::Finished)
-      if (ccand[ic].getLastHitIdx() != -2) {
-        PrimTCandRep &ptc = ccrep.m_pTcs.emplace_back( &ccrep, ic );
 
+    // QQQQ reserve to CombCand.capacity already done CCandRep ctor.
+    // We will probably need a variable number per layer / layer pair.
+    // But this will be first relevant / handled elsewhere.
+    ccrep.m_pTcs.reserve(ccand.size());
+
+    for (int ic = 0; ic < (int) ccand.size(); ++ic) {
+      TrackCand &tcand = ccand[ic];
+
+      if (tcand.getLastHitIdx() == -2)
+        continue;
+
+      // XXXX V1 also did: min-pt-cut, apogee stop; and setting ccand.setState(CombCandidate::Finished)
+      // That was after prop-to-layer-centroid.
+
+      // XXXX Should one do rough "layer already passed" pre-check here?
+      // Or in pre-select, where we engage MkBins ... but there I loose a vector slot.
+      // Let's try.
+
+      if ( ! m_rz_limits.rz_quadrant_check(tcand.z(), tcand.pz()))
+        continue;
+
+      // Create and Register PrimTCandRep for processing.
+      // The CCandRep vector has the capacity for N_max_cands.
+      {
+        PrimTCandRep &ptc = ccrep.m_pTcs.emplace_back( &ccrep, ic );
         m_pre_select_queue.push_back(&ptc);
       }
     }
     ++m_active_ccreps_pos;
+
+    #if defined(MKFIT_STANDALONE)
+    {
+      ccrep.m_n_mc_hits_in_layer = mp_event->countSimHitsInLayer(ccrep.m_seed_mc_label, mp_steeringparams_iter->layer());
+      // ccrep.m_n_mc_hits_in_layer_sec = mp_event->countSimHitsInLayer(ccrep.m_seed_mc_label, mp_steeringparams_iter->layer_sec());
+      if (ccrep.m_n_mc_hits_in_layer > 0)
+        ++ccrep.m_mc_layer_sequence;
+    }
+    #endif
   }
 
   // void MkFinderV2p2::process_pre_select() -- below in the "complex stuff" section
@@ -128,7 +193,11 @@ namespace mkfit {
     int count = 0;
     auto ai = m_active_ccreps.begin();
     while (ai != m_active_ccreps.end()) {
-      // XXXX something is rotten here;
+
+      // QQQQ should attempt to reuse the PrimTCandReps
+      ai->m_pTcs.clear();
+
+      // XXXX something is rotten here; well, just making them run to the end
       bool is_finished = false; // XXXX
       if (is_finished) {
         auto bi = ai++;
@@ -141,12 +210,14 @@ namespace mkfit {
     m_batch_mgr.m_n_finding -= count;
     m_batch_mgr.m_n_finished += count;
 
+    m_rz_limits.reset();
+
     dprintf("MkFinderV2p2::end_layer %d cands finished\n", count);
 
     if (m_batch_mgr.has_dormant_ccands())
       awaken_candidates();
 
-    debug = false;
+    // debug = false;
   }
 
   //------------------------------------------------------------------------------
@@ -189,6 +260,12 @@ namespace mkfit {
       // pop one off, initialize Cc, populate with pTcs.
       begin_next_Ccrep_in_layer();
 
+      // QQQQQQ - we don't do something right below, as Prop&Kalman etc are
+      // not separate and we only call process once.
+      while (any_work_for_pre_select()) {
+        process_pre_select();
+      }
+
       // This if should be while? But, what about the else below ...?
       // Also think what happens in pre-select and if hit-matching is separate
       if (enough_work_for_pre_select() || ( ! any_Ccreps_to_begin() && any_work_for_pre_select())) {
@@ -202,10 +279,11 @@ namespace mkfit {
 
       goto do_sTcs_prop_n_kalman;
     }
+
   }
 
   //============================================================================
-  // More complex functions -- to separate then from "logic" flow
+  // More complex functions -- to separate them from the main "logic" flow
   //============================================================================
 
   //----------------------------------------------------------------------------
@@ -218,22 +296,17 @@ namespace mkfit {
 
     SteeringParams::iterator &spi = *mp_steeringparams_iter;
 
-    const bool is_dual_layer = spi->has_second_layer();
-    const LayerInfo &LI_p = mp_job->m_trk_info[ spi->m_layer ];
-    const LayerInfo &LI_s = mp_job->m_trk_info[ is_dual_layer ? spi->m_layer_sec : 0 ];
-
-    const bool is_barrel = LI_p.is_barrel();
-    if (is_dual_layer)
-      assert(LI_s.is_barrel() == is_barrel);
-
     const int N_proc = std::min(NN, (int) m_pre_select_queue.size());
+
     dprintf("MkFinderV2p2::process_pre_select work queue is %d, would process %d of them (NN=%d)\n",
             (int) m_pre_select_queue.size(), N_proc, NN);
 
-    MkBins B(is_barrel, spi.is_outward(), N_proc);
+    MkBins B(N_proc);
     PrimTCandRep *prim_tcand_ptrs[NN];
     MPlexQF phi(0.0f);
+    MPlexQI chg(0);
     MkBinTrackCovExtract TCE;
+
     int i = 0;
     while (i < N_proc) {
       PrimTCandRep &ptc = * m_pre_select_queue.front();
@@ -247,24 +320,55 @@ namespace mkfit {
       B.m_isp.z[i] = tc.z();
       B.m_isp.inv_pt[i] = tc.invpT();
       B.m_isp.theta[i] = tc.theta();
-      TCE.m_cov_0_0 = tc.errors().At(0, 0);
-      TCE.m_cov_0_1 = tc.errors().At(0, 1);
-      TCE.m_cov_1_1 = tc.errors().At(1, 1);
-      TCE.m_cov_2_2 = tc.errors().At(2, 2);
+      TCE.m_cov_0_0[i] = tc.errors().At(0, 0);
+      TCE.m_cov_0_1[i] = tc.errors().At(0, 1);
+      TCE.m_cov_1_1[i] = tc.errors().At(1, 1);
+      TCE.m_cov_2_2[i] = tc.errors().At(2, 2);
       phi[i] = tc.momPhi();
-      m_Chg[i] = tc.charge();
+      chg[i] = tc.charge();
 
       ++i;
     }
-    B.m_isp.init_momentum_vec_and_k(phi, m_Chg);
+    B.m_isp.init_momentum_vec_and_k(phi, chg);
 
-    MkRZLimits rz_lim;
-    if (is_dual_layer) {
-      rz_lim.setup(LI_p, LI_s);
-    } else {
-      rz_lim.setup(LI_p);
+    // Propagation ignoring the direction
+    // B.prop_to_limits(m_rz_limits);
+
+    // Propagation so point 1 is first edge hit, 2 the second
+    B.prop_to_limits_in_order(m_rz_limits);
+
+    PropErrsArgs pea;
+    pea.prop_config = & mp_job->m_trk_info.prop_config();
+    pea.tsXyz = mini_propagators::InitialStatePlex(B.m_sp2, B.m_isp);
+
+    i = 0;
+    while (i < N_proc) {
+      TrackCand &tc = prim_tcand_ptrs[i]->tcand();
+      pea.item_begin();
+      pea.load_state_err_chg(tc);
+      pea.item_finished();
+      ++i;
     }
-    B.prop_to_limits(rz_lim);
+    pea.compute_pars();
+    pea.do_propagation_stuff();
+
+    for (i = 0; i < N_proc; ++i) {
+      dprintf("%d: TCE %.4g %.4g %.4g %.4g  --   %.4g %.4g %.4g %.4g PROP\n", i,
+        TCE.m_cov_0_0[i], TCE.m_cov_0_1[i], TCE.m_cov_1_1[i], TCE.m_cov_2_2[i],
+        pea.propErr.At(i,0,0), pea.propErr.At(i,0,1), pea.propErr.At(i,1,1), pea.propErr.At(i,2,2));
+    }
+
+    TCE.m_cov_0_0 = pea.propErr.ReduceFixedIJ(0,0);
+    TCE.m_cov_0_1 = pea.propErr.ReduceFixedIJ(0,1);
+    TCE.m_cov_1_1 = pea.propErr.ReduceFixedIJ(1,1);
+    TCE.m_cov_2_2 = pea.propErr.ReduceFixedIJ(2,2);
+
+    // The final points are in B.m_sp2 ... sp.dalpha should be correct
+    // Do full propagation + material.
+
+    // Argh, do we really really need to do this?
+    // Can't we just take the closest hit(s) regardless of preselection?
+    // But we have no good measure of what good preselection would be.
 
     // At this point we should check for prop-failures and/or if limits have
     // been reached.
@@ -287,7 +391,7 @@ namespace mkfit {
 
     for (int i = 0; i < N_proc; ++i) {
         dprintf("%d: BinCheck Prim %c %+8.6f %+8.6f | %3d %3d || %+8.6f %+8.6f | %2d %2d\n",
-                i, LI_p.is_barrel() ? 'B' : 'E',
+                i, m_rz_limits.m_is_barrel ? 'B' : 'E',
                 B.m_phi_center[i], B.m_phi_delta[i], BL_p.p1[i], BL_p.p2[i],
                 B.m_q_min[i], B.m_q_max[i], BL_p.q1[i], BL_p.q2[i]);
     }
@@ -323,11 +427,11 @@ namespace mkfit {
     }
 
     MkBinLimits BL_s; // This should really be optional ... or somewhere else ... well, both.
-    if (is_dual_layer) {
+    if (m_rz_limits.m_is_double) {
       B.find_bin_ranges(mp_job->m_event_of_hits[spi->m_layer_sec], BL_s);
       for (int i = 0; i < N_proc; ++i) {
         dprintf("%d: BinCheck Sec  %c %+8.6f %+8.6f | %3d %3d || %+8.6f %+8.6f | %2d %2d\n",
-                i, LI_s.is_barrel() ? 'B' : 'E',
+                i, m_rz_limits.m_is_barrel ? 'B' : 'E',
                 B.m_phi_center[i], B.m_phi_delta[i], BL_s.p1[i], BL_s.p2[i],
                 B.m_q_min[i], B.m_q_max[i], BL_s.q1[i], BL_s.q2[i]);
       }
@@ -382,7 +486,7 @@ namespace mkfit {
       for (int h = 0; h < N_proc_hits; ++h) {
         PrimTCandRep &ptc = * prim_tcand_ptrs[ prim_idcs[h] ];
         float q, ddq, phi, ddphi;
-        if (is_barrel) {
+        if (m_rz_limits.m_is_barrel) {
           q = h_plex.z[h];
         } else {
           q = hipo(h_plex.x[h], h_plex.y[h]);
@@ -391,24 +495,27 @@ namespace mkfit {
         phi = vdt::fast_atan2f(h_plex.y[h], h_plex.x[h]);
         ddphi = cdist(std::abs(phi - L.hit_phi(hit_idcs[h])));
 
-
-        bool dqdphi_presel = ddq < B.m_dq_track[prim_idcs[h]] + 3 * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]) &&
+        const float EXTRA_DQ = 3.0f; // Inwards search into pixels verry tight.
+        bool dqdphi_presel = ddq < EXTRA_DQ * B.m_dq_track[prim_idcs[h]] + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]) &&
                              ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * 0.0123f;
 
         // To be moved down, only for hits that pass pre-selection, needed here for printout.
         // Could be vectorized if we repack binnor stuff.
         h3_state.dalpha[h] = B.m_sp1.dalpha[prim_idcs[h]] + h3dop.m_T[h]*(B.m_sp2.dalpha[prim_idcs[h]] - B.m_sp1.dalpha[prim_idcs[h]]);
 
+        // QQQQQQ testing, just keep phi cut
+        // dqdphi_presel = ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * 0.0123f;
+
         // clang-format off
 #ifdef DEBUG
-        bool dq_presel = ddq < B.m_dq_track[prim_idcs[h]] + MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]);
+        bool dq_presel = ddq < EXTRA_DQ * B.m_dq_track[prim_idcs[h]] + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]);
         bool dphi_presel = ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * 0.0123f;
         dprintf("     SelHit %6.3f %6.3f %6.4f %7.5f   %6.4f   %s [dq = %d, dphi = %d]\n",
                 L.hit_q(hit_idcs[h]), L.hit_phi(hit_idcs[h]),
                 ddq, ddphi, h_plex.dalpha[h], dqdphi_presel ? "PASS" : "REJECT", dq_presel, dphi_presel);
         dprintf("       ddq=%.3f, dq_track=%.4f, hit_q_half_len=%.4f, dq_expr=%.4f\n",
                 ddq, B.m_dq_track[prim_idcs[h]], L.hit_q_half_length(hit_idcs[h]),
-                B.m_dq_track[prim_idcs[h]] + MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]))
+                EXTRA_DQ * B.m_dq_track[prim_idcs[h]] + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]))
 
         dprintf("      H3 d0=%.4f d1=%.4f -> d2=%e t2=%e -> d3=%e t3=%e ... dalpha=%6.4f\n",
                d0[h], d1[h], d2[h], t2[h], d3[h], h3dop.m_T[h],
@@ -536,19 +643,19 @@ namespace mkfit {
       PrimTCandRep &ptc = * prim_tcand_ptrs[i];
       int nlh = ptc.m_layer_hits.size();
       for (int lh = 0; lh < nlh; ++ lh) {
-        const PrimTCandRep::PQE &hie = ptc.m_layer_hits[lh];
-        dprintf("scheduling %d %d %d %f\n", i, hie.hit_index, hie.hit_orig_index, hie.mixed_state.dalpha);
+        const PrimTCandRep::PQE &pqe = ptc.m_layer_hits[lh];
+        dprintf("scheduling %d %d %d %f\n", i, pqe.hit_index, pqe.hit_orig_index, pqe.mixed_state.dalpha);
 
         // Need to build all the Matriplexes for KalmanOperationPlane ... or some variant
         // There really needs to be an intermediate structure with packers so we can
         // set them up incrementally.
 
         TrackCand &tc = ptc.tcand();
-        koa.item_begin(&ptc, { (int) hie.hit_orig_index, hie.layer });
-        koa.load_state_err_chg(hie.mixed_state, tc);
+        koa.item_begin(&ptc, { (int) pqe.hit_orig_index, pqe.layer });
+        koa.load_state_err_chg(pqe.mixed_state, tc);
 
-        const auto &L = mp_job->m_event_of_hits[ hie.layer ];
-        const Hit &hit = L.refHit( hie.hit_orig_index );
+        const auto &L = mp_job->m_event_of_hits[ pqe.layer ];
+        const Hit &hit = L.refHit( pqe.hit_orig_index );
         unsigned int mid = hit.detIDinLayer();
         const ModuleInfo &mi = L.layer_info().module_info(mid);
         koa.load_hit_module(hit, mi);
@@ -559,6 +666,8 @@ namespace mkfit {
           koa.reset();
         }
       }
+      // QQQQ hits stay in, somehow. Or it was leftover PrimTCands etc due to incomplete driver.
+      ptc.m_layer_hits.clear();
     }
     if (koa.N_filled > 0) {
       koa.compute_pars();
@@ -571,18 +680,29 @@ namespace mkfit {
     for (int i = 0; i < N_proc; ++i) {
       PrimTCandRep &ptc = * prim_tcand_ptrs[i];
       TrackCand &tc = ptc.tcand();
-      if (ptc.bChi2 < 20.0f) {
-        dprintf("Output to tcand idx=%d, layer=%d, chi2=%f\n", ptc.bHot.index, ptc.bHot.layer, ptc.bChi2);
+      if (ptc.bChi2 < 30.0f) {
+        // XXXX Extra missed layer -- to check stuff / maxgrowth / scores etc
+        // This is somewhat impure :)
+        // Add a copy of the held-back candidate before adding the hit.
+        if (ptc.bChi2 > 5.0f && ! ptc.mp_ccrep->m_ccand.is_full()) {
+          dprintf("ExtraMissed to tcand %d\n", i);
+          ptc.mp_ccrep->m_ccand.push_back(tc).addHitIdx(-1, m_rz_limits.layer_info_1().layer_id(), 0.0f);
+        }
+
+        dprintf("Output to tcand %d, idx=%d, layer=%d, chi2=%f\n", i, ptc.bHot.index, ptc.bHot.layer, ptc.bChi2);
         tc.addHitIdx(ptc.bHot.index, ptc.bHot.layer, ptc.bChi2);
         tc.setState(ptc.bState);
       } else {
-        tc.addHitIdx(-1, LI_p.layer_id(), 0.0f);
+        // XXXX Here, we need to handle double layers correctly.
+        // For now we have singles.
+        dprintf("Missed to tcand %d\n", i);
+        tc.addHitIdx(-1, m_rz_limits.layer_info_1().layer_id(), 0.0f);
       }
     }
 
     // Let's try picking the secondary hit
     /*
-    if (is_dual_layer) {
+    if (is_double_layer) {
       const auto &L = mp_job->m_event_of_hits[spi->m_layer_sec];
       const auto &iteration_hit_mask = mp_job->get_mask_for_layer(spi->m_layer_sec);
       const auto &BL = BL_s;
@@ -611,9 +731,9 @@ namespace mkfit {
               int nh = ptc.m_layer_hits.size();
               for (int j = 0; j < nh; ++j) {
                 auto &X = mp_job->m_event_of_hits[spi->m_layer];
-                const PrimTCandRep::HIE &hie = ptc.m_layer_hits[j];
+                const PrimTCandRep::PQE &pqe = ptc.m_layer_hits[j];
                 dprintf("           prim %d        %6.3f %6.3f %6.3f  \n", j,
-                  X.hit_phi(hie.hit_index), X.hit_q(hie.hit_index), X.hit_qbar(hie.hit_index));
+                  X.hit_phi(pqe.hit_index), X.hit_q(pqe.hit_index), X.hit_qbar(pqe.hit_index));
               }
             }
           }

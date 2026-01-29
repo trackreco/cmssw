@@ -189,7 +189,7 @@ namespace mkfit::mini_propagators {
         const MPF oo_curv = 1.0f / curv;  // 2 * radius of curvature
         const MPF lambda = pz * inv_pt;
 
-        MPF D = 0;
+        MPF D = 0.0f;
 
         c = *this;
         for (int i = 0; i < Config::Niter; ++i) {
