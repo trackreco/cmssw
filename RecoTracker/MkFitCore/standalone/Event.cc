@@ -826,33 +826,51 @@ namespace mkfit {
   //==============================================================================
 
   Event::SimInfoFromHits Event::simInfoForTrack(const Track &s) const {
-    std::map<int, int> lab_cnt;
-    for (int hi = 0; hi < s.nTotalHits(); ++hi) {
+    struct LabelCount {
+      int n_match = 0, n_pix_match = 0, n_strip_match = 0;
+    };
+    const int n_total = s.nTotalHits();
+    int n_pix_total = 0, n_strip_total = 0;
+    std::map<int, LabelCount> lab_cnt;
+    for (int hi = 0; hi < n_total; ++hi) {
       auto hot = s.getHitOnTrack(hi);
       // printf(" %d", hot.index);
+      bool is_pixel = Config::TrkInfo[hot.layer].is_pixel();
+      if (is_pixel)
+        ++n_pix_total;
+      else
+        ++n_strip_total;
       if (hot.index < 0)
         continue;
       const Hit &h = layerHits_[hot.layer][hot.index];
       int hl = simHitsInfo_[h.mcHitID()].mcTrackID_;
       // printf(" (%d)", hl);
-      if (hl >= 0)
-        ++lab_cnt[hl];
+      if (hl >= 0) {
+        LabelCount &lc = lab_cnt[hl];
+        ++lc.n_match;
+        if (is_pixel)
+          ++lc.n_pix_match;
+        else
+          ++lc.n_strip_match;
+      }
     }
-    int max_c = -1, max_l = -1;
+    int max_c = -1, max_c_pix = -1, max_c_strip = -1, max_l = -1;
     for (auto &x : lab_cnt) {
-      if (x.second > max_c) {
+      if (x.second.n_match > max_c) {
         max_l = x.first;
-        max_c = x.second;
-      } else if (x.second == max_c) {
+        max_c = x.second.n_match;
+        max_c_pix = x.second.n_pix_match;
+        max_c_strip = x.second.n_strip_match;
+      } else if (x.second.n_match == max_c) {
         max_l = -1;
       }
     }
     if (max_c < 0) {
-      max_c = 0;
+      max_c = max_c_pix = max_c_strip = 0;
       max_l = -1;
     }
     // printf(" ] -> %d %d => %d\n", s.nTotalHits(), max_c, max_l);
-    return { s.nTotalHits(), max_c, max_l };
+    return { max_l, n_total, max_c, n_pix_total, max_c_pix, n_strip_total, max_c_strip };
   }
 
   Event::SimInfoFromHits Event::simInfoForTrack(Track &s, bool relabel) {
@@ -861,6 +879,19 @@ namespace mkfit {
       s.setLabel(sifh.label);
     }
     return sifh;
+  }
+
+  int Event::countSimHitsInLayer(int label, int layer) const {
+    if (label < 0 || label >= (int) simTracks_.size())
+      return -1;
+    const Track &s = simTracks_[label];
+    int count = 0;
+    for (int hi = 0; hi < s.nTotalHits(); ++hi) {
+      HitOnTrack hot = s.getHitOnTrack(hi);
+      if (hot.layer == layer && hot.index >= 0)
+        ++count;
+    }
+    return count;
   }
 
   void Event::setCurrentSeedTracks(const TrackVec &seeds) {
@@ -889,6 +920,12 @@ namespace mkfit {
   void Event::resetCurrentSeedTracks() {
     currentSeedTracks_ = nullptr;
     currentSeedSimFromHits_.clear();
+  }
+
+  void Event::relabelSeedTracksSequentially() {
+    const int ns = seedTracks_.size();
+    for (int i = 0; i < ns; ++i)
+      seedTracks_[i].setLabel(i);
   }
 
   //==============================================================================

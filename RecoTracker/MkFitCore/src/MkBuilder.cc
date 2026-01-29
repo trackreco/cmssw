@@ -1008,7 +1008,7 @@ namespace mkfit {
                 }
 
                 if (tc.getLastHitIdx() != -2) {
-                  eoccs[start_seed + is].emplace_back(tc);
+                  eoccs[start_seed + is].push_back(tc);
                   ++n_placed;
                 } else if (first_short) {
                   first_short = false;

@@ -435,6 +435,8 @@ namespace {
                                              : (plPnt.constAt(n, 2, 0) - inPar.constAt(n, 2, 0)) / cosT[n]);
     }
 
+    MPlexLV outParTmp = { 0.0f };
+
     CMS_UNROLL_LOOP_COUNT(Config::nSStepsInProp2Plane - 1)
     for (int i = 0; i < Config::nSStepsInProp2Plane - 1; ++i) {
       MPlexLV outParTmp{0.0f};

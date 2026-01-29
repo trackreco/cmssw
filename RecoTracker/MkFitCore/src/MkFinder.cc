@@ -795,7 +795,7 @@ namespace mkfit {
     m_FailFlag = ff_stash;
 #endif
 
-    MkBins B(m_Par[iI], m_Chg, LI.is_barrel(), N_proc);
+    MkBins B(m_Par[iI], m_Chg, N_proc);
     B.prop_to_limits(LI);
 
     MkBinTrackCovExtract TCE(m_Err[iI]);
@@ -2384,12 +2384,23 @@ namespace mkfit {
     printf("bkfit-p2p entry, track in slot %d\n", DSLOT);
     print_par_err(iC, DSLOT);
 #endif
+#if defined(DEBUG_BACKWARD_FIT)
+    const Hit *last_hit_ptr[NN];
+    int last_layer[NN];
+#endif
+
+    // Skip the last hit (or two), ie, do not refit it (them).
+    // If there are overlap hits in the same layer, they will still get processed.
+    // A more proper thing to do might be to:
+    // a) skip all hits on the last double layer; or
+    // b) skip last hits that are closer than some ds, say, 5 cm.
+    // for (int i = 0; i < N_proc; ++i) {
+    //   m_CurNode[i] = m_HoTNodeArr[i][m_CurNode[i]].m_prev_idx;
+    //   // m_CurNode[i] = m_HoTNodeArr[i][m_CurNode[i]].m_prev_idx;
+    // }
 
     int done_count = 0;
     while (done_count != N_proc) {
-#if defined(DEBUG_BACKWARD_FIT)
-      const Hit *last_hit_ptr[NN];
-#endif
 
       int here_count = 0;
       for (int i = 0; i < N_proc; ++i) {
@@ -2444,9 +2455,13 @@ namespace mkfit {
 
 #ifdef DEBUG_BACKWARD_FIT
           last_hit_ptr[i] = &hit;
+          last_layer[i] = layer;
 #endif
 #if defined(DEBUG_PROP_UPDATE)
           DSLOT_layer = layer;
+          printf("\nbkfit start layer %d, track in slot %d -- fail=%d, hit_xyz = (%g, %g, %g)\n\n",
+             DSLOT_layer, DSLOT, m_FailFlag[DSLOT],
+             m_msPar(DSLOT, 0, 0), m_msPar(DSLOT, 1, 0), m_msPar(DSLOT, 2, 0));
 #endif
         }
       }
@@ -2531,6 +2546,8 @@ namespace mkfit {
           int ti = iP;
           float chi = tmp_chi2.At(i, 0, 0);
           float chi_prnt = std::isfinite(chi) ? chi : -9;
+          const int layer = last_layer[i];
+          const LayerOfHits &L = eventofhits[layer];
 
 #if defined(MKFIT_STANDALONE)
           const MCHitInfo &mchi = m_event->simHitsInfo_[last_hit_ptr[i]->mcHitID()];
