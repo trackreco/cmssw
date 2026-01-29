@@ -49,7 +49,10 @@ namespace Matriplex {
     T fArray[kTotSize];
 
     Matriplex() {}
-    Matriplex(T v) { setVal(v); }
+
+    // Allow construction from scalar T only, do not support automatic conversions.
+    template<typename R, typename = typename std::enable_if<std::is_same<T, R>::value>::type>
+    Matriplex(R v) { setVal(v); }
 
     idx_t plexSize() const { return N; }
 

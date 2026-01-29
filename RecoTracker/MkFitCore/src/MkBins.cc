@@ -1,4 +1,5 @@
 #include "RecoTracker/MkFitCore/src/MkBins.h"
+#include "RecoTracker/MkFitCore/src/MkRZLimits.h"
 
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 #include "RecoTracker/MkFitCore/interface/HitStructures.h"
@@ -7,20 +8,6 @@
 namespace mkfit {
 
   namespace mp = mini_propagators;
-
-  void MkRZLimits::setup(const LayerInfo &li) {
-    m_rin = li.rin();
-    m_rout = li.rout();
-    m_zmin = li.zmin();
-    m_zmax = li.zmax();
-  }
-
-  void MkRZLimits::setup(const LayerInfo &li1, const LayerInfo &li2) {
-    m_rin = std::min(li1.rin(), li2.rin());
-    m_rout = std::max(li1.rout(), li2.rout());
-    m_zmin = std::min(li1.zmin(), li2.zmin());
-    m_zmax = std::max(li1.zmax(), li2.zmax());
-  }
 
   //==============================================================================
 
@@ -38,6 +25,7 @@ namespace mkfit {
     // This should also work for backward propagation so not exactly trivial.
     // Also, do not really need propagation to center. Well, to be checked, and
     // to figure out error scaling factors / correction functions.
+    m_is_barrel = li.is_barrel();
     if (m_is_barrel) {
       m_isp.propagate_to_r(mp::PA_Exact, li.rin(), m_sp1, true, m_n_proc);
       m_isp.propagate_to_r(mp::PA_Exact, li.rout(), m_sp2, true, m_n_proc);
@@ -58,6 +46,7 @@ namespace mkfit {
     // majority of services are).
     // But then we need to calc dq_track, dphi_track before.
 
+    m_is_barrel = ls.m_is_barrel;
     if (m_is_barrel) {
       m_isp.propagate_to_r(mp::PA_Exact, ls.m_rin, m_sp1, true, m_n_proc);
       m_isp = m_sp1;
@@ -75,7 +64,7 @@ namespace mkfit {
     }
   }
 
-  void MkBins::prop_to_final_edge(const MkRZLimits &ls) {
+  void MkBins::prop_to_limits_in_order(const MkRZLimits &ls) {
     // The second implementation for MkFinderV2p2.
     // m_isp is at the previous hit.
     // Propagate to final edge of the layer limits.
@@ -84,17 +73,33 @@ namespace mkfit {
     // Compare the difference.
     //
     // There is some worry sp1 and sp2 are used later on so as to expect one to be larger.
+    // It shouldn't matter for bin edges, there we min/max stuff.
+    // It might impact ordering of hits, but if we get hermite from start to end,
+    // oh ... well, yes, we need to be careful if we want them in order.
+    // Cross check how t parameter behaves, ie, if it goes from 0 to 1 when
+    // ds is negative and getting more negative with distance.
+    // It matters for hermite, which point is "first".
+    // Also, we don't really need sp1 ... the initial point is fine.
+    // Only the "time" will be extended
+    // So ... which do we keep, how do we name them?
 
+    m_is_barrel = ls.m_is_barrel;
     if (m_is_barrel) {
       float r;
-      r = m_is_outward ? ls.m_rin : ls.m_rout;
+      r = ls.m_is_outward ? ls.m_rin : ls.m_rout;
       m_isp.propagate_to_r(mp::PA_Exact, r, m_sp1, true, m_n_proc);
-      r = m_is_outward ? ls.m_rout : ls.m_rin;
       m_isp = m_sp1;
+      r = ls.m_is_outward ? ls.m_rout : ls.m_rin;
       m_isp.propagate_to_r(mp::PA_Exact, r, m_sp2, true, m_n_proc);
     } else {
-      // do i want to know endcap pos / neg? it is in LayerInfo::LayerType_e
-      // maybe better than barrel / pos / neg ... but need to move it somewhere.
+      float z1 = ls.m_zmin, z2 = ls.m_zmax;
+      bool is_pos = ls.m_layer_info_1->layer_type() == LayerInfo::EndCapPos;
+      if ((is_pos && ! ls.m_is_outward) || ( ! is_pos && ls.m_is_outward))
+        std::swap(z1, z2);
+
+      m_isp.propagate_to_z(mp::PA_Exact, z1, m_sp1, true, m_n_proc);
+      m_isp = m_sp1;
+      m_isp.propagate_to_z(mp::PA_Exact, z2, m_sp2, true, m_n_proc);
     }
   }
 

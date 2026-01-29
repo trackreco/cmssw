@@ -1472,38 +1472,38 @@ namespace mkfit {
     printf("rot:\n");
     for (int i = 0; i < 3; ++i) {
       for (int j = 0; j < 3; ++j)
-	printf("%8f ", rot.At(0, i, j));
+	      printf("%9.5g ", rot.At(0, i, j));
       printf("\n");
     }
     printf("\n");
     printf("plPnt:\n");
     for (int i = 0; i < 3; ++i) {
-      printf("%8f ", plPnt.constAt(0, 0, i));
+      printf("%9.5g ", plPnt.constAt(0, 0, i));
     }
     printf("\n");
     printf("xlo:\n");
     for (int i = 0; i < 2; ++i) {
-      printf("%8f ", xlo.At(0, i, 0));
+      printf("%9.5g ", xlo.At(0, i, 0));
     }
     printf("\n");
     printf("pgl:\n");
     for (int i = 0; i < 3; ++i) {
-      printf("%8f ", pgl.At(0, i, 0));
+      printf("%9.5g ", pgl.At(0, i, 0));
     }
     printf("\n");
     printf("plo:\n");
     for (int i = 0; i < 3; ++i) {
-      printf("%8f ", plo.At(0, i, 0));
+      printf("%9.5g ", plo.At(0, i, 0));
     }
     printf("\n");
     printf("lp:\n");
     for (int i = 0; i < 5; ++i) {
-      printf("%8f ", lp.At(0, i, 0));
+      printf("%9.5g ", lp.At(0, i, 0));
     }
     printf("\n");
     */
 
-    //now we need the jacobian to convert from CCS to curvilinear
+    // now we need the jacobian to convert from CCS to curvilinear
     // code from TrackState::jacobianCCSToCurvilinear
     MPlex56 jacCCS2Curv(0.f);
 #pragma omp simd
@@ -1519,7 +1519,7 @@ namespace mkfit {
       jacCCS2Curv(n, 4, 2) = sinT(n, 0, 0);
     }
 
-    //now we need the jacobian from curv to local
+    // now we need the jacobian from curv to local
     // code from TrackingTools/AnalyticalJacobians/src/JacobianCurvilinearToLocal.cc
     MPlexHV un;
     MPlexHV vn;
@@ -1604,65 +1604,67 @@ namespace mkfit {
       resErr_loc(n, 0, 1) = psErrLoc(n, 3, 4) + msErr_loc(n, 0, 1);
       resErr_loc(n, 1, 1) = psErrLoc(n, 4, 4) + msErr_loc(n, 1, 1);
     }
+
     /*
     printf("jacCCS2Curv:\n");
     for (int i = 0; i < 5; ++i) {
       for (int j = 0; j < 6; ++j)
-	printf("%8f ", jacCCS2Curv.At(0, i, j));
+	      printf("%9.5g ", jacCCS2Curv.At(0, i, j));
       printf("\n");
     }
     printf("un:\n");
     for (int i = 0; i < 3; ++i) {
-      printf("%8f ", un.At(0, i, 0));
+      printf("%9.5g ", un.At(0, i, 0));
     }
     printf("\n");
     printf("u:\n");
     for (int i = 0; i < 3; ++i) {
-      printf("%8f ", u.At(0, i, 0));
+      printf("%9.5g ", u.At(0, i, 0));
     }
     printf("\n");
     printf("\n");
     printf("jacCurv2Loc:\n");
     for (int i = 0; i < 5; ++i) {
       for (int j = 0; j < 5; ++j)
-	printf("%8f ", jacCurv2Loc.At(0, i, j));
+	      printf("%9.5g ", jacCurv2Loc.At(0, i, j));
       printf("\n");
     }
     printf("\n");
     printf("jacCCS2Loc:\n");
     for (int i = 0; i < 5; ++i) {
       for (int j = 0; j < 6; ++j)
-	printf("%8f ", jacCCS2Loc.At(0, i, j));
+	      printf("%9.5g ", jacCCS2Loc.At(0, i, j));
       printf("\n");
     }
     printf("\n");
     printf("temp56:\n");
     for (int i = 0; i < 5; ++i) {
       for (int j = 0; j < 6; ++j)
-	printf("%8f ", temp56.At(0, i, j));
+	      printf("%9.5g ", temp56.At(0, i, j));
       printf("\n");
     }
     printf("\n");
     printf("psErrLoc:\n");
     for (int i = 0; i < 5; ++i) {
       for (int j = 0; j < 5; ++j)
-	printf("%8f ", psErrLoc.At(0, i, j));
+	      printf("%9.5g ", psErrLoc.At(0, i, j));
       printf("\n");
     }
     printf("\n");
     printf("res_loc:\n");
     for (int i = 0; i < 2; ++i) {
-      printf("%8f ", res_loc.At(0, i, 0));
+      printf("%9.5g ", res_loc.At(0, i, 0));
     }
     printf("\n");
     printf("resErr_loc:\n");
     for (int i = 0; i < 2; ++i) {
       for (int j = 0; j < 2; ++j)
-	printf("%8f ", resErr_loc.At(0, i, j));
+	      printf("%9.5g ", resErr_loc.At(0, i, j));
       printf("\n");
     }
     printf("\n");
-    */
+    //*/
+
     //invert the 2x2 matrix
     Matriplex::invertCramerSym(resErr_loc);
 
@@ -1832,72 +1834,72 @@ namespace mkfit {
       printf("\n");
       printf("lp_upd:\n");
       for (int i = 0; i < 5; ++i) {
-	printf("%8f ", lp_upd.At(0, i, 0));
+	      printf("%9.5g ", lp_upd.At(0, i, 0));
       }
       printf("\n");
       printf("psErrLoc_upd:\n");
       for (int i = 0; i < 5; ++i) {
         for (int j = 0; j < 5; ++j)
-          printf("%8f ", psErrLoc_upd.At(0, i, j));
+          printf("%9.5g ", psErrLoc_upd.At(0, i, j));
         printf("\n");
       }
       printf("\n");
       printf("lxu:\n");
       for (int i = 0; i < 3; ++i) {
-	printf("%8f ", lxu.At(0, i, 0));
+	      printf("%9.5g ", lxu.At(0, i, 0));
       }
       printf("\n");
       printf("lpu:\n");
       for (int i = 0; i < 3; ++i) {
-	printf("%8f ", lpu.At(0, i, 0));
+	      printf("%9.5g ", lpu.At(0, i, 0));
       }
       printf("\n");
       printf("gxu:\n");
       for (int i = 0; i < 3; ++i) {
-	printf("%8f ", gxu.At(0, i, 0));
+	      printf("%9.5g ", gxu.At(0, i, 0));
       }
       printf("\n");
       printf("gpu:\n");
       for (int i = 0; i < 3; ++i) {
-	printf("%8f ", gpu.At(0, i, 0));
+	      printf("%9.5g ", gpu.At(0, i, 0));
       }
       printf("\n");
       printf("outPar:\n");
       for (int i = 0; i < 6; ++i) {
-	printf("%8f ", outPar.At(0, i, 0));
+	      printf("%9.5g ", outPar.At(0, i, 0));
       }
       printf("\n");
       printf("tnl:\n");
       for (int i = 0; i < 3; ++i) {
-	printf("%8f ", tnl.At(0, i, 0));
+	      printf("%9.5g ", tnl.At(0, i, 0));
       }
       printf("\n");
       printf("tn:\n");
       for (int i = 0; i < 3; ++i) {
-	printf("%8f ", tn.At(0, i, 0));
+	      printf("%9.5g ", tn.At(0, i, 0));
       }
       printf("\n");
       printf("un:\n");
       for (int i = 0; i < 3; ++i) {
-	printf("%8f ", un.At(0, i, 0));
+	      printf("%9.5g ", un.At(0, i, 0));
       }
       printf("\n");
       printf("vn:\n");
       for (int i = 0; i < 3; ++i) {
-	printf("%8f ", vn.At(0, i, 0));
+	      printf("%9.5g ", vn.At(0, i, 0));
       }
       printf("\n");
       printf("jacLoc2Curv:\n");
       for (int i = 0; i < 5; ++i) {
-	for (int j = 0; j < 5; ++j)
-	  printf("%8f ", jacLoc2Curv.At(0, i, j));
-	printf("\n");
+	      for (int j = 0; j < 5; ++j)
+	        printf("%9.5g ", jacLoc2Curv.At(0, i, j));
+	      printf("\n");
       }
       printf("\n");
       printf("outErr:\n");
       for (int i = 0; i < 6; ++i) {
         for (int j = 0; j < 6; ++j)
-          printf("%8f ", outErr.At(0, i, j));
+          printf("%9.5g ", outErr.At(0, i, j));
         printf("\n");
       }
       printf("\n");
@@ -1910,7 +1912,7 @@ namespace mkfit {
           printf("psErrLoc_upd:\n");
           for (int i = 0; i < 5; ++i) {
             for (int j = 0; j < 5; ++j)
-              printf("% 8e ", psErrLoc_upd.At(0, i, j));
+              printf("%9.5g ", psErrLoc_upd.At(0, i, j));
             printf("\n");
           }
           printf("\n");
@@ -1918,26 +1920,26 @@ namespace mkfit {
         printf("resErr_loc (Inv):\n");
         for (int i = 0; i < 2; ++i) {
           for (int j = 0; j < 2; ++j)
-            printf("%8f ", resErr_loc.At(0, i, j));
+            printf("%9.5g ", resErr_loc.At(0, i, j));
           printf("\n");
         }
         printf("\n");
         printf("K:\n");
         for (int i = 0; i < 6; ++i) {
           for (int j = 0; j < 2; ++j)
-            printf("%8f ", K.At(0, i, j));
+            printf("%9.5g ", K.At(0, i, j));
           printf("\n");
         }
         printf("\n");
         printf("outPar:\n");
         for (int i = 0; i < 6; ++i) {
-          printf("%8f  ", outPar.At(0, i, 0));
+          printf("%9.5g  ", outPar.At(0, i, 0));
         }
         printf("\n");
         printf("outErr:\n");
         for (int i = 0; i < 6; ++i) {
           for (int j = 0; j < 6; ++j)
-            printf("%8f ", outErr.At(0, i, j));
+            printf("%9.5g ", outErr.At(0, i, j));
           printf("\n");
         }
         printf("\n");

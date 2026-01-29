@@ -521,7 +521,6 @@ int main(int argc, char* argv[]) {
     }
     t->SetBranchAddress("ph2_simHitIdx", &ph2_simHitIdx);
   }
-  vector<float> ph2_chargeFraction_dummy(16, 0.f);
 
   // beam spot
   float bsp_x;
@@ -595,7 +594,8 @@ int main(int argc, char* argv[]) {
                 << trk_q->size() << std::endl;
 
     //find best matching tkIdx from a list of simhits indices
-    auto bestTkIdx = [&](std::vector<int> const& shs, std::vector<float> const& shfs, int rhIdx, HitType rhType) {
+    //shfs is passed as ptr as it does not exist in phase2 strip hits (nullptr is passed)
+    auto bestTkIdx = [&](std::vector<int> const& shs, std::vector<float> const* shfs, int rhIdx, HitType rhType) {
       //assume that all simhits are associated
       int ibest = -1;
       int shbest = -1;
@@ -638,7 +638,7 @@ int main(int argc, char* argv[]) {
           shbest = sh;
           hpbest = hp;
           tpbest = tp;
-          hfbest = shfs[ish];
+          hfbest = shfs ? shfs->at(ish) : 0.0f;
         }
       }
 
@@ -798,7 +798,7 @@ int main(int argc, char* argv[]) {
                 lnc.convertLayerNumber(pix_det->at(ipix), pix_lay->at(ipix), useMatched, -1, pix_z->at(ipix) > 0);
             if (ilay < 0)
               continue;
-            int simTkIdxNt = bestTkIdx(pix_simHitIdx->at(ipix), pix_chargeFraction->at(ipix), ipix, HitType::Pixel);
+            int simTkIdxNt = bestTkIdx(pix_simHitIdx->at(ipix), &pix_chargeFraction->at(ipix), ipix, HitType::Pixel);
             if (simTkIdxNt >= 0)
               nRecToSimHit++;
           }
@@ -810,7 +810,7 @@ int main(int argc, char* argv[]) {
                 continue;
               if (ilay == -1)
                 continue;
-              int simTkIdxNt = bestTkIdx(ph2_simHitIdx->at(istr), ph2_chargeFraction_dummy, istr, HitType::Phase2OT);
+              int simTkIdxNt = bestTkIdx(ph2_simHitIdx->at(istr), nullptr, istr, HitType::Phase2OT);
               if (simTkIdxNt >= 0)
                 nRecToSimHit++;
             }
@@ -821,7 +821,7 @@ int main(int argc, char* argv[]) {
                   continue;
                 int igluMono = glu_monoIdx->at(iglu);
                 int simTkIdxNt =
-                    bestTkIdx(str_simHitIdx->at(igluMono), str_chargeFraction->at(igluMono), igluMono, HitType::Strip);
+                    bestTkIdx(str_simHitIdx->at(igluMono), &str_chargeFraction->at(igluMono), igluMono, HitType::Strip);
                 if (simTkIdxNt >= 0)
                   nRecToSimHit++;
               }
@@ -833,7 +833,7 @@ int main(int argc, char* argv[]) {
                 continue;
               if (ilay == -1)
                 continue;
-              int simTkIdxNt = bestTkIdx(str_simHitIdx->at(istr), str_chargeFraction->at(istr), istr, HitType::Strip);
+              int simTkIdxNt = bestTkIdx(str_simHitIdx->at(istr), &str_chargeFraction->at(istr), istr, HitType::Strip);
               if (simTkIdxNt >= 0)
                 nRecToSimHit++;
             }
@@ -1109,7 +1109,7 @@ int main(int argc, char* argv[]) {
       int ihit = layerHits_[ilay].size();
       unsigned int imoduleid = tkinfo[ilay].short_id(pix_detId->at(ipix));
 
-      int simTkIdxNt = bestTkIdx(pix_simHitIdx->at(ipix), pix_chargeFraction->at(ipix), ipix, HitType::Pixel);
+      int simTkIdxNt = bestTkIdx(pix_simHitIdx->at(ipix), &pix_chargeFraction->at(ipix), ipix, HitType::Pixel);
       int simTkIdx = simTkIdxNt >= 0 ? simTrackIdx_[simTkIdxNt] : -1;  //switch to index in simTracks_
       //cout << Form("pix lay=%i det=%i x=(%6.3f, %6.3f, %6.3f)",ilay+1,pix_det->at(ipix),pix_x->at(ipix),pix_y->at(ipix),pix_z->at(ipix)) << endl;
       SVector3 pos(pix_x->at(ipix), pix_y->at(ipix), pix_z->at(ipix));
@@ -1154,7 +1154,7 @@ int main(int argc, char* argv[]) {
         int ihit = layerHits_[ilay].size();
         unsigned int imoduleid = tkinfo[ilay].short_id(ph2_detId->at(iph2));
 
-        int simTkIdxNt = bestTkIdx(ph2_simHitIdx->at(iph2), ph2_chargeFraction_dummy, iph2, HitType::Phase2OT);
+        int simTkIdxNt = bestTkIdx(ph2_simHitIdx->at(iph2), nullptr, iph2, HitType::Phase2OT);
         int simTkIdx = simTkIdxNt >= 0 ? simTrackIdx_[simTkIdxNt] : -1;  //switch to index in simTracks_
 
         SVector3 pos(ph2_x->at(iph2), ph2_y->at(iph2), ph2_z->at(iph2));
@@ -1192,7 +1192,7 @@ int main(int argc, char* argv[]) {
             continue;
           int igluMono = glu_monoIdx->at(iglu);
           int simTkIdxNt =
-              bestTkIdx(str_simHitIdx->at(igluMono), str_chargeFraction->at(igluMono), igluMono, HitType::Strip);
+              bestTkIdx(str_simHitIdx->at(igluMono), &str_chargeFraction->at(igluMono), igluMono, HitType::Strip);
           int simTkIdx = simTkIdxNt >= 0 ? simTrackIdx_[simTkIdxNt] : -1;  //switch to index in simTracks_
 
           int ilay = lnc.convertLayerNumber(glu_det->at(iglu), glu_lay->at(iglu), useMatched, -1, glu_z->at(iglu) > 0);
@@ -1242,7 +1242,7 @@ int main(int argc, char* argv[]) {
 
         unsigned int imoduleid = tkinfo[ilay].short_id(str_detId->at(istr));
 
-        int simTkIdxNt = bestTkIdx(str_simHitIdx->at(istr), str_chargeFraction->at(istr), istr, HitType::Strip);
+        int simTkIdxNt = bestTkIdx(str_simHitIdx->at(istr), &str_chargeFraction->at(istr), istr, HitType::Strip);
         int simTkIdx = simTkIdxNt >= 0 ? simTrackIdx_[simTkIdxNt] : -1;  //switch to index in simTracks_
 
         bool passCCC = applyCCC ? (str_chargePerCM->at(istr) > cutValueCCC) : true;

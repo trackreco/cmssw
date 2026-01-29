@@ -50,17 +50,23 @@ namespace mkfit {
 
     // For seed access in deep data dumpers.
     struct SimInfoFromHits {
-      int n_hits = 0, n_match = 0, label = -1;
+      int label = -1, n_hits = 0, n_match = 0;
+      int n_pix = 0, n_pix_match = 0;
+      int n_strip = 0, n_strip_match = 0;
       float good_frac() const { return (float)n_match / n_hits; }
       bool is_set() const { return label >= 0; }
     };
     SimInfoFromHits simInfoForTrack(const Track &s) const;
     SimInfoFromHits simInfoForTrack(Track &s, bool relabel);
 
+    int countSimHitsInLayer(int label, int layer) const;
+
     void setCurrentSeedTracks(const TrackVec &seeds);
     const Track &currentSeed(int i) const;
     SimInfoFromHits simInfoForCurrentSeed(int i) const;
     void resetCurrentSeedTracks();
+
+    void relabelSeedTracksSequentially();
 
   private:
     int evtID_;
