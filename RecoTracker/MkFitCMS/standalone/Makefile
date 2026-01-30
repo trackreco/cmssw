@@ -38,7 +38,7 @@ ShellDict.cc ${SHELL_DICT_PCM} &: ${SACMS}/ShellDict.h ${SACMS}/ShellLinkDef.h
 	rootcling ${CPPFLAGS} -I=${SRCDIR} -f ShellDict.cc $^
 	mv ShellDict_rdict.pcm ${SHELL_DICT_PCM}
 else
-SRCS := $(filter-out ${SACMS}/Shell.cc, ${SRCS})
+SRCS := $(filter-out ${SACMS}/Shell.cc ${SACMS}/Shell-LST.cc, ${SRCS})
 endif
 
 SRCB := $(notdir ${SRCS})

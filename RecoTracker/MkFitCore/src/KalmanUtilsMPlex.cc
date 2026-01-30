@@ -1311,7 +1311,7 @@ namespace mkfit {
       MPlexLV propPar;
 
       propagateHelixToPlaneMPlex(
-          psErr, psPar, Chg, plPnt, plNrm, propErr, propPar, outFailFlag, N_proc, propFlags, noMatEffPtr);
+          psErr, psPar, Chg, plPnt, plNrm, nullptr, propErr, propPar, outFailFlag, N_proc, propFlags, noMatEffPtr);
 
       kalmanOperationPlaneLocal(KFO_Calculate_Chi2 | KFO_Update_Params | KFO_Local_Cov,
                                 propErr,
