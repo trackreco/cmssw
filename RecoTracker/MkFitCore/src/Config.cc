@@ -33,6 +33,13 @@ namespace mkfit {
 #ifdef CONFIG_PhiQArrays
     bool usePhiQArrays = true;
 #endif
+
+    // ----------------------------------------------------------------
+
+    // Variables for exploration of MkFinderV2p2 tuning
+    bool backward_search_rescale_errors = true;
+    float backward_search_error_scale = 100.0f;
+
   }  // namespace Config
 
 }  // end namespace mkfit

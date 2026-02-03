@@ -128,6 +128,12 @@ namespace mkfit {
     extern const float maxcth_ob;
     extern const float maxcth_fw;
 
+    // ----------------------------------------------------------------
+
+    // Variables for exploration of MkFinderV2p2 tuning
+    extern bool backward_search_rescale_errors;
+    extern float backward_search_error_scale;
+
     // ================================================================
 
     inline float bFieldFromZR(const float z, const float r) {

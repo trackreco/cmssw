@@ -552,6 +552,12 @@ namespace mkfit {
 
         if (do_backward_search) {
           builder.beginBkwSearch();
+
+          if (Config::backward_search_rescale_errors) {
+            printf("rescaling errors by %f\n", Config::backward_search_error_scale);
+            builder.ref_eocc_nc().scaleErrors(Config::backward_search_error_scale);
+          }
+
           (builder.*FindTracks)(SteeringParams::IT_BkwSearch);
         }
 

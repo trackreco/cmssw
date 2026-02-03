@@ -88,6 +88,11 @@ namespace mkfit {
 
       if (itconf.m_backward_search) {
         builder.beginBkwSearch();
+
+        if (Config::backward_search_rescale_errors) {
+          builder.ref_eocc_nc().scaleErrors(Config::backward_search_error_scale);
+        }
+
         (builder.*FindTracks)(SteeringParams::IT_BkwSearch);
       }
     }
