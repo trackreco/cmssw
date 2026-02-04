@@ -532,7 +532,7 @@ namespace mkfit {
       const auto ngr = [](float f) { return isFinite(f) ? f : -999.0f; };
 
       const int seed_lbl = m_event->currentSeed(m_SeedOriginIdx[itrack]).label();
-      Event::SimInfoFromHits slfh = m_event->SimInfoForCurrentSeed(m_SeedOriginIdx[itrack]);
+      Event::SimInfoFromHits slfh = m_event->simInfoForCurrentSeed(m_SeedOriginIdx[itrack]);
       const int seed_mcid = (slfh.is_set() && slfh.good_frac() > 0.7f) ? slfh.label : -999999;
 #endif
 
@@ -782,7 +782,7 @@ namespace mkfit {
     rnt_shi.InnerIdcsReset(N_proc);
     Event::SimInfoFromHits sim_lbls[NN];
     for (int i = 0; i < N_proc; ++i) {
-      sim_lbls[i] = m_event->SimInfoForCurrentSeed(m_SeedOriginIdx[i]);
+      sim_lbls[i] = m_event->simInfoForCurrentSeed(m_SeedOriginIdx[i]);
       if (m_FailFlag[i]) {
         rnt_shi.RegisterFailedProp(i, m_Par[1 - iI], m_Par[iI], m_event, m_SeedOriginIdx[i]);
       } else if (sim_lbls[i].is_set()) {
