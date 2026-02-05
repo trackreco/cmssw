@@ -1,7 +1,7 @@
 #include "KalmanUtilsMPlex.h"
 #include "PropagationMPlex.h"
 
-#define DEBUG
+//#define DEBUG
 #include "Debug.h"
 
 #include "KalmanUtilsMPlex.icc"
@@ -1596,7 +1596,7 @@ namespace mkfit {
       {
         dmutex_guard;
         matriplex_print_0(resErr_loc, "resErr_loc (Inv):");
-        matriplex_print_0(outChi2, "chi2");
+        matriplex_print_0(outChi2, "chi2:");
       }
 #endif
     }
@@ -1859,8 +1859,8 @@ namespace mkfit {
 #ifdef DEBUG
       {
         dmutex_guard;
-        matriplex_print_0(resErr_loc, "resErr_loc (Inv):\n");
-        matriplex_print_0(outChi2, "chi2");
+        matriplex_print_0(resErr_loc, "resErr_loc (Inv):");
+        matriplex_print_0(outChi2, "chi2:");
       }
 #endif
     }
