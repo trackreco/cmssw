@@ -6,6 +6,10 @@
 #define DEBUG
 #include "Debug.h"
 
+#ifdef MKFIT_TRACE
+#include "RecoTracker/MkFitCore/standalone/DataFormats/RntStructs.h"
+#endif
+
 namespace mkfit {
 
   void PropErrsArgs::do_propagation_stuff() {
@@ -52,6 +56,13 @@ namespace mkfit {
         ptcp[i]->bState.charge = tsChg[i];
         ptcp[i]->bHot = hot[i];
         ptcp[i]->bChi2 = tsChi2[i];
+#ifdef MKFIT_TRACE
+        // QQQQQ to go into SecTCandRep, but for now we need it here, as all above
+        ptcp[i]->b_tr_hitmatch_id = tr_hitmatch_ids[i];
+        propErr.copyOut(i, (*tr_hitmatches)[ tr_hitmatch_ids[i] ].kalman_state.errors.Array());
+        propPar.copyOut(i, (*tr_hitmatches)[ tr_hitmatch_ids[i] ].kalman_state.parameters.Array());
+        (*tr_hitmatches)[ tr_hitmatch_ids[i] ].kalman_chi2 = tsChi2[i];
+#endif
       }
     }
   }

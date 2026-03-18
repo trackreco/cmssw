@@ -827,22 +827,18 @@ namespace mkfit {
     // }
 
 #ifdef RNT_DUMP_MkF_SelHitIdcs
+    // clang format off
     for (auto i : rnt_shi.f_h_idcs) {
       CandInfo &ci = (*rnt_shi.ci)[rnt_shi.f_h_remap[i]];
-      ci.bsn = BinSearch({B.m_phi_center[i],
-                          B.m_phi_delta[i],
-                          B.m_q_center[i],
-                          0.5f * (B.m_q_max[i] - B.m_q_min[i]),
-                          BL.p1[i],
-                          BL.p2[i],
-                          BL.q1[i],
-                          BL.q2[i],
-                          m_XWsrResult[i].m_wsr,
-                          m_XWsrResult[i].m_in_gap,
-                          false});
-      ci.ps_min = statep2propstate(B.m_sp1, i);
-      ci.ps_max = statep2propstate(B.m_sp2, i);
+      ci.bsn = BinSearch(B.m_phi_center[i],     B.m_phi_delta[i],
+                         B.m_q_center[i],       0.5f * (B.m_q_max[i] - B.m_q_min[i]),
+                         BL.p1[i], BL.p2[i],    BL.q1[i], BL.q2[i],
+                         m_XWsrResult[i].m_wsr, m_XWsrResult[i].m_in_gap,
+                         false);
+      ci.ps_min = statep2propinfo(B.m_sp1, i);
+      ci.ps_max = statep2propinfo(B.m_sp2, i);
     }
+    // clang format on
 #endif
 
     struct PQE {
@@ -996,10 +992,8 @@ namespace mkfit {
                   hit_lbl },
                 state2pos(mp_s), state2mom(mp_s),
                 new_ddq, new_ddphi, hchi2, (int) hi_orig,
-                (sim_lbl == hit_lbl), dqdphi_presel, !prop_fail,
-                false, IdxChi2List()
+                (sim_lbl == hit_lbl), dqdphi_presel, !prop_fail
               });
-              ci.hmi.back().ic2list.reset(); // zero initialize
 
               bool new_dec = dqdphi_presel && !prop_fail;
               ++ci.n_all_hits;

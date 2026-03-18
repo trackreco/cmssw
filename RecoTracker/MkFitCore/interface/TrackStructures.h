@@ -250,6 +250,11 @@ namespace mkfit {
     short int nTailMinusOneHits_ = 0;
 
     short int m_origin_index = -1;  // index of origin candidate (used for overlaps in Standard)
+
+#ifdef MKFIT_TRACE
+  public:
+    int m_trace_id = -1;
+#endif
   };
 
   inline bool sortByScoreTrackCand(const TrackCand& cand1, const TrackCand& cand2) {
@@ -344,6 +349,8 @@ namespace mkfit {
     const TrackCand& operator[](int i) const { return m_trk_cands[i]; }
     TrackCand& front() { return m_trk_cands.front(); }
     const TrackCand& front() const { return m_trk_cands.front(); }
+    TrackCand& back() { return m_trk_cands.back(); }
+    const TrackCand& back() const { return m_trk_cands.back(); }
     // emplace_back not needed as TrackCand has no movable parts
     // trk_cand_vec_type::reference emplace_back(const TrackCand& tc) { return m_trk_cands.emplace_back(tc); }
     trk_cand_vec_type::reference push_back(const TrackCand& tc) { m_trk_cands.push_back(tc); return m_trk_cands.back(); }

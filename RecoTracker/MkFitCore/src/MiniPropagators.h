@@ -1,9 +1,7 @@
 #ifndef RecoTracker_MkFitCore_src_MiniPropagators_h
 #define RecoTracker_MkFitCore_src_MiniPropagators_h
 
-#include "RecoTracker/MkFitCore/interface/Config.h"
-#include "RecoTracker/MkFitCore/interface/MatrixSTypes.h"
-#include "Matrix.h"
+#include "RecoTracker/MkFitCore/src/Matrix.h"
 
 namespace mkfit::mini_propagators {
 
