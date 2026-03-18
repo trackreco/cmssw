@@ -17,8 +17,11 @@
 
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 
+#include "RecoTracker/MkFitCore/standalone/RdfTrace/AnRun.h"
+
 #include "TFile.h"
 #include "TTree.h"
+#include "TROOT.h"
 
 namespace mkfit {
 
@@ -306,7 +309,7 @@ namespace mkfit {
 
       // print("seed-post-sort", is, s, *m_event);
 
-      const bool clear_out_pixel_hits = false;
+      const bool clear_out_pixel_hits = true; // false;
       if (clear_out_pixel_hits) {
         std::vector<HitOnTrack> ohits;
         s.swapOutAndResetHits(ohits);
@@ -351,7 +354,7 @@ namespace mkfit {
 
       builder.find_tracks_load_seeds(seeds, false); // seeds not sorted
 
-      builder.findTracksStandardv2p2();
+      // builder.findTracksStandardv2p2();
 
       job.switch_to_backward();
 
@@ -400,4 +403,20 @@ namespace mkfit {
 
   #pragma endregion RunLSTintoPix
 
+  void Shell::Test() {
+    LoopNEventsHlt(1, 4, false);
+    event()->build_trace_maps_etc();
+    AnRun *ar = new AnRun(event(), *tracker_info());
+    ar->RunBase();
+
+    char buf[256];
+    sprintf(buf, "AnRun &ar = * (AnRun*) %p;", ar);
+    gROOT->ProcessLine(buf);
+    printf("AnRun &ar variable is set: ");
+    gROOT->ProcessLine("ar");
+
+    gROOT->ProcessLine("#define EV ar.CTX.ev");
+    gROOT->ProcessLine("#define TI ar.CTX.trk_info");
+    printf("EV and TI macros are set.\n");
+  }
 }

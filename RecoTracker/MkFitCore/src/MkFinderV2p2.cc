@@ -9,6 +9,11 @@
 #include "RecoTracker/MkFitCore/standalone/Event.h"
 #endif
 
+#ifdef MKFIT_TRACE
+#include "RecoTracker/MkFitCore/standalone/DataFormats/RntStructs.h"
+#include "RecoTracker/MkFitCore/standalone/DataFormats/RntConversions.h"
+#endif
+
 #define DEBUG
 #include "Debug.h"
 
@@ -105,6 +110,27 @@ namespace mkfit {
     // Well, I actually know n ccands.
 
     dprintf("MkFinderV2p2::begin_layer Expecting %d active ccands\n", (int) m_active_ccreps.size());
+
+// #ifdef RNT_DUMP_MkF_SelHitIdcs
+//     // clang-format off
+//     const IterationConfig &IC = mp_job->m_iter_config;
+//     SteeringParams::iterator &spi = *mp_steeringparams_iter;
+//     const LayerOfHits &L = mp_job->m_event_of_hits[spi->m_layer];
+//     const LayerInfo &LI = L.layer_info();
+//     rnt_shi.ResetH();
+//     rnt_shi.ResetF();
+//     *rnt_shi.h = {mp_event->evtID(), IC.m_iteration_index, IC.m_track_algorithm,
+//                   spi.region(), L.layer_id(),
+//                   L.is_barrel() ? LI.rin() : LI.zmin(), LI.is_barrel() ? LI.rout() : LI.zmax(),
+//                   L.is_barrel(), L.is_pixel(), L.is_stereo()};
+//     *rnt_shi.f = *rnt_shi.h;
+
+//     // Unlike in MkFinder, we process all active cands in one go.
+//     // And actually do not use the inner indices as we assign CandInfo* into PrimTCand.
+//     rnt_shi.InnerIdcsReset((int) m_active_ccreps.size());
+//     // clang-format on
+// #endif
+
     int i = 1;
     for (auto &ccrep : m_active_ccreps) {
       dprintf("  %2d. seed-idx=%d, n_tcands=%d\n", i,
@@ -169,6 +195,14 @@ namespace mkfit {
         PrimTCandRep &ptc = ccrep.m_pTcs.emplace_back( &ccrep, ic );
         m_pre_select_queue.push_back(&ptc);
       }
+
+#ifdef MKFIT_TRACE
+      if (tcand.m_trace_id < 0) {
+        int cstate_id = mp_event->trace_new_cand_meta_and_state(mp_event->evtID(), ccand.seed_origin_index(),
+                                                                ccand.pickupLayer(), track2bivec3(tcand));
+        tcand.m_trace_id = cstate_id;
+      }
+#endif
     }
     ++m_active_ccreps_pos;
 
@@ -447,10 +481,15 @@ namespace mkfit {
     MPlexQUI hit_idcs;
     MPlexQUI hit_orig_idcs;
 
-    auto select_hits = [&](const LayerOfHits& L, int N_proc_hits) {
+    auto do_select_hits = [&](const LayerOfHits& L, int N_proc_hits) {
       MPlex3V module_pos;
       MPlex3V module_norm;
       mp::Hermite3D h3d;
+
+#ifdef MKFIT_TRACE
+      int tr_hitmatch_ids[NN];
+      MPlex3V module_xdir, module_ydir;
+#endif
 
       // Extract hit / target module data
       for (int h = 0; h < N_proc_hits; ++h) {
@@ -461,6 +500,19 @@ namespace mkfit {
         module_norm.copyIn(h, mi.zdir.Array());
 
         h3d.copyIn(h, H, prim_idcs[h]);
+
+#ifdef MKFIT_TRACE
+        module_xdir.copyIn(h, mi.xdir.Array());
+        module_ydir.copyIn(h, mi.calc_ydir().Array());
+        PrimTCandRep &ptc = * prim_tcand_ptrs[ prim_idcs[h] ];
+        int sim_lbl = mp_event->simInfoForCurrentSeed(ptc.ccand().seed_origin_index()).label;
+        const MCHitInfo &mchinfo = mp_event->simHitsInfo_[L.refHit(hit_orig_idcs[h]).mcHitID()];
+        int hit_lbl = mchinfo.mcTrackID();
+
+        tr_hitmatch_ids[h] = mp_event->trace_hitmatch(TrHitMatch
+          { -1, ptc.tcand().m_trace_id, spi->m_layer, (int) hit_orig_idcs[h], sim_lbl == hit_lbl }
+        ).id;
+#endif
       }
 
       is_plex.propagate_to_plane(mp::PA_Line, module_pos, module_norm, h_plex, true);
@@ -506,8 +558,8 @@ namespace mkfit {
         // QQQQQQ testing, just keep phi cut
         // dqdphi_presel = ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * 0.0123f;
 
-        // clang-format off
 #ifdef DEBUG
+        // clang-format off
         bool dq_presel = ddq < EXTRA_DQ * B.m_dq_track[prim_idcs[h]] + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]);
         bool dphi_presel = ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * 0.0123f;
         dprintf("     SelHit %6.3f %6.3f %6.4f %7.5f   %6.4f   %s [dq = %d, dphi = %d]\n",
@@ -523,8 +575,22 @@ namespace mkfit {
               //  B.m_sp1.dalpha[prim_idcs[h]] + h3dop.m_T[h]*(B.m_sp2.dalpha[prim_idcs[h]] - B.m_sp1.dalpha[prim_idcs[h]]));
         dprintf("      H3 PARS %f %f %f; %f %f %f\n", h3_state.x[h], h3_state.y[h], h3_state.z[h],
                 h3_state.px[h], h3_state.py[h], h3_state.pz[h]);
-#endif
         // clang-format on
+#endif
+
+#ifdef MKFIT_TRACE
+        auto &tr_hitmatch = mp_event->tr_hitmatch(tr_hitmatch_ids[h]);
+        tr_hitmatch.kine_on_plane = statep2bivec3(h3_state, h);
+        tr_hitmatch.dphi = ddphi;
+        tr_hitmatch.dq = ddq;
+        tr_hitmatch.passed_preselect = dqdphi_presel;
+
+        // residuals
+        EVec3 res = EVec3(h_plex.x[h], h_plex.y[h], h_plex.z[h]) - hit2pos(L.refHit(hit_orig_idcs[h]));
+        tr_hitmatch.residual_x = res.Dot( EVec3(module_xdir(h, 0, 0), module_xdir(h, 1, 0), module_xdir(h, 2, 0)) );
+        tr_hitmatch.residual_y = res.Dot( EVec3(module_ydir(h, 0, 0), module_ydir(h, 1, 0), module_ydir(h, 2, 0)) );
+        tr_hitmatch.residual_z = res.Dot( EVec3(module_norm(h, 0, 0), module_norm(h, 1, 0), module_norm(h, 2, 0)) );
+#endif
 
         if (/*prop_fail || */ !dqdphi_presel)
           continue;
@@ -532,15 +598,23 @@ namespace mkfit {
         // float dalpha = h_plex.dalpha[h];
         // is_plex might come from somewhere else, through another index.
 
-        if (ptc.m_pqueue_size < MkBins::NEW_MAX_HIT) {
+        auto do_pqueue_push = [&]() {
+#ifdef MKFIT_TRACE
+          ptc.m_pqueue.push( { ddphi, hit_orig_idcs[h], hit_idcs[h], L.layer_id(), tr_hitmatch_ids[h], { h3_state, h, is_plex, h } } );
+#else
           ptc.m_pqueue.push( { ddphi, hit_orig_idcs[h], hit_idcs[h], L.layer_id(), { h3_state, h, is_plex, h } } );
+#endif
+        };
+
+        if (ptc.m_pqueue_size < MkBins::NEW_MAX_HIT) {
+          do_pqueue_push();
           ++ptc.m_pqueue_size;
         } else if (ddphi < ptc.m_pqueue.top().score) {
           ptc.m_pqueue.pop();
-          ptc.m_pqueue.push( { ddphi, hit_orig_idcs[h], hit_idcs[h], L.layer_id(), { h3_state, h, is_plex, h } } );
+          do_pqueue_push();
         }
       }
-    }; // end lambda select_hits
+    }; // end lambda do_select_hits
 
     {
       const auto &L = mp_job->m_event_of_hits[spi->m_layer];
@@ -585,7 +659,7 @@ namespace mkfit {
               is_plex.copyIn(fill_pos, B.m_isp, i);
 
               if (++fill_pos == NN) {
-                select_hits(L, NN);
+                do_select_hits(L, NN);
                 fill_pos = 0;
               }
             }
@@ -598,7 +672,7 @@ namespace mkfit {
         // ... so let's see.
       }
       if (fill_pos > 0) {
-        select_hits(L, fill_pos);
+        do_select_hits(L, fill_pos);
       }
     }
 
@@ -622,22 +696,37 @@ namespace mkfit {
     // Should really go into KalmanOpArgs directly, and processed as needed.
     for (int i = 0; i < N_proc; ++i) {
       PrimTCandRep &ptc = * prim_tcand_ptrs[i];
+#ifdef MKFIT_TRACE
+      int rank = 1;
+#endif
       while (ptc.m_pqueue_size) {
         --ptc.m_pqueue_size;
         const auto &pqe = ptc.m_pqueue.top();
         ptc.m_layer_hits.push_back( pqe );
+
+#ifdef MKFIT_TRACE
+        TrHitMatch &tr_hitmatch = mp_event->tr_hitmatch(pqe.tr_hitmatch_id);
+        tr_hitmatch.rank = rank++;
+        tr_hitmatch.passed_pqueue = true;
+#endif
+
         // dprintf("pushing for %d  %f, %u %u\n", i, pqe.score, pqe.hit_orig_index, pqe.hit_index);
         ptc.m_pqueue.pop();
       }
     }
 
-
-    // auto call_kalman = [&](KalmanOpArgs& K) {
-    // }; // end lambda call_kalman
+    auto do_kalman = [&](KalmanOpArgs& K) {
+      K.compute_pars();
+      K.do_kalman_stuff();
+      K.reset();
+    }; // end lambda do_kalman
 
     // KalmanProp, prim layer -- should also be done in-line as slots fill up.
     KalmanOpArgs koa;
     koa.prop_config = & mp_job->m_trk_info.prop_config();
+#ifdef MKFIT_TRACE
+    koa.tr_hitmatches = & mp_event->trHitMatches_;
+#endif
 
     for (int i = 0; i < N_proc; ++i) {
       PrimTCandRep &ptc = * prim_tcand_ptrs[i];
@@ -653,7 +742,9 @@ namespace mkfit {
         TrackCand &tc = ptc.tcand();
         koa.item_begin(&ptc, { (int) pqe.hit_orig_index, pqe.layer });
         koa.load_state_err_chg(pqe.mixed_state, tc);
-
+#ifdef MKFIT_TRACE
+        koa.set_tr_hitmatch_id(pqe.tr_hitmatch_id);
+#endif
         const auto &L = mp_job->m_event_of_hits[ pqe.layer ];
         const Hit &hit = L.refHit( pqe.hit_orig_index );
         unsigned int mid = hit.detIDinLayer();
@@ -661,18 +752,14 @@ namespace mkfit {
         koa.load_hit_module(hit, mi);
 
         if (koa.item_finished()) {
-          koa.compute_pars();
-          koa.do_kalman_stuff();
-          koa.reset();
+          do_kalman(koa);
         }
       }
       // QQQQ hits stay in, somehow. Or it was leftover PrimTCands etc due to incomplete driver.
       ptc.m_layer_hits.clear();
     }
     if (koa.N_filled > 0) {
-      koa.compute_pars();
-      koa.do_kalman_stuff();
-      koa.reset();
+      do_kalman(koa);
     }
 
     // This, esp. the combinatorial part should be done once prim-tcand is finished.
@@ -680,6 +767,7 @@ namespace mkfit {
     for (int i = 0; i < N_proc; ++i) {
       PrimTCandRep &ptc = * prim_tcand_ptrs[i];
       TrackCand &tc = ptc.tcand();
+
       if (ptc.bChi2 < 30.0f) {
         // XXXX Extra missed layer -- to check stuff / maxgrowth / scores etc
         // This is somewhat impure :)
@@ -687,16 +775,41 @@ namespace mkfit {
         if (ptc.bChi2 > 5.0f && ! ptc.mp_ccrep->m_ccand.is_full()) {
           dprintf("ExtraMissed to tcand %d\n", i);
           ptc.mp_ccrep->m_ccand.push_back(tc).addHitIdx(-1, m_rz_limits.layer_info_1().layer_id(), 0.0f);
+
+#ifdef MKFIT_TRACE
+          // QQQQQ the parent extraction will be different
+          int pid = ptc.tcand().m_trace_id;
+          int id = mp_event->trace_new_cand_state(pid, (*mp_steeringparams_iter)->m_layer, track2bivec3(ptc.tcand()));
+          ptc.mp_ccrep->m_ccand.back().m_trace_id = id;
+#endif
         }
 
         dprintf("Output to tcand %d, idx=%d, layer=%d, chi2=%f\n", i, ptc.bHot.index, ptc.bHot.layer, ptc.bChi2);
         tc.addHitIdx(ptc.bHot.index, ptc.bHot.layer, ptc.bChi2);
         tc.setState(ptc.bState);
+
+#ifdef MKFIT_TRACE
+        // QQQQQ the parent extraction will be different; also fix: step, proper state (what is it)
+
+        // This is also best-hit hack
+        mp_event->tr_hitmatch(ptc.b_tr_hitmatch_id).kalman_accepted = true;
+
+        int pid = ptc.tcand().m_trace_id;
+        int id = mp_event->trace_new_cand_state(pid, (*mp_steeringparams_iter)->m_layer, track2bivec3(ptc.tcand()));
+        ptc.tcand().m_trace_id = id;
+#endif
       } else {
         // XXXX Here, we need to handle double layers correctly.
         // For now we have singles.
         dprintf("Missed to tcand %d\n", i);
         tc.addHitIdx(-1, m_rz_limits.layer_info_1().layer_id(), 0.0f);
+
+#ifdef MKFIT_TRACE
+        // QQQQQ the parent extraction will be different; also fix: step, proper state (what is it)
+        int pid = ptc.tcand().m_trace_id;
+        int id = mp_event->trace_new_cand_state(pid, (*mp_steeringparams_iter)->m_layer, track2bivec3(ptc.tcand()));
+        ptc.tcand().m_trace_id = id;
+#endif
       }
     }
 

@@ -835,13 +835,14 @@ namespace mkfit {
     for (int hi = 0; hi < n_total; ++hi) {
       auto hot = s.getHitOnTrack(hi);
       // printf(" %d", hot.index);
+      // Ignore invalid hits
+      if (hot.index < 0)
+        continue;
       bool is_pixel = Config::TrkInfo[hot.layer].is_pixel();
       if (is_pixel)
         ++n_pix_total;
       else
         ++n_strip_total;
-      if (hot.index < 0)
-        continue;
       const Hit &h = layerHits_[hot.layer][hot.index];
       int hl = simHitsInfo_[h.mcHitID()].mcTrackID_;
       // printf(" (%d)", hl);
@@ -927,6 +928,44 @@ namespace mkfit {
     for (int i = 0; i < ns; ++i)
       seedTracks_[i].setLabel(i);
   }
+
+  //==============================================================================
+  // Trace and RDF stuff
+  //==============================================================================
+
+#ifdef MKFIT_TRACE
+
+void Event::build_trace_maps_etc() {
+    trChildrenByCand_.clear();
+    for (auto& c : trCandStates_) {
+        if (c.pid >= 0)
+          trChildrenByCand_[c.pid].push_back(c.id);
+        else
+          trRootCands_.push_back(c.id);
+    }
+    trHitMatchesByCand_.clear();
+    for (auto& h : trHitMatches_) {
+      trHitMatchesByCand_[h.state_id].push_back(h.id);
+    }
+    trKalmanUpdatesByCand_.clear();
+    for (auto& k : trKalmanUpdates_) {
+      trKalmanUpdatesByCand_[k.state_id_in].push_back(k.id);
+    }
+
+    int msize = trCandStates_.size();
+    trSIFHforSeedByMeta_.clear();
+    trSIFHforSeedByMeta_.resize(msize);
+    trSIFHforCandByMeta_.clear();
+    trSIFHforCandByMeta_.resize(msize);
+
+    for (int i = 0; i < (int)trCandMetas_.size(); ++i) {
+      auto& c = trCandMetas_[i];
+      trSIFHforSeedByMeta_[i] = simInfoForCurrentSeed(c.sub_seed);
+      trSIFHforCandByMeta_[i] = simInfoForTrack(candidateTracks_[c.cand]);
+    }
+  }
+
+#endif
 
   //==============================================================================
   // DataFile
@@ -1077,6 +1116,7 @@ namespace mkfit {
   //==============================================================================
   // Misc debug / printout
   //==============================================================================
+  // clang-format off
 
   void print(std::string pfx, int itrack, const Track &trk, const Event &ev) {
     std::cout << pfx << ": " << itrack << " hits: " << trk.nFoundHits() << " label: " << trk.label()
@@ -1134,5 +1174,61 @@ namespace mkfit {
       print(pfx, i, tvec[i], ev);
     }
   }
+
+  void print(std::string pfx, const Event::SimInfoFromHits &si) {
+    printf("%s: label=%d n_hits=%d n_match=%d good_frac()=%.4f n_pix=%d n_pix_match=%d n_strip=%d n_strip_match=%d\n",
+           pfx.c_str(), si.label, si.n_hits, si.n_match, si.good_frac(),
+           si.n_pix, si.n_pix_match, si.n_strip, si.n_strip_match);
+  }
+
+#ifdef MKFIT_TRACE
+
+  void print(std::string pfx, const ::EBiVec3 &s) {
+    printf("%s: pos=(%8.3f,%8.3f,%8.3f)  mom=(%8.3f,%8.3f,%8.3f)\n",
+           pfx.c_str(), s.pos.fX, s.pos.fY, s.pos.fZ, s.mom.fX, s.mom.fY, s.mom.fZ);
+  }
+
+  void print(std::string pfx, const TrCandMeta &cm, const Event *ev) {
+    printf("%s: id=%d event=%d sub_seed=%d seed=%d sim=%d cand=%d "
+      "root_state_id=%d final_state_id=%d\n",
+      pfx.c_str(), cm.id, cm.event,
+      cm.sub_seed, cm.seed, cm.sim, cm.cand,
+      cm.root_state_id, cm.final_state_id);
+      if (ev != nullptr) {
+        print("seed_sim_info", ev->trSIFHforSeedByMeta_[cm.id]);
+        print("cand_sim_info", ev->trSIFHforCandByMeta_[cm.id]);
+      }
+  }
+
+  void print(std::string pfx, const TrCandState &cs) {
+    printf("%s: id=%d pid=%d meta_id=%d layer=%d step=%d "
+        "has_children=%d on_final_path=%d\n",
+        pfx.c_str(), cs.id, cs.pid, cs.meta_id,
+        cs.layer, cs.step, cs.has_children, cs.on_final_path);
+        print("kine", cs.kine);
+  }
+
+  void print(std::string pfx, const TrHitMatch &hm) {
+    printf("%s: id=%d state_id=%d layer=%d hit=%d mc_match=%d "
+          "score=%f dphi=%f dq=%f passed_preselect=%d "
+          "res_x=%f res_y=%f res_z=%f rank=%d passed_pqueue=%d "
+          "kalman_chi2=%f kalman_acc=%d\n",
+          pfx.c_str(), hm.id, hm.state_id, hm.layer,
+          hm.hit, hm.mc_match, hm.score, hm.dphi, hm.dq, hm.passed_preselect,
+          hm.residual_x, hm.residual_y, hm.residual_z,
+          hm.rank, hm.passed_pqueue,
+          hm.kalman_chi2, hm.kalman_accepted);
+          print("kine", hm.kine_on_plane);
+  }
+
+  void print(std::string pfx, const TrKalmanUpdate &ku) {
+    printf("%s: id=%d state_in=%d state_out=%d layer=%d hit=%d "
+            "chi2=%f chi2_trk=%f accepted=%d\n",
+            pfx.c_str(), ku.id, ku.state_id_in, ku.state_id_out, ku.layer,
+            ku.hit, ku.chi2, ku.chi2_trk, ku.accepted);
+            print("state", ku.trk_state);
+  }
+  
+#endif
 
 }  // end namespace mkfit

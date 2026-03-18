@@ -1,4 +1,5 @@
 #include "RecoTracker/MkFitCore/src/MiniPropagators.h"
+#include "RecoTracker/MkFitCore/interface/MathInlineCore.h"
 
 namespace mkfit::mini_propagators {
 

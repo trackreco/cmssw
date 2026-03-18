@@ -23,7 +23,7 @@ all: ${TGTS}
 	${MAKEDEPEND} -o $@ $<
 
 ../%.so: %.o
-	${CXX} -shared -L.. -lMicCore -o $@ $<
+	${CXX} -shared -L.. -lMkFitCore -o $@ $<
 
 ifeq ($(filter clean distclean, ${MAKECMDGOALS}),)
 include ${DEPS}

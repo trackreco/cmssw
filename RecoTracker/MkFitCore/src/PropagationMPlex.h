@@ -2,10 +2,20 @@
 #define RecoTracker_MkFitCore_src_PropagationMPlex_h
 
 #include "Matrix.h"
+#include "RecoTracker/MkFitCore/interface/MathInlineCore.h"
 
 namespace mkfit {
 
   class PropagationFlags;
+
+  inline void sincos4(const float x, float& sin, float& cos) {
+    // Had this writen with explicit division by factorial.
+    // The *whole* fitting test ran like 2.5% slower on MIC, sigh.
+
+    const float x2 = x * x;
+    cos = 1.f - 0.5f * x2 + 0.04166667f * x2 * x2;
+    sin = x - 0.16666667f * x * x2;
+  }
 
   inline void squashPhiMPlex(MPlexLV& par, const int N_proc) {
 #pragma omp simd

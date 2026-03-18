@@ -406,6 +406,20 @@ namespace mkfit {
       if (!eoccs[i].empty()) {
         const TrackCand &bcand = eoccs[i].front();
         out_vec.emplace_back(bcand.exportTrack(remove_missing_hits));
+#ifdef MKFIT_TRACE
+        auto &cs = m_event->tr_candstate(bcand.m_trace_id);
+        auto &cm = m_event->tr_candmeta(cs.meta_id);
+        cm.seed = m_event->currentSeed(cm.sub_seed).label();
+        cm.cand = i;
+        cm.final_state_id = cs.id;
+        cs.on_final_path = true;
+        int pid = cs.pid;
+        while (pid >= 0) {
+          auto &pp = m_event->tr_candstate(pid);
+          pp.on_final_path = true;
+          pid = pp.pid;
+        }
+#endif
       }
     }
   }

@@ -31,7 +31,7 @@ namespace mkfit {
     Shell();
     Shell(std::vector<DeadVec> &dv, const std::string &in_file, int start_ev);
     ~Shell();
-    void Run();
+    void Run(const std::vector<std::string> &commands);
 
     void Status();
 
@@ -105,6 +105,9 @@ namespace mkfit {
     void RunLSTintoPix(SeedSelect_e seed_select = SS_UseAll, int selected_seed = -1, int count = 1);
     void LoopNEvents(int N_events);
     void LoopNEventsHlt(int N_events, const int wanted_algo, const bool dump_all=false);
+
+    // Current default processing
+    void Test();
 
   protected:
     int select_seeds_for_algo(int algo, TrackVec &seeds);

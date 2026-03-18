@@ -490,6 +490,7 @@ int main(int argc, const char* argv[]) {
     mArgs.push_back(argv[i]);
   }
   bool run_shell = false;
+  std::vector<std::string> shell_commands;
 
   lStr_i i = mArgs.begin();
   while (i != mArgs.end()) {
@@ -516,6 +517,8 @@ int main(int argc, const char* argv[]) {
           "  --loop-over-file         after reaching the end of the file, start over from the beginning until "
           "                           <num-events> events have been processed\n"
           "  --shell                  start interactive shell instead of running test_standard()\n"
+          "  --shell-command          add a command to be executed in the shell (def: none)\n"
+          "  --shell-cmd              add a command to be executed in the shell (def: none)\n"
           "\n"
           "If no --input-file is specified, will trigger simulation\n"
           "  --num-tracks     <int>   number of tracks to generate for each event (def: %d)\n"
@@ -815,7 +818,10 @@ int main(int argc, const char* argv[]) {
       exit(1);
 #endif
       run_shell = true;
-    } else if (*i == "--num-tracks") {
+    } else if (*i == "--shell-command" || *i == "--shell-cmd") {
+      next_arg_or_die(mArgs, i);
+      shell_commands.push_back(*i);
+    }else if (*i == "--num-tracks") {
       next_arg_or_die(mArgs, i);
       Config::nTracks = atoi(i->c_str());
     } else if (*i == "--num-thr-sim") {
@@ -1030,7 +1036,7 @@ int main(int argc, const char* argv[]) {
 
     initGeom();
     shell = new Shell(mkfit::internal::deadvectors, g_input_file, g_start_event);
-    shell->Run();
+    shell->Run(shell_commands);
 #else
     std::cerr << "shell selected on a non-ROOT build.\n";
 #endif
