@@ -1,3 +1,7 @@
+#pragma link off all globals;
+#pragma link off all classes;
+#pragma link off all functions;
+
 #pragma link C++ nestedclass;
 #pragma link C++ nestedtypedef;
 
@@ -36,4 +40,20 @@
 #pragma link C++ class mkfit::MkBuilder + ;
 #pragma link C++ class mkfit::MkJob + ;
 
+// RntDumper
+
 #pragma link C++ class RntDumper;
+
+// RDF Trace etc
+
+#pragma link C++ class mkfit::RdfSources - ;
+#pragma link C++ class mkfit::RdfCtx - ;
+
+#pragma link C++ class CanvasGroup - ;
+// #pragma link C++ class CanvasGroup::Entry - ;
+#pragma link C++ typedef CGrp;
+
+#pragma link C++ class AnRun - ;
+
+#pragma link C++ function np();
+#pragma link C++ function nc(int, int, const char *, const char *, const char *);

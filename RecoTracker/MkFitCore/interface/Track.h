@@ -3,7 +3,9 @@
 
 #include "RecoTracker/MkFitCore/interface/Config.h"
 #include "RecoTracker/MkFitCore/interface/MatrixSTypes.h"
+#include "RecoTracker/MkFitCore/interface/MathInlineFunctions.h"
 #include "RecoTracker/MkFitCore/interface/FunctionTypes.h"
+#include "RecoTracker/MkFitCore/interface/TrackState.h"
 #include "RecoTracker/MkFitCore/interface/Hit.h"
 #include "RecoTracker/MkFitCore/interface/IdxChi2List.h"
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
@@ -13,105 +15,6 @@
 #include <limits>
 
 namespace mkfit {
-
-  typedef std::pair<int, int> SimTkIDInfo;
-  typedef std::vector<int> HitIdxVec;
-  typedef std::map<int, std::vector<int> > HitLayerMap;
-
-  inline int calculateCharge(const Hit& hit0, const Hit& hit1, const Hit& hit2) {
-    return ((hit2.y() - hit0.y()) * (hit2.x() - hit1.x()) > (hit2.y() - hit1.y()) * (hit2.x() - hit0.x()) ? 1 : -1);
-  }
-
-  inline int calculateCharge(const float hit0_x,
-                             const float hit0_y,
-                             const float hit1_x,
-                             const float hit1_y,
-                             const float hit2_x,
-                             const float hit2_y) {
-    return ((hit2_y - hit0_y) * (hit2_x - hit1_x) > (hit2_y - hit1_y) * (hit2_x - hit0_x) ? 1 : -1);
-  }
-
-  //==============================================================================
-  // TrackState
-  //==============================================================================
-
-  struct TrackState  //  possible to add same accessors as track?
-  {
-  public:
-    TrackState() : valid(true) {}
-    TrackState(int charge, const SVector3& pos, const SVector3& mom, const SMatrixSym66& err)
-        : parameters(SVector6(pos.At(0), pos.At(1), pos.At(2), mom.At(0), mom.At(1), mom.At(2))),
-          errors(err),
-          charge(charge),
-          valid(true) {}
-    SVector3 position() const { return SVector3(parameters[0], parameters[1], parameters[2]); }
-    SVector6 parameters;
-    SMatrixSym66 errors;
-    short charge;
-    bool valid;
-
-    // track state position
-    float x() const { return parameters.At(0); }
-    float y() const { return parameters.At(1); }
-    float z() const { return parameters.At(2); }
-    float posR() const { return getHypot(x(), y()); }
-    float posRsq() const { return x() * x() + y() * y(); }
-    float posPhi() const { return getPhi(x(), y()); }
-    float posEta() const { return getEta(posR(), z()); }
-
-    // track state position errors
-    float exx() const { return std::sqrt(errors.At(0, 0)); }
-    float eyy() const { return std::sqrt(errors.At(1, 1)); }
-    float ezz() const { return std::sqrt(errors.At(2, 2)); }
-    float exy() const { return std::sqrt(errors.At(0, 1)); }
-    float exz() const { return std::sqrt(errors.At(0, 2)); }
-    float eyz() const { return std::sqrt(errors.At(1, 2)); }
-
-    float eposR() const { return std::sqrt(getRadErr2(x(), y(), errors.At(0, 0), errors.At(1, 1), errors.At(0, 1))); }
-    float eposPhi() const { return std::sqrt(getPhiErr2(x(), y(), errors.At(0, 0), errors.At(1, 1), errors.At(0, 1))); }
-    float eposEta() const {
-      return std::sqrt(getEtaErr2(x(),
-                                  y(),
-                                  z(),
-                                  errors.At(0, 0),
-                                  errors.At(1, 1),
-                                  errors.At(2, 2),
-                                  errors.At(0, 1),
-                                  errors.At(0, 2),
-                                  errors.At(1, 2)));
-    }
-
-    // track state momentum
-    float invpT() const { return parameters.At(3); }
-    float momPhi() const { return parameters.At(4); }
-    float theta() const { return parameters.At(5); }
-    float pT() const { return std::abs(1.f / parameters.At(3)); }
-    float px() const { return pT() * std::cos(parameters.At(4)); }
-    float py() const { return pT() * std::sin(parameters.At(4)); }
-    float pz() const { return pT() / std::tan(parameters.At(5)); }
-    float momEta() const { return getEta(theta()); }
-    float p() const { return pT() / std::sin(parameters.At(5)); }
-
-    float einvpT() const { return std::sqrt(errors.At(3, 3)); }
-    float emomPhi() const { return std::sqrt(errors.At(4, 4)); }
-    float etheta() const { return std::sqrt(errors.At(5, 5)); }
-    float epT() const { return std::sqrt(errors.At(3, 3)) / (parameters.At(3) * parameters.At(3)); }
-    float emomEta() const { return std::sqrt(errors.At(5, 5)) / std::sin(parameters.At(5)); }
-    float epxpx() const { return std::sqrt(getPxPxErr2(invpT(), momPhi(), errors.At(3, 3), errors.At(4, 4))); }
-    float epypy() const { return std::sqrt(getPyPyErr2(invpT(), momPhi(), errors.At(3, 3), errors.At(4, 4))); }
-    float epzpz() const { return std::sqrt(getPyPyErr2(invpT(), theta(), errors.At(3, 3), errors.At(5, 5))); }
-
-    void convertFromCartesianToCCS();
-    void convertFromCCSToCartesian();
-    SMatrix66 jacobianCCSToCartesian(float invpt, float phi, float theta) const;
-    SMatrix66 jacobianCartesianToCCS(float px, float py, float pz) const;
-
-    void convertFromGlbCurvilinearToCCS();
-    void convertFromCCSToGlbCurvilinear();
-    //last row/column are zeros
-    SMatrix66 jacobianCCSToCurvilinear(float invpt, float cosP, float sinP, float cosT, float sinT, short charge) const;
-    SMatrix66 jacobianCurvilinearToCCS(float px, float py, float pz, short charge) const;
-  };
 
   //==============================================================================
   // TrackBase

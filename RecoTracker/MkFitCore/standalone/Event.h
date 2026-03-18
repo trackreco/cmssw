@@ -6,6 +6,10 @@
 #include "RecoTracker/MkFitCore/interface/BeamSpot.h"
 #include "Validation.h"
 
+#ifdef MKFIT_TRACE
+#include "RecoTracker/MkFitCore/standalone/DataFormats/RntStructs.h"
+#endif
+
 #include <mutex>
 
 namespace mkfit {
@@ -70,8 +74,6 @@ namespace mkfit {
 
   private:
     int evtID_;
-    const TrackVec *currentSeedTracks_ = nullptr;
-    mutable std::vector<SimInfoFromHits> currentSeedSimFromHits_;
 
   public:
     BeamSpot beamSpot_;  // XXXX Read/Write of BeamSpot + file-version bump or extra-section to be added.
@@ -86,6 +88,72 @@ namespace mkfit {
     mutable TrackExtraVec cmsswTracksExtra_;
 
     TSVec simTrackStates_;
+
+    const TrackVec *currentSeedTracks_ = nullptr;
+    mutable std::vector<SimInfoFromHits> currentSeedSimFromHits_;
+
+  #ifdef MKFIT_TRACE
+    // Not thread safe within event, multiple Events ok.
+    mutable std::vector<TrCandMeta> trCandMetas_;
+    mutable std::vector<TrCandState> trCandStates_;
+    mutable std::vector<TrHitMatch>  trHitMatches_;
+    mutable std::vector<TrKalmanUpdate> trKalmanUpdates_;
+
+    TrCandMeta& tr_candmeta(int i) const { return trCandMetas_[i]; }
+    TrCandState& tr_candstate(int i) const { return trCandStates_[i]; }
+    TrHitMatch& tr_hitmatch(int i) const { return trHitMatches_[i]; }
+    TrKalmanUpdate& tr_kalmanupdate(int i) const { return trKalmanUpdates_[i]; }
+
+    TrCandMeta& trace_candmeta(TrCandMeta && cm) const {
+      int s = trCandMetas_.size();
+      auto &t = trCandMetas_.emplace_back(cm);
+      t.id = s;
+      return t;
+    }
+    TrCandState& trace_candstate(TrCandState && cs) const {
+      int s = trCandStates_.size();
+      auto &t = trCandStates_.emplace_back(cs);
+      t.id = s;
+      return t;
+    }
+    TrHitMatch& trace_hitmatch(TrHitMatch && hm) const {
+      int s = trHitMatches_.size();
+      auto &t = trHitMatches_.emplace_back(hm);
+      t.id = s;
+      return t;
+    }
+    TrKalmanUpdate& trace_kalmanupdate(TrKalmanUpdate && ku) const {
+      int s = trKalmanUpdates_.size();
+      auto &t = trKalmanUpdates_.emplace_back(ku);
+      t.id = s;
+      return t;
+    }
+
+    int trace_new_cand_meta_and_state(int event, int seed_index, int layer, const EBiVec3 &state) const {
+      auto &cm = trace_candmeta({ -1, event, seed_index });
+      auto &cs = trace_candstate({ -1, -1, cm.id, layer, 0, state });
+      cm.root_state_id = cs.id;
+      return cs.id;
+    }
+    int trace_new_cand_state(int parent_state_id, int layer, const EBiVec3 &state) const {
+      auto &pcs = trCandStates_[parent_state_id];
+      pcs.has_children = true;
+      auto &cs = trace_candstate({ -1, parent_state_id, pcs.meta_id, layer, pcs.step + 1, state });
+      return cs.id;
+    }
+
+    // Aggregators, maps
+    void build_trace_maps_etc();
+
+    std::vector<int> trRootCands_;
+    std::unordered_map<int, std::vector<int>> trChildrenByCand_;
+    std::unordered_map<int, std::vector<int>> trHitMatchesByCand_;
+    std::unordered_map<int, std::vector<int>> trKalmanUpdatesByCand_;
+
+    std::vector<SimInfoFromHits> trSIFHforSeedByMeta_;
+    std::vector<SimInfoFromHits> trSIFHforCandByMeta_;
+  #endif
+
     static std::mutex printmutex;
   };
 
@@ -147,6 +215,16 @@ namespace mkfit {
   void print(std::string pfx, int itrack, const Track &trk, int hit_begin, int hit_end, const Event &ev);
 
   void print(std::string pfx, const TrackVec &tvec, const Event &ev);
+
+  void print(std::string pfx, const Event::SimInfoFromHits &si);
+
+#ifdef MKFIT_TRACE
+  void print(std::string pfx, const ::EBiVec3 &s);
+  void print(std::string pfx, const TrCandMeta &cm, const Event *ev);
+  void print(std::string pfx, const TrCandState &cs);
+  void print(std::string pfx, const TrHitMatch &hm);
+  void print(std::string pfx, const TrKalmanUpdate &ku);
+#endif
 
 }  // end namespace mkfit
 #endif

@@ -89,7 +89,7 @@ namespace mkfit {
     delete gApplication;
   }
 
-  void Shell::Run() {
+  void Shell::Run(const std::vector<std::string> &commands) {
     std::vector<const char *> argv = { "mkFit", "-l" };
     int argc = argv.size();
     gApplication = new TRint("mkFit-shell", &argc, const_cast<char**>(argv.data()));
@@ -99,6 +99,11 @@ namespace mkfit {
     gROOT->ProcessLine(buf);
     printf("Shell &s variable is set: ");
     gROOT->ProcessLine("s");
+
+    for (const auto &cmd : commands) {
+      printf("Executing command: %s\n", cmd.c_str());
+      gROOT->ProcessLine(cmd.c_str());
+    }
 
     gApplication->Run(true);
     printf("Shell::Run finished\n");

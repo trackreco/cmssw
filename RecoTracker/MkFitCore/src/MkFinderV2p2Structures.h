@@ -9,12 +9,18 @@
 
 #include <queue>
 
+#ifdef MKFIT_TRACE
+struct TrHitMatch;
+#endif
+
 namespace mkfit {
 
     struct CCandRep;
 
     //----------------------------------------------------------------------------
 
+    // Intermediate storage of post-kalman-update with enough state to properly
+    // update the TrackCand. Will potentially have multiple hits.
     struct SecTCandRep : public HotTubItem {
     };
 
@@ -30,6 +36,10 @@ namespace mkfit {
         unsigned int hit_orig_index;
         unsigned int hit_index;
         int layer;
+
+#ifdef MKFIT_TRACE
+        int tr_hitmatch_id;
+#endif
         // float dalpha
         // Hit &
         // ModuleInfo &
@@ -52,16 +62,20 @@ namespace mkfit {
         m_s_to_boundary = 0.0f;
       }
 
+      CombCandidate& ccand();
       TrackCand& tcand();
 
       // these go to SecTCandRep:
-      // score, params, new hits[4];
+      // score, params, chi2, new hits[4 or more for doulbe layers];
       // index in the CombCand -- thing we will update as needed
 
       // Hack for best hit
       TrackState bState;
       HitOnTrack bHot;
       float bChi2 = 999.999f;
+#ifdef MKFIT_TRACE
+      int b_tr_hitmatch_id = -1;
+#endif
     };
 
     //----------------------------------------------------------------------------
@@ -89,6 +103,7 @@ namespace mkfit {
       }
     };
 
+    inline CombCandidate& PrimTCandRep::ccand() { return mp_ccrep->m_ccand; }
     inline TrackCand& PrimTCandRep::tcand() { return mp_ccrep->m_ccand[m_origin_tcand_index]; }
 
     //----------------------------------------------------------------------------
@@ -162,6 +177,12 @@ namespace mkfit {
       MPlexHV plPnt { 0.0f }; // ""
 
       MPlexQF tsChi2 { 0.0f };   // output
+
+#ifdef MKFIT_TRACE
+      int tr_hitmatch_ids[NN];
+      void set_tr_hitmatch_id(int id) { tr_hitmatch_ids[N_filled] = id; }
+      std::vector<TrHitMatch> *tr_hitmatches = nullptr;
+#endif
 
       void reset() { N_filled = 0; }
 
