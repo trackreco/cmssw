@@ -48,29 +48,39 @@ namespace mkfit {
     void fill_hitmask_bool_vectors(int track_algo, std::vector<std::vector<bool>> &layer_masks);
     void fill_hitmask_bool_vectors(std::vector<int> &track_algo_vec, std::vector<std::vector<bool>> &layer_masks);
 
-    void print_tracks(const TrackVec &tracks, bool print_hits) const;
-
     Validation &validation_;
 
     // For seed access in deep data dumpers.
     struct SimInfoFromHits {
-      int label = -1, n_hits = 0, n_match = 0;
+      int label = -1, n_hits = 0, n_valid, n_match = 0;
       int n_pix = 0, n_pix_match = 0;
       int n_strip = 0, n_strip_match = 0;
-      float good_frac() const { return (float)n_match / n_hits; }
+      float good_frac() const { return (float)n_match / n_valid; }
+      int n_invalid() const { return n_hits - n_valid; }
+      int n_pix_bad() const { return n_pix - n_pix_match; }
+      int n_strip_bad() const { return n_strip - n_strip_match; }
       bool is_set() const { return label >= 0; }
     };
     SimInfoFromHits simInfoForTrack(const Track &s) const;
     SimInfoFromHits simInfoForTrack(Track &s, bool relabel);
 
     int countSimHitsInLayer(int label, int layer) const;
+    int countPixelHits(const Track &track) const;
+    int countPixelLayers(const Track &track) const;
+    int lastPixelLayer(const Track &track) const;
 
     void setCurrentSeedTracks(const TrackVec &seeds);
-    const Track &currentSeed(int i) const;
-    SimInfoFromHits simInfoForCurrentSeed(int i) const;
     void resetCurrentSeedTracks();
+    const Track &currentSeed(int i) const { return (*currentSeedTracks_)[i]; }
+    SimInfoFromHits simInfoForCurrentSeed(int i) const { return currentSeedSimFromHits_[i]; }
+    const TrackVec& currentSeedTracks() const { return *currentSeedTracks_; }
 
     void relabelSeedTracksSequentially();
+
+    void print_tracks(const TrackVec &tracks, bool print_hits) const;
+
+    size_t memUsage() const;
+    void printMemUsage() const;
 
   private:
     int evtID_;
@@ -95,11 +105,29 @@ namespace mkfit {
   #ifdef MKFIT_TRACE
     // Not thread safe within event, multiple Events ok.
     mutable std::vector<TrCandMeta> trCandMetas_;
+    mutable std::vector<TrCandStage> trCandStages_;
     mutable std::vector<TrCandState> trCandStates_;
-    mutable std::vector<TrHitMatch>  trHitMatches_;
+    mutable std::vector<TrHitMatch> trHitMatches_;
     mutable std::vector<TrKalmanUpdate> trKalmanUpdates_;
 
+    mutable TrackVec trSeeds_;
+    /* *** for multiple iteration tracing ***
+      could be made std::vector<TrackVec> trSeedsPerIter_;
+      but then would also need:
+      struct IterTraceInfo {
+        int meta_begin = 0;
+        int state_begin = 0;
+        int seed_begin = 0;  // Index into trSeedsPerIter_
+        int iteration_idx = 0;
+        int search_direction = 0;
+      };
+      mutable std::vector<IterTraceInfo> trIterInfos_;
+    */
+
+    mutable SeedVecInsp seedVecInsp_; // describe mixture of input seeds for HLT setup
+
     TrCandMeta& tr_candmeta(int i) const { return trCandMetas_[i]; }
+    TrCandStage& tr_candstage(int i) const { return trCandStages_[i]; }
     TrCandState& tr_candstate(int i) const { return trCandStates_[i]; }
     TrHitMatch& tr_hitmatch(int i) const { return trHitMatches_[i]; }
     TrKalmanUpdate& tr_kalmanupdate(int i) const { return trKalmanUpdates_[i]; }
@@ -107,6 +135,12 @@ namespace mkfit {
     TrCandMeta& trace_candmeta(TrCandMeta && cm) const {
       int s = trCandMetas_.size();
       auto &t = trCandMetas_.emplace_back(cm);
+      t.id = s;
+      return t;
+    }
+    TrCandStage& trace_candstage(TrCandStage && cs) const {
+      int s = trCandStages_.size();
+      auto &t = trCandStages_.emplace_back(cs);
       t.id = s;
       return t;
     }
@@ -129,16 +163,27 @@ namespace mkfit {
       return t;
     }
 
-    int trace_new_cand_meta_and_state(int event, int seed_index, int layer, const EBiVec3 &state) const {
+    int trace_new_cand_meta(int event, int seed_index) {
       auto &cm = trace_candmeta({ -1, event, seed_index });
-      auto &cs = trace_candstate({ -1, -1, cm.id, layer, 0, state });
-      cm.root_state_id = cs.id;
-      return cs.id;
+      return cm.id;
+    }
+    // always do stage and initial state together
+    // int trace_new_cand_stage(int meta_id, int parent_stage_id, int stage) {
+    //   auto &cstg = trace_candstage({ -1, meta_id, parent_stage_id, stage });
+    //   return cstg.id;
+    // }
+    std::pair<int,int>
+    trace_new_cand_stage_and_state(int meta_id, int parent_stage_id, int stage, int layer, const EBiVec3 &state) const {
+      assert(stage >= 0 && stage <= 2 && "stage expected to be between 0 and 2");
+      auto &cstage = trace_candstage({ -1, meta_id, parent_stage_id, stage });
+      auto &cstate = trace_candstate({ -1, -1, meta_id, cstage.id, layer, 0, state });
+      cstage.root_state_id = cstate.id;
+      return { cstage.id, cstate.id };
     }
     int trace_new_cand_state(int parent_state_id, int layer, const EBiVec3 &state) const {
       auto &pcs = trCandStates_[parent_state_id];
       pcs.has_children = true;
-      auto &cs = trace_candstate({ -1, parent_state_id, pcs.meta_id, layer, pcs.step + 1, state });
+      auto &cs = trace_candstate({ -1, parent_state_id, pcs.meta_id, pcs.stage_id, layer, pcs.step + 1, state });
       return cs.id;
     }
 
@@ -221,6 +266,7 @@ namespace mkfit {
 #ifdef MKFIT_TRACE
   void print(std::string pfx, const ::EBiVec3 &s);
   void print(std::string pfx, const TrCandMeta &cm, const Event *ev);
+  void print(std::string pfx, const TrCandStage &cs);
   void print(std::string pfx, const TrCandState &cs);
   void print(std::string pfx, const TrHitMatch &hm);
   void print(std::string pfx, const TrKalmanUpdate &ku);

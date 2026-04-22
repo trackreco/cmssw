@@ -145,24 +145,35 @@ struct FailedPropInfo {
 struct TrCandMeta {
   int id;
   int event;
-  int sub_seed = -1; // index of seed in event currentSeedTracks_ (filled from builder in standalone)
-  int seed = -1; // index of seed in event seedTracks_
-  int sim = -1; // index of sim track in event simTracks_
-  int cand = -1; // index of candidate in event candidateTracks_
-  int root_state_id = -1;
-  int final_state_id = -1;
+  int seed = -1;        // index of seed in event trSeeds_
+  int global_seed = -1; // index of seed in event seedTracks_ (from label of seed)
+  int sim = -1;         // index of sim track in event simTracks_
+  int cand = -1;        // candidateTracks_ index (valid for final stage)
+  int stage_ids[3] {-1, -1, -1}; // indices of stages
+};
+
+struct TrCandStage {
+  int id = -1;
+  int meta_id = -1;         // link to global meta
+  int parent_stage_id = -1; // previous stage (for multi-stage linkage)
+
+  int stage = 0;            // 0=FwdSearch, 1=BkwFit, 2=BkwSearch, as in SteeringParams::IterationType_e
+  int iteration_idx = 0;    // which iteration
+
+  int root_state_id = -1;   // first state in this stage
+  int final_state_id = -1;  // best final state in this stage
 };
 
 struct TrCandState {
   int id = -1;
-  int pid = -1;
+  int parent_id = -1;
   int meta_id = -1;
+  int stage_id = -1;
 
   int layer;
   int step; // not sure -- for now just depth number, incresed for every new state
 
-  // missing direction, forward / backwards, now only backward
-  // n_hits, n_missed_hits
+  // missing: n_hits, n_missed_hits
 
   EBiVec3 kine;
   // covariance ? mkfit::TrackState ?
@@ -221,6 +232,7 @@ struct TrKalmanUpdate {
   // Again, this should be the same as for hit match.
 
   // Link back to HitMmatch?
+  // Will this be reused for backward-fit?
 
   float   chi2;
   float   chi2_trk;
@@ -228,6 +240,17 @@ struct TrKalmanUpdate {
   bool    accepted;    // this hit advanced the state
 };
 
-// Another struct for missed layer, for some reason
+// Another struct for missed layer, for some reason?
+
+// Inspection structs
+
+struct SeedVecInsp {
+  int n_pTNs;
+  int n_TNs;
+  int n_ps;
+  int n_total() const { return n_pTNs + n_TNs + n_ps; }
+};
+
+
 
 #endif

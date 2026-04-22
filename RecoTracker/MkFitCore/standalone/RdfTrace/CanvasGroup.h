@@ -46,6 +46,11 @@ struct CanvasGroup
     return m_entries.back();
   }
 
+  Entry& AddIntH1D(ROOT::RDF::RNode &r, std::string_view column, int min, int max, std::string_view opts = "") {
+    const char *cd = column.data();
+    return Add(r.Histo1D({cd, cd, max - min + 1, min - 0.5, max + 0.5}, column), opts);
+  }
+
   Entry& Entry() {
     if ( ! m_entries.empty() )
       return m_entries.back();

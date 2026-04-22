@@ -253,7 +253,7 @@ namespace mkfit {
 
 #ifdef MKFIT_TRACE
   public:
-    int m_trace_id = -1;
+    int m_trace_state_id = -1;
 #endif
   };
 
@@ -298,7 +298,12 @@ namespace mkfit {
           m_nTailMinusOneHits_before_bkwsearch(o.m_nTailMinusOneHits_before_bkwsearch),
           m_seed_origin_index(o.m_seed_origin_index),
           m_hots_size(o.m_hots_size),
-          m_hots(o.m_hots) {}
+          m_hots(o.m_hots) {
+          #ifdef MKFIT_TRACE
+            m_trace_meta_id = o.m_trace_meta_id;
+            m_trace_stage_id = o.m_trace_stage_id;
+          #endif
+          }
 
     // Required for std::swap().
     CombCandidate(CombCandidate&& o)
@@ -317,6 +322,10 @@ namespace mkfit {
       // However, if at some point we start using this for other purposes this needs
       // to be called as well.
       // for (auto &tc : *this) tc.setCombCandidate(this);
+    #ifdef MKFIT_TRACE
+      m_trace_meta_id = o.m_trace_meta_id;
+      m_trace_stage_id = o.m_trace_stage_id;
+    #endif
     }
 
     // Required for std::swap when filtering EventOfCombinedCandidates::m_candidates.
@@ -337,6 +346,11 @@ namespace mkfit {
 
       for (auto& tc : m_trk_cands)
         tc.setCombCandidate(this);
+
+    #ifdef MKFIT_TRACE
+      m_trace_meta_id = o.m_trace_meta_id;
+      m_trace_stage_id = o.m_trace_stage_id;
+    #endif
 
       return *this;
     }
@@ -379,6 +393,11 @@ namespace mkfit {
       m_lastHitIdx_before_bkwsearch = -1;
       m_nInsideMinusOneHits_before_bkwsearch = -1;
       m_nTailMinusOneHits_before_bkwsearch = -1;
+
+    #ifdef MKFIT_TRACE
+      m_trace_meta_id = -1;
+      m_trace_stage_id = -1;
+    #endif
     }
 
     void importSeed(const Track& seed, int seed_idx, const track_score_func& score_func, int region);
@@ -428,6 +447,12 @@ namespace mkfit {
     int m_seed_origin_index = -1;  // seed index in the passed-in seed vector
     int m_hots_size = 0;
     std::vector<HoTNode> m_hots;
+
+#ifdef MKFIT_TRACE
+  public:
+    int m_trace_meta_id = -1;  // global meta (persists across stages)
+    int m_trace_stage_id = -1; // current stage (changes between stages)
+#endif
   };
 
   //==============================================================================
@@ -675,7 +700,9 @@ namespace mkfit {
 
     bool cands_in_backward_rep() const { return m_cands_in_backward_rep; }
 
-    // Direct access for vectorized functions in MkBuilder / MkFinder
+    // Direct access for vectorized functions in MkBuilder / MkFinder.
+    // DO NOT USE FOR ITERATIONS! Size of m_candidates is managed by this
+    // class to avoid memory churn and ctor/dtor calls.
     const std::vector<CombCandidate>& refCandidates() const { return m_candidates; }
     std::vector<CombCandidate>& refCandidates_nc() { return m_candidates; }
 

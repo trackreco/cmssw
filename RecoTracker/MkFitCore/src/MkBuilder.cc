@@ -19,6 +19,11 @@
 #include "RecoTracker/MkFitCore/standalone/Event.h"
 #endif
 
+#ifdef MKFIT_TRACE
+#include "RecoTracker/MkFitCore/standalone/DataFormats/RntStructs.h"
+#include "RecoTracker/MkFitCore/standalone/DataFormats/RntConversions.h"
+#endif
+
 //#define DEBUG
 // #define DEBUG_FIT
 #include "Debug.h"
@@ -407,18 +412,10 @@ namespace mkfit {
         const TrackCand &bcand = eoccs[i].front();
         out_vec.emplace_back(bcand.exportTrack(remove_missing_hits));
 #ifdef MKFIT_TRACE
-        auto &cs = m_event->tr_candstate(bcand.m_trace_id);
+        auto &cs = m_event->tr_candstate(bcand.m_trace_state_id);
         auto &cm = m_event->tr_candmeta(cs.meta_id);
-        cm.seed = m_event->currentSeed(cm.sub_seed).label();
-        cm.cand = i;
-        cm.final_state_id = cs.id;
-        cs.on_final_path = true;
-        int pid = cs.pid;
-        while (pid >= 0) {
-          auto &pp = m_event->tr_candstate(pid);
-          pp.on_final_path = true;
-          pid = pp.pid;
-        }
+        cm.global_seed = m_event->currentSeed(cm.seed).label();
+        cm.cand = out_vec.size() - 1;
 #endif
       }
     }
@@ -786,6 +783,23 @@ namespace mkfit {
 
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
 
+  #ifdef MKFIT_TRACE
+    for (int i = 0; i < eoccs.size(); ++i) {
+      CombCandidate &cc = eoccs[i];
+      assert(cc.size() == 1 && "CombCandidate expected to have a single TrackCand at this point");
+      if (cc.m_trace_meta_id == -1) {
+        cc.m_trace_meta_id = m_event->trace_new_cand_meta(m_event->evtID(), cc.seed_origin_index());
+      }
+      TrackCand &tc = cc.front();
+      auto [stage_id, state_id] = m_event->trace_new_cand_stage_and_state(
+        cc.m_trace_meta_id, cc.m_trace_stage_id, iteration_dir,
+        cc.pickupLayer(), track2bivec3(tc));
+      cc.m_trace_stage_id = stage_id;
+      tc.m_trace_state_id = state_id;
+      m_event->tr_candmeta(cc.m_trace_meta_id).stage_ids[iteration_dir] = stage_id;
+    }
+  #endif
+
     TBB_PARALLEL_FOR_EACH(m_job->regions_begin(), m_job->regions_end(), [&](int region) {
       if (iteration_dir == SteeringParams::IT_BkwSearch && !m_job->steering_params(region).has_bksearch_plan()) {
         printf("No backward search plan for region %d\n", region);
@@ -856,7 +870,25 @@ namespace mkfit {
       });  // end parallel-for over chunk of seeds within region
     });    // end of parallel-for-each over eta regions
 
-    // debug = false;
+  #ifdef MKFIT_TRACE
+    for (int i = 0; i < eoccs.size(); ++i) {
+      CombCandidate &cc = eoccs[i];
+      assert (!cc.empty());
+      const TrackCand &bcand = cc.front();
+      auto &cstate = m_event->tr_candstate(bcand.m_trace_state_id);
+      auto &cstage = m_event->tr_candstage(cc.m_trace_stage_id);
+      cstage.final_state_id = cstate.id;
+      cstate.on_final_path = true;
+      int pid = cstate.parent_id;
+      while (pid >= 0) {
+        auto &pstate = m_event->tr_candstate(pid);
+        pstate.on_final_path = true;
+        pid = pstate.parent_id;
+      }
+    }
+  #endif
+
+  // debug = false;
   }
 
   //------------------------------------------------------------------------------

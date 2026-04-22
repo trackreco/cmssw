@@ -38,6 +38,7 @@ namespace mkfit {
     void GoToEvent(int eid);
     void NextEvent(int skip = 1);
     void ProcessEvent(SeedSelect_e seed_select = SS_UseAll, int selected_seed = -1, int count = 1);
+    Event* RelinquishEvent();
 
     void SelectIterationIndex(int itidx);
     void SelectIterationAlgo(int algo);
@@ -104,10 +105,12 @@ namespace mkfit {
     // Experimental phase2 / LST stuff, in Shell-LST.cc
     void RunLSTintoPix(SeedSelect_e seed_select = SS_UseAll, int selected_seed = -1, int count = 1);
     void LoopNEvents(int N_events);
-    void LoopNEventsHlt(int N_events, const int wanted_algo, const bool dump_all=false);
+    void LoopNEventsHlt(int N_events, const int wanted_algo);
 
     // Current default processing
     void Test();
+    void TestVectorSource();
+    void TestEventSource(int Nevents=10);
 
   protected:
     int select_seeds_for_algo(int algo, TrackVec &seeds);

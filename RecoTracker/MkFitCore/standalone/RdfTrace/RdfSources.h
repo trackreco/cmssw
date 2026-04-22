@@ -19,6 +19,8 @@ namespace mkfit {
 
     static ROOT::RDataFrame MakeTrackDF(const TrackVec &tvec);
     static ROOT::RDataFrame MakeSeedDF(const Event &ev);
+
+    static ROOT::RDataFrame MakeEventDF(std::vector<const Event*>& events);
   };
 
   // RdfCtx -- to access event and potentially other things in lambda column readers, without making them capture-heavy.

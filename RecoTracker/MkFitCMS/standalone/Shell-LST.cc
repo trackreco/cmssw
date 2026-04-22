@@ -62,7 +62,7 @@ namespace mkfit {
     }
   }
 
-  void Shell::LoopNEventsHlt(int N_events, const int wanted_algo, const bool dump_all) {
+  void Shell::LoopNEventsHlt(int N_events, const int wanted_algo) {
 
     struct Dump {
       int ev;
@@ -84,14 +84,14 @@ namespace mkfit {
 
     N_events = std::min(N_events, m_evs_in_file);
 
-    for (int ev = 1; ev <= N_events; ++ev) {
+    for (int ev_cnt = 1; ev_cnt <= N_events; ++ev_cnt) {
+      if (ev_cnt > 1) NextEvent(1);
 
-      printf("\n##### BEG Event %d ##### HLT seeds\n\n", ev);
+      printf("\n##### BEG Event %d ##### HLT seeds\n\n", event()->evtID());
 
-      GoToEvent(ev);
       m_event->relabelSeedTracksSequentially();
 
-      const bool wanted_first_is_pix = true;
+      const bool wanted_first_is_pix = false; // true;
       const bool wanted_last_is_strip = true;
       bool in_wanted = false;
       bool in_algo = false;
@@ -103,6 +103,16 @@ namespace mkfit {
       auto do_print = [&]() {
         printf("END of Seed pattern first_is_pix = %d, last_is_strip = %d ==> N = %d\n",
                 first_is_pix, last_is_strip, n_match);
+        #ifdef MKFIT_TRACE
+          if (first_is_pix) {
+            if (last_is_strip)
+              m_event->seedVecInsp_.n_pTNs = n_match;
+            else
+              m_event->seedVecInsp_.n_ps = n_match;
+          } else {
+            m_event->seedVecInsp_.n_TNs = n_match;
+          }
+        #endif
       };
 
       auto do_match = [&](bool f_is_pix, bool l_is_strp)->bool {
@@ -149,8 +159,6 @@ namespace mkfit {
         } else {
           if (n_match) // n_match == 0 for first entry here
             do_print();
-          if (in_wanted && !dump_all)
-            break;
 
           if (f_is_pix == wanted_first_is_pix && l_is_strp == wanted_last_is_strip) {
             in_wanted = true;
@@ -195,7 +203,9 @@ namespace mkfit {
       StdSeq::Quality qval;
       qval.quality_val(m_event);
 
-      const bool print_bad_seed_vector = true; // depends on selection below
+      // "BAD" seeds -- leading to tracks with certain badness, see selection below.
+      // Currently: |eta| < 1, no pixel hits added
+      const bool print_bad_seed_vector = true;
       std::vector<int> bad_seeds;
 
       int NT = m_tracks.size();
@@ -207,7 +217,8 @@ namespace mkfit {
 
         if (print_bad_seed_vector) {
           if (sifh.n_pix_match == 0 && std::abs(t.momEta()) < 1.0f) { // catching cases where we add no pixel hits
-            printf("bad seed %d  pt=%.3f, eta=%.3f, phi=%3f\n", t.label(), t.pT(), t.momEta(), t.momPhi());
+            printf("bad cand %3d, seed %3d  pt=%6.3f, eta=% 5.3f, phi=% 5.3f -- ", i, t.label(), t.pT(), t.momEta(), t.momPhi());
+            print("", sifh);
             bad_seeds.push_back(t.label());
           }
         }
@@ -251,9 +262,10 @@ namespace mkfit {
         for (int bsi = 1; bsi < nbs; ++bsi)
           printf(", %d", bad_seeds[bsi]);
         printf(" })\n");
+        printf("// NOTE: these are labels, sequntial ids before cleaning (as seeds are relabeled at the start).\n");
       }
 
-      printf("\n##### END Event %d #####\n", ev);
+      printf("\n##### END Event %d ##### HLT seeds\n", event()->evtID());
     }
 
     StdSeq::Quality::s_quality_sum.quality_print();
@@ -307,9 +319,19 @@ namespace mkfit {
       // s.sortHitsByR(m_event->layerHits_);
       // s.sortHitsByLayer();
 
+      // Spring 2026, trouble with pickup of T5s (and especially T4 - 1 hit).
+      // This was both in barrel and transition region. Also needed some for FWD (PIX only).
+      // Eventually the following helps:
+      // - increas inward plan pickup layer range (see CMS-phase2.cc)
+      // - enable sorting of hits by layer below (to handle "swapped PS layers")
+      // Some things are expected to improve.
+      // - dropping of some hits from TXs (Slava is on to it)
+      // - eventually finder-v2p2 will handle this better (or at least more flexibly).
+      s.sortHitsByLayer();
+
       // print("seed-post-sort", is, s, *m_event);
 
-      const bool clear_out_pixel_hits = true; // false;
+      const bool clear_out_pixel_hits = false;
       if (clear_out_pixel_hits) {
         std::vector<HitOnTrack> ohits;
         s.swapOutAndResetHits(ohits);
@@ -352,8 +374,9 @@ namespace mkfit {
 
       m_event->setCurrentSeedTracks(seeds);
 
-      builder.find_tracks_load_seeds(seeds, false); // seeds not sorted
+      builder.find_tracks_load_seeds(seeds, false); // false - seeds not sorted
 
+// ********** NOTE: FORWARD SEARCH COMMENTED OUT **********
       // builder.findTracksStandardv2p2();
 
       job.switch_to_backward();
@@ -363,7 +386,7 @@ namespace mkfit {
 
       builder.beginBkwSearch();
 
-      // QQQQQ
+      // QQQQQ [ April 2026 - this is mostly obsolete now, to be traced down for V2p2 ]
       // On a barrel track, index 1, pt 9.8
       // - selectHitIndicesV1 & V2
       //   . no scale misses the hit on layer 3 (as overlap)
@@ -381,19 +404,29 @@ namespace mkfit {
       // builder.findTracksCloneEngine(SteeringParams::IT_BkwSearch);
       builder.findTracksStandardv2p2(SteeringParams::IT_BkwSearch);
 
+      // April 2026: For tracing we really want to keep the final track.
+      // Problem: it might not be the same one as the selected one.
+    #ifndef MKFIT_TRACE
       filter_candidates_func post_filter;
       post_filter = StdSeq::qfilter_nan_n_silly<TrackCand>;
       // post_filter is always at least doing nan_n_silly filter.
       builder.filter_comb_cands(post_filter, true);
+    #else
+      for (int i = 0; i < builder.ref_eocc_nc().size(); ++i) {
+        if (builder.ref_eocc_nc().cands_in_backward_rep())
+          builder.ref_eocc_nc()[i].repackCandPostBkwSearch(0);
+      }
+    #endif
 
       builder.endBkwSearch();
 
       builder.export_best_comb_cands(out_tracks, false /*true*/); // do not remove missing hits
 
-      m_event->candidateTracks_ = m_tracks; // For quality-val
+      m_event->candidateTracks_ = m_tracks; // For quality-val and tracing
 
-      // Do not clear ... useful for debugging / printouts!
-      // m_event->resetCurrentSeedTracks();
+    #ifndef MKFIT_TRACE
+      m_event->resetCurrentSeedTracks();
+    #endif
 
       builder.end_event();
     }
@@ -403,20 +436,77 @@ namespace mkfit {
 
   #pragma endregion RunLSTintoPix
 
-  void Shell::Test() {
-    LoopNEventsHlt(1, 4, false);
-    event()->build_trace_maps_etc();
-    AnRun *ar = new AnRun(event(), *tracker_info());
-    ar->RunBase();
+  //===========================================================================
+  #pragma region Tests etc
+  //===========================================================================
 
-    char buf[256];
-    sprintf(buf, "AnRun &ar = * (AnRun*) %p;", ar);
-    gROOT->ProcessLine(buf);
-    printf("AnRun &ar variable is set: ");
-    gROOT->ProcessLine("ar");
+  namespace {
+    void export_AnRun(AnRun *ar) {
+      char buf[256];
+      sprintf(buf, "AnRun &ar = * (AnRun*) %p;", ar);
+      gROOT->ProcessLine(buf);
+      printf("AnRun &ar variable is set: ");
+      gROOT->ProcessLine("ar");
 
-    gROOT->ProcessLine("#define EV ar.CTX.ev");
-    gROOT->ProcessLine("#define TI ar.CTX.trk_info");
-    printf("EV and TI macros are set.\n");
+      gROOT->ProcessLine("#define EV ar.CTX.ev");
+      gROOT->ProcessLine("#define TI ar.CTX.trk_info");
+      printf("EV and TI macros are set.\n");
+    }
   }
-}
+
+  void Shell::Test() {
+    printf("Shell::Test no current test, running TestEventSource(10)\n");
+    TestEventSource(10);
+  }
+
+  void Shell::TestVectorSource() {
+
+    LoopNEventsHlt(1, 4);
+    event()->build_trace_maps_etc();
+
+    AnRun *ar = new AnRun(event(), *tracker_info());
+    ar->RunOldVecBased();
+    export_AnRun(ar);
+  }
+
+  void Shell::TestEventSource(int Nevents) {
+    std::vector<const Event*> ev_vec;
+    printf("\n######### Shell::TestEventSource() -- running over %d events.\n\n", Nevents);
+    for (int ev = 1; ev <= Nevents; ++ev) {
+
+      printf("\n##### BEG Event %d #####\n\n", ev);
+
+      GoToEvent(ev);
+
+      LoopNEventsHlt(1, 4);
+
+      // Hmmh, this will have to go somewhere else to handle outward / inward
+      event()->build_trace_maps_etc();
+      event()->printMemUsage();
+
+      ev_vec.push_back( RelinquishEvent() );
+
+      printf("##### END Event %d #####\n\n", ev);
+    }
+
+    // DOESNOTWORK, deadlock, not enough threads, tbb krappe. Maybe, tbb off in Makefile.config???
+    // Tried also in mkFit.cc main(), same
+    // ROOT::EnableImplicitMT(4);
+
+    AnRun *ar = new AnRun(*tracker_info());
+    ar->SetupRdfEvent(ev_vec);
+
+    // Figuring out a good structure for basic columns, derived rdfs, etc.
+
+    // ar->RunEventSourceTestAndDupCheck();
+    ar->RunEventSourceSeedDive();
+    ar->RunT5intoPix();
+
+    ar->DrawCanvasGroups();
+
+    export_AnRun(ar);
+  }
+
+  #pragma endregion Tests etc
+
+} // end namespace mkfit
