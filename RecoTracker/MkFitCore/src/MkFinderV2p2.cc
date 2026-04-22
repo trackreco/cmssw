@@ -195,14 +195,6 @@ namespace mkfit {
         PrimTCandRep &ptc = ccrep.m_pTcs.emplace_back( &ccrep, ic );
         m_pre_select_queue.push_back(&ptc);
       }
-
-#ifdef MKFIT_TRACE
-      if (tcand.m_trace_id < 0) {
-        int cstate_id = mp_event->trace_new_cand_meta_and_state(mp_event->evtID(), ccand.seed_origin_index(),
-                                                                ccand.pickupLayer(), track2bivec3(tcand));
-        tcand.m_trace_id = cstate_id;
-      }
-#endif
     }
     ++m_active_ccreps_pos;
 
@@ -510,7 +502,7 @@ namespace mkfit {
         int hit_lbl = mchinfo.mcTrackID();
 
         tr_hitmatch_ids[h] = mp_event->trace_hitmatch(TrHitMatch
-          { -1, ptc.tcand().m_trace_id, spi->m_layer, (int) hit_orig_idcs[h], sim_lbl == hit_lbl }
+          { -1, ptc.tcand().m_trace_state_id, spi->m_layer, (int) hit_orig_idcs[h], sim_lbl == hit_lbl }
         ).id;
 #endif
       }
@@ -778,9 +770,9 @@ namespace mkfit {
 
 #ifdef MKFIT_TRACE
           // QQQQQ the parent extraction will be different
-          int pid = ptc.tcand().m_trace_id;
+          int pid = ptc.tcand().m_trace_state_id;
           int id = mp_event->trace_new_cand_state(pid, (*mp_steeringparams_iter)->m_layer, track2bivec3(ptc.tcand()));
-          ptc.mp_ccrep->m_ccand.back().m_trace_id = id;
+          ptc.mp_ccrep->m_ccand.back().m_trace_state_id = id;
 #endif
         }
 
@@ -794,9 +786,9 @@ namespace mkfit {
         // This is also best-hit hack
         mp_event->tr_hitmatch(ptc.b_tr_hitmatch_id).kalman_accepted = true;
 
-        int pid = ptc.tcand().m_trace_id;
+        int pid = ptc.tcand().m_trace_state_id;
         int id = mp_event->trace_new_cand_state(pid, (*mp_steeringparams_iter)->m_layer, track2bivec3(ptc.tcand()));
-        ptc.tcand().m_trace_id = id;
+        ptc.tcand().m_trace_state_id = id;
 #endif
       } else {
         // XXXX Here, we need to handle double layers correctly.
@@ -806,9 +798,9 @@ namespace mkfit {
 
 #ifdef MKFIT_TRACE
         // QQQQQ the parent extraction will be different; also fix: step, proper state (what is it)
-        int pid = ptc.tcand().m_trace_id;
+        int pid = ptc.tcand().m_trace_state_id;
         int id = mp_event->trace_new_cand_state(pid, (*mp_steeringparams_iter)->m_layer, track2bivec3(ptc.tcand()));
-        ptc.tcand().m_trace_id = id;
+        ptc.tcand().m_trace_state_id = id;
 #endif
       }
     }

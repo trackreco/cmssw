@@ -35,6 +35,9 @@
 #pragma link C++ class TrCandMeta + ;
 #pragma link C++ class std::vector < TrCandMeta > +;
 
+#pragma link C++ class TrCandStage + ;
+#pragma link C++ class std::vector < TrCandStage > +;
+
 #pragma link C++ class TrCandState + ;
 #pragma link C++ class std::vector < TrCandState > +;
 
@@ -45,3 +48,5 @@
 #pragma link C++ class std::vector < TrKalmanUpdate > +;
 
 // #pragma link C++ class KalmanInfo + ;
+
+#pragma link C++ class SeedVecInsp + ;

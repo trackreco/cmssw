@@ -5,8 +5,9 @@
 //#define DEBUG
 #include "RecoTracker/MkFitCore/src/Debug.h"
 
-#include <memory>
 #include <cstring>
+#include <memory>
+#include <set>
 
 namespace {
   std::unique_ptr<mkfit::Validation> dummyValidation(mkfit::Validation::make_validation("dummy", nullptr));
@@ -513,45 +514,6 @@ namespace mkfit {
     return n_acc;
   }
 
-  void Event::print_tracks(const TrackVec &tracks, bool print_hits) const {
-    const int nt = tracks.size();
-    auto score_func = IterationConfig::get_track_scorer("default");
-    //WARNING: Printouts for hits will not make any sense if mkFit is not run with a validation flag such as --quality-val
-    printf("Event::print_tracks printing %d tracks %s hits:\n", nt, (print_hits ? "with" : "without"));
-    for (int it = 0; it < nt; it++) {
-      const Track &t = tracks[it];
-      printf("  %i with q=%+i pT=%7.3f eta=% 7.3f nHits=%2d  label=%4d findable=%d score=%7.3f chi2=%7.3f\n",
-             it,
-             t.charge(),
-             t.pT(),
-             t.momEta(),
-             t.nFoundHits(),
-             t.label(),
-             t.isFindable(),
-             getScoreCand(score_func, t),
-             t.chi2());
-
-      if (print_hits) {
-        for (int ih = 0; ih < t.nTotalHits(); ++ih) {
-          int lyr = t.getHitLyr(ih);
-          int idx = t.getHitIdx(ih);
-          if (idx >= 0) {
-            const Hit &hit = layerHits_[lyr][idx];
-            printf("    hit %2d lyr=%2d idx=%3d pos r=%7.3f z=% 8.3f   mc_hit=%3d mc_trk=%3d\n",
-                   ih,
-                   lyr,
-                   idx,
-                   layerHits_[lyr][idx].r(),
-                   layerHits_[lyr][idx].z(),
-                   hit.mcHitID(),
-                   hit.mcTrackID(simHitsInfo_));
-          } else
-            printf("    hit %2d lyr=%2d idx=%3d\n", ih, t.getHitLyr(ih), t.getHitIdx(ih));
-        }
-      }
-    }
-  }
-
   int Event::clean_cms_seedtracks(TrackVec *seed_ptr) {
     const float etamax_brl = Config::c_etamax_brl;
     const float dpt_common = Config::c_dpt_common;
@@ -822,23 +784,27 @@ namespace mkfit {
   }
 
   //==============================================================================
-  // Handling of current seed vectors and MC label reconstruction from hit data
+  // Helpers for extracting information about tracks
   //==============================================================================
 
   Event::SimInfoFromHits Event::simInfoForTrack(const Track &s) const {
     struct LabelCount {
       int n_match = 0, n_pix_match = 0, n_strip_match = 0;
     };
-    const int n_total = s.nTotalHits();
+    int n_total = s.nTotalHits();
+    int n_valid = 0;
     int n_pix_total = 0, n_strip_total = 0;
     std::map<int, LabelCount> lab_cnt;
     for (int hi = 0; hi < n_total; ++hi) {
       auto hot = s.getHitOnTrack(hi);
       // printf(" %d", hot.index);
+
       // Ignore invalid hits
       if (hot.index < 0)
         continue;
+
       bool is_pixel = Config::TrkInfo[hot.layer].is_pixel();
+      ++n_valid;
       if (is_pixel)
         ++n_pix_total;
       else
@@ -871,7 +837,7 @@ namespace mkfit {
       max_l = -1;
     }
     // printf(" ] -> %d %d => %d\n", s.nTotalHits(), max_c, max_l);
-    return { max_l, n_total, max_c, n_pix_total, max_c_pix, n_strip_total, max_c_strip };
+    return { max_l, n_total, n_valid, max_c, n_pix_total, max_c_pix, n_strip_total, max_c_strip };
   }
 
   Event::SimInfoFromHits Event::simInfoForTrack(Track &s, bool relabel) {
@@ -881,6 +847,8 @@ namespace mkfit {
     }
     return sifh;
   }
+
+  //==============================================================================
 
   int Event::countSimHitsInLayer(int label, int layer) const {
     if (label < 0 || label >= (int) simTracks_.size())
@@ -895,27 +863,61 @@ namespace mkfit {
     return count;
   }
 
-  void Event::setCurrentSeedTracks(const TrackVec &seeds) {
-    currentSeedTracks_ = &seeds;
-    currentSeedSimFromHits_.clear();
-  }
-
-  const Track &Event::currentSeed(int i) const { return (*currentSeedTracks_)[i]; }
-
-  Event::SimInfoFromHits Event::simInfoForCurrentSeed(int i) const {
-    assert(currentSeedTracks_ != nullptr);
-
-    if (currentSeedSimFromHits_.empty()) {
-      currentSeedSimFromHits_.resize(currentSeedTracks_->size());
-
-      for (int si = 0; si < (int)currentSeedTracks_->size(); ++si) {
-        const Track &s = currentSeed(si);
-        // printf("%3d (%d): [", si, s.label());
-        currentSeedSimFromHits_[si] = simInfoForTrack(s);
+  int Event::countPixelHits(const Track &track) const{
+    int npix = 0;
+    for (int i = 0; i < track.nTotalHits(); ++i) {
+      int lay = track.getHitLyr(i);
+      if (lay >= 0) {
+        if (Config::TrkInfo[lay].is_pixel())
+          ++npix;
+        else
+          break;
       }
     }
+    return npix;
+  }
 
-    return currentSeedSimFromHits_[i];
+  int Event::countPixelLayers(const Track &track) const {
+    std::set<int> layers;
+    for (int i = 0; i < track.nTotalHits(); ++i) {
+      int lay = track.getHitLyr(i);
+      if (lay >= 0) {
+        if (Config::TrkInfo[lay].is_pixel())
+          layers.insert(lay);
+        else
+          break;
+      }
+    }
+    return layers.size();
+  }
+
+  int Event::lastPixelLayer(const Track &track) const {
+    int last_pix = -1;
+    for (int i = 0; i < track.nTotalHits(); ++i) {
+      int lay = track.getHitLyr(i);
+      if (lay >= 0) {
+        if (Config::TrkInfo[lay].is_pixel())
+          last_pix = lay;
+        else
+          break;
+      }
+    }
+    return last_pix;
+  }
+
+  //==============================================================================
+  // Handling of current seed vectors and MC label reconstruction from hit data
+  //==============================================================================
+
+  void Event::setCurrentSeedTracks(const TrackVec &seeds) {
+    currentSeedTracks_ = &seeds;
+
+    currentSeedSimFromHits_.resize(currentSeedTracks_->size());
+    for (int si = 0; si < (int)currentSeedTracks_->size(); ++si) {
+      const Track &s = currentSeed(si);
+      // printf("%3d (%d): [", si, s.label());
+      currentSeedSimFromHits_[si] = simInfoForTrack(s);
+    }
   }
 
   void Event::resetCurrentSeedTracks() {
@@ -930,16 +932,110 @@ namespace mkfit {
   }
 
   //==============================================================================
+  // Print / memUsage
+  //==============================================================================
+
+  void Event::print_tracks(const TrackVec &tracks, bool print_hits) const {
+    const int nt = tracks.size();
+    auto score_func = IterationConfig::get_track_scorer("default");
+    //WARNING: Printouts for hits will not make any sense if mkFit is not run with a validation flag such as --quality-val
+    printf("Event::print_tracks printing %d tracks %s hits:\n", nt, (print_hits ? "with" : "without"));
+    for (int it = 0; it < nt; it++) {
+      const Track &t = tracks[it];
+      printf("  %i with q=%+i pT=%7.3f eta=% 7.3f nHits=%2d  label=%4d findable=%d score=%7.3f chi2=%7.3f\n",
+             it,
+             t.charge(),
+             t.pT(),
+             t.momEta(),
+             t.nFoundHits(),
+             t.label(),
+             t.isFindable(),
+             getScoreCand(score_func, t),
+             t.chi2());
+
+      if (print_hits) {
+        for (int ih = 0; ih < t.nTotalHits(); ++ih) {
+          int lyr = t.getHitLyr(ih);
+          int idx = t.getHitIdx(ih);
+          if (idx >= 0) {
+            const Hit &hit = layerHits_[lyr][idx];
+            printf("    hit %2d lyr=%2d idx=%3d pos r=%7.3f z=% 8.3f   mc_hit=%3d mc_trk=%3d\n",
+                   ih,
+                   lyr,
+                   idx,
+                   layerHits_[lyr][idx].r(),
+                   layerHits_[lyr][idx].z(),
+                   hit.mcHitID(),
+                   hit.mcTrackID(simHitsInfo_));
+          } else
+            printf("    hit %2d lyr=%2d idx=%3d\n", ih, t.getHitLyr(ih), t.getHitIdx(ih));
+        }
+      }
+    }
+  }
+
+  size_t Event::memUsage() const {
+    size_t total = 0;
+
+    // Layer hits: Iterate over layers to count hits in each buffer
+    for (const auto& hv : layerHits_) {
+      total += hv.capacity() * sizeof(Hit); // Sum capacity of hits across all layers
+    }
+
+    // Track vectors
+    total += simTracks_.size() * sizeof(Track);
+    total += seedTracks_.size() * sizeof(Track);
+    total += candidateTracks_.size() * sizeof(Track);
+    total += fitTracks_.size() * sizeof(Track);
+
+    // Trace data (if MKFIT_TRACE is defined)
+    #ifdef MKFIT_TRACE
+      total += trCandMetas_.size() * sizeof(TrCandMeta);
+      total += trCandStates_.size() * sizeof(TrCandState);
+      total += trHitMatches_.size() * sizeof(TrHitMatch);
+      total += trKalmanUpdates_.size() * sizeof(TrKalmanUpdate);
+    #endif
+
+    return total;
+  }
+
+  void Event::printMemUsage() const {
+    printf("Event Memory Breakdown:\n");
+    printf("========================\n");
+
+    // Calculate hits size dynamically
+    size_t totalHits = 0;
+    for (const auto& hv : layerHits_)
+      totalHits += hv.size();
+    printf("Layer Hits:  %5zu * %3zu = %zu bytes\n", totalHits, sizeof(Hit), totalHits * sizeof(Hit));
+
+    printf("Sim tracks:  %5zu * %3zu = %zu bytes\n", simTracks_.size(), sizeof(Track), simTracks_.size() * sizeof(Track));
+    printf("Seed tracks: %5zu * %3zu = %zu bytes\n", seedTracks_.size(), sizeof(Track), seedTracks_.size() * sizeof(Track));
+    printf("Cand tracks: %5zu * %3zu = %zu bytes\n", candidateTracks_.size(), sizeof(Track), candidateTracks_.size() * sizeof(Track));
+    printf("Fit tracks:  %5zu * %3zu = %zu bytes\n", fitTracks_.size(), sizeof(Track), fitTracks_.size() * sizeof(Track));
+
+    #ifdef MKFIT_TRACE
+      printf("Trace cand metas:     %6zu * %3zu = %zu bytes\n", trCandMetas_.size(), sizeof(TrCandMeta), trCandMetas_.size() * sizeof(TrCandMeta));
+      printf("Trace cand states:    %6zu * %3zu = %zu bytes\n", trCandStates_.size(), sizeof(TrCandState), trCandStates_.size() * sizeof(TrCandState));
+      printf("Trace hit matches:    %6zu * %3zu = %zu bytes\n", trHitMatches_.size(), sizeof(TrHitMatch), trHitMatches_.size() * sizeof(TrHitMatch));
+      printf("Trace kalman updates: %6zu * %3zu = %zu bytes\n", trKalmanUpdates_.size(), sizeof(TrKalmanUpdate), trKalmanUpdates_.size() * sizeof(TrKalmanUpdate));
+    #endif
+
+    printf("========================\n");
+    printf("Total estimated size (without vector overhead): %zu bytes\n", memUsage());
+  }
+
+  //==============================================================================
   // Trace and RDF stuff
   //==============================================================================
 
 #ifdef MKFIT_TRACE
 
-void Event::build_trace_maps_etc() {
+  void Event::build_trace_maps_etc() {
     trChildrenByCand_.clear();
     for (auto& c : trCandStates_) {
-        if (c.pid >= 0)
-          trChildrenByCand_[c.pid].push_back(c.id);
+        if (c.parent_id >= 0)
+          trChildrenByCand_[c.parent_id].push_back(c.id);
         else
           trRootCands_.push_back(c.id);
     }
@@ -952,7 +1048,7 @@ void Event::build_trace_maps_etc() {
       trKalmanUpdatesByCand_[k.state_id_in].push_back(k.id);
     }
 
-    int msize = trCandStates_.size();
+    int msize = trCandMetas_.size();
     trSIFHforSeedByMeta_.clear();
     trSIFHforSeedByMeta_.resize(msize);
     trSIFHforCandByMeta_.clear();
@@ -960,9 +1056,13 @@ void Event::build_trace_maps_etc() {
 
     for (int i = 0; i < (int)trCandMetas_.size(); ++i) {
       auto& c = trCandMetas_[i];
-      trSIFHforSeedByMeta_[i] = simInfoForCurrentSeed(c.sub_seed);
+      trSIFHforSeedByMeta_[i] = simInfoForCurrentSeed(c.seed);
       trSIFHforCandByMeta_[i] = simInfoForTrack(candidateTracks_[c.cand]);
+      c.sim = trSIFHforSeedByMeta_[i].label;
     }
+
+    // copy currentSeeds out, they might be temporary or modified
+    trSeeds_ = *currentSeedTracks_;
   }
 
 #endif
@@ -1176,8 +1276,8 @@ void Event::build_trace_maps_etc() {
   }
 
   void print(std::string pfx, const Event::SimInfoFromHits &si) {
-    printf("%s: label=%d n_hits=%d n_match=%d good_frac()=%.4f n_pix=%d n_pix_match=%d n_strip=%d n_strip_match=%d\n",
-           pfx.c_str(), si.label, si.n_hits, si.n_match, si.good_frac(),
+    printf("%s: label=%5d n_valid=%2d n_match=%2d n_invalid=%2d good_frac()=%.4f n_pix=%2d n_pix_match=%2d n_strip=%2d n_strip_match=%2d\n",
+           pfx.c_str(), si.label, si.n_valid, si.n_match, si.n_invalid(), si.good_frac(),
            si.n_pix, si.n_pix_match, si.n_strip, si.n_strip_match);
   }
 
@@ -1189,21 +1289,28 @@ void Event::build_trace_maps_etc() {
   }
 
   void print(std::string pfx, const TrCandMeta &cm, const Event *ev) {
-    printf("%s: id=%d event=%d sub_seed=%d seed=%d sim=%d cand=%d "
-      "root_state_id=%d final_state_id=%d\n",
+    printf("%s: id=%d event=%d seed=%d global_seed=%d sim=%d cand=%d "
+      "stage_id_0=%d stage_id_1=%d stage_id_2=%d \n",
       pfx.c_str(), cm.id, cm.event,
-      cm.sub_seed, cm.seed, cm.sim, cm.cand,
-      cm.root_state_id, cm.final_state_id);
+      cm.seed, cm.global_seed, cm.sim, cm.cand,
+      cm.stage_ids[0], cm.stage_ids[1], cm.stage_ids[2]);
       if (ev != nullptr) {
         print("seed_sim_info", ev->trSIFHforSeedByMeta_[cm.id]);
         print("cand_sim_info", ev->trSIFHforCandByMeta_[cm.id]);
       }
   }
 
+  void print(std::string pfx, const TrCandStage &cs) {
+    printf("%s: id=%d meta_id=%d parent_stage_id=%d stage=%d "
+      "root_state_id=%d final_state_id=%d\n",
+      pfx.c_str(), cs.id, cs.meta_id, cs.parent_stage_id, cs.stage,
+      cs.root_state_id, cs.final_state_id);
+  }
+
   void print(std::string pfx, const TrCandState &cs) {
-    printf("%s: id=%d pid=%d meta_id=%d layer=%d step=%d "
+    printf("%s: id=%d parent_id=%d meta_id=%d stage_id=%d layer=%d step=%d "
         "has_children=%d on_final_path=%d\n",
-        pfx.c_str(), cs.id, cs.pid, cs.meta_id,
+        pfx.c_str(), cs.id, cs.parent_id, cs.meta_id, cs.stage_id,
         cs.layer, cs.step, cs.has_children, cs.on_final_path);
         print("kine", cs.kine);
   }

@@ -158,6 +158,12 @@ namespace mkfit {
     GoToEvent(m_event->evtID() + skip);
   }
 
+  Event* Shell::RelinquishEvent() {
+    Event *e = m_event;
+    m_event = new Event(e->evtID(), Config::TrkInfo.n_layers());
+    return e;
+  }
+
   #pragma endregion Event navigation
 
   //===========================================================================
@@ -412,6 +418,8 @@ namespace mkfit {
           This is no longer true -- was done like that in branch where this code originated from.
           It seems the label is the same as seed label.
           CombCandidate does have m_seed_origin_index -- index of seed after cleaning.
+    --
+    Argh, in 2026. This all is a bit obsolete, also the code below and in Analysis drivers.
   */
 
   int Shell::LabelFromHits(Track &t, bool replace, float good_frac) {
