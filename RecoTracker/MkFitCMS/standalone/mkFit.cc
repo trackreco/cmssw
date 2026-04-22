@@ -17,6 +17,8 @@
 #ifdef WITH_ROOT
 #include "RecoTracker/MkFitCore/standalone/Validation.h"
 #include "RecoTracker/MkFitCore/standalone/RntDumper/RntDumper.h"
+
+#include "TROOT.h"
 #endif
 
 //#define DEBUG
@@ -1032,6 +1034,11 @@ int main(int argc, const char* argv[]) {
 #endif
   if (run_shell) {
 #ifdef WITH_ROOT
+    // Might (tbb + RDF) or might not be (RDF only) needed
+    // ROOT::EnableThreadSafety();
+    // Does not seem to work -- is it tbb?
+    // ROOT::EnableImplicitMT(2);
+    // Why exactly is this here?
     tbb::global_control global_limit(tbb::global_control::max_allowed_parallelism, Config::numThreadsFinder);
 
     initGeom();
