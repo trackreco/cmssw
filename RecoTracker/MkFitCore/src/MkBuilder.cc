@@ -13,9 +13,15 @@
 #include "FindingFoos.h"
 #include "MkFitter.h"
 #include "MkFinder.h"
+#include "MkFinderV2p2.h"
 
 #ifdef MKFIT_STANDALONE
 #include "RecoTracker/MkFitCore/standalone/Event.h"
+#endif
+
+#ifdef MKFIT_TRACE
+#include "RecoTracker/MkFitCore/standalone/DataFormats/RntStructs.h"
+#include "RecoTracker/MkFitCore/standalone/DataFormats/RntConversions.h"
 #endif
 
 //#define DEBUG
@@ -39,17 +45,20 @@ namespace mkfit {
     Pool<CandCloner> m_cloners;
     Pool<MkFitter> m_fitters;
     Pool<MkFinder> m_finders;
+    Pool<MkFinderV2p2> m_findersV2p2;
 
     void populate(int n_thr) {
       m_cloners.populate(n_thr - m_cloners.size());
       m_fitters.populate(n_thr - m_fitters.size());
       m_finders.populate(n_thr - m_finders.size());
+      m_findersV2p2.populate(n_thr - m_findersV2p2.size());
     }
 
     void clear() {
       m_cloners.clear();
       m_fitters.clear();
       m_finders.clear();
+      m_findersV2p2.clear();
     }
   };
 
@@ -402,6 +411,12 @@ namespace mkfit {
       if (!eoccs[i].empty()) {
         const TrackCand &bcand = eoccs[i].front();
         out_vec.emplace_back(bcand.exportTrack(remove_missing_hits));
+#ifdef MKFIT_TRACE
+        auto &cs = m_event->tr_candstate(bcand.m_trace_state_id);
+        auto &cm = m_event->tr_candmeta(cs.meta_id);
+        cm.global_seed = m_event->currentSeed(cm.seed).label();
+        cm.cand = out_vec.size() - 1;
+#endif
       }
     }
   }
@@ -760,7 +775,124 @@ namespace mkfit {
   }
 
   //------------------------------------------------------------------------------
-  // FindTracksCombinatorial: Standard TBB
+  // findTracksStandardv2p2 -- thin-thick layers version
+  //------------------------------------------------------------------------------
+
+  void MkBuilder::findTracksStandardv2p2(SteeringParams::IterationType_e iteration_dir) {
+    // debug = true;
+
+    EventOfCombCandidates &eoccs = m_event_of_comb_cands;
+
+  #ifdef MKFIT_TRACE
+    for (int i = 0; i < eoccs.size(); ++i) {
+      CombCandidate &cc = eoccs[i];
+      assert(cc.size() == 1 && "CombCandidate expected to have a single TrackCand at this point");
+      if (cc.m_trace_meta_id == -1) {
+        cc.m_trace_meta_id = m_event->trace_new_cand_meta(m_event->evtID(), cc.seed_origin_index());
+      }
+      TrackCand &tc = cc.front();
+      auto [stage_id, state_id] = m_event->trace_new_cand_stage_and_state(
+        cc.m_trace_meta_id, cc.m_trace_stage_id, iteration_dir,
+        cc.pickupLayer(), track2bivec3(tc));
+      cc.m_trace_stage_id = stage_id;
+      tc.m_trace_state_id = state_id;
+      m_event->tr_candmeta(cc.m_trace_meta_id).stage_ids[iteration_dir] = stage_id;
+    }
+  #endif
+
+    TBB_PARALLEL_FOR_EACH(m_job->regions_begin(), m_job->regions_end(), [&](int region) {
+      if (iteration_dir == SteeringParams::IT_BkwSearch && !m_job->steering_params(region).has_bksearch_plan()) {
+        printf("No backward search plan for region %d\n", region);
+        return;
+      }
+
+      const SteeringParams &st_par = m_job->steering_params(region);
+
+      const RegionOfSeedIndices rosi(m_seedEtaSeparators, region);
+
+      // adaptive seeds per task based on the total estimated amount of work to divide among all threads
+      const int adaptiveSPT = std::clamp(
+          Config::numThreadsEvents * eoccs.size() / Config::numThreadsFinder + 1, 4, Config::numSeedsPerTask);
+      dprint("adaptiveSPT " << adaptiveSPT << " fill " << rosi.count() << "/" << eoccs.size() << " region " << region);
+
+      // loop over seeds
+      TBB_PARALLEL_FOR(rosi.tbb_blk_rng_std(adaptiveSPT), [&](const tbb::blocked_range<int> &seeds) {
+        auto mkfndr = g_exe_ctx.m_findersV2p2.makeOrGet();
+
+        const int start_seed = seeds.begin();
+        const int end_seed = seeds.end();
+
+        auto layer_plan_it = st_par.make_iterator(iteration_dir);
+
+        dprintf("Made iterator for %d, first layer=%d ... end layer=%d\n",
+                iteration_dir,
+                layer_plan_it.layer(),
+                layer_plan_it.last_layer());
+
+        assert(layer_plan_it.is_pickup_only());
+
+        mkfndr->setup(m_job, eoccs, start_seed, end_seed, layer_plan_it, m_event);
+
+        mkfndr->awaken_candidates();
+
+        dprintf("\nMkBuilder::FindTracksStandardv2p2 region=%d, seed_pickup_layer=%d/%d, first_layer=%d/%d\n",
+                region,
+                layer_plan_it.layer(), layer_plan_it.layer_sec(),
+                layer_plan_it.next_layer(), layer_plan_it.next_layer_sec());
+
+        // XXXX Backward search does not work yet, to be seen in finder, also r/z limits order
+        //      for propagation.
+        // auto &iter_params = (iteration_dir == SteeringParams::IT_BkwSearch) ? m_job->m_iter_config.m_backward_params
+        //                                                                     : m_job->m_iter_config.m_params;
+
+        // Loop over layers, starting from after the initial pickup-only.
+        // I think pickup-only is now also honored in the finder -- crosscheck.
+        while (++layer_plan_it) {
+
+          dprintf("\n* Processing layer %d/%d\n", layer_plan_it.layer(), layer_plan_it.layer_sec());
+
+          mkfndr->begin_layer();
+
+          dprintf("  Number of candidates to process: %d, nHits in layer: %d\n",
+                   mkfndr->batch_mgr().n_finding(), m_job->m_event_of_hits[layer_plan_it.layer()].nHits());
+
+          mkfndr->process_layer();
+
+          mkfndr->end_layer();
+
+        }  // end of layer loop
+        mkfndr->release();
+
+        // final sorting
+        for (int iseed = start_seed; iseed < end_seed; ++iseed) {
+          eoccs[iseed].mergeCandsAndBestShortOne(m_job->params(), st_par.m_track_scorer, true, true);
+        }
+      });  // end parallel-for over chunk of seeds within region
+    });    // end of parallel-for-each over eta regions
+
+  #ifdef MKFIT_TRACE
+    for (int i = 0; i < eoccs.size(); ++i) {
+      CombCandidate &cc = eoccs[i];
+      assert (!cc.empty());
+      const TrackCand &bcand = cc.front();
+      auto &cstate = m_event->tr_candstate(bcand.m_trace_state_id);
+      auto &cstage = m_event->tr_candstage(cc.m_trace_stage_id);
+      cstage.final_state_id = cstate.id;
+      cstate.on_final_path = true;
+      int pid = cstate.parent_id;
+      while (pid >= 0) {
+        auto &pstate = m_event->tr_candstate(pid);
+        pstate.on_final_path = true;
+        pid = pstate.parent_id;
+      }
+    }
+  #endif
+
+  // debug = false;
+  }
+
+  //------------------------------------------------------------------------------
+  // findTracksStandard -- original version
   //------------------------------------------------------------------------------
 
   void MkBuilder::findTracksStandard(SteeringParams::IterationType_e iteration_dir) {
@@ -922,7 +1054,7 @@ namespace mkfit {
                 }
 
                 if (tc.getLastHitIdx() != -2) {
-                  eoccs[start_seed + is].emplace_back(tc);
+                  eoccs[start_seed + is].push_back(tc);
                   ++n_placed;
                 } else if (first_short) {
                   first_short = false;
@@ -963,6 +1095,9 @@ namespace mkfit {
         printf("No backward search plan for region %d\n", region);
         return;
       }
+
+      // Only do barrel
+      //if (region != 2) return;
 
       const RegionOfSeedIndices rosi(m_seedEtaSeparators, region);
 

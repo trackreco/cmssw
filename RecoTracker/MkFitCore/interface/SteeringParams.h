@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <stdexcept>
+#include <cassert>
 
 namespace mkfit {
 
@@ -13,7 +14,8 @@ namespace mkfit {
   //==============================================================================
 
   struct LayerControl {
-    int m_layer;
+    int m_layer = -1;
+    int m_layer_sec = -1;
 
     // Idea only ... need some parallel structure for candidates to make sense (where i can store it).
     // Or have per layer containers where I place track indices to enable. Or something. Sigh.
@@ -25,8 +27,11 @@ namespace mkfit {
 
     //----------------------------------------------------------------------------
 
-    LayerControl() : m_layer(-1) {}
+    LayerControl() {}
     LayerControl(int lay) : m_layer(lay) {}
+    LayerControl(int lay, int lay2) : m_layer(lay), m_layer_sec(lay2) {}
+
+    bool has_second_layer() const { return m_layer_sec != -1; }
   };
 
   //==============================================================================
@@ -48,14 +53,20 @@ namespace mkfit {
       iterator(const SteeringParams& sp, IterationType_e t) : m_steering_params(sp), m_type(t) {}
 
     public:
+      const SteeringParams& steering_params() const { return m_steering_params; }
+      IterationType_e type() const { return m_type; }
       const LayerControl& layer_control() const { return m_steering_params.m_layer_plan[m_cur_index]; }
       int layer() const { return layer_control().m_layer; }
+      int layer_sec() const { return layer_control().m_layer_sec; }
+      bool has_second_layer() const { return layer_control().has_second_layer(); }
       int index() const { return m_cur_index; }
       int region() const { return m_steering_params.m_region; }
 
       bool is_valid() const { return m_cur_index != -1; }
+      bool is_outward() const { return m_type == IT_FwdSearch; }
 
-      const LayerControl& operator->() const { return layer_control(); }
+      const LayerControl* operator->() const { return &layer_control(); }
+      const LayerControl& operator*()  const { return layer_control(); }
 
       bool is_pickup_only() const {
         if (m_type == IT_FwdSearch)
@@ -93,6 +104,19 @@ namespace mkfit {
         else
           return m_steering_params.m_layer_plan[m_end_index + 1].m_layer;
       }
+
+      int next_layer_sec() const {
+        if (m_type == IT_FwdSearch)
+          return m_steering_params.m_layer_plan[m_cur_index + 1].m_layer_sec;
+        else
+          return m_steering_params.m_layer_plan[m_cur_index - 1].m_layer_sec;
+      }
+      int last_layer_sec() const {
+        if (m_type == IT_FwdSearch)
+          return m_steering_params.m_layer_plan[m_end_index - 1].m_layer_sec;
+        else
+          return m_steering_params.m_layer_plan[m_end_index + 1].m_layer_sec;
+      }
     };  // class iterator
 
     std::vector<LayerControl> m_layer_plan;
@@ -116,6 +140,42 @@ namespace mkfit {
     void fill_plan(int first, int last) {
       for (int i = first; i <= last; ++i)
         append_plan(i);
+    }
+
+    void fill_plan_pairs(int first, int last, bool as_single_entry, bool swap_pairs) {
+      assert((last - first + 1) % 2 == 0 && "fill_plan_pairs requires even number of layers");
+      for (int i = first; i <= last; i += 2) {
+        if (as_single_entry) {
+          if (swap_pairs) {
+            m_layer_plan.emplace_back(LayerControl(i+1, i));
+          } else {
+            m_layer_plan.emplace_back(LayerControl(i, i+1));
+          }
+        } else {
+          if (swap_pairs) {
+            m_layer_plan.emplace_back(LayerControl(i+1));
+            m_layer_plan.emplace_back(LayerControl(i));
+          } else {
+            m_layer_plan.emplace_back(LayerControl(i));
+            m_layer_plan.emplace_back(LayerControl(i+1));
+          }
+        }
+      }
+    }
+
+    void fill_plan_pairs_with_swap(int first, int last) {
+      assert((last - first + 1) % 2 == 0 && "swap_pairs requires even number of layers");
+      for (int i = first; i <= last; i += 2) {
+        m_layer_plan.emplace_back(LayerControl(i+1, i));
+      }
+    }
+
+    void fill_plan_pairs_with_swap_as_singles(int first, int last) {
+      assert((last - first + 1) % 2 == 0 && "swap_pairs requires even number of layers");
+      for (int i = first; i <= last; i += 2) {
+        m_layer_plan.emplace_back(LayerControl(i+1));
+        m_layer_plan.emplace_back(LayerControl(i));
+      }
     }
 
     void set_iterator_limits(int fwd_search_pu, int bkw_fit_last, int bkw_search_pu = -1) {

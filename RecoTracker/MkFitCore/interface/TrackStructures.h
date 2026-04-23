@@ -250,6 +250,11 @@ namespace mkfit {
     short int nTailMinusOneHits_ = 0;
 
     short int m_origin_index = -1;  // index of origin candidate (used for overlaps in Standard)
+
+#ifdef MKFIT_TRACE
+  public:
+    int m_trace_state_id = -1;
+#endif
   };
 
   inline bool sortByScoreTrackCand(const TrackCand& cand1, const TrackCand& cand2) {
@@ -293,7 +298,12 @@ namespace mkfit {
           m_nTailMinusOneHits_before_bkwsearch(o.m_nTailMinusOneHits_before_bkwsearch),
           m_seed_origin_index(o.m_seed_origin_index),
           m_hots_size(o.m_hots_size),
-          m_hots(o.m_hots) {}
+          m_hots(o.m_hots) {
+          #ifdef MKFIT_TRACE
+            m_trace_meta_id = o.m_trace_meta_id;
+            m_trace_stage_id = o.m_trace_stage_id;
+          #endif
+          }
 
     // Required for std::swap().
     CombCandidate(CombCandidate&& o)
@@ -312,6 +322,10 @@ namespace mkfit {
       // However, if at some point we start using this for other purposes this needs
       // to be called as well.
       // for (auto &tc : *this) tc.setCombCandidate(this);
+    #ifdef MKFIT_TRACE
+      m_trace_meta_id = o.m_trace_meta_id;
+      m_trace_stage_id = o.m_trace_stage_id;
+    #endif
     }
 
     // Required for std::swap when filtering EventOfCombinedCandidates::m_candidates.
@@ -333,6 +347,11 @@ namespace mkfit {
       for (auto& tc : m_trk_cands)
         tc.setCombCandidate(this);
 
+    #ifdef MKFIT_TRACE
+      m_trace_meta_id = o.m_trace_meta_id;
+      m_trace_stage_id = o.m_trace_stage_id;
+    #endif
+
       return *this;
     }
 
@@ -344,8 +363,15 @@ namespace mkfit {
     const TrackCand& operator[](int i) const { return m_trk_cands[i]; }
     TrackCand& front() { return m_trk_cands.front(); }
     const TrackCand& front() const { return m_trk_cands.front(); }
-    trk_cand_vec_type::reference emplace_back(TrackCand& tc) { return m_trk_cands.emplace_back(tc); }
+    TrackCand& back() { return m_trk_cands.back(); }
+    const TrackCand& back() const { return m_trk_cands.back(); }
+    // emplace_back not needed as TrackCand has no movable parts
+    // trk_cand_vec_type::reference emplace_back(const TrackCand& tc) { return m_trk_cands.emplace_back(tc); }
+    trk_cand_vec_type::reference push_back(const TrackCand& tc) { m_trk_cands.push_back(tc); return m_trk_cands.back(); }
     void clear() { m_trk_cands.clear(); }
+
+    int capacity() const { return m_trk_cands.capacity(); }
+    bool is_full() const { return m_trk_cands.size() == m_trk_cands.capacity(); }
 
     void reset(int max_cands_per_seed, int expected_num_hots) {
       std::vector<TrackCand, CcAlloc<TrackCand>> tmp(m_trk_cands.get_allocator());
@@ -359,7 +385,7 @@ namespace mkfit {
       // expected_num_hots is different for CloneEngine and Std, especially as long as we
       // instantiate all candidates before purging them.
       // ce:  N_layer * N_cands ~~ 20 * 6 = 120
-      // std: i don't know, maybe double?
+      // std: i don't know, maybe double? no -- we copy back a limited subset.
       m_hots.reserve(expected_num_hots);
       m_hots_size = 0;
       m_hots.clear();
@@ -367,6 +393,11 @@ namespace mkfit {
       m_lastHitIdx_before_bkwsearch = -1;
       m_nInsideMinusOneHits_before_bkwsearch = -1;
       m_nTailMinusOneHits_before_bkwsearch = -1;
+
+    #ifdef MKFIT_TRACE
+      m_trace_meta_id = -1;
+      m_trace_stage_id = -1;
+    #endif
     }
 
     void importSeed(const Track& seed, int seed_idx, const track_score_func& score_func, int region);
@@ -416,6 +447,12 @@ namespace mkfit {
     int m_seed_origin_index = -1;  // seed index in the passed-in seed vector
     int m_hots_size = 0;
     std::vector<HoTNode> m_hots;
+
+#ifdef MKFIT_TRACE
+  public:
+    int m_trace_meta_id = -1;  // global meta (persists across stages)
+    int m_trace_stage_id = -1; // current stage (changes between stages)
+#endif
   };
 
   //==============================================================================
@@ -649,6 +686,11 @@ namespace mkfit {
       m_cands_in_backward_rep = false;
     }
 
+    void scaleErrors(float scale) {
+      for (int i = 0; i < m_size; ++i)
+        m_candidates[i][0].scaleErrors(scale);
+    }
+
     // Accessors
     int size() const { return m_size; }
 
@@ -658,7 +700,9 @@ namespace mkfit {
 
     bool cands_in_backward_rep() const { return m_cands_in_backward_rep; }
 
-    // Direct access for vectorized functions in MkBuilder / MkFinder
+    // Direct access for vectorized functions in MkBuilder / MkFinder.
+    // DO NOT USE FOR ITERATIONS! Size of m_candidates is managed by this
+    // class to avoid memory churn and ctor/dtor calls.
     const std::vector<CombCandidate>& refCandidates() const { return m_candidates; }
     std::vector<CombCandidate>& refCandidates_nc() { return m_candidates; }
 

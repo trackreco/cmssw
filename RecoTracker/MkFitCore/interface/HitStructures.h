@@ -144,7 +144,7 @@ namespace mkfit {
     void alloc_hits(int size);
     void free_hits()
 
-        Hit* m_hits = nullptr;
+    Hit* m_hits = nullptr;
     int m_capacity = 0;
 #else
     const HitVec* m_ext_hits;

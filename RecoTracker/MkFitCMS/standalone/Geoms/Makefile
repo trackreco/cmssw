@@ -26,7 +26,7 @@ all: ${TGTS} ${GEO_phase1_BIN} ${GEO_phase2_BIN}
 	${MAKEDEPEND} -o $@ $<
 
 ../%.so: %.o
-	${CXX} -shared -L.. -lMicCore -o $@ $<
+	${CXX} -shared -L.. -lMkFitCore -o $@ $<
 
 ${GEO_phase1_BIN}:
 	curl http://xrd-cache-1.t2.ucsd.edu/matevz/PKF/CMS-phase1.bin -o $@

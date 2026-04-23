@@ -17,6 +17,8 @@
 #ifdef WITH_ROOT
 #include "RecoTracker/MkFitCore/standalone/Validation.h"
 #include "RecoTracker/MkFitCore/standalone/RntDumper/RntDumper.h"
+
+#include "TROOT.h"
 #endif
 
 //#define DEBUG
@@ -490,6 +492,7 @@ int main(int argc, const char* argv[]) {
     mArgs.push_back(argv[i]);
   }
   bool run_shell = false;
+  std::vector<std::string> shell_commands;
 
   lStr_i i = mArgs.begin();
   while (i != mArgs.end()) {
@@ -516,6 +519,8 @@ int main(int argc, const char* argv[]) {
           "  --loop-over-file         after reaching the end of the file, start over from the beginning until "
           "                           <num-events> events have been processed\n"
           "  --shell                  start interactive shell instead of running test_standard()\n"
+          "  --shell-command          add a command to be executed in the shell (def: none)\n"
+          "  --shell-cmd              add a command to be executed in the shell (def: none)\n"
           "\n"
           "If no --input-file is specified, will trigger simulation\n"
           "  --num-tracks     <int>   number of tracks to generate for each event (def: %d)\n"
@@ -543,6 +548,7 @@ int main(int argc, const char* argv[]) {
           "  --build-std              run standard combinatorial building test (def: %s)\n"
           "  --build-ce               run clone engine combinatorial building test (def: %s)\n"
           "  --build-mimi             run clone engine on multiple-iteration test (def: %s)\n"
+          "  --build-mimi-v2p2        run v2p2 on multiple-iteration test for fwd and bkw search (def: %s)\n"
           "  --num-iters-cmssw <int>  number of mimi iterations to run (def: set to 3 when --build-mimi is in effect, "
           "0 otherwise)\n"
           "\n"
@@ -699,6 +705,7 @@ int main(int argc, const char* argv[]) {
           b2a(g_run_build_default || g_run_build_std),
           b2a(g_run_build_default || g_run_build_ce),
           b2a(g_run_build_mimi),
+          b2a(Config::mimiUseV2p2),
 
           getOpt(Config::seedInput, g_seed_opts).c_str(),
           getOpt(Config::seedCleaning, g_clean_opts).c_str(),
@@ -813,7 +820,10 @@ int main(int argc, const char* argv[]) {
       exit(1);
 #endif
       run_shell = true;
-    } else if (*i == "--num-tracks") {
+    } else if (*i == "--shell-command" || *i == "--shell-cmd") {
+      next_arg_or_die(mArgs, i);
+      shell_commands.push_back(*i);
+    }else if (*i == "--num-tracks") {
       next_arg_or_die(mArgs, i);
       Config::nTracks = atoi(i->c_str());
     } else if (*i == "--num-thr-sim") {
@@ -850,11 +860,13 @@ int main(int argc, const char* argv[]) {
     } else if (*i == "--build-ce") {
       g_run_build_default = false;
       g_run_build_ce = true;
-    } else if (*i == "--build-mimi") {
+    } else if (*i == "--build-mimi" || *i == "--build-mimi-v2p2") {
       g_run_build_default = false;
       g_run_build_mimi = true;
       if (Config::nItersCMSSW == 0)
         Config::nItersCMSSW = 3;
+      if (*i == "--build-mimi-v2p2")
+        Config::mimiUseV2p2 = true;
     } else if (*i == "--num-iters-cmssw") {
       next_arg_or_die(mArgs, i);
       Config::nItersCMSSW = atoi(i->c_str());
@@ -1022,11 +1034,16 @@ int main(int argc, const char* argv[]) {
 #endif
   if (run_shell) {
 #ifdef WITH_ROOT
+    // Might (tbb + RDF) or might not be (RDF only) needed
+    // ROOT::EnableThreadSafety();
+    // Does not seem to work -- is it tbb?
+    // ROOT::EnableImplicitMT(2);
+    // Why exactly is this here?
     tbb::global_control global_limit(tbb::global_control::max_allowed_parallelism, Config::numThreadsFinder);
 
     initGeom();
     shell = new Shell(mkfit::internal::deadvectors, g_input_file, g_start_event);
-    shell->Run();
+    shell->Run(shell_commands);
 #else
     std::cerr << "shell selected on a non-ROOT build.\n";
 #endif
