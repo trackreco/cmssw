@@ -34,8 +34,9 @@ WriteMemFileDict.cc ${WMF_DICT_PCM} &: ${SACMS}/tkNtuple/DictsLinkDef.h
 	mv WriteMemFileDict_rdict.pcm ${WMF_DICT_PCM}
 
 SRCS += Shell_Dict.cc
-Shell_Dict.cc ${SHELL_DICT_PCM} &: ${SACMS}/Shell_Dict.h ${SACMS}/Shell_LinkDef.h
-	rootcling --umbrellaHeader ${CPPFLAGS} -f Shell_Dict.cc $^
+SHELL_DICT_IN := ${SACMS}/Shell_Dict.h ${SACMS}/Shell_LinkDef.h
+Shell_Dict.cc ${SHELL_DICT_PCM} &: ${SHELL_DICT_IN}
+	rootcling --umbrellaHeader ${CPPFLAGS} -f Shell_Dict.cc ${SHELL_DICT_IN}
 	mv Shell_Dict_rdict.pcm ${SHELL_DICT_PCM}
 else
 SRCS := $(filter-out ${SACMS}/Shell.cc ${SACMS}/Shell-LST.cc, ${SRCS})
@@ -86,7 +87,7 @@ ${OBJS}: %.o: %.cc %.d
 
 ifdef WITH_ROOT
 Shell_Dict.cc.d: ${SACMS}/Shell_Dict.h
-	${MAKEDEPEND} -o $@ $<
+	${MAKEDEPEND_BASE} -MQ Shell_Dict.cc -o $@ $<
 endif
 
 echo:

@@ -90,8 +90,9 @@ ${LIB_CORE}: ${OBJS} ${LIB_CORE_DEPS}
 	${CXX} ${CXXFLAGS} ${VEC_HOST} ${OBJS} -shared -o $@ ${LDFLAGS_HOST} ${LDFLAGS} ${LIB_CORE_LD_EXTRA}
 
 ifdef WITH_ROOT
-${ROOTDF_DICT_CC} ${ROOTDF_DICT_PCM} &: ${ROOTDF_DICT_H} ${ROOTDF_LINKDEF_H}
-	rootcling --umbrellaHeader ${CPPFLAGS} -f ${ROOTDF_DICT_CC} $^
+ROOTDF_DICT_IN := ${ROOTDF_DICT_H} ${ROOTDF_LINKDEF_H}
+${ROOTDF_DICT_CC} ${ROOTDF_DICT_PCM} &: ${ROOTDF_DICT_IN}
+	rootcling --umbrellaHeader ${CPPFLAGS} -f ${ROOTDF_DICT_CC} ${ROOTDF_DICT_IN}
 	mv ${ROOTDF_DICT}_rdict.pcm ${ROOTDF_DICT_PCM}
 
 ${LIB_ROOTDF}: ${ROOTDF_OBJS}
@@ -109,7 +110,7 @@ ${OBJS} ${ROOTDF_OBJS}: %.o: %.cc %.d
 
 ifdef WITH_ROOT
 ${ROOTDF_DICT_CC}.d: ${ROOTDF_DICT_H}
-	${MAKEDEPEND} -o $@ $<
+	${MAKEDEPEND_BASE} -MQ ${ROOTDF_DICT_CC} -o $@ $<
 endif
 
 echo:
