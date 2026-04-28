@@ -108,7 +108,7 @@ namespace mkfit {
     void LoopNEventsHlt(int N_events, const int wanted_algo);
 
     // Current default processing
-    void Test();
+    void Test(int Nevents=10);
     void TestVectorSource();
     void TestEventSource(int Nevents=10);
 

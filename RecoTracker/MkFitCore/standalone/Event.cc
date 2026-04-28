@@ -53,6 +53,15 @@ namespace mkfit {
     beamSpot_ = {};
 
     validation_.resetValidationMaps();  // need to reset maps for every event.
+
+  #ifdef MKFIT_TRACE
+    trCandMetas_.clear();
+    trCandStages_.clear();
+    trCandStates_.clear();
+    trHitMatches_.clear();
+    trKalmanUpdates_.clear();
+    trSeeds_.clear();
+  #endif
   }
 
   void Event::validate() {

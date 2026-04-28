@@ -224,7 +224,7 @@ namespace mkfit {
         }
 
         const Track &s = m_event->simTracks_[sifh.label];
-        d.ev = ev;
+        d.ev = event()->evtID();
         d.label = sifh.label;
         d.seed_index = t.label();
         d.pt = s.pT();
@@ -424,6 +424,11 @@ namespace mkfit {
 
       m_event->candidateTracks_ = m_tracks; // For quality-val and tracing
 
+      // Final fit
+      builder.import_tracks(out_tracks);
+      builder.fittracks();
+      builder.export_tracks(m_event->fitTracks_);
+
     #ifndef MKFIT_TRACE
       m_event->resetCurrentSeedTracks();
     #endif
@@ -454,9 +459,9 @@ namespace mkfit {
     }
   }
 
-  void Shell::Test() {
-    printf("Shell::Test no current test, running TestEventSource(10)\n");
-    TestEventSource(10);
+  void Shell::Test(int Nevents) {
+    printf("Shell::Test running basic test LoopNEventsHlt(%d, 4)\n", Nevents);
+    LoopNEventsHlt(Nevents, 4);
   }
 
   void Shell::TestVectorSource() {

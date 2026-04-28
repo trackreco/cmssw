@@ -25,6 +25,7 @@
 #include "RecoTracker/MkFitCore/src/Debug.h"
 #include "RecoTracker/MkFitCMS/standalone/Shell.h"
 
+#include "RecoTracker/MkFitCore/src/MkFitTbb.h"
 #include "oneapi/tbb/task_arena.h"
 #include "oneapi/tbb/parallel_for.h"
 #include <oneapi/tbb/global_control.h>
