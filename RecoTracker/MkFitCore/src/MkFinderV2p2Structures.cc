@@ -8,6 +8,7 @@
 
 #ifdef MKFIT_TRACE
 #include "RecoTracker/MkFitCore/standalone/DataFormats/RntStructs.h"
+#include "RecoTracker/MkFitCore/standalone/Event.h"
 #endif
 
 namespace mkfit {
@@ -57,13 +58,38 @@ namespace mkfit {
         ptcp[i]->bHot = hot[i];
         ptcp[i]->bChi2 = tsChi2[i];
 #ifdef MKFIT_TRACE
-        // QQQQQ to go into SecTCandRep, but for now we need it here, as all above
         ptcp[i]->b_tr_hitmatch_id = tr_hitmatch_ids[i];
-        propErr.copyOut(i, (*tr_hitmatches)[ tr_hitmatch_ids[i] ].kalman_state.errors.Array());
-        propPar.copyOut(i, (*tr_hitmatches)[ tr_hitmatch_ids[i] ].kalman_state.parameters.Array());
-        (*tr_hitmatches)[ tr_hitmatch_ids[i] ].kalman_chi2 = tsChi2[i];
 #endif
       }
+
+#ifdef MKFIT_TRACE
+      // XXXXX - QWEN, not reviewed ... might prefer Event::trace_new_kalman_update()
+      // Also, have to clear up all the ids, in and out etc
+      // And pre-update (propagated) state storage, not only post update.
+      // This will get bigger.
+
+      // Create TrKalmanUpdate for EVERY hit that went through Kalman
+      int hm_id = tr_hitmatch_ids[i];
+      TrHitMatch &hm = mp_event->tr_hitmatch(hm_id);
+
+      TrKalmanUpdate &ku = mp_event->trace_kalmanupdate({ -1, hm_id, hm.state_id });
+      ku.chi2 = tsChi2[i];
+
+      // Do not know this yet -- how will I know?
+      // ku.chi2_trk = 0.0f;  // Could track cumulative if needed
+      // What does accepted mean? pass_chi2 cut / score cut ... when we have it.
+      // ku.accepted = (ptcp[i]->b_tr_hitmatch_id == hm_id);
+      // ku.state_id_out = ku.accepted ? ptcp[i]->tcand().m_trace_state_id : -1;
+
+      // Extract post-Kalman state
+      tsErr.copyOut(i, ku.updated_state.errors.Array());
+      tsPar.copyOut(i, ku.updated_state.parameters.Array());
+
+      // Create the KalmanUpdate entry
+
+      // Link forward from HitMatch
+      hm.kalman_id = ku.id;
+#endif
     }
   }
 

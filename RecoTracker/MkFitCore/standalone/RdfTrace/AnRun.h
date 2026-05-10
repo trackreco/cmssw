@@ -13,6 +13,8 @@ class CanvasGroup;
 struct AnRun {
   using ANode = std::optional<ROOT::RDF::RNode>;
   using RNode = ROOT::RDF::RNode;
+  using RVecI = ROOT::RVec<int>;
+  using RVecF = ROOT::RVec<float>;
 
   std::vector<std::unique_ptr<CanvasGroup>> m_canvas_groups;
 
@@ -21,7 +23,7 @@ struct AnRun {
   AnRun(const mkfit::TrackerInfo& ti) : CTX(mkfit::MakeCtx(nullptr, ti))
   {}
 
-  AnRun(const mkfit::Event* ev, const mkfit::TrackerInfo& ti) : 
+  AnRun(const mkfit::Event* ev, const mkfit::TrackerInfo& ti) :
     CTX(mkfit::MakeCtx(ev, ti))
   {}
 
@@ -39,24 +41,27 @@ struct AnRun {
 
   void SetupRdfEvent(std::vector<const mkfit::Event*>& ev_vec);
 
-  void RunEventSourceTestAndDupCheck();
+  void RunBasicSeedCandCheck();
 
-  void RunEventSourceSeedDive();
+  void RunMetaVsSeedDuplicateCheck();
 
-  void RunT5intoPix();
+  void Run_T5_vs_pT5_AsSeeds_DuplicateCount();
+
+  void Run_T5s_into_Pix();
 
   // CanvasGroup management
 
-  CanvasGroup& NewCanvasGroup(const char *n=0, const char *t=0, const char *pfx=0) {
+  CanvasGroup& NewCanvasGroup(const std::string &n="", const std::string &t="", const std::string &pfx="") {
     m_canvas_groups.emplace_back( std::make_unique<CanvasGroup>(n,t,pfx) );
     return *m_canvas_groups.back();
   }
-  CanvasGroup& NewCanvasGroup(int dx=1, int dy=1, const char *n=0, const char *t=0, const char *pfx=0) {
+  CanvasGroup& NewCanvasGroup(int dx=1, int dy=1, const std::string &n="", const std::string &t="", const std::string &pfx="") {
     m_canvas_groups.emplace_back( std::make_unique<CanvasGroup>(dx, dy, n, t, pfx) );
     return *m_canvas_groups.back();
   }
 
   void DrawCanvasGroups();
+  void WriteCanvasGroupsToFile(const std::string &fname) const;
 };
 
 #endif

@@ -1041,20 +1041,20 @@ namespace mkfit {
 #ifdef MKFIT_TRACE
 
   void Event::build_trace_maps_etc() {
-    trChildrenByCand_.clear();
+    trChildrenByState_.clear();
     for (auto& c : trCandStates_) {
         if (c.parent_id >= 0)
-          trChildrenByCand_[c.parent_id].push_back(c.id);
+          trChildrenByState_[c.parent_id].push_back(c.id);
         else
           trRootCands_.push_back(c.id);
     }
-    trHitMatchesByCand_.clear();
+    trHitMatchesByState_.clear();
     for (auto& h : trHitMatches_) {
-      trHitMatchesByCand_[h.state_id].push_back(h.id);
+      trHitMatchesByState_[h.state_id].push_back(h.id);
     }
-    trKalmanUpdatesByCand_.clear();
+    trKalmanUpdatesByState_.clear();
     for (auto& k : trKalmanUpdates_) {
-      trKalmanUpdatesByCand_[k.state_id_in].push_back(k.id);
+      trKalmanUpdatesByState_[k.state_id_in].push_back(k.id);
     }
 
     int msize = trCandMetas_.size();
@@ -1327,24 +1327,22 @@ namespace mkfit {
   void print(std::string pfx, const TrHitMatch &hm) {
     printf("%s: id=%d state_id=%d layer=%d hit=%d mc_match=%d "
           "score=%f dphi=%f dq=%f passed_preselect=%d "
-          "res_x=%f res_y=%f res_z=%f rank=%d passed_pqueue=%d "
-          "kalman_chi2=%f kalman_acc=%d\n",
+          "res_x=%f res_y=%f res_z=%f rank=%d passed_pqueue=%d\n",
           pfx.c_str(), hm.id, hm.state_id, hm.layer,
           hm.hit, hm.mc_match, hm.score, hm.dphi, hm.dq, hm.passed_preselect,
           hm.residual_x, hm.residual_y, hm.residual_z,
-          hm.rank, hm.passed_pqueue,
-          hm.kalman_chi2, hm.kalman_accepted);
+          hm.rank, hm.passed_pqueue);
           print("kine", hm.kine_on_plane);
   }
 
   void print(std::string pfx, const TrKalmanUpdate &ku) {
-    printf("%s: id=%d state_in=%d state_out=%d layer=%d hit=%d "
+    printf("%s: id=%d hit_match_id=%d state_in=%d state_out=%d  "
             "chi2=%f chi2_trk=%f accepted=%d\n",
-            pfx.c_str(), ku.id, ku.state_id_in, ku.state_id_out, ku.layer,
-            ku.hit, ku.chi2, ku.chi2_trk, ku.accepted);
-            print("state", ku.trk_state);
+            pfx.c_str(), ku.id, ku.hit_match_id, ku.state_id_in, ku.state_id_out,
+            ku.chi2, ku.chi2_trk, ku.accepted);
+            print("state", ku.updated_state);
   }
-  
+
 #endif
 
 }  // end namespace mkfit

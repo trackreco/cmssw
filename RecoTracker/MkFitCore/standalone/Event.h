@@ -186,14 +186,18 @@ namespace mkfit {
       auto &cs = trace_candstate({ -1, parent_state_id, pcs.meta_id, pcs.stage_id, layer, pcs.step + 1, state });
       return cs.id;
     }
+    int trace_new_kalman_update(int hit_match_id, int state_id_in, float chi2, float chi2_trk) {
+      auto &ku = trace_kalmanupdate({ -1, hit_match_id, state_id_in, -1, chi2, chi2_trk });
+      return ku.id;
+    }
 
     // Aggregators, maps
     void build_trace_maps_etc();
 
     std::vector<int> trRootCands_;
-    std::unordered_map<int, std::vector<int>> trChildrenByCand_;
-    std::unordered_map<int, std::vector<int>> trHitMatchesByCand_;
-    std::unordered_map<int, std::vector<int>> trKalmanUpdatesByCand_;
+    std::unordered_map<int, std::vector<int>> trChildrenByState_;
+    std::unordered_map<int, std::vector<int>> trHitMatchesByState_;
+    std::unordered_map<int, std::vector<int>> trKalmanUpdatesByState_;
 
     std::vector<SimInfoFromHits> trSIFHforSeedByMeta_;
     std::vector<SimInfoFromHits> trSIFHforCandByMeta_;

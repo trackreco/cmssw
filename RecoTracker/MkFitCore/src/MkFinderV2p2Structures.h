@@ -9,11 +9,11 @@
 
 #include <queue>
 
-#ifdef MKFIT_TRACE
-struct TrHitMatch;
-#endif
-
 namespace mkfit {
+
+#ifdef MKFIT_TRACE
+    class Event;
+#endif
 
     struct CCandRep;
 
@@ -181,7 +181,7 @@ namespace mkfit {
 #ifdef MKFIT_TRACE
       int tr_hitmatch_ids[NN];
       void set_tr_hitmatch_id(int id) { tr_hitmatch_ids[N_filled] = id; }
-      std::vector<TrHitMatch> *tr_hitmatches = nullptr;
+      const Event *mp_event = nullptr;
 #endif
 
       void reset() { N_filled = 0; }

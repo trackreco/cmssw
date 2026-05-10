@@ -503,11 +503,14 @@ namespace mkfit {
 
     // Figuring out a good structure for basic columns, derived rdfs, etc.
 
-    // ar->RunEventSourceTestAndDupCheck();
-    ar->RunEventSourceSeedDive();
-    ar->RunT5intoPix();
+    ar->RunBasicSeedCandCheck();
+    // ar->RunMetaVsSeedDuplicateCheck();
+
+    ar->Run_T5_vs_pT5_AsSeeds_DuplicateCount();
+    ar->Run_T5s_into_Pix();
 
     ar->DrawCanvasGroups();
+    ar->WriteCanvasGroupsToFile("mkfit.root");
 
     export_AnRun(ar);
   }

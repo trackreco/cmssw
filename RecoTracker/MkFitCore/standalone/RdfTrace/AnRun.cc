@@ -1,5 +1,11 @@
 #include "AnRun.h"
 
+#include "TCanvas.h"
+#include "TFile.h"
+#include "TBrowser.h"
+
+#include <format>
+
 #define EV CTX.ev
 
 void AnRun::RunOldVecBased() {
@@ -189,7 +195,7 @@ namespace { // map, gather, compress
     using T = std::decay_t<decltype(f(*v.begin()))>;
     ROOT::RVec<T> out;
     const size_t n = v.size();
-    out.reserve(n); // This is aggressive, but it avoids multiple allocations.
+    out.reserve(n / 16);
     for (size_t i = 0; i < n; ++i) {
       if (mask[i]) out.push_back(f(v[i]));
     }
@@ -218,7 +224,7 @@ namespace { // map, gather, compress
   // ---------------------------------------------------------------------------
   inline ROOT::RVec<int> mask_to_index_vec(const ROOT::RVec<int>& mask) {
     ROOT::RVec<int> indices;
-    indices.reserve(mask.size());
+    indices.reserve(mask.size() / 16);
     for (size_t i = 0; i < mask.size(); ++i) {
       if (mask[i]) indices.push_back(i);
     }
@@ -284,7 +290,7 @@ void AnRun::SetupRdfEvent(std::vector<const mkfit::Event*>& ev_vec) {
 
 //====================================================================================
 
-void AnRun::RunEventSourceTestAndDupCheck() {
+void AnRun::RunBasicSeedCandCheck() {
 
   auto r = (*m_rdf_event)
   // seeds, directly from trSeeds_ -- to compare to stuff from trCandMetas_
@@ -299,20 +305,24 @@ void AnRun::RunEventSourceTestAndDupCheck() {
   ;
 
 
-  { auto &C = NewCanvasGroup(4, 2, "seeds", "seed properties");
-    C.Add(r.Histo1D("seed_pt"), "s").add_pre(CGrp::logy);
-    C.Add(r.Histo1D("seed_eta"), "s");
-    C.Add(r.Histo1D({"seed_n_hits", "", 7, 5.5, 12.5}, "seed_n_hits"), "s");
-    C.Add(r.Histo2D({"seed_n_hits_vs_eta", "", 100, -4, 4, 7, 5.5, 12.5}, "seed_eta", "seed_n_hits" ), "colz");
-    C.Add(r.Histo1D("seed_gf"));
-    C.Add(r.Histo1D("cand_gf"));
-    C.Add(r.Histo1D("cand_good_pix"));
-    C.Add(r.Histo1D("cand_bad_pix"));
+  { auto &C = NewCanvasGroup(4, 3, "seeds", "seed properties");
+    C.AddRealH1D(r, "seed_pt", 100, 0, 10, "s").add_pre(CGrp::logy);
+    C.AddRealH1D(r, "seed_eta", 80, -4, 4, "s");
+    C.AddIntH1D(r, "seed_n_hits", 6, 12, "s");
+    C.Add(r.Histo2D({"seed_n_hits_vs_eta", "seed_n_hits_vs_eta;seed_eta;seed_n_hits",
+                    100, -4, 4, 7, 5.5, 12.5}, "seed_eta", "seed_n_hits" ), "s colz");
+    C.AddRealH1D(r, "seed_gf", 50, 0, 1, "s");
+    C.AddRealH1D(r, "cand_gf", 50, 0, 1, "s");
+    C.AddIntH1D(r, "cand_good_pix", 0, 10, "s");
+    C.AddIntH1D(r, "cand_bad_pix", 0, 10, "s");
+    C.AddRealIntH2D(r, "seed_pt", "cand_good_pix", 100, 0, 10, 0, 10, "s lego2");
+    C.AddRealIntH2D(r, "seed_eta", "cand_good_pix", 60, -3, 3, 0, 10, "s lego2");
   }
+}
 
-  // Duplicate detection
+void AnRun::RunMetaVsSeedDuplicateCheck() {
 
-  r = r
+  auto r = (*m_rdf_event)
   .Define("meta_seed", EV_MAP(trCandMetas_, seed))
   .Define("n_metas", "(int) meta_id.size()")
   .Define("n_seeds", "(int) seed_pt.size()")
@@ -384,7 +394,7 @@ void AnRun::RunEventSourceTestAndDupCheck() {
 
 //==============================================================================
 
-void AnRun::RunEventSourceSeedDive() {
+void AnRun::Run_T5_vs_pT5_AsSeeds_DuplicateCount() {
 
   auto r = (*m_rdf_event)
   .Define("full_seed_gf", EV_GATHER(trSIFHforSeedByMeta_, good_frac(), "meta_id"))
@@ -440,22 +450,24 @@ void AnRun::RunEventSourceSeedDive() {
   ;
 
   r = r
-  .Define("delta_pt", "(seed_pt - sim_pt)/sim_pt");
-  { auto &C = NewCanvasGroup(4, 2, "seed_sim_stuff", "figuring out Txs with good_hit_frac > 0.9");
-    C.Add(r.Histo1D({"delta_pt", "delta_pt/sim_pt", 100, -10, 10}, "delta_pt"), "s").add_pre(CGrp::logy);
-    C.Add(r.Histo1D({"seed_pt", "seed_pt", 100, 0, 30}, "seed_pt"), "s").add_pre(CGrp::logy);
-    C.Add(r.Histo1D({"sim_pt", "sim_pt", 100, 0, 30}, "sim_pt"), "s").add_pre(CGrp::logy);
+  .Define("delta_pt_o_sim_pt", "(seed_pt - sim_pt)/sim_pt");
+
+  { auto &C = NewCanvasGroup(4, 2, "Tx_as_seed_sim_stuff", "Tx as seeds, duplicates -- with good_hit_frac > 0.9");
+    C.AddRealH1D(r, "delta_pt_o_sim_pt", 100, -10, 10, "s").add_pre(CGrp::logy);
+    C.AddRealH1D(r, "seed_pt", 100, 0, 30, "s").add_pre(CGrp::logy);
+    C.AddRealH1D(r, "sim_pt", 100, 0, 30, "s").add_pre(CGrp::logy);
     C.Add(r.Histo1D("sim_n_pix_hits"));
-    C.Add(r.Histo1D({"sim_n_pix_hits", "sim_n_pix_hits", 13, -0.5, 12.5}, "sim_n_pix_hits"), "s");
-    C.Add(r.Histo1D({"seed_n_dups", "seed_n_dups", 6, -0.5, 5.5}, "seed_n_dups"), "s");
-    C.Add(r.Histo1D({"seed_n_dups_re_pTs", "seed_n_dups_re_pTs", 6, -0.5, 5.5}, "seed_n_dups_re_pTs"), "s");
+    C.AddIntH1D(r, "sim_n_pix_hits", 0, 12, "s");
+    C.AddIntH1D(r, "seed_n_dups", 0, 5, "s").add_pre(CGrp::logy);
+    C.AddIntH1D(r, "seed_n_dups_re_pTs", 0, 5, "s").add_pre(CGrp::logy);
   }
 }
 
 //==============================================================================
 
-void AnRun::RunT5intoPix() {
-  auto r = (*m_rdf_event)
+void AnRun::Run_T5s_into_Pix() {
+
+  auto r_top = (*m_rdf_event)
   .Define("full_seed_gf", EV_GATHER(trSIFHforSeedByMeta_, good_frac(), "meta_id"))
 
   .Define("pre_meta_mask", "full_seed_gf >= 1.0f")
@@ -486,7 +498,8 @@ void AnRun::RunT5intoPix() {
   .Define("sim_eta", "pre_sim_eta[pix_layer_mask]")
   ;
 
-  { auto &C = NewCanvasGroup(4, 2, "t5intoPix", "Tracing Tx into pixels -- selections");
+  { auto &C = NewCanvasGroup(4, 2, "t5intoPix", "Tracing Tx from barrel layers 4/5 into pixels -- selections");
+    auto r = r_top;
     C.AddIntH1D(r, "pre_sim_n_pix_hits", 0, 20, "s").add_pre(CGrp::logy);
     C.AddIntH1D(r, "pre_sim_n_pix_layers", 0, 12, "s").add_pre(CGrp::logy);
     C.AddIntH1D(r, "sim_n_pix_hits", 0, 20, "s").add_pre(CGrp::logy);
@@ -494,6 +507,136 @@ void AnRun::RunT5intoPix() {
 
     C.Add(r.Histo1D("sim_pT"), "s");
     C.Add(r.Histo1D("sim_eta"), "s");
+  }
+
+  // ------- Extract hit-match indices by "selected_metas" and a set of layers -------
+  auto define_hm_indices = [](RNode r, const std::unordered_set<int> &layers) -> RNode {
+    return r
+    .Define("hm_indices", [layers](const mkfit::Event* ev, const RVecI& sel_metas) {
+      std::unordered_set<int> sel_set(sel_metas.begin(), sel_metas.end());
+      RVecI hm_indices;
+      hm_indices.reserve(sel_metas.size() * layers.size() * 20);  // rough heuristic
+      for (size_t i = 0; i < ev->trHitMatches_.size(); ++i) {
+        const auto& hm = ev->trHitMatches_[i];
+        if (layers.count(hm.layer) && sel_set.count( ev->trCandStates_[hm.state_id].meta_id ))
+          hm_indices.push_back(i);
+      }
+      return hm_indices;
+    }, {"event", "selected_metas"});
+  };
+  // ------- Define hit match stuff -------
+  auto define_hm_stuff = [](RNode r, const std::string &idx_column, const std::string &pref = "") -> RNode {
+    return r
+    .Define(pref + "mc_match", EV_GATHER(trHitMatches_, mc_match, idx_column))
+    .Define(pref + "passed_preselect", EV_GATHER(trHitMatches_, passed_preselect, idx_column))
+    .Define(pref + "passed_pqueue", EV_GATHER(trHitMatches_, passed_pqueue, idx_column))
+    .Define(pref + "dphi", EV_GATHER(trHitMatches_, dphi, idx_column))
+    .Define(pref + "dq", EV_GATHER(trHitMatches_, dq, idx_column))
+    .Define(pref + "rank", EV_GATHER(trHitMatches_, rank, idx_column))
+    ;
+  };
+  // -------- Plot stuff relevant to hit-matching --------
+  auto plot_layer_stuff = [](RNode r, CanvasGroup &C, const std::string &pref = "") -> void {
+    C.AddIntH1D(r, pref + "mc_match", 0, 1, "s");
+    C.AddIntH1D(r, pref + "passed_preselect", 0, 1, "s");
+    C.AddIntH1D(r, pref + "passed_pqueue", 0, 1, "s");
+    C.AddIntH1D(r, pref + "rank", -1, 8, "s").add_pre(CGrp::logy);
+    C.Add(r.Histo1D(pref + "dphi"), "s").add_pre(CGrp::logy);
+    C.Add(r.Histo1D(pref + "dq"), "s").add_pre(CGrp::logy);
+  };
+  // --------
+
+
+  struct IdxSelection {
+    std::string sel_prefix; // Prefix of index sub-selection, e.g., <sel_prefix>_hm_indices. For primaries same as col_prefix.
+    std::string col_prefix; // Column prefix for variables exported to top RDF (only local if empty)
+    std::string title;      // Title postfix for canvas
+    std::string index_cut;  // Cut applied to index column, e.g., hm_indices. Empty for primaries.
+
+    // Primary selection is expected to be defined by the selection index base, without sel_prefix.
+    // Also, it is expected that it has non-zero col_prefix and variables there already pre-populated,
+    // as it is assumed they must be present for secondary selection filters.
+
+    bool is_primary()        const { return index_cut.empty(); } // if true, columns are in the master rdf, prefixed with name
+    bool has_column_prefix() const { return !col_prefix.empty(); }
+
+    std::string selection_name(const std::string &idx_col_base) const {
+      // Secondary selections are derived from primary ones done "by hand".
+      return is_primary() ? idx_col_base : (sel_prefix + "_" + idx_col_base);
+    }
+    std::string column_prefix() const {
+      // Primary columns are defined in the master rdf with name prefix, others in derived rdf without a prefix.
+      return col_prefix.empty() ? "" : (col_prefix + "_");
+    }
+  };
+  std::vector<IdxSelection> selections = {
+    { "all",                  "all",  "ALL",                              "" },
+    { "match",                "",     "MC-Match",                         "all_mc_match" },
+    { "match_pass_preselect", "",     "MC-match && presel && NOT pqueue", "all_mc_match && all_passed_preselect && ! all_passed_pqueue"},
+    { "match_pass_all",       "good", "MC-match && presel && pqueue",     "all_mc_match && all_passed_preselect && all_passed_pqueue"},
+    { "nomatch_pass_all",     "evil", "NO MC-match && presel && pqueue",  " ! all_mc_match && all_passed_preselect && all_passed_pqueue"}
+  };
+
+  const std::string hm_idx_col_base("hm_indices");
+  const std::string ku_idx_col_base("ku_indices");
+  // c++-23 is ok with regular strings ... cling is getting there, May 2026.
+  constexpr const char *canvas_name_fmt = "L{}_hit_match_quality_{}";
+  constexpr const char *canvas_title_fmt = "Layer {} Hit Match Quality";
+  constexpr const char *canvas_ku_name_fmt = "L{}_hit_kalman_update_quality_{}";
+  constexpr const char *canvas_ku_title_fmt = "Layer {} Kalman Update Quality";
+
+  for (auto layer : { 2, 3 })
+  {
+    // First hit-match pass, define hm_indices and prepare index columns for sub-selections.
+    auto r_layer = define_hm_indices(r_top, { layer });
+    r_layer = define_hm_stuff(r_layer, hm_idx_col_base, "all_");
+
+    // Now define index selection columns in the top rdf
+    for (auto const &sel : selections) {
+      if (sel.is_primary()) continue;
+      r_layer = r_layer.Define(sel.selection_name(hm_idx_col_base), std::format("{} [ {} ]", hm_idx_col_base, sel.index_cut));
+    }
+
+    // Second hit-match pass, plot stuff.
+    for (auto const &sel : selections) {
+      RNode r = r_layer;
+      // Redefine also for primary, so the "internal" column names are without the prefix.
+      r = define_hm_stuff(r_layer, sel.selection_name(hm_idx_col_base));
+      if ( ! sel.is_primary() && sel.has_column_prefix()) {
+        // If we have column prefix on the secondary, we also export it to layer RDF for later comparisons & such.
+        r_layer = define_hm_stuff(r_layer, sel.selection_name(hm_idx_col_base), sel.column_prefix());
+      }
+      auto &C = NewCanvasGroup(3, 2, std::format(canvas_name_fmt, layer, sel.sel_prefix), std::format(canvas_title_fmt, layer), sel.title);
+      // We plot stuff without the prefix (it's not even available as we've but it into r_layer afterwards).
+      plot_layer_stuff(r, C);
+    }
+
+    // First pass of linking kalman-update for hit-matches that passed preselect and pqueue.
+    // Here we do it by hand, for now.
+    {
+      auto r = r_layer
+      .Define(ku_idx_col_base, EV_GATHER(trHitMatches_, kalman_id, "match_pass_all_hm_indices"))
+      .Define("chi2", EV_GATHER(trKalmanUpdates_, chi2, ku_idx_col_base))
+      .Define("accepted", EV_GATHER(trKalmanUpdates_, accepted, ku_idx_col_base))
+      ;
+      { auto &C = NewCanvasGroup(2, 2, std::format(canvas_ku_name_fmt, layer, "good"), std::format(canvas_ku_title_fmt, layer), "Matched that passed preselect and pqueue");
+        C.Add(r.Histo1D("chi2"), "s").add_pre(CGrp::logy);
+        C.Add(r.Histo1D({"chi2_zoom_100", "chi2 zoom to 100", 101, -1, 100}, "chi2"), "s").add_pre(CGrp::logy);
+        C.AddIntH1D(r, "accepted", 0, 1, "s");
+      }
+    }
+    {
+      auto r = r_layer
+      .Define(ku_idx_col_base, EV_GATHER(trHitMatches_, kalman_id, "nomatch_pass_all_hm_indices"))
+      .Define("chi2", EV_GATHER(trKalmanUpdates_, chi2, ku_idx_col_base))
+      .Define("accepted", EV_GATHER(trKalmanUpdates_, accepted, ku_idx_col_base))
+      ;
+      { auto &C = NewCanvasGroup(2, 2, std::format(canvas_ku_name_fmt, layer, "evil"), std::format(canvas_ku_title_fmt, layer), "NOT Matched that passed preselect and pqueue");
+        C.Add(r.Histo1D("chi2"), "s").add_pre(CGrp::logy);
+        C.Add(r.Histo1D({"chi2_zoom_100", "chi2 zoom to 100", 101, -1, 100}, "chi2"), "s").add_pre(CGrp::logy);
+        C.AddIntH1D(r, "accepted", 0, 1, "s");
+      }
+    }
   }
 }
 
@@ -503,4 +646,25 @@ void AnRun::DrawCanvasGroups() {
   for (auto &cg : m_canvas_groups) {
     cg->Draw();
   }
+}
+
+void AnRun::WriteCanvasGroupsToFile(const std::string &fname) const {
+  TFile f(fname.c_str(), "RECREATE");
+  for (auto &cg : m_canvas_groups) {
+    // cg->m_canvas->Write(cg->m_canvas->GetName());
+
+    // Generate unique name for canvases in the file so they can be drawn again.
+    // Note that just using a different key name is not enough -- the original name is saved in the file.
+    std::string name(cg->m_canvas->GetName());
+    std::string new_name = name + "_";
+    cg->m_canvas->SetName(new_name.c_str());
+    cg->m_canvas->Write();
+    cg->m_canvas->SetName(name.c_str());
+  }
+  f.Close();
+  printf("%s Wrote %d canvases into file '%s'\n", __func__, (int) m_canvas_groups.size(), fname.c_str());
+
+  // Grr, shows empty histograms. It's not global canvas names ... what else could it be?
+  new TFile(fname.c_str());
+  new TBrowser();
 }
