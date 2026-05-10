@@ -185,7 +185,7 @@ struct TrCandState {
 struct TrHitMatch {
   int id;
   int state_id;
-  int layer; // or HitOnTrack?
+  int layer; // NOTE: TrCandState.layer we are pointing to is PREVIUOUS layer
   int hit;
   bool mc_match; // is hit mc-matching
 
@@ -211,33 +211,25 @@ struct TrHitMatch {
   int  rank = -1; // for those that pass pqueue selection (would be nice to have it for others, std::vec instead of pqueue for MKFIT_TRACE?)
   bool passed_pqueue = false;
 
-  // if passed, add int kalman-id ?
-  // yes, for now just cram in kalman state
-  mkfit::TrackState kalman_state {};
-  float kalman_chi2 = -1.0f;
-  bool kalman_accepted = false;
+  int kalman_id = -1;
 };
 
 struct TrKalmanUpdate {
   int id;
-  int state_id_in;       // state before update
-  int state_id_out;      // state after update (new CandID)
-  int layer;  // or HitOnTrack? better, match_id !
-  int hit;
+  int hit_match_id;
+  int state_id_in;      // state before update; could get it from hitmatch.state_id
+  int state_id_out = -1; // state after update, -1 if not accepted
 
-  mkfit::TrackState trk_state {};
-  // propagated track state, parameters are same as in TrHitMatch (as we pass it to Kalman update)
-  // Need covariance matrix, sigh
-  // Also need dx, dy, distance from point to hit in detector plane coordinate system.
-  // Again, this should be the same as for hit match.
+  float   chi2 = -999.99f;
+  float   chi2_trk = -999.99f;
+  bool    accepted = false;    // this hit advanced the state
 
-  // Link back to HitMmatch?
-  // Will this be reused for backward-fit?
-
-  float   chi2;
-  float   chi2_trk;
-
-  bool    accepted;    // this hit advanced the state
+  mkfit::TrackState updated_state {};
+  // Propagated track parameters are same as in TrHitMatch (as we pass it to Kalman update),
+  // covariance matrix is not there -- could save full TrackState or just covariance matrix.
+  // Optional?
+  // mkfit::TrackState propagated_state {};
+  // The local dx, dy, dz distance from point to hit is the same as for hit match.
 };
 
 // Another struct for missed layer, for some reason?

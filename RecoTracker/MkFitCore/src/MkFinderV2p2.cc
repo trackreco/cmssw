@@ -717,7 +717,7 @@ namespace mkfit {
     KalmanOpArgs koa;
     koa.prop_config = & mp_job->m_trk_info.prop_config();
 #ifdef MKFIT_TRACE
-    koa.tr_hitmatches = & mp_event->trHitMatches_;
+    koa.mp_event = mp_event;
 #endif
 
     for (int i = 0; i < N_proc; ++i) {
@@ -754,7 +754,7 @@ namespace mkfit {
       do_kalman(koa);
     }
 
-    // This, esp. the combinatorial part should be done once prim-tcand is finished.
+    // This, esp. the combinatorial part, should be done once prim-tcand is finished.
     // And, merging results, when ccand is finished.
     for (int i = 0; i < N_proc; ++i) {
       PrimTCandRep &ptc = * prim_tcand_ptrs[i];
@@ -784,10 +784,15 @@ namespace mkfit {
         // QQQQQ the parent extraction will be different; also fix: step, proper state (what is it)
 
         // This is also best-hit hack
-        mp_event->tr_hitmatch(ptc.b_tr_hitmatch_id).kalman_accepted = true;
-
         int pid = ptc.tcand().m_trace_state_id;
         int id = mp_event->trace_new_cand_state(pid, (*mp_steeringparams_iter)->m_layer, track2bivec3(ptc.tcand()));
+
+        auto &ku = mp_event->tr_kalmanupdate( mp_event->tr_hitmatch(ptc.b_tr_hitmatch_id).kalman_id );
+        ku.accepted = true;
+        ku.state_id_out = id;
+        // At this point could also set chi2_trk ... but this might get tricky with multiple hits added per (multi-)layer.
+        // local / (multi-)layer score might be more relevant.
+
         ptc.tcand().m_trace_state_id = id;
 #endif
       } else {

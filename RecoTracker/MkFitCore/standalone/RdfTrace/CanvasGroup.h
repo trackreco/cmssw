@@ -7,6 +7,7 @@
 
 class TCanvas;
 class TVirtualPad;
+class TPaveText;
 
 extern TCanvas *canvas_ptr;
 extern int canvas_i, canvas_imax;
@@ -36,19 +37,41 @@ struct CanvasGroup
 
   std::vector<Entry> m_entries;
   TCanvas *m_canvas = nullptr;
+  TVirtualPad *m_title_pad = nullptr;
+  TVirtualPad *m_plot_pad = nullptr;
+  TPaveText *m_title_text = nullptr;
   int m_n_divs = -1;
 
-  CanvasGroup(const char *n=0, const char *t=0, const char *pfx=0);
-  CanvasGroup(int dx, int dy, const char *n=0, const char *t=0, const char *pfx=0);
+  // CanvasGroup(const char *n=0, const char *t=0, const char *pfx=0);
+  // CanvasGroup(int dx, int dy, const char *n=0, const char *t=0, const char *pfx=0);
 
-  Entry& Add(ROOT::RDF::RResultPtr<TH1> histo, std::string_view opts = "") {
-    m_entries.push_back( { histo, std::string(opts), {}, {} } );
+  CanvasGroup(const std::string &n="", const std::string &t="", const std::string &pfx="");
+  CanvasGroup(int dx, int dy, const std::string &n="", const std::string &t="", const std::string &pfx="");
+
+
+  Entry& Add(ROOT::RDF::RResultPtr<TH1> histo, const std::string &opts = "") {
+    m_entries.push_back( { histo, opts, {}, {} } );
     return m_entries.back();
   }
 
-  Entry& AddIntH1D(ROOT::RDF::RNode &r, std::string_view column, int min, int max, std::string_view opts = "") {
-    const char *cd = column.data();
-    return Add(r.Histo1D({cd, cd, max - min + 1, min - 0.5, max + 0.5}, column), opts);
+  Entry& AddRealH1D(ROOT::RDF::RNode &r, const std::string &column, int n_bins, double min, double max, const std::string &opts = "") {
+    std::string t = column + ";" + column + ";N";
+    return Add(r.Histo1D({column.c_str(), t.c_str(), n_bins, min, max}, column), opts);
+  }
+  Entry& AddIntH1D(ROOT::RDF::RNode &r, const std::string &column, int min, int max, const std::string &opts = "") {
+    return AddRealH1D(r, column, max - min + 1, min - 0.5, max + 0.5, opts);
+  }
+
+  Entry& AddRealH2D(ROOT::RDF::RNode &r, const std::string &column_x, const std::string &column_y, int n_bins_x, double min_x, double max_x, int n_bins_y, double min_y, double max_y, const std::string &opts = "") {
+    std::string n = column_y + "_VS_" + column_x;
+    std::string t = n + ";" + column_x + ";" + column_y + ";N";
+    return Add(r.Histo2D({n.c_str(), t.c_str(), n_bins_x, min_x, max_x, n_bins_y, min_y, max_y}, column_x, column_y), opts);
+  }
+  Entry& AddRealIntH2D(ROOT::RDF::RNode &r, const std::string &column_x, const std::string &column_y, int n_bins_x, double min_x, double max_x, int min_y, int max_y, const std::string &opts = "") {
+    return AddRealH2D(r, column_x, column_y, n_bins_x, min_x, max_x, max_y - min_y + 1, min_y - 0.5, max_y + 0.5, opts);
+  }
+  Entry& AddIntRealH2D(ROOT::RDF::RNode &r, const std::string &column_x, const std::string &column_y, int min_x, int max_x, int n_bins_y, double min_y, double max_y, const std::string &opts = "") {
+    return AddRealH2D(r, column_x, column_y, max_x - min_x + 1, min_x - 0.5, max_x + 0.5, n_bins_y, min_y, max_y, opts);
   }
 
   Entry& Entry() {
@@ -57,7 +80,7 @@ struct CanvasGroup
     throw std::runtime_error("CanvasGroup empty when requesting current entry.");
   }
 
-  CanvasGroup& MakeCanvas(const char *n=0, const char *t=0, const char *pfx=0);
+  CanvasGroup& MakeCanvas(const std::string &n="", const std::string &t="", const std::string &pfx="");
   void Divide(int dx, int dy);
   void DivideSquare(int n = 0);
 
@@ -66,6 +89,7 @@ struct CanvasGroup
   static int s_canvas_width;
   static int s_canvas_height;
   static int s_canvas_counter;
+  static bool s_do_titles;
 
   static const predraw_mod_func stats;
   static const predraw_mod_func logx, logy, logz;
