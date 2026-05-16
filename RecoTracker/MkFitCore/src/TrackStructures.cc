@@ -50,7 +50,8 @@ namespace mkfit {
   // CombCandidate
   //==============================================================================
 
-  void CombCandidate::importSeed(const Track &seed, int seed_idx, const track_score_func &score_func, int region) {
+  void CombCandidate::importSeed(
+      const Track &seed, int seed_idx, const IterationParams &params, const track_score_func &score_func, int region) {
     m_trk_cands.emplace_back(TrackCand(seed, this));
 
     m_state = CombCandidate::Dormant;
@@ -68,7 +69,7 @@ namespace mkfit {
       cand.addHitIdx(hp->index, hp->layer, 0.0f);
     }
 
-    cand.setScore(getScoreCand(score_func, cand));
+    cand.setScore(getScoreCand(score_func, params, cand));
   }
 
   void CombCandidate::mergeCandsAndBestShortOne(const IterationParams &params,
@@ -80,9 +81,9 @@ namespace mkfit {
     if (!empty()) {
       if (update_score) {
         for (auto &c : m_trk_cands)
-          c.setScore(getScoreCand(score_func, c));
+          c.setScore(getScoreCand(score_func, params, c));
         if (best_short)
-          best_short->setScore(getScoreCand(score_func, *best_short));
+          best_short->setScore(getScoreCand(score_func, params, *best_short));
       }
       if (sort_cands) {
         std::sort(m_trk_cands.begin(), m_trk_cands.end(), sortByScoreTrackCand);
