@@ -65,9 +65,26 @@ namespace mkfit {
     SimInfoFromHits simInfoForTrack(Track &s, bool relabel);
 
     int countSimHitsInLayer(int label, int layer) const;
-    int countPixelHits(const Track &track) const;
-    int countPixelLayers(const Track &track) const;
-    int lastPixelLayer(const Track &track) const;
+
+    int countPixelHits(const Track &track, bool inner_only) const;
+    int countInnerPixelHits(const Track &track) const { return countPixelHits(track, true); }
+    int countAllPixelHits(const Track &track) const { return countPixelHits(track, false); }
+
+    int countPixelLayers(const Track &track, bool inner_only) const;
+    int countInnerPixelLayers(const Track &track) const { return countPixelLayers(track, true); }
+    int countAllPixelLayers(const Track &track) const { return countPixelLayers(track, false); }
+
+    int lastInnerPixelLayer(const Track &track) const;
+
+    int countStripHits(const Track &track, bool outer_only) const;
+    int countOuterStripHits(const Track &track) const { return countStripHits(track, true); }
+    int countAllStripHits(const Track &track) const { return countStripHits(track, false); }
+
+    int countStripLayers(const Track &track, bool outer_only) const;
+    int countOuterStripLayers(const Track &track) const { return countStripLayers(track, true); }
+    int countAllStripLayers(const Track &track) const { return countStripLayers(track, false); }
+
+    int firstInnerStripLayer(const Track &track) const;
 
     void setCurrentSeedTracks(const TrackVec &seeds);
     void resetCurrentSeedTracks();
@@ -76,6 +93,7 @@ namespace mkfit {
     const TrackVec& currentSeedTracks() const { return *currentSeedTracks_; }
 
     void relabelSeedTracksSequentially();
+    void filterOutMislabeledHitsInSimTracks();
 
     void print_tracks(const TrackVec &tracks, bool print_hits) const;
 
