@@ -409,14 +409,8 @@ void AnRun::Run_T5_vs_pT5_AsSeeds_DuplicateCount() {
 
   .Define("sim_pt", EV_GATHER(simTracks_, pT(), "selected_sims"))
 
-  .Define("sim_n_pix_hits", [&](const mkfit::Event* ev, const ROOT::RVec<int> labels) {
-    ROOT::RVec<int> out;
-    out.reserve(labels.size());
-    for (auto l : labels) {
-      out.push_back(ev->countPixelHits( ev->simTracks_[l] ));
-    }
-    return out;
-  },{"event", "selected_sims"})
+  .Define("sim_n_pix_hits", EV_GATHER_FUNC(simTracks_, countAllPixelHits, "selected_sims"))
+  .Define("sim_n_strip_hits", EV_GATHER_FUNC(simTracks_, countAllStripHits, "selected_sims"))
 
   .Define("seed_n_dups", [](const mkfit::Event* ev, const ROOT::RVec<int> meta_idcs) {
     ROOT::RVec<int> out;
@@ -452,15 +446,46 @@ void AnRun::Run_T5_vs_pT5_AsSeeds_DuplicateCount() {
   r = r
   .Define("delta_pt_o_sim_pt", "(seed_pt - sim_pt)/sim_pt");
 
-  { auto &C = NewCanvasGroup(4, 2, "Tx_as_seed_sim_stuff", "Tx as seeds, duplicates -- with good_hit_frac > 0.9");
+  { auto &C = NewCanvasGroup(5, 2, "Tx_as_seed_sim_stuff", "Tx as seeds, duplicates -- with good_hit_frac > 0.9");
     C.AddRealH1D(r, "delta_pt_o_sim_pt", 100, -10, 10, "s").add_pre(CGrp::logy);
     C.AddRealH1D(r, "seed_pt", 100, 0, 30, "s").add_pre(CGrp::logy);
     C.AddRealH1D(r, "sim_pt", 100, 0, 30, "s").add_pre(CGrp::logy);
-    C.Add(r.Histo1D("sim_n_pix_hits"));
+    C.Add(r.Histo1D("sim_n_pix_hits")).add_pre(CGrp::logy);
     C.AddIntH1D(r, "sim_n_pix_hits", 0, 12, "s");
+    C.Add(r.Histo1D("sim_n_strip_hits")).add_pre(CGrp::logy);
+    C.AddIntH1D(r, "sim_n_strip_hits", 0, 50, "s");
     C.AddIntH1D(r, "seed_n_dups", 0, 5, "s").add_pre(CGrp::logy);
     C.AddIntH1D(r, "seed_n_dups_re_pTs", 0, 5, "s").add_pre(CGrp::logy);
   }
+
+  // ==== Print events with high hit counts for manual investigation ====
+  auto r_high_hits = r
+  .Filter([](const ROOT::RVec<int>& pix_hits, const ROOT::RVec<int>& strip_hits) {
+    for (size_t i = 0; i < pix_hits.size(); ++i) {
+      if (pix_hits[i] > 30 || strip_hits[i] > 50) return true;
+    }
+    return false;
+  }, {"sim_n_pix_hits", "sim_n_strip_hits"})
+  ;
+
+  printf("\n=== Events with sim_n_pix_hits > 30 OR sim_n_strip_hits > 50 ===\n");
+  printf("%-10s %-12s %-15s %-15s\n", "evtID", "sim_idx", "pix_hits", "strip_hits");
+  printf("%-10s %-12s %-15s %-15s\n", "-----", "-------", "--------", "----------");
+
+  r_high_hits.Foreach([](int evtID,
+                        const ROOT::RVec<int>& sim_indices,
+                        const ROOT::RVec<int>& pix_hits,
+                        const ROOT::RVec<int>& strip_hits) {
+    for (size_t i = 0; i < pix_hits.size(); ++i) {
+      if (pix_hits[i] > 30 || strip_hits[i] > 50) {
+        printf("%-10d %-12d %-15d %-15d\n",
+              evtID, sim_indices[i], pix_hits[i], strip_hits[i]);
+      }
+    }
+  }, {"evtID", "selected_sims", "sim_n_pix_hits", "sim_n_strip_hits"});
+
+  auto count = r_high_hits.Count().GetValue();
+  printf("=== Total events with high-hit tracks: %llu ===\n\n", count);
 }
 
 //==============================================================================
@@ -475,38 +500,79 @@ void AnRun::Run_T5s_into_Pix() {
   .Define("pre_selected_seeds", EV_COMPRESS(trCandMetas_, seed, "pre_meta_mask"))
   .Define("pre_selected_sims", EV_COMPRESS(trCandMetas_, sim, "pre_meta_mask"))
 
-  // .Define("pre_sim_n_pix_hits", EV_COMPRESS_FUNC(simTracks_, countPixelHits, "pre_selected_sims"))
-  // .Define("pre_sim_n_pix_layers", EV_COMPRESS_FUNC(simTracks_, countPixelLayers, "pre_selected_sims"))
-  .Define("pre_sim_n_pix_hits", EV_GATHER_FUNC(simTracks_, countPixelHits, "pre_selected_sims"))
-  .Define("pre_sim_n_pix_layers", EV_GATHER_FUNC(simTracks_, countPixelLayers, "pre_selected_sims"))
+  .Define("pre_sim_n_pix_hits", EV_GATHER_FUNC(simTracks_, countInnerPixelHits, "pre_selected_sims"))
+  .Define("pre_sim_n_pix_all_hits", EV_GATHER_FUNC(simTracks_, countAllPixelHits, "pre_selected_sims"))
+  .Define("pre_sim_n_pix_layers", EV_GATHER_FUNC(simTracks_, countInnerPixelLayers, "pre_selected_sims"))
+  .Define("pre_sim_n_pix_all_layers", EV_GATHER_FUNC(simTracks_, countAllPixelLayers, "pre_selected_sims"))
+
+  .Define("pre_sim_n_strip_hits", EV_GATHER_FUNC(simTracks_, countOuterStripHits, "pre_selected_sims"))
+  .Define("pre_sim_n_strip_all_hits", EV_GATHER_FUNC(simTracks_, countAllStripHits, "pre_selected_sims"))
+  .Define("pre_sim_n_strip_layers", EV_GATHER_FUNC(simTracks_, countOuterStripLayers, "pre_selected_sims"))
+  .Define("pre_sim_n_strip_all_layers", EV_GATHER_FUNC(simTracks_, countAllStripLayers, "pre_selected_sims"))
+
   .Define("pre_sim_pT", EV_GATHER(simTracks_, pT(), "pre_selected_sims"))
   .Define("pre_sim_eta", EV_GATHER(simTracks_, momEta(), "pre_selected_sims"))
   .Define("pre_seed_first_layer", EV_GATHER(trSeeds_, getHitLyr(0), "pre_selected_seeds"))
-  .Define("pre_sim_last_pixel_layer", EV_GATHER_FUNC(simTracks_, lastPixelLayer, "pre_selected_sims"))
+  .Define("pre_sim_last_inner_pixel_layer", EV_GATHER_FUNC(simTracks_, lastInnerPixelLayer, "pre_selected_sims"))
+  ;
 
   // "Final" filter for barrel, 4 sim pixel layers, first seed hit in barrel, last sim pixel in barrel
+  r_top = r_top
   .Define("pix_layer_mask", "    pre_sim_n_pix_layers >= 4"
                             "&& (pre_seed_first_layer == 4 || pre_seed_first_layer == 5)"
-                            "&&  pre_sim_last_pixel_layer == 3")
+                            "&&  pre_sim_last_inner_pixel_layer == 3")
 
   .Define("selected_sims", "pre_selected_sims[pix_layer_mask]")
   .Define("selected_metas", "pre_selected_metas[pix_layer_mask]")
+
   .Define("sim_n_pix_hits", "pre_sim_n_pix_hits[pix_layer_mask]")
+  .Define("sim_n_pix_all_hits", "pre_sim_n_pix_all_hits[pix_layer_mask]")
   .Define("sim_n_pix_layers", "pre_sim_n_pix_layers[pix_layer_mask]")
+  .Define("sim_n_pix_all_layers", "pre_sim_n_pix_all_layers[pix_layer_mask]")
+
+  .Define("sim_n_strip_hits", "pre_sim_n_strip_hits[pix_layer_mask]")
+  .Define("sim_n_strip_all_hits", "pre_sim_n_strip_all_hits[pix_layer_mask]")
+  .Define("sim_n_strip_layers", "pre_sim_n_strip_layers[pix_layer_mask]")
+  .Define("sim_n_strip_all_layers", "pre_sim_n_strip_all_layers[pix_layer_mask]")
 
   .Define("sim_pT", "pre_sim_pT[pix_layer_mask]")
   .Define("sim_eta", "pre_sim_eta[pix_layer_mask]")
   ;
 
-  { auto &C = NewCanvasGroup(4, 2, "t5intoPix", "Tracing Tx from barrel layers 4/5 into pixels -- selections");
+  { auto &C = NewCanvasGroup(4, 2, "t5intoPix_full_n_pixel_hits", "Tracing Tx from barrel layers 4/5 into pixels -- full pixel N_hits");
     auto r = r_top;
     C.AddIntH1D(r, "pre_sim_n_pix_hits", 0, 20, "s").add_pre(CGrp::logy);
     C.AddIntH1D(r, "pre_sim_n_pix_layers", 0, 12, "s").add_pre(CGrp::logy);
+    C.AddIntH1D(r, "pre_sim_n_pix_all_hits", 0, 20, "s").add_pre(CGrp::logy);
+    C.AddIntH1D(r, "pre_sim_n_pix_all_layers", 0, 12, "s").add_pre(CGrp::logy);
     C.AddIntH1D(r, "sim_n_pix_hits", 0, 20, "s").add_pre(CGrp::logy);
     C.AddIntH1D(r, "sim_n_pix_layers", 0, 12, "s").add_pre(CGrp::logy);
+    C.AddIntH1D(r, "sim_n_pix_all_hits", 0, 20, "s").add_pre(CGrp::logy);
+    C.AddIntH1D(r, "sim_n_pix_all_layers", 0, 12, "s").add_pre(CGrp::logy);
+  }
+  { auto &C = NewCanvasGroup(4, 2, "t5intoPix_full_n_strip_hits", "Tracing Tx from barrel layers 4/5 into pixels -- full strip N_hits");
+    auto r = r_top;
+    C.AddIntH1D(r, "pre_sim_n_strip_hits", 0, 50, "s").add_pre(CGrp::logy);
+    C.AddIntH1D(r, "pre_sim_n_strip_layers", 0, 24, "s").add_pre(CGrp::logy);
+    C.AddIntH1D(r, "pre_sim_n_strip_all_hits", 0, 50, "s").add_pre(CGrp::logy);
+    C.AddIntH1D(r, "pre_sim_n_strip_all_layers", 0, 24, "s").add_pre(CGrp::logy);
+    C.AddIntH1D(r, "sim_n_strip_hits", 0, 50, "s").add_pre(CGrp::logy);
+    C.AddIntH1D(r, "sim_n_strip_layers", 0, 24, "s").add_pre(CGrp::logy);
+    C.AddIntH1D(r, "sim_n_strip_all_hits", 0, 50, "s").add_pre(CGrp::logy);
+    C.AddIntH1D(r, "sim_n_strip_all_layers", 0, 24, "s").add_pre(CGrp::logy);
+  }
 
-    C.Add(r.Histo1D("sim_pT"), "s");
+  { auto &C = NewCanvasGroup(4, 2, "t5intoPix", "Tracing Tx from barrel layers 4/5 into pixels -- selections");
+    auto r = r_top;
+    C.AddIntH1D(r, "sim_n_pix_hits", 0, 20, "s").add_pre(CGrp::logy);
+    C.AddIntH1D(r, "sim_n_pix_layers", 0, 12, "s").add_pre(CGrp::logy);
+    C.AddIntH1D(r, "sim_n_strip_hits", 0, 50, "s").add_pre(CGrp::logy);
+    C.AddIntH1D(r, "sim_n_strip_layers", 0, 24, "s").add_pre(CGrp::logy);
+
+    C.Add(r.Histo1D("sim_pT"), "s").add_pre(CGrp::logy);
     C.Add(r.Histo1D("sim_eta"), "s");
+    C.Add(r.Histo1D("pre_sim_pT"), "s").add_pre(CGrp::logy);
+    C.Add(r.Histo1D("pre_sim_eta"), "s");
   }
 
   // ------- Extract hit-match indices by "selected_metas" and a set of layers -------

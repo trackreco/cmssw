@@ -872,35 +872,35 @@ namespace mkfit {
     return count;
   }
 
-  int Event::countPixelHits(const Track &track) const{
+  int Event::countPixelHits(const Track &track, bool inner_only) const{
     int npix = 0;
     for (int i = 0; i < track.nTotalHits(); ++i) {
       int lay = track.getHitLyr(i);
       if (lay >= 0) {
         if (Config::TrkInfo[lay].is_pixel())
           ++npix;
-        else
+        else if (inner_only)
           break;
       }
     }
     return npix;
   }
 
-  int Event::countPixelLayers(const Track &track) const {
+  int Event::countPixelLayers(const Track &track, bool inner_only) const {
     std::set<int> layers;
     for (int i = 0; i < track.nTotalHits(); ++i) {
       int lay = track.getHitLyr(i);
       if (lay >= 0) {
         if (Config::TrkInfo[lay].is_pixel())
           layers.insert(lay);
-        else
+        else if (inner_only)
           break;
       }
     }
     return layers.size();
   }
 
-  int Event::lastPixelLayer(const Track &track) const {
+  int Event::lastInnerPixelLayer(const Track &track) const {
     int last_pix = -1;
     for (int i = 0; i < track.nTotalHits(); ++i) {
       int lay = track.getHitLyr(i);
@@ -912,6 +912,48 @@ namespace mkfit {
       }
     }
     return last_pix;
+  }
+
+  int Event::countStripHits(const Track &track, bool outer_only) const {
+    int nhit = 0;
+    for (int i = track.nTotalHits() - 1; i >= 0 ; --i) {
+      int lay = track.getHitLyr(i);
+      if (lay >= 0) {
+        if (Config::TrkInfo[lay].is_strip())
+          ++nhit;
+        else if (outer_only)
+          break;
+      }
+    }
+    return nhit;
+  }
+
+  int Event::countStripLayers(const Track &track, bool outer_only) const {
+    std::set<int> layers;
+    for (int i = track.nTotalHits() - 1; i >= 0 ; --i) {
+      int lay = track.getHitLyr(i);
+      if (lay >= 0) {
+        if (Config::TrkInfo[lay].is_strip())
+          layers.insert(lay);
+        else if (outer_only)
+          break;
+      }
+    }
+    return layers.size();
+  }
+
+  int Event::firstInnerStripLayer(const Track &track) const {
+    int first_layer = -1;
+    for (int i = 0; i < track.nTotalHits(); ++i) {
+      int lay = track.getHitLyr(i);
+      if (lay >= 0) {
+        if (Config::TrkInfo[lay].is_strip()) {
+          first_layer = lay;
+          break;
+        }
+      }
+    }
+    return first_layer;
   }
 
   //==============================================================================
@@ -934,10 +976,27 @@ namespace mkfit {
     currentSeedSimFromHits_.clear();
   }
 
+  // The following functions are needed for mkFit@HLT phase2 (and maybe beyond)
+
   void Event::relabelSeedTracksSequentially() {
     const int ns = seedTracks_.size();
     for (int i = 0; i < ns; ++i)
       seedTracks_[i].setLabel(i);
+  }
+
+  void Event::filterOutMislabeledHitsInSimTracks() {
+    for (Track &track : simTracks_) {
+      const int label = track.label();
+
+      track.filterHits([this, label](const HitOnTrack& hot) {
+        if (hot.index < 0) return false;  // Keep invalid hits
+
+        const Hit& hit = layerHits_[hot.layer][hot.index];
+        const int hit_label = simHitsInfo_[hit.mcHitID()].mcTrackID();
+
+        return hit_label != label;  // Remove mismatched, typically hit_label == -1
+      });
+    }
   }
 
   //==============================================================================

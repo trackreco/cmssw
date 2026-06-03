@@ -64,6 +64,7 @@ namespace mkfit {
 
   void Shell::LoopNEventsHlt(int N_events, const int wanted_algo) {
 
+    const bool dump_simple_t5_root_file = false;
     struct Dump {
       int ev;
       int label;
@@ -75,10 +76,14 @@ namespace mkfit {
       int nstrip;
       int nstrip_good;
     } d;
+    TFile *F = nullptr;
+    TTree *T = nullptr;
 
-    TFile *F = TFile::Open("t5.root", "RECREATE");
-    TTree *T = new TTree("T","T5 into pix");
-    T->Branch("d",&d.ev,"ev/I:label:seed_index:pt/F:eta:phi:rpt:reta:rphi:npix/I:npix_good:nstrip:nstrip_good");
+    if (dump_simple_t5_root_file) {
+      F = TFile::Open("t5.root", "RECREATE");
+      T = new TTree("T","T5 into pix");
+      T->Branch("d",&d.ev,"ev/I:label:seed_index:pt/F:eta:phi:rpt:reta:rphi:npix/I:npix_good:nstrip:nstrip_good");
+    }
 
     StdSeq::Quality::s_quality_sum.quality_reset();
 
@@ -89,6 +94,7 @@ namespace mkfit {
 
       printf("\n##### BEG Event %d ##### HLT seeds\n\n", event()->evtID());
 
+      m_event->filterOutMislabeledHitsInSimTracks();
       m_event->relabelSeedTracksSequentially();
 
       const bool wanted_first_is_pix = false; // true;
@@ -205,7 +211,7 @@ namespace mkfit {
 
       // "BAD" seeds -- leading to tracks with certain badness, see selection below.
       // Currently: |eta| < 1, no pixel hits added
-      const bool print_bad_seed_vector = true;
+      const bool print_bad_reco_seed_vector = true;
       std::vector<int> bad_seeds;
 
       int NT = m_tracks.size();
@@ -215,7 +221,7 @@ namespace mkfit {
         if (!sifh.is_set()) // only take tracks with sim match
           continue;
 
-        if (print_bad_seed_vector) {
+        if (print_bad_reco_seed_vector) {
           if (sifh.n_pix_match == 0 && std::abs(t.momEta()) < 1.0f) { // catching cases where we add no pixel hits
             printf("bad cand %3d, seed %3d  pt=%6.3f, eta=% 5.3f, phi=% 5.3f -- ", i, t.label(), t.pT(), t.momEta(), t.momPhi());
             print("", sifh);
@@ -223,39 +229,41 @@ namespace mkfit {
           }
         }
 
-        const Track &s = m_event->simTracks_[sifh.label];
-        d.ev = event()->evtID();
-        d.label = sifh.label;
-        d.seed_index = t.label();
-        d.pt = s.pT();
-        d.eta = s.momEta();
-        d.phi = s.momPhi();
-        d.rpt = t.pT();
-        d.reta = t.momEta();
-        d.rphi = t.momPhi();
-        d.npix = d.npix_good = d.nstrip = d.nstrip_good = 0;
-        for (int hi = 0; hi < t.nTotalHits(); ++hi) {
-          auto hot = t.getHitOnTrack(hi);
-          // printf(" %d", hot.index);
-          if (hot.index < 0)
-            continue;
-          const Hit &h = m_event->layerHits_[hot.layer][hot.index];
-          int hl = m_event->simHitsInfo_[h.mcHitID()].mcTrackID_;
-          // printf(" (%d)", hl);
-          if (tracker_info()->layer(hot.layer).is_pixel()) {
-            if (hl == sifh.label)
-              ++d.npix_good;
-            ++d.npix;
-          } else {
-            if (hl == sifh.label)
-              ++d.nstrip_good;
-            ++d.nstrip;
+        if (dump_simple_t5_root_file) {
+          const Track &s = m_event->simTracks_[sifh.label];
+          d.ev = event()->evtID();
+          d.label = sifh.label;
+          d.seed_index = t.label();
+          d.pt = s.pT();
+          d.eta = s.momEta();
+          d.phi = s.momPhi();
+          d.rpt = t.pT();
+          d.reta = t.momEta();
+          d.rphi = t.momPhi();
+          d.npix = d.npix_good = d.nstrip = d.nstrip_good = 0;
+          for (int hi = 0; hi < t.nTotalHits(); ++hi) {
+            auto hot = t.getHitOnTrack(hi);
+            // printf(" %d", hot.index);
+            if (hot.index < 0)
+              continue;
+            const Hit &h = m_event->layerHits_[hot.layer][hot.index];
+            int hl = m_event->simHitsInfo_[h.mcHitID()].mcTrackID_;
+            // printf(" (%d)", hl);
+            if (tracker_info()->layer(hot.layer).is_pixel()) {
+              if (hl == sifh.label)
+                ++d.npix_good;
+              ++d.npix;
+            } else {
+              if (hl == sifh.label)
+                ++d.nstrip_good;
+              ++d.nstrip;
+            }
           }
+          T->Fill();
         }
-        T->Fill();
       }
 
-      if (print_bad_seed_vector) {
+      if (print_bad_reco_seed_vector) {
         printf("s.SetSeedsFromIdcs({ ");
         int nbs = bad_seeds.size();
         if (nbs > 0) printf("%d", bad_seeds[0]);
@@ -270,9 +278,11 @@ namespace mkfit {
 
     StdSeq::Quality::s_quality_sum.quality_print();
 
-    T->Write();
-    F->Close();
-    delete F;
+    if (dump_simple_t5_root_file) {
+      T->Write();
+      F->Close();
+      delete F;
+    }
   }
 
   #pragma endregion Event Loops

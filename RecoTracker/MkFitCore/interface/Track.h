@@ -430,6 +430,16 @@ namespace mkfit {
       }
     }
 
+    template<typename Predicate>
+    void filterHits(Predicate pred) {
+      int n_removed = std::erase_if(hitsOnTrk_, pred);
+      if (n_removed > 0) {
+        lastHitIdx_ -= n_removed;
+        countAndSetNFoundHits();
+        hitsOnTrk_.shrink_to_fit();
+      }
+    }
+
     int nFoundHits() const { return nFoundHits_; }
     int nTotalHits() const { return lastHitIdx_ + 1; }
 

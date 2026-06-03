@@ -304,7 +304,7 @@ namespace mkfit {
     std::vector<const Event*> fEvents;
     std::vector<const Event*> fSlotEntry;
     ULong64_t fNextEntry = 0;
-    int fDebugLevel = 1; // 0 = no debug, 1 = basic, 2 = full, 3 = including SetEntry calls
+    int fDebugLevel = 0; // 0 = no debug, 1 = basic, 2 = full, 3 = including SetEntry calls
   };
 
   #pragma endregion
