@@ -17,7 +17,16 @@ namespace mkfit {
 
     MkBinTrackCovExtract() = default;
 
-    MkBinTrackCovExtract(const MPlexLS &err);
+    MkBinTrackCovExtract(const MPlexLS &err) {
+      init_from_track_errors(err);
+    }
+
+    void init_from_track_errors(const MPlexLS &err) {
+      m_cov_0_0 = err.ReduceFixedIJ(0, 0);
+      m_cov_0_1 = err.ReduceFixedIJ(0, 1);
+      m_cov_1_1 = err.ReduceFixedIJ(1, 1);
+      m_cov_2_2 = err.ReduceFixedIJ(2, 2);
+    }
 
     MPlexQF calc_err_xy(const MPlexQF &x, const MPlexQF &y) const {
       return x * x * m_cov_0_0 + y * y * m_cov_1_1 + 2.0f * x * y * m_cov_0_1;

@@ -283,25 +283,29 @@ namespace mkfit {
 
   do_Ccs_initialize:
     if (any_Ccreps_to_begin()) {
+
       // pop one off, initialize Cc, populate with pTcs.
-      begin_next_Ccrep_in_layer();
+      while ( ! enough_work_for_pre_select() && any_Ccreps_to_begin()) {
+        begin_next_Ccrep_in_layer();
+      }
 
       // QQQQQQ - we don't do something right below, as Prop&Kalman etc are
       // not separate and we only call process once.
-      while (any_work_for_pre_select()) {
-        process_pre_select();
-      }
+      // while (any_work_for_pre_select()) {
+      //   process_pre_select();
+      // }
+
 
       // This if should be while? But, what about the else below ...?
       // Also think what happens in pre-select and if hit-matching is separate
-      if (enough_work_for_pre_select() || ( ! any_Ccreps_to_begin() && any_work_for_pre_select())) {
+      while (enough_work_for_pre_select() || ( ! any_Ccreps_to_begin() && any_work_for_pre_select())) {
         // do Binnor stuff, generate hit-lists / pre-selections / bi-layer planning
         // generate some amount of sTcs for each pTc, presumably to start prop-to-first hit
         process_pre_select();
-      } else {
-        if (any_Ccreps_to_begin())
-          goto do_Ccs_initialize;
       }
+
+      if (any_Ccreps_to_begin())
+        goto do_Ccs_initialize;
 
       goto do_sTcs_prop_n_kalman;
     }
@@ -340,12 +344,9 @@ namespace mkfit {
       TrackCand &tc = ptc.tcand();
       m_pre_select_queue.pop_front();
 
-      // Rewrite with dedicated mplex packer?
-      B.m_isp.x[i] = tc.x();
-      B.m_isp.y[i] = tc.y();
-      B.m_isp.z[i] = tc.z();
-      B.m_isp.inv_pt[i] = tc.invpT();
-      B.m_isp.theta[i] = tc.theta();
+      // Copy in x, y,z, invpT, theta.
+      B.m_isp.copyIn_partial_track_state(i, tc.state());
+      // Extract track covariance at previous layer (for printouts only)
       TCE.m_cov_0_0[i] = tc.errors().At(0, 0);
       TCE.m_cov_0_1[i] = tc.errors().At(0, 1);
       TCE.m_cov_1_1[i] = tc.errors().At(1, 1);
@@ -384,10 +385,7 @@ namespace mkfit {
         pea.propErr.At(i,0,0), pea.propErr.At(i,0,1), pea.propErr.At(i,1,1), pea.propErr.At(i,2,2));
     }
 
-    TCE.m_cov_0_0 = pea.propErr.ReduceFixedIJ(0,0);
-    TCE.m_cov_0_1 = pea.propErr.ReduceFixedIJ(0,1);
-    TCE.m_cov_1_1 = pea.propErr.ReduceFixedIJ(1,1);
-    TCE.m_cov_2_2 = pea.propErr.ReduceFixedIJ(2,2);
+    TCE.init_from_track_errors( pea.propErr );
 
     // The final points are in B.m_sp2 ... sp.dalpha should be correct
     // Do full propagation + material.

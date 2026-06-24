@@ -537,6 +537,7 @@ void AnRun::Run_T5s_into_Pix() {
 
   .Define("sim_pT", "pre_sim_pT[pix_layer_mask]")
   .Define("sim_eta", "pre_sim_eta[pix_layer_mask]")
+  .Define("seed_first_layer", "pre_seed_first_layer[pix_layer_mask]")
   ;
 
   { auto &C = NewCanvasGroup(4, 2, "t5intoPix_full_n_pixel_hits", "Tracing Tx from barrel layers 4/5 into pixels -- full pixel N_hits");
@@ -703,6 +704,74 @@ void AnRun::Run_T5s_into_Pix() {
         C.AddIntH1D(r, "accepted", 0, 1, "s");
       }
     }
+  }
+
+
+  // ======= Candidate Track Pixel Hit Analysis =======
+  {
+
+    auto r_cand = r_top
+    // Gather candidate track info for selected metas
+    .Define("cand_n_pix", EV_GATHER(trSIFHforCandByMeta_, n_pix, "selected_metas"))
+    .Define("cand_n_pix_match", EV_GATHER(trSIFHforCandByMeta_, n_pix_match, "selected_metas"))
+    .Define("cand_n_pix_bad", EV_GATHER(trSIFHforCandByMeta_, n_pix_bad(), "selected_metas"))
+    .Define("cand_n_strip", EV_GATHER(trSIFHforCandByMeta_, n_strip, "selected_metas"))
+    .Define("cand_n_strip_match", EV_GATHER(trSIFHforCandByMeta_, n_strip_match, "selected_metas"))
+    .Define("cand_n_strip_bad", EV_GATHER(trSIFHforCandByMeta_, n_strip_bad(), "selected_metas"))
+    .Define("cand_good_frac", EV_GATHER(trSIFHforCandByMeta_, good_frac(), "selected_metas"))
+    ;
+
+
+    { auto &C = NewCanvasGroup(3, 3, "cand_pix_hits", "Candidate Track Pixel Hits (Selected Metas)");
+      // Pixel hit distributions
+      C.AddIntH1D(r_cand, "cand_n_pix", 0, 12, "s").add_pre(CGrp::logy);
+      C.AddIntH1D(r_cand, "cand_n_pix_match", 0, 12, "s").add_pre(CGrp::logy);
+      C.AddIntH1D(r_cand, "cand_n_pix_bad", 0, 12, "s").add_pre(CGrp::logy);
+
+      // Strip hit distributions
+      C.AddIntH1D(r_cand, "cand_n_strip", 0, 30, "s").add_pre(CGrp::logy);
+      C.AddIntH1D(r_cand, "cand_n_strip_match", 0, 30, "s").add_pre(CGrp::logy);
+      C.AddIntH1D(r_cand, "cand_n_strip_bad", 0, 30, "s").add_pre(CGrp::logy);
+
+      // Good fraction (matching / total)
+      C.Add(r_cand.Histo1D({"cand_good_frac", "Candidate Good Hit Fraction;Fraction;Events", 55, -0.05, 1.05}, "cand_good_frac"), "s");
+    }
+
+    // ======= 2D Correlations: Pixel Hits vs Selection Variables =======
+    { auto &C = NewCanvasGroup(2, 2, "cand_pix_corr", "Candidate Pixel Hits vs Sim/Seed Properties");
+
+      // Pixel hits vs sim pT
+      C.Add(r_cand.Histo2D({"cand_n_pix_vs_sim_pT", "Pixel Hits vs Sim pT;Sim pT (GeV);N Pixel Hits",
+                            60, 0, 30, 15, -0.5, 14.5}, "sim_pT", "cand_n_pix"), "colz");
+
+      // Pixel match fraction vs sim eta
+      C.Add(r_cand.Histo2D({"cand_good_frac_vs_sim_eta", "Match Fraction vs Sim #eta;Sim #eta;Good Fraction",
+                            80, -4, 4, 22, -0.1, 1.1}, "sim_eta", "cand_good_frac"), "colz");
+
+      // Bad pixel hits vs seed first layer
+      C.Add(r_cand.Histo2D({"cand_n_pix_bad_vs_seed_layer", "Bad Pixels vs Seed First Layer;Seed First Layer;N Bad Pixels",
+                            10, 0.5, 10.5, 15, -0.5, 14.5}, "seed_first_layer", "cand_n_pix_bad"), "colz");
+
+      // Good fraction vs sim pixel layers
+      C.Add(r_cand.Histo2D({"cand_good_frac_vs_sim_pix_layers", "Match Fraction vs Sim Pixel Layers;Sim Pixel Layers;Good Fraction",
+                            12, -0.5, 11.5, 22, -0.1, 1.1}, "sim_n_pix_layers", "cand_good_frac"), "colz");
+    }
+
+    // ======= Print Summary Statistics =======
+    printf("\n=== Candidate Track Pixel Hit Summary (Selected Metas) ===\n");
+
+    auto stats_n_pix = r_cand.Stats("cand_n_pix").GetValue();
+    auto stats_n_pix_match = r_cand.Stats("cand_n_pix_match").GetValue();
+    auto stats_n_pix_bad = r_cand.Stats("cand_n_pix_bad").GetValue();
+
+    printf("cand_n_pix:       Mean=%.2f, RMS=%.2f, Min=%.0f, Max=%.0f\n",
+           stats_n_pix.GetMean(), stats_n_pix.GetRMS(), stats_n_pix.GetMin(), stats_n_pix.GetMax());
+    printf("cand_n_pix_match: Mean=%.2f, RMS=%.2f, Min=%.0f, Max=%.0f\n",
+           stats_n_pix_match.GetMean(), stats_n_pix_match.GetRMS(), stats_n_pix_match.GetMin(), stats_n_pix_match.GetMax());
+    printf("cand_n_pix_bad:   Mean=%.2f, RMS=%.2f, Min=%.0f, Max=%.0f\n",
+           stats_n_pix_bad.GetMean(), stats_n_pix_bad.GetRMS(), stats_n_pix_bad.GetMin(), stats_n_pix_bad.GetMax());
+
+    printf("==========================================================\n\n");
   }
 }
 

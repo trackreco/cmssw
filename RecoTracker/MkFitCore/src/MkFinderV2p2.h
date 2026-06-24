@@ -9,6 +9,8 @@
 #include "MkRZLimits.h"
 #include "MkFinderV2p2Structures.h"
 
+#include "MkBins.h"
+
 #include <functional>
 #include <list>
 
@@ -32,7 +34,9 @@ namespace mkfit {
 
     };
 
+    //-------------------------------------------------------------------------
     class BatchManager {
+    //-------------------------------------------------------------------------
       friend class MkFinderV2p2;
 
       EventOfCombCandidates *mp_eoccs = nullptr;
@@ -97,7 +101,9 @@ namespace mkfit {
 
       iterator begin() const { return iterator(ccand_ptr(m_begin)); }
       iterator end() const { return iterator(ccand_ptr(m_end - 1) + 1); }
+    //-------------------------------------------------------------------------
     }; // end class BatchManager
+    //-------------------------------------------------------------------------
 
   public:
     MkFinderV2p2() : m_hot_tub(2 * NN) // XX to be checked, probably some more
