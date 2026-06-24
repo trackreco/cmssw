@@ -11,15 +11,6 @@ namespace mkfit {
 
   //==============================================================================
 
-  MkBinTrackCovExtract::MkBinTrackCovExtract(const MPlexLS &err) :
-    m_cov_0_0(err.ReduceFixedIJ(0, 0)),
-    m_cov_0_1(err.ReduceFixedIJ(0, 1)),
-    m_cov_1_1(err.ReduceFixedIJ(1, 1)),
-    m_cov_2_2(err.ReduceFixedIJ(2, 2))
-  {}
-
-  //==============================================================================
-
   void MkBins::prop_to_limits(const LayerInfo &li) {
     // Positions 1 and 2 should really be by "propagation order", 1 is the closest/
     // This should also work for backward propagation so not exactly trivial.

@@ -2,6 +2,7 @@
 #define RecoTracker_MkFitCore_src_MiniPropagators_h
 
 #include "RecoTracker/MkFitCore/src/Matrix.h"
+#include "RecoTracker/MkFitCore/interface/TrackState.h"
 
 namespace mkfit::mini_propagators {
 
@@ -25,6 +26,8 @@ namespace mkfit::mini_propagators {
   struct InitialState : public State {
     float inv_pt, inv_k;
     float theta;
+
+    InitialState() : State(), inv_pt(0), inv_k(0), theta(0) {}
 
     InitialState(const MPlexLV& par, const MPlexQI& chg, int ti)
         : InitialState(State(par, ti), chg.constAt(ti, 0, 0), par.constAt(ti, 3, 0), par.constAt(ti, 5, 0)) {}
@@ -107,6 +110,8 @@ namespace mkfit::mini_propagators {
         : StatePlex(sp), inv_pt(isp.inv_pt), inv_k(isp.inv_k), theta(isp.theta)
     {}
 
+    using StatePlex::operator=;
+
     void copyIn(int dst_slot, const InitialState &src) {
       StatePlex::copyIn(dst_slot, src);
       inv_pt[dst_slot] = src.inv_pt;
@@ -121,7 +126,14 @@ namespace mkfit::mini_propagators {
       theta[dst_slot] = src.theta[src_slot];
     }
 
-    using StatePlex::operator=;
+    // Once slots are filled, to be followed by a call to init_momentum_vec_and_k()
+    void copyIn_partial_track_state(int dst_slot, const mkfit::TrackState &src) {
+      x[dst_slot] = src.x();
+      y[dst_slot] = src.y();
+      z[dst_slot] = src.z();
+      inv_pt[dst_slot] = src.invpT();
+      theta[dst_slot] = src.theta();
+    }
 
     void init_momentum_vec_and_k(const MPF& phi, const MPI& chg, float bf = Config::Bfield);
 
