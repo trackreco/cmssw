@@ -27,6 +27,8 @@ struct AnRun {
     CTX(mkfit::MakeCtx(ev, ti))
   {}
 
+  ~AnRun();
+
   // -----
 
   ANode m_rdf_hitmatch;
@@ -38,7 +40,10 @@ struct AnRun {
   // -----
 
   ANode m_rdf_event;
+  std::vector<const mkfit::Event*> m_ev_vec;
+  const mkfit::Event* get_event_ptr(int event_id) const;
 
+  // Swaps out ev_vec and owns it.
   void SetupRdfEvent(std::vector<const mkfit::Event*>& ev_vec);
 
   void RunBasicSeedCandCheck();
@@ -48,6 +53,8 @@ struct AnRun {
   void Run_T5_vs_pT5_AsSeeds_DuplicateCount();
 
   void Run_T5s_into_Pix();
+
+  ANode m_T5;
 
   // CanvasGroup management
 

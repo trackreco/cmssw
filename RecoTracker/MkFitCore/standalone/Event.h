@@ -52,7 +52,7 @@ namespace mkfit {
 
     // For seed access in deep data dumpers.
     struct SimInfoFromHits {
-      int label = -1, n_hits = 0, n_valid, n_match = 0;
+      int label = -1, n_hits = 0, n_valid = 0, n_match = 0;
       int n_pix = 0, n_pix_match = 0;
       int n_strip = 0, n_strip_match = 0;
       float good_frac() const { return (float)n_match / n_valid; }

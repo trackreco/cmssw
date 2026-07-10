@@ -797,13 +797,16 @@ namespace mkfit {
   //==============================================================================
 
   Event::SimInfoFromHits Event::simInfoForTrack(const Track &s) const {
-    struct LabelCount {
-      int n_match = 0, n_pix_match = 0, n_strip_match = 0;
-    };
     int n_total = s.nTotalHits();
     int n_valid = 0;
     int n_pix_total = 0, n_strip_total = 0;
+
+    struct LabelCount {
+      int n_match = 0, n_pix_match = 0, n_strip_match = 0;
+    };
     std::map<int, LabelCount> lab_cnt;
+
+    // Loop over hits on track and count matches to MC truth.
     for (int hi = 0; hi < n_total; ++hi) {
       auto hot = s.getHitOnTrack(hi);
       // printf(" %d", hot.index);
@@ -812,12 +815,14 @@ namespace mkfit {
       if (hot.index < 0)
         continue;
 
-      bool is_pixel = Config::TrkInfo[hot.layer].is_pixel();
       ++n_valid;
+
+      bool is_pixel = Config::TrkInfo[hot.layer].is_pixel();
       if (is_pixel)
         ++n_pix_total;
       else
         ++n_strip_total;
+
       const Hit &h = layerHits_[hot.layer][hot.index];
       int hl = simHitsInfo_[h.mcHitID()].mcTrackID_;
       // printf(" (%d)", hl);
@@ -830,6 +835,8 @@ namespace mkfit {
           ++lc.n_strip_match;
       }
     }
+
+    // Find the label and hit-counts with maximum number of matches.
     int max_c = -1, max_c_pix = -1, max_c_strip = -1, max_l = -1;
     for (auto &x : lab_cnt) {
       if (x.second.n_match > max_c) {
