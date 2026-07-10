@@ -99,6 +99,16 @@ namespace mkfit {
 
       const bool wanted_first_is_pix = false; // true;
       const bool wanted_last_is_strip = true;
+      const char *wanted_name = "<not-set>";
+      if (wanted_first_is_pix == false && wanted_last_is_strip == true)
+        wanted_name = "LST T5s";
+      else if (wanted_first_is_pix == true && wanted_last_is_strip == true)
+        wanted_name = "LST pT5s";
+      else if (wanted_first_is_pix == true && wanted_last_is_strip == false)
+        wanted_name = "pixel tracks";
+      else
+        throw std::runtime_error("unsupported HLT seed filter");
+
       bool in_wanted = false;
       bool in_algo = false;
 
@@ -179,7 +189,7 @@ namespace mkfit {
       }
       do_print();
 
-      printf("Selected %d LST pT5 seeds [%d, %d].\n", num_seeds, min_seed, min_seed + num_seeds);
+      printf("Selected %d %s as seeds [%d, %d].\n", num_seeds, wanted_name, min_seed, min_seed + num_seeds);
 
       const bool print_seed_summary = false;
       const bool print_seed_details = false;
@@ -509,7 +519,7 @@ namespace mkfit {
     // ROOT::EnableImplicitMT(4);
 
     AnRun *ar = new AnRun(*tracker_info());
-    ar->SetupRdfEvent(ev_vec);
+    ar->SetupRdfEvent(ev_vec); // ev_vec is swapped, AnRun assumes ownership
 
     // Figuring out a good structure for basic columns, derived rdfs, etc.
 

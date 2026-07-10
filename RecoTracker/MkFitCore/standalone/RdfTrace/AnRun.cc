@@ -6,6 +6,17 @@
 
 #include <format>
 
+
+AnRun::~AnRun() {
+  for (auto ev_ptr : m_ev_vec) {
+    delete ev_ptr;
+  }
+}
+
+//====================================================================================
+#pragma region Vector Source
+//====================================================================================
+
 #define EV CTX.ev
 
 void AnRun::RunOldVecBased() {
@@ -119,23 +130,12 @@ void AnRun::RunOldVecBased() {
   }
 }
 
-//==============================================================================
-// EventSource based stuff
-//==============================================================================
+#undef EV
 
-/* Multi selection pre-proto
-  struct SelectionInfo {
-    std::string cut;
-    std::string label;
-    Color_t color;
-  };
-
-  std::vector<SelectionInfo> selections = {
-    {"seed_gf > 0.9", "gf > 0.9", kRed},
-    {"seed_gf > 0.7", "gf > 0.7", kBlue},
-    {"seed_gf > 0.5", "gf > 0.5", kGreen},
-  };
-*/
+#pragma endregion
+//==============================================================================
+#pragma region Map/Gather/...
+//==============================================================================
 
 namespace { // map, gather, compress
 
@@ -279,13 +279,40 @@ namespace { // map, gather, compress
       [](const mkfit::Event* e, const auto& elem) { return e->FUNC(elem); }, mask); \
   }, { "event", MASK_COLUMN }
 
+
+#pragma endregion
+//==============================================================================
+#pragma region Event Source
+//==============================================================================
+
+/* Multi selection pre-proto
+  struct SelectionInfo {
+    std::string cut;
+    std::string label;
+    Color_t color;
+  };
+
+  std::vector<SelectionInfo> selections = {
+    {"seed_gf > 0.9", "gf > 0.9", kRed},
+    {"seed_gf > 0.7", "gf > 0.7", kBlue},
+    {"seed_gf > 0.5", "gf > 0.5", kGreen},
+  };
+*/
+
 //====================================================================================
 
 void AnRun::SetupRdfEvent(std::vector<const mkfit::Event*>& ev_vec) {
-   m_rdf_event = mkfit::RdfSources::MakeEventDF(ev_vec)
+  m_ev_vec.swap( ev_vec );
+  m_rdf_event = mkfit::RdfSources::MakeEventDF(m_ev_vec)
   .Define("evtID", [](const mkfit::Event* ev) { return ev->evtID(); }, {"event"})
   .Define("meta_id", EV_MAP(trCandMetas_, id))
   ;
+}
+
+const mkfit::Event* AnRun::get_event_ptr(int event_id) const {
+  if (event_id > 0 && event_id <= (int) m_ev_vec.size())
+    return m_ev_vec.at(event_id - 1);
+  return nullptr;
 }
 
 //====================================================================================
@@ -304,15 +331,14 @@ void AnRun::RunBasicSeedCandCheck() {
   .Define("cand_bad_pix", EV_GATHER(trSIFHforCandByMeta_, n_pix_bad(), "meta_id" ))
   ;
 
-
   { auto &C = NewCanvasGroup(4, 3, "seeds", "seed properties");
     C.AddRealH1D(r, "seed_pt", 100, 0, 10, "s").add_pre(CGrp::logy);
     C.AddRealH1D(r, "seed_eta", 80, -4, 4, "s");
     C.AddIntH1D(r, "seed_n_hits", 6, 12, "s");
     C.Add(r.Histo2D({"seed_n_hits_vs_eta", "seed_n_hits_vs_eta;seed_eta;seed_n_hits",
                     100, -4, 4, 7, 5.5, 12.5}, "seed_eta", "seed_n_hits" ), "s colz");
-    C.AddRealH1D(r, "seed_gf", 50, 0, 1, "s");
-    C.AddRealH1D(r, "cand_gf", 50, 0, 1, "s");
+    C.AddRealH1D(r, "seed_gf", 55, -0.05, 1.05, "s");
+    C.AddRealH1D(r, "cand_gf", 55, -0.05, 1.05, "s");
     C.AddIntH1D(r, "cand_good_pix", 0, 10, "s");
     C.AddIntH1D(r, "cand_bad_pix", 0, 10, "s");
     C.AddRealIntH2D(r, "seed_pt", "cand_good_pix", 100, 0, 10, 0, 10, "s lego2");
@@ -495,7 +521,10 @@ void AnRun::Run_T5s_into_Pix() {
   auto r_top = (*m_rdf_event)
   .Define("full_seed_gf", EV_GATHER(trSIFHforSeedByMeta_, good_frac(), "meta_id"))
 
-  .Define("pre_meta_mask", "full_seed_gf >= 1.0f")
+  // Watch it, there are some good_frac = 0 cases, sim tracks NOT defined there!
+  // .Define("pre_meta_mask", "full_seed_gf >= 1.0f")
+  // .Define("pre_meta_mask", "full_seed_gf >= 0.5f && full_seed_gf < 1.0f")
+  .Define("pre_meta_mask", "full_seed_gf >= 0.5f")
   .Define("pre_selected_metas", EV_COMPRESS(trCandMetas_, id, "pre_meta_mask"))
   .Define("pre_selected_seeds", EV_COMPRESS(trCandMetas_, seed, "pre_meta_mask"))
   .Define("pre_selected_sims", EV_COMPRESS(trCandMetas_, sim, "pre_meta_mask"))
@@ -518,26 +547,39 @@ void AnRun::Run_T5s_into_Pix() {
 
   // "Final" filter for barrel, 4 sim pixel layers, first seed hit in barrel, last sim pixel in barrel
   r_top = r_top
-  .Define("pix_layer_mask", "    pre_sim_n_pix_layers >= 4"
-                            "&& (pre_seed_first_layer == 4 || pre_seed_first_layer == 5)"
-                            "&&  pre_sim_last_inner_pixel_layer == 3")
 
-  .Define("selected_sims", "pre_selected_sims[pix_layer_mask]")
-  .Define("selected_metas", "pre_selected_metas[pix_layer_mask]")
+  // Barrel T5 into outer pixel barrel with at least 4 sim pixel layers
+  .Define("T5_into_pix_barrel_mask", "    pre_sim_n_pix_layers >= 4"
+                                     "&& (pre_seed_first_layer == 4 || pre_seed_first_layer == 5)"
+                                     "&&  pre_sim_last_inner_pixel_layer == 3")
 
-  .Define("sim_n_pix_hits", "pre_sim_n_pix_hits[pix_layer_mask]")
-  .Define("sim_n_pix_all_hits", "pre_sim_n_pix_all_hits[pix_layer_mask]")
-  .Define("sim_n_pix_layers", "pre_sim_n_pix_layers[pix_layer_mask]")
-  .Define("sim_n_pix_all_layers", "pre_sim_n_pix_all_layers[pix_layer_mask]")
+  // More relaxed, exploration of strip barrel into pixel endcap
+  .Define("T5_into_pix_mask", "    pre_sim_n_pix_layers > 3"
+                              "&& (pre_seed_first_layer == 4 || pre_seed_first_layer == 5)"
+                              "&&  pre_sim_last_inner_pixel_layer > 3")
 
-  .Define("sim_n_strip_hits", "pre_sim_n_strip_hits[pix_layer_mask]")
-  .Define("sim_n_strip_all_hits", "pre_sim_n_strip_all_hits[pix_layer_mask]")
-  .Define("sim_n_strip_layers", "pre_sim_n_strip_layers[pix_layer_mask]")
-  .Define("sim_n_strip_all_layers", "pre_sim_n_strip_all_layers[pix_layer_mask]")
+  // .Define("selection_mask", "T5_into_pix_barrel_mask")
+  // .Define("selection_mask", "!T5_into_pix_barrel_mask")
+  .Define("selection_mask", "T5_into_pix_mask")
+  ;
 
-  .Define("sim_pT", "pre_sim_pT[pix_layer_mask]")
-  .Define("sim_eta", "pre_sim_eta[pix_layer_mask]")
-  .Define("seed_first_layer", "pre_seed_first_layer[pix_layer_mask]")
+  r_top = r_top
+  .Define("selected_sims", "pre_selected_sims[selection_mask]")
+  .Define("selected_metas", "pre_selected_metas[selection_mask]")
+
+  .Define("sim_n_pix_hits", "pre_sim_n_pix_hits[selection_mask]")
+  .Define("sim_n_pix_all_hits", "pre_sim_n_pix_all_hits[selection_mask]")
+  .Define("sim_n_pix_layers", "pre_sim_n_pix_layers[selection_mask]")
+  .Define("sim_n_pix_all_layers", "pre_sim_n_pix_all_layers[selection_mask]")
+
+  .Define("sim_n_strip_hits", "pre_sim_n_strip_hits[selection_mask]")
+  .Define("sim_n_strip_all_hits", "pre_sim_n_strip_all_hits[selection_mask]")
+  .Define("sim_n_strip_layers", "pre_sim_n_strip_layers[selection_mask]")
+  .Define("sim_n_strip_all_layers", "pre_sim_n_strip_all_layers[selection_mask]")
+
+  .Define("sim_pT", "pre_sim_pT[selection_mask]")
+  .Define("sim_eta", "pre_sim_eta[selection_mask]")
+  .Define("seed_first_layer", "pre_seed_first_layer[selection_mask]")
   ;
 
   { auto &C = NewCanvasGroup(4, 2, "t5intoPix_full_n_pixel_hits", "Tracing Tx from barrel layers 4/5 into pixels -- full pixel N_hits");
@@ -709,9 +751,8 @@ void AnRun::Run_T5s_into_Pix() {
 
   // ======= Candidate Track Pixel Hit Analysis =======
   {
-
-    auto r_cand = r_top
     // Gather candidate track info for selected metas
+    auto r = r_top
     .Define("cand_n_pix", EV_GATHER(trSIFHforCandByMeta_, n_pix, "selected_metas"))
     .Define("cand_n_pix_match", EV_GATHER(trSIFHforCandByMeta_, n_pix_match, "selected_metas"))
     .Define("cand_n_pix_bad", EV_GATHER(trSIFHforCandByMeta_, n_pix_bad(), "selected_metas"))
@@ -721,48 +762,57 @@ void AnRun::Run_T5s_into_Pix() {
     .Define("cand_good_frac", EV_GATHER(trSIFHforCandByMeta_, good_frac(), "selected_metas"))
     ;
 
-
     { auto &C = NewCanvasGroup(3, 3, "cand_pix_hits", "Candidate Track Pixel Hits (Selected Metas)");
       // Pixel hit distributions
-      C.AddIntH1D(r_cand, "cand_n_pix", 0, 12, "s").add_pre(CGrp::logy);
-      C.AddIntH1D(r_cand, "cand_n_pix_match", 0, 12, "s").add_pre(CGrp::logy);
-      C.AddIntH1D(r_cand, "cand_n_pix_bad", 0, 12, "s").add_pre(CGrp::logy);
+      C.AddIntH1D(r, "cand_n_pix", 0, 12, "s").add_pre(CGrp::logy);
+      C.AddIntH1D(r, "cand_n_pix_match", 0, 12, "s").add_pre(CGrp::logy);
+      C.AddIntH1D(r, "cand_n_pix_bad", 0, 12, "s").add_pre(CGrp::logy);
 
       // Strip hit distributions
-      C.AddIntH1D(r_cand, "cand_n_strip", 0, 30, "s").add_pre(CGrp::logy);
-      C.AddIntH1D(r_cand, "cand_n_strip_match", 0, 30, "s").add_pre(CGrp::logy);
-      C.AddIntH1D(r_cand, "cand_n_strip_bad", 0, 30, "s").add_pre(CGrp::logy);
+      C.AddIntH1D(r, "cand_n_strip", 0, 30, "s").add_pre(CGrp::logy);
+      C.AddIntH1D(r, "cand_n_strip_match", 0, 30, "s").add_pre(CGrp::logy);
+      C.AddIntH1D(r, "cand_n_strip_bad", 0, 30, "s").add_pre(CGrp::logy);
 
       // Good fraction (matching / total)
-      C.Add(r_cand.Histo1D({"cand_good_frac", "Candidate Good Hit Fraction;Fraction;Events", 55, -0.05, 1.05}, "cand_good_frac"), "s");
+      C.Add(r.Histo1D({"cand_good_frac", "Candidate Good Hit Fraction;Fraction;Events", 55, -0.05, 1.05}, "cand_good_frac"), "s");
     }
 
     // ======= 2D Correlations: Pixel Hits vs Selection Variables =======
-    { auto &C = NewCanvasGroup(2, 2, "cand_pix_corr", "Candidate Pixel Hits vs Sim/Seed Properties");
+    { auto &C = NewCanvasGroup(3, 2, "cand_pix_corr", "Candidate Pixel Hits vs Sim/Seed Properties");
 
       // Pixel hits vs sim pT
-      C.Add(r_cand.Histo2D({"cand_n_pix_vs_sim_pT", "Pixel Hits vs Sim pT;Sim pT (GeV);N Pixel Hits",
+      C.Add(r.Histo2D({"cand_n_pix_vs_sim_pT", "Pixel Hits vs Sim pT;Sim pT (GeV);N Pixel Hits",
                             60, 0, 30, 15, -0.5, 14.5}, "sim_pT", "cand_n_pix"), "colz");
+      // Pixel hits vs sim eta
+      C.Add(r.Histo2D({"cand_n_pix_vs_sim_eta", "Pixel Hits vs Sim #eta;Sim #eta;N Pixel Hits",
+                            80, -4, 4, 15, -0.5, 14.5}, "sim_eta", "cand_n_pix"), "colz");
+      // Matching Pixel hits vs sim eta
+      C.Add(r.Histo2D({"cand_n_pix_matched_vs_sim_eta", "Matched Pixel Hits vs Sim #eta;Sim #eta;N Pixel Hits",
+                            80, -4, 4, 15, -0.5, 14.5}, "sim_eta", "cand_n_pix_match"), "colz");
 
       // Pixel match fraction vs sim eta
-      C.Add(r_cand.Histo2D({"cand_good_frac_vs_sim_eta", "Match Fraction vs Sim #eta;Sim #eta;Good Fraction",
+      C.Add(r.Histo2D({"cand_good_frac_vs_sim_eta", "Match Fraction vs Sim #eta;Sim #eta;Good Fraction",
                             80, -4, 4, 22, -0.1, 1.1}, "sim_eta", "cand_good_frac"), "colz");
 
       // Bad pixel hits vs seed first layer
-      C.Add(r_cand.Histo2D({"cand_n_pix_bad_vs_seed_layer", "Bad Pixels vs Seed First Layer;Seed First Layer;N Bad Pixels",
+      C.Add(r.Histo2D({"cand_n_pix_bad_vs_seed_layer", "Bad Pixels vs Seed First Layer;Seed First Layer;N Bad Pixels",
                             10, 0.5, 10.5, 15, -0.5, 14.5}, "seed_first_layer", "cand_n_pix_bad"), "colz");
 
       // Good fraction vs sim pixel layers
-      C.Add(r_cand.Histo2D({"cand_good_frac_vs_sim_pix_layers", "Match Fraction vs Sim Pixel Layers;Sim Pixel Layers;Good Fraction",
+      C.Add(r.Histo2D({"cand_good_frac_vs_sim_pix_layers", "Match Fraction vs Sim Pixel Layers;Sim Pixel Layers;Good Fraction",
                             12, -0.5, 11.5, 22, -0.1, 1.1}, "sim_n_pix_layers", "cand_good_frac"), "colz");
     }
+
+    // Assign to member for manual processing
+
+    m_T5 = r;
 
     // ======= Print Summary Statistics =======
     printf("\n=== Candidate Track Pixel Hit Summary (Selected Metas) ===\n");
 
-    auto stats_n_pix = r_cand.Stats("cand_n_pix").GetValue();
-    auto stats_n_pix_match = r_cand.Stats("cand_n_pix_match").GetValue();
-    auto stats_n_pix_bad = r_cand.Stats("cand_n_pix_bad").GetValue();
+    auto stats_n_pix = r.Stats("cand_n_pix").GetValue();
+    auto stats_n_pix_match = r.Stats("cand_n_pix_match").GetValue();
+    auto stats_n_pix_bad = r.Stats("cand_n_pix_bad").GetValue();
 
     printf("cand_n_pix:       Mean=%.2f, RMS=%.2f, Min=%.0f, Max=%.0f\n",
            stats_n_pix.GetMean(), stats_n_pix.GetRMS(), stats_n_pix.GetMin(), stats_n_pix.GetMax());
@@ -775,6 +825,9 @@ void AnRun::Run_T5s_into_Pix() {
   }
 }
 
+#pragma endregion
+//==============================================================================
+#pragma region Canvas stuff
 //==============================================================================
 
 void AnRun::DrawCanvasGroups() {
@@ -803,3 +856,5 @@ void AnRun::WriteCanvasGroupsToFile(const std::string &fname) const {
   new TFile(fname.c_str());
   new TBrowser();
 }
+
+#pragma endregion
