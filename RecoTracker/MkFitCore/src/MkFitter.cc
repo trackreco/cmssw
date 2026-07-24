@@ -35,7 +35,7 @@ namespace mkfit {
 
     m_Chi2.setVal(0);
     mtp.pack(m_Err[iC], m_Par[iC]);
-    m_Err[iC].scale(100.0f);
+    m_Err[iC].scale(10000.0f);
   }
 
   void MkFitter::bkReFitInputTracks(TrackVec &cands, std::vector<int> inds, int beg, int end) {
@@ -68,13 +68,15 @@ namespace mkfit {
       index = iP;
 
     mtp.pack(m_Err[index], m_Par[index]);
-    m_Err[index].scale(100.0f);
+    m_Err[index].scale(10000.0f);
   }
 
   void MkFitter::reFitOutputTracks(TrackVec &cands, std::vector<int> inds, int beg, int end, int nFoundHits, bool bkw) {
     // Only copy out track params / errors / chi2
     if (bkw)
       nFoundHits = nFoundHits * 2;
+    //else
+    //  nFoundHits = nFoundHits - 1; //extract pState instead of as in CKF (updated should be saved for the trackExtra)
     int iO;
     if (nFoundHits % 2 == 0)
       iO = iC;
@@ -256,6 +258,7 @@ namespace mkfit {
 #endif
       no_mat_effs.setVal(0);
       do_cpe.setVal(-1);
+      bool propHit = h==0 ? false : true; // just update when the position is already at the hit
 
       for (int i = 0; i < N_proc; ++i)  //loop over tracks in group
       {
@@ -347,7 +350,7 @@ namespace mkfit {
                                            outChi2,
                                            N_proc,
                                            *refit_flags,
-                                           true,
+                                           propHit,
                                            &no_mat_effs,
                                            &do_cpe,
                                            m_cpe_corr_func);
@@ -420,6 +423,7 @@ namespace mkfit {
 #endif
       no_mat_effs.setVal(0);
       do_cpe.setVal(-1);
+      bool propHit = h==0 ? false : true; // just update when the position is already at the hit
 
       for (int i = 0; i < N_proc; ++i)  //loop over tracks in group
       {
@@ -512,7 +516,7 @@ namespace mkfit {
                                            outChi2,
                                            N_proc,
                                            *refit_flags,
-                                           true,
+                                           propHit,
                                            &no_mat_effs,
                                            &do_cpe,
                                            m_cpe_corr_func);
