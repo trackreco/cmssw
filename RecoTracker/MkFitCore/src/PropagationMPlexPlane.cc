@@ -366,10 +366,10 @@ namespace {
              float kinv) {
     const float A = delta0 * eta0 + delta1 * eta1 + delta2 * eta2;
     const float p0[3] = {cosP * sinT, sinP * sinT, cosT};
-    const float B = (p0[0] * eta0 + p0[1] * eta1 + p0[2] * eta2) ;
+    const float B = (p0[0] * eta0 + p0[1] * eta1 + p0[2] * eta2);
     const float rho = kinv * sinT * ipt;
-    const float C = -(eta0 * p0[1] - eta1 * p0[0]) * rho * 0.5f ;
-    const float s1 = 2.f*A / (-B - std::copysign(std::sqrt(B*B - 4.f*A*C), B));
+    const float C = -(eta0 * p0[1] - eta1 * p0[0]) * rho * 0.5f;
+    const float s1 = 2.f * A / (-B - std::copysign(std::sqrt(B * B - 4.f * A * C), B));
 #ifdef DEBUG
     if (debug)
       std::cout << "A=" << A << " B=" << B << " C=" << C << " s1=" << s1 << std::endl;

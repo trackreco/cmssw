@@ -1643,7 +1643,10 @@ namespace mkfit {
     MPlex55 jacCurv2Loc(0.f);
 #pragma omp simd
     for (int n = 0; n < NN; ++n) {
-      const float bF = use_param_b_field ? 0.01f * Const::sol * Config::bFieldFromZR(psPar(n, 2, 0), hipo(psPar(n, 0, 0), psPar(n, 1, 0))) : 0.01f * Const::sol * Config::Bfield;
+      const float bF =
+          use_param_b_field
+              ? 0.01f * Const::sol * Config::bFieldFromZR(psPar(n, 2, 0), hipo(psPar(n, 0, 0), psPar(n, 1, 0)))
+              : 0.01f * Const::sol * Config::Bfield;
       const float qh2 = bF * lp(n, 0, 0);
       const float t1r = std::sqrt(1.f + lp(n, 0, 1) * lp(n, 0, 1) + lp(n, 0, 2) * lp(n, 0, 2)) * pzSign(n, 0, 0);
       const float t2r = t1r * t1r;
@@ -1921,7 +1924,10 @@ namespace mkfit {
       MPlex55 jacLoc2Curv(0.f);
 #pragma omp simd
       for (int n = 0; n < NN; ++n) {
-        const float bF = use_param_b_field ? 0.01f * Const::sol * Config::bFieldFromZR(psPar(n, 2, 0), hipo(psPar(n, 0, 0), psPar(n, 1, 0))) : 0.01f * Const::sol * Config::Bfield;  //fixme: cache?
+        const float bF =
+            use_param_b_field
+                ? 0.01f * Const::sol * Config::bFieldFromZR(psPar(n, 2, 0), hipo(psPar(n, 0, 0), psPar(n, 1, 0)))
+                : 0.01f * Const::sol * Config::Bfield;  //fixme: cache?
         const float qh2 = bF * lp_upd(n, 0, 0);
         const float cosl1 = 1.f / vn(n, 0, 2);
         const float uj = un(n, 0, 0) * rot(n, 0, 0) + un(n, 0, 1) * rot(n, 0, 1);
