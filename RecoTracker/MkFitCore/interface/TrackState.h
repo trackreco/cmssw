@@ -26,6 +26,13 @@ namespace mkfit {
     short charge;
     bool valid;
 
+    // Access for packing into Matriplexes
+    const float* parArray() const { return parameters.Array(); }
+    const float* errArray() const { return errors.Array(); }
+    // And non-const for copying back out.
+    float* parArray_nc() { return parameters.Array(); }
+    float* errArray_nc() { return errors.Array(); }
+
     // track state position
     float x() const { return parameters.At(0); }
     float y() const { return parameters.At(1); }
@@ -87,6 +94,8 @@ namespace mkfit {
     //last row/column are zeros
     SMatrix66 jacobianCCSToCurvilinear(float invpt, float cosP, float sinP, float cosT, float sinT, short charge) const;
     SMatrix66 jacobianCurvilinearToCCS(float px, float py, float pz, short charge) const;
+
+    bool hasNanNSillyValues() const;
   };
 
 }  // namespace mkfit

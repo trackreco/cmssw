@@ -1,4 +1,6 @@
+#include "RecoTracker/MkFitCore/interface/cms_common_macros.h"
 #include "RecoTracker/MkFitCore/interface/TrackState.h"
+#include "Matrix.h"
 
 namespace mkfit {
 
@@ -141,6 +143,19 @@ namespace mkfit {
     jac(5, 1) = -1.f;
 
     return jac;
+  }
+
+  bool TrackState::hasNanNSillyValues() const {
+    bool is_silly = false;
+    for (int i = 0; i < LL; ++i) {
+      for (int j = 0; j <= i; ++j) {
+        if ((i == j && errors.At(i, j) < 0) || !isFinite(errors.At(i, j))) {
+          is_silly = true;
+          return is_silly;
+        }
+      }
+    }
+    return is_silly;
   }
 
 }

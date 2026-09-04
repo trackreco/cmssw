@@ -388,6 +388,7 @@ namespace mkfit {
   #pragma region Setters
   //===========================================================================
 
+  bool Shell::GetDebug() const { return g_debug; }
   void Shell::SetDebug(bool b) { g_debug = b; }
   void Shell::SetCleanSeeds(bool b) { m_clean_seeds = b; }
   void Shell::SetBackwardFit(bool b) { m_backward_fit = b; }

@@ -21,7 +21,23 @@ namespace mkfit {
 
     // Intermediate storage of post-kalman-update with enough state to properly
     // update the TrackCand. Will potentially have multiple hits.
-    struct SecTCandRep : public HotTubItem {
+    struct SecTCandRep /* : public HotTubItem */ {
+      TrackCand *m_tcand; // or, PrimTCandRep? Or either? To accomodate missed/glazed layers?
+      TrackState m_state;
+      HitOnTrack m_hot;
+      float m_chi2;
+      float m_score;
+#ifdef MKFIT_TRACE
+      int m_tr_hitmatch_id = -1;
+#endif
+
+      // Reversed, we want the lowest score at the top -- so we can replace it.
+      bool operator<(const SecTCandRep& o) const { return m_score > o.m_score; }
+    };
+
+    struct SecTCandRepPQ {
+      std::priority_queue<SecTCandRep, std::vector<SecTCandRep>> m_pqueue;
+      int m_pqueue_size = 0;
     };
 
     //----------------------------------------------------------------------------
@@ -47,6 +63,7 @@ namespace mkfit {
         // state on new hit, inv_pt, inv_k, theta on hit on previous layer / last hit
         mini_propagators::InitialState mixed_state;
 
+        // We want the worst / highest score (dphi) at the top -- so we can replace it.
         bool operator<(const PQE& o) const { return score < o.score; }
       };
       // Need to sub-class it to be able to call reserve on the vec
@@ -76,14 +93,24 @@ namespace mkfit {
 #ifdef MKFIT_TRACE
       int b_tr_hitmatch_id = -1;
 #endif
-    };
+    }; // end struct PrimTCandRep
 
     //----------------------------------------------------------------------------
 
     struct CCandRep : public HotTubConsumer<SecTCandRep> {
       CombCandidate &m_ccand;
 
-      std::vector<PrimTCandRep> m_pTcs; // for now, could be in another hot-tub
+      std::vector<PrimTCandRep> m_primTCs; // for now, could be in another hot-tub
+
+      // We could also keep track of the TrackCands that do not enter layer
+      // processing at all -- either already stopped or missing this layer.
+      // Store indices into m_ccand, the way m_primTCs does, rather than
+      // pointers: indices stay valid regardless of how the CombCandidate grows.
+      // Only worth doing together with SecTCandRep and the selection / merging
+      // step -- the best-hit path has no use for it.
+      // std::vector<int> m_otherTCs;
+
+      // int m_num_primTCs_to_kalman = 0; // to be improved
 
     #if defined(MKFIT_STANDALONE)
       // Tuning & Debugging. Managed in MkFinderV2p2 processing.
@@ -99,9 +126,9 @@ namespace mkfit {
       {
          // QQQQ reserve also in begin_next_Ccrep_in_layer()
          // QQQQ clear in end_layer() -- might want to reuse the objects more
-        m_pTcs.reserve(ccand.capacity());
+        m_primTCs.reserve(ccand.capacity());
       }
-    };
+    }; // end struct CCandRep
 
     inline CombCandidate& PrimTCandRep::ccand() { return mp_ccrep->m_ccand; }
     inline TrackCand& PrimTCandRep::tcand() { return mp_ccrep->m_ccand[m_origin_tcand_index]; }
@@ -190,11 +217,11 @@ namespace mkfit {
       void item_begin(PrimTCandRep *ptc, HitOnTrack ht) { ptcp[N_filled] = ptc; hot[N_filled] = ht; }
       bool item_finished() { return ++N_filled == NN; }
 
-      void load_state_err_chg(const mini_propagators::InitialState &state_on_hit, const TrackBase &tb) {
-        tsXyz.copyIn(N_filled, state_on_hit);
-        tsPar.copyIn(N_filled, tb.posArray()); // propToPlane needs initial parameters, too
-        tsErr.copyIn(N_filled, tb.errArray());
-        tsChg[N_filled] = tb.charge();
+      void load_state_err_chg(const mini_propagators::InitialState &params_on_hit, const TrackState &prev_state) {
+        tsXyz.copyIn(N_filled, params_on_hit);
+        tsPar.copyIn(N_filled, prev_state.parArray()); // propToPlane needs initial parameters, too
+        tsErr.copyIn(N_filled, prev_state.errArray());
+        tsChg[N_filled] = prev_state.charge;
       }
 
       void load_hit_module(const Hit &hit, const ModuleInfo & mi) {

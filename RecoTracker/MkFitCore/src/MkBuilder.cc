@@ -794,7 +794,7 @@ namespace mkfit {
       TrackCand &tc = cc.front();
       auto [stage_id, state_id] = m_event->trace_new_cand_stage_and_state(
         cc.m_trace_meta_id, cc.m_trace_stage_id, iteration_dir,
-        cc.pickupLayer(), track2bivec3(tc));
+        cc.pickupLayer(), track2bivec3(tc), tc.state());
       cc.m_trace_stage_id = stage_id;
       tc.m_trace_state_id = state_id;
       m_event->tr_candmeta(cc.m_trace_meta_id).stage_ids[iteration_dir] = stage_id;
@@ -889,7 +889,7 @@ namespace mkfit {
     }
   #endif
 
-  // debug = false;
+    // debug = false;
   }
 
   //------------------------------------------------------------------------------

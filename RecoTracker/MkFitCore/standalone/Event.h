@@ -74,7 +74,9 @@ namespace mkfit {
     int countInnerPixelLayers(const Track &track) const { return countPixelLayers(track, true); }
     int countAllPixelLayers(const Track &track) const { return countPixelLayers(track, false); }
 
-    int lastInnerPixelLayer(const Track &track) const;
+    int firstInnerPixelLayer(const Track &track, int offset = 0) const;
+    int lastInnerPixelLayer(const Track &track, int offset = 0) const;
+    std::vector<int> getInnerPixelLayers(const Track &track) const;
 
     int countStripHits(const Track &track, bool outer_only) const;
     int countOuterStripHits(const Track &track) const { return countStripHits(track, true); }
@@ -125,6 +127,7 @@ namespace mkfit {
     mutable std::vector<TrCandMeta> trCandMetas_;
     mutable std::vector<TrCandStage> trCandStages_;
     mutable std::vector<TrCandState> trCandStates_;
+    mutable std::vector<TrLayerSearch> trLayerSearches_;
     mutable std::vector<TrHitMatch> trHitMatches_;
     mutable std::vector<TrKalmanUpdate> trKalmanUpdates_;
 
@@ -147,6 +150,7 @@ namespace mkfit {
     TrCandMeta& tr_candmeta(int i) const { return trCandMetas_[i]; }
     TrCandStage& tr_candstage(int i) const { return trCandStages_[i]; }
     TrCandState& tr_candstate(int i) const { return trCandStates_[i]; }
+    TrLayerSearch& tr_layersearch(int i) const { return trLayerSearches_[i]; }
     TrHitMatch& tr_hitmatch(int i) const { return trHitMatches_[i]; }
     TrKalmanUpdate& tr_kalmanupdate(int i) const { return trKalmanUpdates_[i]; }
 
@@ -165,6 +169,12 @@ namespace mkfit {
     TrCandState& trace_candstate(TrCandState && cs) const {
       int s = trCandStates_.size();
       auto &t = trCandStates_.emplace_back(cs);
+      t.id = s;
+      return t;
+    }
+    TrLayerSearch &trace_layersearch(TrLayerSearch && ls) const {
+      int s = trLayerSearches_.size();
+      auto &t = trLayerSearches_.emplace_back(ls);
       t.id = s;
       return t;
     }
@@ -191,17 +201,17 @@ namespace mkfit {
     //   return cstg.id;
     // }
     std::pair<int,int>
-    trace_new_cand_stage_and_state(int meta_id, int parent_stage_id, int stage, int layer, const EBiVec3 &state) const {
+    trace_new_cand_stage_and_state(int meta_id, int parent_stage_id, int stage, int layer, const EBiVec3 &kine, const TrackState &state) const {
       assert(stage >= 0 && stage <= 2 && "stage expected to be between 0 and 2");
       auto &cstage = trace_candstage({ -1, meta_id, parent_stage_id, stage });
-      auto &cstate = trace_candstate({ -1, -1, meta_id, cstage.id, layer, 0, state });
+      auto &cstate = trace_candstate({ -1, -1, meta_id, cstage.id, layer, 0, kine, state });
       cstage.root_state_id = cstate.id;
       return { cstage.id, cstate.id };
     }
-    int trace_new_cand_state(int parent_state_id, int layer, const EBiVec3 &state) const {
+    int trace_new_cand_state(int parent_state_id, int layer, const EBiVec3 &kine, const TrackState &state) const {
       auto &pcs = trCandStates_[parent_state_id];
       pcs.has_children = true;
-      auto &cs = trace_candstate({ -1, parent_state_id, pcs.meta_id, pcs.stage_id, layer, pcs.step + 1, state });
+      auto &cs = trace_candstate({ -1, parent_state_id, pcs.meta_id, pcs.stage_id, layer, pcs.step + 1, kine, state });
       return cs.id;
     }
     int trace_new_kalman_update(int hit_match_id, int state_id_in, float chi2, float chi2_trk) {
@@ -286,10 +296,12 @@ namespace mkfit {
   void print(std::string pfx, const Event::SimInfoFromHits &si);
 
 #ifdef MKFIT_TRACE
-  void print(std::string pfx, const ::EBiVec3 &s);
+  std::string format(const ::EVec3 &v, int width=8, int prec=3, char feg=' ');
+  void print(std::string prefix, const ::EBiVec3 &s, std::string postfix="\n");
   void print(std::string pfx, const TrCandMeta &cm, const Event *ev);
   void print(std::string pfx, const TrCandStage &cs);
   void print(std::string pfx, const TrCandState &cs);
+  void print(std::string pfx, const TrLayerSearch &ls);
   void print(std::string pfx, const TrHitMatch &hm);
   void print(std::string pfx, const TrKalmanUpdate &ku);
 #endif

@@ -35,8 +35,10 @@ namespace mkfit {
     const SVector6& parameters() const { return state_.parameters; }
     const SMatrixSym66& errors() const { return state_.errors; }
 
-    const float* posArray() const { return state_.parameters.Array(); }
-    const float* errArray() const { return state_.errors.Array(); }
+    // Access for packing into Matriplexes
+    const float* posArray() const { return state_.parameters.Array(); } // REMOVE
+    const float* parArray() const { return state_.parArray(); }
+    const float* errArray() const { return state_.errArray(); }
 
     // Non-const versions needed for CopyOut of Matriplex.
     SVector6& parameters_nc() { return state_.parameters; }

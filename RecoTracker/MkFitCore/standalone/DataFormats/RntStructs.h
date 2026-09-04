@@ -176,10 +176,21 @@ struct TrCandState {
   // missing: n_hits, n_missed_hits
 
   EBiVec3 kine;
-  // covariance ? mkfit::TrackState ?
+  mkfit::TrackState state; // TrackState at this point
 
+  int  search_id = -1; // set in post processing (might need multiple searches for thick layers)
   bool has_children = false; // true if it has children
   bool on_final_path = false; // true if it is on the final selected candidate path (final candidate and its ancestors)
+};
+
+struct TrLayerSearch {
+  int id;
+  int state_id;
+  int layer;
+  float dphi_track, dq_track;
+  EVec3 pos1, pos2; // propagated position on near / far layer bounding cylinder
+  // search windows
+  // bin ranges
 };
 
 struct TrHitMatch {
@@ -224,12 +235,12 @@ struct TrKalmanUpdate {
   float   chi2_trk = -999.99f;
   bool    accepted = false;    // this hit advanced the state
 
-  mkfit::TrackState updated_state {};
   // Propagated track parameters are same as in TrHitMatch (as we pass it to Kalman update),
-  // covariance matrix is not there -- could save full TrackState or just covariance matrix.
-  // Optional?
-  // mkfit::TrackState propagated_state {};
   // The local dx, dy, dz distance from point to hit is the same as for hit match.
+
+  // Optional -- with MKFIT_TRACE_KALMAN_DEBUG
+  // mkfit::TrackState updated_state {};
+  // mkfit::TrackState propagated_state {};
 };
 
 // Another struct for missed layer, for some reason?

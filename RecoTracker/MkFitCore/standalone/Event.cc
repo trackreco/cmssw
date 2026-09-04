@@ -9,6 +9,8 @@
 #include <memory>
 #include <set>
 
+#include <format>
+
 namespace {
   std::unique_ptr<mkfit::Validation> dummyValidation(mkfit::Validation::make_validation("dummy", nullptr));
 }
@@ -58,6 +60,7 @@ namespace mkfit {
     trCandMetas_.clear();
     trCandStages_.clear();
     trCandStates_.clear();
+    trLayerSearches_.clear();
     trHitMatches_.clear();
     trKalmanUpdates_.clear();
     trSeeds_.clear();
@@ -907,18 +910,39 @@ namespace mkfit {
     return layers.size();
   }
 
-  int Event::lastInnerPixelLayer(const Track &track) const {
+  int Event::firstInnerPixelLayer(const Track &track, int offset) const {
+    if (offset < 0) throw std::runtime_error("Invalid offset in Event::firstInnerPixelLayer");
+
+    std::vector<int> pix_layers = getInnerPixelLayers(track);
+    int n_pix = pix_layers.size();
+    return (offset >= n_pix) ? -1 : pix_layers[offset];
+  }
+
+  int Event::lastInnerPixelLayer(const Track &track, int offset) const {
+    if (offset < 0) throw std::runtime_error("Invalid offset in Event::lastInnerPixelLayer");
+
+    std::vector<int> pix_layers = getInnerPixelLayers(track);
+    int n_pix = pix_layers.size();
+    return (offset >= n_pix) ? -1 : pix_layers[n_pix - offset - 1];
+  }
+
+  std::vector<int> Event::getInnerPixelLayers(const Track &track) const {
+    std::vector<int> pix_layers;
+    pix_layers.reserve(6);
     int last_pix = -1;
     for (int i = 0; i < track.nTotalHits(); ++i) {
       int lay = track.getHitLyr(i);
       if (lay >= 0) {
-        if (Config::TrkInfo[lay].is_pixel())
+        if (Config::TrkInfo[lay].is_pixel() ) {
+          if (lay != last_pix)
+            pix_layers.push_back(lay);
           last_pix = lay;
-        else
+        } else {
           break;
+        }
       }
     }
-    return last_pix;
+    return pix_layers;
   }
 
   int Event::countStripHits(const Track &track, bool outer_only) const {
@@ -1108,11 +1132,15 @@ namespace mkfit {
 
   void Event::build_trace_maps_etc() {
     trChildrenByState_.clear();
+    trRootCands_.clear();
     for (auto& c : trCandStates_) {
         if (c.parent_id >= 0)
           trChildrenByState_[c.parent_id].push_back(c.id);
         else
           trRootCands_.push_back(c.id);
+    }
+    for (auto &s : trLayerSearches_) {
+      trCandStates_[s.state_id].search_id = s.id;
     }
     trHitMatchesByState_.clear();
     for (auto& h : trHitMatches_) {
@@ -1358,9 +1386,20 @@ namespace mkfit {
 
 #ifdef MKFIT_TRACE
 
-  void print(std::string pfx, const ::EBiVec3 &s) {
-    printf("%s: pos=(%8.3f,%8.3f,%8.3f)  mom=(%8.3f,%8.3f,%8.3f)\n",
-           pfx.c_str(), s.pos.fX, s.pos.fY, s.pos.fZ, s.mom.fX, s.mom.fY, s.mom.fZ);
+  std::string format(const ::EVec3 &v, int width, int prec, char feg) {
+    if (feg == 'f')
+      return std::format("({0: {3}.{4}f}, {1: {3}.{4}f}, {2: {3}.{4}f}; {5: {3}.{4}f})", v.fX, v.fY, v.fZ, width, prec, v.R());
+    else if(feg == 'e')
+      return std::format("({0: {3}.{4}e}, {1: {3}.{4}e}, {2: {3}.{4}e}; {5: {3}.{4}e})", v.fX, v.fY, v.fZ, width, prec, v.R());
+    else if(feg == 'g')
+      return std::format("({0: {3}.{4}g}, {1: {3}.{4}g}, {2: {3}.{4}g}; {5: {3}.{4}g})", v.fX, v.fY, v.fZ, width, prec, v.R());
+    else
+      return std::format("({0: {3}.{4}}, {1: {3}.{4}}, {2: {3}.{4}}; {5: {3}.{4}})", v.fX, v.fY, v.fZ, width, prec, v.R());
+  }
+
+  void print(std::string prefix, const ::EBiVec3 &s, const std::string postfix) {
+    printf("%s: pos=(% 8.3f,% 8.3f,% 8.3f)  mom=(% 8.3f,% 8.3f,% 8.3f)%s",
+           prefix.c_str(), s.pos.fX, s.pos.fY, s.pos.fZ, s.mom.fX, s.mom.fY, s.mom.fZ, postfix.c_str());
   }
 
   void print(std::string pfx, const TrCandMeta &cm, const Event *ev) {
@@ -1387,26 +1426,32 @@ namespace mkfit {
         "has_children=%d on_final_path=%d\n",
         pfx.c_str(), cs.id, cs.parent_id, cs.meta_id, cs.stage_id,
         cs.layer, cs.step, cs.has_children, cs.on_final_path);
-        print("kine", cs.kine);
+        print("    kine", cs.kine);
+  }
+
+  void print(std::string pfx, const TrLayerSearch &ls) {
+    printf("%s: id=%d state_id=%d layer=%d dphi_track=% f dq_track=% f\n"
+           "    pos1=%s; pos2=%s\n",
+           pfx.c_str(), ls.id, ls.state_id, ls.layer, ls.dphi_track, ls.dq_track,
+          format(ls.pos1, 10, 8, ' ').c_str(), format(ls.pos2, 10, 8, ' ').c_str());
   }
 
   void print(std::string pfx, const TrHitMatch &hm) {
     printf("%s: id=%d state_id=%d layer=%d hit=%d mc_match=%d "
-          "score=%f dphi=%f dq=%f passed_preselect=%d "
-          "res_x=%f res_y=%f res_z=%f rank=%d passed_pqueue=%d\n",
+          "score=% f dphi=% f dq=% f passed_preselect=%d "
+          "rank=%d passed_pqueue=%d kalman_id=%d\n",
           pfx.c_str(), hm.id, hm.state_id, hm.layer,
           hm.hit, hm.mc_match, hm.score, hm.dphi, hm.dq, hm.passed_preselect,
-          hm.residual_x, hm.residual_y, hm.residual_z,
-          hm.rank, hm.passed_pqueue);
-          print("kine", hm.kine_on_plane);
+          hm.rank, hm.passed_pqueue, hm.kalman_id);
+    printf("    residual_xyz=(res_x=% f res_y=% f res_z=% f); ", hm.residual_x, hm.residual_y, hm.residual_z);
+    print("kine", hm.kine_on_plane);
   }
 
   void print(std::string pfx, const TrKalmanUpdate &ku) {
-    printf("%s: id=%d hit_match_id=%d state_in=%d state_out=%d  "
-            "chi2=%f chi2_trk=%f accepted=%d\n",
+    printf("%s: id=%d hit_match_id=%d state_id_in=%d state_id_out=%d  "
+            "chi2=% f chi2_trk=% f accepted=%d\n",
             pfx.c_str(), ku.id, ku.hit_match_id, ku.state_id_in, ku.state_id_out,
             ku.chi2, ku.chi2_trk, ku.accepted);
-            print("state", ku.updated_state);
   }
 
 #endif
