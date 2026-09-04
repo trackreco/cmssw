@@ -494,7 +494,7 @@ namespace mkfit {
     export_AnRun(ar);
   }
 
-  void Shell::TestEventSource(int Nevents) {
+  void Shell::TestEventSource(int Nevents, const char *prefix) {
     std::vector<const Event*> ev_vec;
     printf("\n######### Shell::TestEventSource() -- running over %d events.\n\n", Nevents);
     for (int ev = 1; ev <= Nevents; ++ev) {
@@ -519,18 +519,20 @@ namespace mkfit {
     // ROOT::EnableImplicitMT(4);
 
     AnRun *ar = new AnRun(*tracker_info());
+    ar->SetPrefix(prefix); // output goes to <prefix>.root and <prefix>.txt
     ar->SetupRdfEvent(ev_vec); // ev_vec is swapped, AnRun assumes ownership
 
     // Figuring out a good structure for basic columns, derived rdfs, etc.
 
     ar->RunBasicSeedCandCheck();
     // ar->RunMetaVsSeedDuplicateCheck();
-
-    ar->Run_T5_vs_pT5_AsSeeds_DuplicateCount();
-    ar->Run_T5s_into_Pix();
+    // ar->Run_T5_vs_pT5_AsSeeds_DuplicateCount();
+    // ar->Run_T5s_into_Pix();
+    ar->Run_Stage2_RootState_QualityCheck();
+    ar->Run_Stage2_RootState_Covariance_Check();
 
     ar->DrawCanvasGroups();
-    ar->WriteCanvasGroupsToFile("mkfit.root");
+    ar->WriteCanvasGroupsToFile();
 
     export_AnRun(ar);
   }

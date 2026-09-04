@@ -44,6 +44,7 @@ namespace mkfit {
     void SelectIterationAlgo(int algo);
     void PrintIterations();
 
+    bool GetDebug() const;
     void SetDebug(bool b);
     void SetCleanSeeds(bool b);
     void SetBackwardFit(bool b);
@@ -110,7 +111,7 @@ namespace mkfit {
     // Current default processing
     void Test(int Nevents=10);
     void TestVectorSource();
-    void TestEventSource(int Nevents=10);
+    void TestEventSource(int Nevents=10, const char *prefix="mkfit");
 
   protected:
     int select_seeds_for_algo(int algo, TrackVec &seeds);

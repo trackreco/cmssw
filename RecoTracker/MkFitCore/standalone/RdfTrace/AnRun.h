@@ -10,6 +10,13 @@
 
 class CanvasGroup;
 
+// Tee-printf for analysis output: always goes to stdout, and additionally into
+// the log file when one is open (see AnRun::SetPrefix()). Free function, so it
+// is also usable from non-capturing lambdas passed to RDF.
+int an_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+void an_log_open(const std::string &fname);
+void an_log_close();
+
 struct AnRun {
   using ANode = std::optional<ROOT::RDF::RNode>;
   using RNode = ROOT::RDF::RNode;
@@ -28,6 +35,14 @@ struct AnRun {
   {}
 
   ~AnRun();
+
+  // ----- Output naming: <prefix>.root for canvases, <prefix>.txt for printouts.
+
+  std::string m_prefix = "mkfit";
+
+  // Sets the prefix and (re)opens <prefix>.txt as the an_printf() log.
+  void SetPrefix(const std::string &p);
+  const std::string& Prefix() const { return m_prefix; }
 
   // -----
 
@@ -53,10 +68,43 @@ struct AnRun {
   void Run_T5_vs_pT5_AsSeeds_DuplicateCount();
 
   void Run_T5s_into_Pix();
-
   ANode m_T5;
 
-  // CanvasGroup management
+  void Run_Stage2_RootState_QualityCheck();
+  ANode m_Quality;
+
+  void Run_Stage2_RootState_Covariance_Check();
+  ANode m_Cov;
+
+  // ----- HitMatch helpers
+
+  static RNode define_hitmatch_indices_by_layers(RNode r, const std::unordered_set<int> &layers);
+
+  static RNode define_hitmatch_indices_by_sim_pixel_layer(RNode r, int layer_offset, bool use_head = true);
+
+  static RNode define_hitmatch_stuff(RNode r, const std::string &idx_column, const std::string &pref = "");
+  static RNode define_kalmanupdate_stuff(RNode r, const std::string &idx_column, const std::string &pref = "");
+
+  static void plot_hitmatch_layer_stuff(RNode r, CanvasGroup &C, const std::string &pref = "");
+  static void plot_kalmanupdate_layer_stuff(RNode r, CanvasGroup &C, const std::string &pref = "");
+
+  RNode define_and_plot_hitmatch_selections(RNode r_hm, const std::string &short_name, const std::string &long_name);
+
+  // --- Kalman update helpers
+
+  struct KuStartingPoint {
+    int evtID;
+    int meta_id;
+    int state_id;
+    int ku_id;
+    bool accepted;
+  };
+
+  std::vector<KuStartingPoint> CollectKuStartingPoints(RNode r, const std::string& ku_idcx_col, bool accepted_only);
+
+  void TraceAndPrintAcceptedPath(const KuStartingPoint& start);
+
+  // ===== CanvasGroup management
 
   CanvasGroup& NewCanvasGroup(const std::string &n="", const std::string &t="", const std::string &pfx="") {
     m_canvas_groups.emplace_back( std::make_unique<CanvasGroup>(n,t,pfx) );
@@ -69,6 +117,8 @@ struct AnRun {
 
   void DrawCanvasGroups();
   void WriteCanvasGroupsToFile(const std::string &fname) const;
+  // Writes <prefix>.root and closes the <prefix>.txt log.
+  void WriteCanvasGroupsToFile();
 };
 
 #endif

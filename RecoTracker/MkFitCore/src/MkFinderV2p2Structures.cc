@@ -52,8 +52,8 @@ namespace mkfit {
     for (int i = 0; i < N_filled; ++i) {
       if (tsChi2[i] < ptcp[i]->bChi2) {
         dprintf("  Updating for i=%d, old-chi2 %f, new %f\n", i, ptcp[i]->bChi2, tsChi2[i]);
-        tsErr.copyOut(i, ptcp[i]->bState.errors.Array());
-        tsPar.copyOut(i, ptcp[i]->bState.parameters.Array());
+        tsPar.copyOut(i, ptcp[i]->bState.parArray_nc());
+        tsErr.copyOut(i, ptcp[i]->bState.errArray_nc());
         ptcp[i]->bState.charge = tsChg[i];
         ptcp[i]->bHot = hot[i];
         ptcp[i]->bChi2 = tsChi2[i];
@@ -63,11 +63,6 @@ namespace mkfit {
       }
 
 #ifdef MKFIT_TRACE
-      // XXXXX - QWEN, not reviewed ... might prefer Event::trace_new_kalman_update()
-      // Also, have to clear up all the ids, in and out etc
-      // And pre-update (propagated) state storage, not only post update.
-      // This will get bigger.
-
       // Create TrKalmanUpdate for EVERY hit that went through Kalman
       int hm_id = tr_hitmatch_ids[i];
       TrHitMatch &hm = mp_event->tr_hitmatch(hm_id);
@@ -80,12 +75,6 @@ namespace mkfit {
       // What does accepted mean? pass_chi2 cut / score cut ... when we have it.
       // ku.accepted = (ptcp[i]->b_tr_hitmatch_id == hm_id);
       // ku.state_id_out = ku.accepted ? ptcp[i]->tcand().m_trace_state_id : -1;
-
-      // Extract post-Kalman state
-      tsErr.copyOut(i, ku.updated_state.errors.Array());
-      tsPar.copyOut(i, ku.updated_state.parameters.Array());
-
-      // Create the KalmanUpdate entry
 
       // Link forward from HitMatch
       hm.kalman_id = ku.id;

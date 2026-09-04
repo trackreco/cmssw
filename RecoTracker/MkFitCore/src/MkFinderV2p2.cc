@@ -14,7 +14,7 @@
 #include "RecoTracker/MkFitCore/standalone/DataFormats/RntConversions.h"
 #endif
 
-#define DEBUG
+//#define DEBUG
 #include "Debug.h"
 
 namespace mkfit {
@@ -131,12 +131,15 @@ namespace mkfit {
 //     // clang-format on
 // #endif
 
-    int i = 1;
-    for (auto &ccrep : m_active_ccreps) {
-      dprintf("  %2d. seed-idx=%d, n_tcands=%d\n", i,
-             ccrep.m_ccand.seed_origin_index(), (int) ccrep.m_ccand.size());
-      ++i;
+#ifdef DEBUG
+    { int i = 1;
+      for (auto &ccrep : m_active_ccreps) {
+        dprintf("  %2d. seed-idx=%d, n_tcands=%d\n", i,
+               ccrep.m_ccand.seed_origin_index(), (int) ccrep.m_ccand.size());
+        ++i;
+      }
     }
+#endif
 
     m_batch_mgr.reset_for_new_layer();
     m_active_ccreps_pos = m_active_ccreps.begin();
@@ -171,7 +174,7 @@ namespace mkfit {
     // QQQQ reserve to CombCand.capacity already done CCandRep ctor.
     // We will probably need a variable number per layer / layer pair.
     // But this will be first relevant / handled elsewhere.
-    ccrep.m_pTcs.reserve(ccand.size());
+    ccrep.m_primTCs.reserve(ccand.size());
 
     for (int ic = 0; ic < (int) ccand.size(); ++ic) {
       TrackCand &tcand = ccand[ic];
@@ -192,7 +195,7 @@ namespace mkfit {
       // Create and Register PrimTCandRep for processing.
       // The CCandRep vector has the capacity for N_max_cands.
       {
-        PrimTCandRep &ptc = ccrep.m_pTcs.emplace_back( &ccrep, ic );
+        PrimTCandRep &ptc = ccrep.m_primTCs.emplace_back( &ccrep, ic );
         m_pre_select_queue.push_back(&ptc);
       }
     }
@@ -221,7 +224,7 @@ namespace mkfit {
     while (ai != m_active_ccreps.end()) {
 
       // QQQQ should attempt to reuse the PrimTCandReps
-      ai->m_pTcs.clear();
+      ai->m_primTCs.clear();
 
       // XXXX something is rotten here; well, just making them run to the end
       bool is_finished = false; // XXXX
@@ -318,8 +321,8 @@ namespace mkfit {
 
   //----------------------------------------------------------------------------
   // process_pre_select()
-  // Propagate to layer edges, claclulate layer-of-hits bin ranges and
-  // determine (some?) candidate hits.
+  // Propagate to layer edges, calculate layer-of-hits bin ranges and
+  // determine candidate hits.
   //----------------------------------------------------------------------------
 
   void MkFinderV2p2::process_pre_select() {
@@ -337,8 +340,7 @@ namespace mkfit {
     MPlexQI chg(0);
     MkBinTrackCovExtract TCE;
 
-    int i = 0;
-    while (i < N_proc) {
+    for (int i = 0; i < N_proc; ++i) {
       PrimTCandRep &ptc = * m_pre_select_queue.front();
       prim_tcand_ptrs[i] = & ptc;
       TrackCand &tc = ptc.tcand();
@@ -353,8 +355,6 @@ namespace mkfit {
       TCE.m_cov_2_2[i] = tc.errors().At(2, 2);
       phi[i] = tc.momPhi();
       chg[i] = tc.charge();
-
-      ++i;
     }
     B.m_isp.init_momentum_vec_and_k(phi, chg);
 
@@ -368,18 +368,16 @@ namespace mkfit {
     pea.prop_config = & mp_job->m_trk_info.prop_config();
     pea.tsXyz = mini_propagators::InitialStatePlex(B.m_sp2, B.m_isp);
 
-    i = 0;
-    while (i < N_proc) {
+    for (int i = 0; i < N_proc; ++i) {
       TrackCand &tc = prim_tcand_ptrs[i]->tcand();
       pea.item_begin();
       pea.load_state_err_chg(tc);
       pea.item_finished();
-      ++i;
     }
     pea.compute_pars();
     pea.do_propagation_stuff();
 
-    for (i = 0; i < N_proc; ++i) {
+    for (int i = 0; i < N_proc; ++i) {
       dprintf("%d: TCE %.4g %.4g %.4g %.4g  --   %.4g %.4g %.4g %.4g PROP\n", i,
         TCE.m_cov_0_0[i], TCE.m_cov_0_1[i], TCE.m_cov_1_1[i], TCE.m_cov_2_2[i],
         pea.propErr.At(i,0,0), pea.propErr.At(i,0,1), pea.propErr.At(i,1,1), pea.propErr.At(i,2,2));
@@ -405,7 +403,16 @@ namespace mkfit {
     MkBinLimits BL_p;
     B.find_bin_ranges(mp_job->m_event_of_hits[spi->m_layer], BL_p);
 
+#ifdef MKFIT_TRACE
+    for (int i = 0; i < N_proc; ++i) {
+      mp_event->trace_layersearch(TrLayerSearch {
+        -1, prim_tcand_ptrs[i]->tcand().m_trace_state_id, spi->m_layer,
+        B.m_dphi_track[i], B.m_dq_track[i], statep2pos(B.m_sp1, i), statep2pos(B.m_sp2, i) });
+    }
+#endif
+
     // This might belong better somewhere else, TPrimCanRep? Calculation into minipropagators.
+    // Also, debug should go out of here or/and be added to traces.
     // Anyway, here for now.
 
     namespace mp = mini_propagators;
@@ -525,6 +532,7 @@ namespace mkfit {
       h3dop.evaluate(1.0f, d1);
 
       // Post-process hits into a heap in PrimTCandReps
+      // XXXX Should use h3_state, not h_plex (from mimi::prop-to-plane). DEBUG below shows they are identical.
       for (int h = 0; h < N_proc_hits; ++h) {
         PrimTCandRep &ptc = * prim_tcand_ptrs[ prim_idcs[h] ];
         float q, ddq, phi, ddphi;
@@ -683,11 +691,12 @@ namespace mkfit {
     // 8 knowing the s, the path ... can I make a proto combinatorial plan for each hit?
 
     // Move hits from priority-queue into vector for primary layer.
+    // XXXX Should invert the order, pqueue has the worst at the top !!!!
     // Should really go into KalmanOpArgs directly, and processed as needed.
     for (int i = 0; i < N_proc; ++i) {
       PrimTCandRep &ptc = * prim_tcand_ptrs[i];
 #ifdef MKFIT_TRACE
-      int rank = 1;
+      int rank = ptc.m_pqueue_size;
 #endif
       while (ptc.m_pqueue_size) {
         --ptc.m_pqueue_size;
@@ -696,7 +705,7 @@ namespace mkfit {
 
 #ifdef MKFIT_TRACE
         TrHitMatch &tr_hitmatch = mp_event->tr_hitmatch(pqe.tr_hitmatch_id);
-        tr_hitmatch.rank = rank++;
+        tr_hitmatch.rank = rank--;
         tr_hitmatch.passed_pqueue = true;
 #endif
 
@@ -706,7 +715,7 @@ namespace mkfit {
     }
 
     auto do_kalman = [&](KalmanOpArgs& K) {
-      K.compute_pars();
+      K.compute_pars(); // Needed for conversion from mini_prop/bi-vec to std representation.
       K.do_kalman_stuff();
       K.reset();
     }; // end lambda do_kalman
@@ -731,7 +740,7 @@ namespace mkfit {
 
         TrackCand &tc = ptc.tcand();
         koa.item_begin(&ptc, { (int) pqe.hit_orig_index, pqe.layer });
-        koa.load_state_err_chg(pqe.mixed_state, tc);
+        koa.load_state_err_chg(pqe.mixed_state, tc.state());
 #ifdef MKFIT_TRACE
         koa.set_tr_hitmatch_id(pqe.tr_hitmatch_id);
 #endif
@@ -769,7 +778,7 @@ namespace mkfit {
 #ifdef MKFIT_TRACE
           // QQQQQ the parent extraction will be different
           int pid = ptc.tcand().m_trace_state_id;
-          int id = mp_event->trace_new_cand_state(pid, (*mp_steeringparams_iter)->m_layer, track2bivec3(ptc.tcand()));
+          int id = mp_event->trace_new_cand_state(pid, (*mp_steeringparams_iter)->m_layer, track2bivec3(ptc.tcand()), ptc.tcand().state());
           ptc.mp_ccrep->m_ccand.back().m_trace_state_id = id;
 #endif
         }
@@ -783,7 +792,7 @@ namespace mkfit {
 
         // This is also best-hit hack
         int pid = ptc.tcand().m_trace_state_id;
-        int id = mp_event->trace_new_cand_state(pid, (*mp_steeringparams_iter)->m_layer, track2bivec3(ptc.tcand()));
+        int id = mp_event->trace_new_cand_state(pid, (*mp_steeringparams_iter)->m_layer, track2bivec3(ptc.tcand()), ptc.tcand().state());
 
         auto &ku = mp_event->tr_kalmanupdate( mp_event->tr_hitmatch(ptc.b_tr_hitmatch_id).kalman_id );
         ku.accepted = true;
@@ -802,7 +811,7 @@ namespace mkfit {
 #ifdef MKFIT_TRACE
         // QQQQQ the parent extraction will be different; also fix: step, proper state (what is it)
         int pid = ptc.tcand().m_trace_state_id;
-        int id = mp_event->trace_new_cand_state(pid, (*mp_steeringparams_iter)->m_layer, track2bivec3(ptc.tcand()));
+        int id = mp_event->trace_new_cand_state(pid, (*mp_steeringparams_iter)->m_layer, track2bivec3(ptc.tcand()), ptc.tcand().state());
         ptc.tcand().m_trace_state_id = id;
 #endif
       }
