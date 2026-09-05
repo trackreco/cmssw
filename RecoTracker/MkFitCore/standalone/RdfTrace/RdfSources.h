@@ -6,20 +6,36 @@
 #include "RecoTracker/MkFitCore/standalone/Event.h"
 #include "ROOT/RDataFrame.hxx"
 
+#include <functional>
+
 namespace mkfit {
-  
-  // RdfSources, static factory for creating RDataFrames from the Event,
-  // with different sources (HitMatch, SeedData, etc.)
-  
+
+  // LambdaColumnReader -- trivial RDF column reader that defers to a lambda
+  // returning the address of the value for the current entry. Shared by the
+  // data sources in RdfSources.cc and RdfVectorSource.cc.
+
+  class LambdaColumnReader : public ROOT::Detail::RDF::RColumnReaderBase {
+    private:
+    std::function<void* ()> lambda_;
+
+    public:
+    explicit LambdaColumnReader(std::function<void* ()> lambda) : lambda_(std::move(lambda)) {}
+
+    void *GetImpl(Long64_t gimpl_entry) override {
+      return lambda_();
+    }
+  };
+
+  // RdfSources, static factory for creating RDataFrames from the Event.
+  //
+  // One RDF entry = one mkfit::Event: the source exposes a single "event"
+  // column and everything else is a Define() projection off that pointer.
+  //
+  // For the older one-entry-per-vector-element sources, see
+  // RdfVectorSource.h / mkfit::RdfVectorSources.
+
   class RdfSources {
     public:
-    static ROOT::RDataFrame MakeTrCandMetaDF(const Event &ev);
-    static ROOT::RDataFrame MakeTrCandStateDF(const Event &ev);
-    static ROOT::RDataFrame MakeTrHitMatchDF(const Event &ev);
-
-    static ROOT::RDataFrame MakeTrackDF(const TrackVec &tvec);
-    static ROOT::RDataFrame MakeSeedDF(const Event &ev);
-
     static ROOT::RDataFrame MakeEventDF(std::vector<const Event*>& events);
   };
 

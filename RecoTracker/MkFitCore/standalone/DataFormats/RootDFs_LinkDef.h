@@ -41,6 +41,9 @@
 #pragma link C++ class TrCandState + ;
 #pragma link C++ class std::vector < TrCandState > +;
 
+#pragma link C++ class TrLayerSearch + ;
+#pragma link C++ class std::vector < TrLayerSearch > +;
+
 #pragma link C++ class TrHitMatch + ;
 #pragma link C++ class std::vector < TrHitMatch > +;
 

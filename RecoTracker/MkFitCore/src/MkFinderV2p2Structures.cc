@@ -32,6 +32,16 @@ namespace mkfit {
     propagateHelixToPlaneMPlex(tsErr, tsPar, tsChg, plPnt, plNrm, &sPerp,
                                propErr, propPar, outFailFlag,
                                N_filled, prop_config->finding_inter_layer_pflags, nullptr);
+
+#ifdef MKFIT_TRACE_KALMAN_DEBUG
+    // Charge as it goes into the update. Propagation does not change it, but the
+    // update can -- through a curvature flip, formalized by
+    // kalmanCheckChargeFlip() below -- and a flip is important information, so
+    // keep the pre-update value for propagated_state and let updated_state carry
+    // the post-update one. Comparing the two then shows the flip.
+    const MPlexQI chg_pre_update = tsChg;
+#endif
+
     kalmanOperationPlaneLocal(KFO_Calculate_Chi2 | KFO_Update_Params | KFO_Local_Cov,
                               propErr, propPar, tsChg, msErr, msPar, plNrm, plDir, plPnt,
                               tsErr, tsPar, tsChi2, N_filled);
@@ -75,6 +85,21 @@ namespace mkfit {
       // What does accepted mean? pass_chi2 cut / score cut ... when we have it.
       // ku.accepted = (ptcp[i]->b_tr_hitmatch_id == hm_id);
       // ku.state_id_out = ku.accepted ? ptcp[i]->tcand().m_trace_state_id : -1;
+
+#ifdef MKFIT_TRACE_KALMAN_DEBUG
+      // Full pre- and post-update states, for every hit including the rejected
+      // ones (for an accepted hit the post-update state is also reachable as
+      // trCandStates_[state_id_out].state).
+      // Charges straddle the update on purpose: pre-update on the propagated
+      // state, post-update on the updated one.
+      propPar.copyOut(i, ku.propagated_state.parArray_nc());
+      propErr.copyOut(i, ku.propagated_state.errArray_nc());
+      ku.propagated_state.charge = chg_pre_update[i];
+
+      tsPar.copyOut(i, ku.updated_state.parArray_nc());
+      tsErr.copyOut(i, ku.updated_state.errArray_nc());
+      ku.updated_state.charge = tsChg[i];
+#endif
 
       // Link forward from HitMatch
       hm.kalman_id = ku.id;

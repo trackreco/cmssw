@@ -62,18 +62,19 @@ namespace mkfit {
   }
 
   Shell::Shell(std::vector<DeadVec> &dv, const std::string &in_file, int start_ev)
-    : m_deadvectors(dv)
+    : m_deadvectors(dv), m_in_file(in_file)
   {
-    m_eoh = new EventOfHits(Config::TrkInfo);
-    m_builder = new MkBuilder(Config::silent);
+    m_ctx.eoh = new EventOfHits(Config::TrkInfo);
+    m_ctx.bld = new MkBuilder(Config::silent);
 
     m_backward_fit = Config::backwardFit;
 
     m_data_file = new DataFile;
-    m_event = new Event(0, Config::TrkInfo.n_layers());
+    m_ctx.ev = new Event(0, Config::TrkInfo.n_layers());
 
     if ( ! in_file.empty() && Config::nEvents > 0) {
       m_evs_in_file = m_data_file->openRead(in_file, Config::TrkInfo.n_layers());
+      SetEventRangeBegCnt(start_ev, Config::nEvents); // --start-event / --num-events
       GoToEvent(start_ev);
     } else {
       printf("Shell initialized but the %s, running on an empty Event.\n",
@@ -82,14 +83,14 @@ namespace mkfit {
   }
 
   Shell::~Shell() {
-    delete m_event;
+    delete m_ctx.ev;
     delete m_data_file;
-    delete m_builder;
-    delete m_eoh;
+    delete m_ctx.bld;
+    delete m_ctx.eoh;
     delete gApplication;
   }
 
-  void Shell::Run(const std::vector<std::string> &commands) {
+  void Shell::RunShell(const std::vector<std::string> &commands) {
     std::vector<const char *> argv = { "mkFit", "-l" };
     int argc = argv.size();
     gApplication = new TRint("mkFit-shell", &argc, const_cast<char**>(argv.data()));
@@ -111,9 +112,11 @@ namespace mkfit {
 
   void Shell::Status() {
     printf("On event %d, selected iteration index %d, algo %d - %s\n"
+          "  event range = [%d, %d] of %d in file\n"
           "  debug = %s, use_dead_modules = %s\n"
            "  clean_seeds = %s, backward_fit = %s, remove_duplicates = %s\n",
-           m_event->evtID(), m_it_index, algos[m_it_index], TrackBase::algoint_to_cstr(algos[m_it_index]),
+           m_ctx.ev->evtID(), m_it_index, algos[m_it_index], TrackBase::algoint_to_cstr(algos[m_it_index]),
+           m_ev_first, m_ev_last, m_evs_in_file,
            b2a(g_debug), b2a(Config::useDeadModules),
            b2a(m_clean_seeds), b2a(m_backward_fit), b2a(m_remove_duplicates));
   }
@@ -136,31 +139,72 @@ namespace mkfit {
       throw std::runtime_error("event out of range");
     }
 
-    int pos = m_event->evtID();
+    int pos = m_ctx.ev->evtID();
     if (eid > pos) {
       m_data_file->skipNEvents(eid - pos - 1);
     } else {
       m_data_file->rewind();
       m_data_file->skipNEvents(eid - 1);
     }
-    m_event->resetCurrentSeedTracks(); // left after ProcessEvent() for debugging etc
-    m_event->reset(eid);
-    m_event->read_in(*m_data_file);
-    StdSeq::loadHitsAndBeamSpot(*m_event, *m_eoh);
+    m_ctx.ev->resetCurrentSeedTracks(); // left after ProcessEvent() for debugging etc
+    m_ctx.ev->reset(eid);
+    m_ctx.ev->read_in(*m_data_file);
+    StdSeq::loadHitsAndBeamSpot(*m_ctx.ev, *m_ctx.eoh);
     if (Config::useDeadModules) {
-      StdSeq::loadDeads(*m_eoh, m_deadvectors);
+      StdSeq::loadDeads(*m_ctx.eoh, m_deadvectors);
     }
 
     printf("At event %d\n", eid);
   }
 
   void Shell::NextEvent(int skip) {
-    GoToEvent(m_event->evtID() + skip);
+    GoToEvent(m_ctx.ev->evtID() + skip);
+  }
+
+  //===========================================================================
+  // Event range for the Loop / Test drivers -- 1-based, inclusive.
+  //===========================================================================
+
+  void Shell::SetEventRangeFirstLast(int first, int last) {
+    if (first < 1) {
+      printf("Shell::SetEventRangeFirstLast: first=%d clamped to 1 (1 is the first event).\n", first);
+      first = 1;
+    }
+    if (m_evs_in_file > 0 && last > m_evs_in_file) {
+      printf("Shell::SetEventRangeFirstLast: last=%d clamped to %d events in file.\n", last, m_evs_in_file);
+      last = m_evs_in_file;
+    }
+    if (last < first) {
+      printf("Shell::SetEventRangeFirstLast: last=%d below first=%d, setting last=first.\n", last, first);
+      last = first;
+    }
+    m_ev_first = first;
+    m_ev_last = last;
+    printf("Shell event range set to [%d, %d], %d events.\n", m_ev_first, m_ev_last, m_ev_last - m_ev_first + 1);
+  }
+
+  void Shell::SetEventRangeBegCnt(int beg, int count) {
+    if (count < 1) {
+      printf("Shell::SetEventRangeBegCnt: count=%d below 1, setting count=1.\n", count);
+      count = 1;
+    }
+    SetEventRangeFirstLast(beg, beg + count - 1);
+  }
+
+  void Shell::resolve_event_range(int count, int &first, int &last) const {
+    first = m_ev_first;
+    if (count > 0) {
+      last = first + count - 1;
+      if (m_evs_in_file > 0 && last > m_evs_in_file)
+        last = m_evs_in_file;
+    } else {
+      last = m_ev_last;
+    }
   }
 
   Event* Shell::RelinquishEvent() {
-    Event *e = m_event;
-    m_event = new Event(e->evtID(), Config::TrkInfo.n_layers());
+    Event *e = m_ctx.ev;
+    m_ctx.ev = new Event(e->evtID(), Config::TrkInfo.n_layers());
     return e;
   }
 
@@ -170,7 +214,7 @@ namespace mkfit {
   #pragma region Event processing
   //===========================================================================
 
-  void Shell::ProcessEvent(SeedSelect_e seed_select, int selected_seed, int count) {
+  void Shell::ProcessEvent(EvCtx &ctx, SeedSelect_e seed_select, int selected_seed, int count) {
     // count is mostly used for SS_IndexPreCleaning and SS_IndexPostCleaning.
     // It is also honoured for SS_Label, as (especially without cleaning) there might be several
     // seeds with the same label.
@@ -178,57 +222,37 @@ namespace mkfit {
 
     const IterationConfig &itconf = Config::ItrInfo[m_it_index];
     IterationMaskIfc mask_ifc;
-    m_event->fill_hitmask_bool_vectors(itconf.m_track_algorithm, mask_ifc.m_mask_vector);
+    ctx.ev->fill_hitmask_bool_vectors(itconf.m_track_algorithm, mask_ifc.m_mask_vector);
 
-    m_tracks.clear();
+    ctx.tracks.clear();
 
-    if (seed_select != SS_PreSet) {
-      m_seeds.clear();
-      int n_algo = 0; // seeds are grouped by algo
-      for (auto &s : m_event->seedTracks_) {
-        if (s.algoint() == itconf.m_track_algorithm) {
-          if (seed_select == SS_UseAll || seed_select == SS_IndexPostCleaning) {
-            m_seeds.push_back(s);
-          } else if (seed_select == SS_Label && s.label() == selected_seed) {
-            m_seeds.push_back(s);
-            if (--count <= 0)
-              break;
-          } else if (seed_select == SS_IndexPreCleaning && n_algo >= selected_seed) {
-            m_seeds.push_back(s);
-            if (--count <= 0)
-              break;
-          }
-          ++n_algo;
-        } else if (n_algo > 0)
-          break;
-      }
-    }
+    select_seeds(*ctx.ev, itconf.m_track_algorithm, seed_select, selected_seed, count, ctx.seeds);
 
-    printf("Shell::ProcessEvent running over %d seeds\n", (int) m_seeds.size());
+    printf("Shell::ProcessEvent running over %d seeds\n", (int) ctx.seeds.size());
 
     // Equivalent to run_OneIteration(...) without MkBuilder::release_memory().
     // If seed_select == SS_IndexPostCleaning the given seed is picked after cleaning.
     {
       const TrackerInfo &trackerInfo = Config::TrkInfo;
-      const EventOfHits &eoh = *m_eoh;
+      const EventOfHits &eoh = *ctx.eoh;
       const IterationMaskIfcBase &it_mask_ifc = mask_ifc;
-      MkBuilder &builder = *m_builder;
-      TrackVec &seeds = m_seeds;
-      TrackVec &out_tracks = m_tracks;
+      MkBuilder &builder = *ctx.bld;
+      TrackVec &seeds = ctx.seeds;
+      TrackVec &out_tracks = ctx.tracks;
       bool do_seed_clean = m_clean_seeds && seed_select != SS_PreSet;
       bool do_backward_fit = m_backward_fit;
       bool do_remove_duplicates = m_remove_duplicates;
 
       MkJob job({trackerInfo, itconf, eoh, eoh.refBeamSpot(), &it_mask_ifc});
 
-      builder.begin_event(&job, m_event, __func__);
+      builder.begin_event(&job, ctx.ev, __func__);
 
       // Seed cleaning not done on all iterations.
       do_seed_clean = m_clean_seeds && itconf.m_seed_cleaner;
 
       if (do_seed_clean) {
         itconf.m_seed_cleaner(seeds, itconf, eoh.refBeamSpot());
-        printf("Shell::ProcessEvent post seed-cleaning: %d seeds\n", (int) m_seeds.size());
+        printf("Shell::ProcessEvent post seed-cleaning: %d seeds\n", (int) ctx.seeds.size());
       } else {
         printf("Shell::ProcessEvent no seed-cleaning\n");
       }
@@ -266,7 +290,7 @@ namespace mkfit {
           s.sortHitsByLayer();  // sort seed hits for the matched hits (I hope it works here)
       }
 
-      m_event->setCurrentSeedTracks(seeds);
+      ctx.ev->setCurrentSeedTracks(seeds);
 
       builder.find_tracks_load_seeds(seeds, do_seed_clean);
 
@@ -341,13 +365,13 @@ namespace mkfit {
       printf("Shell::ProcessEvent post remove-duplicates: %d comb-cands\n", (int) out_tracks.size());
 
       // Do not clear ... useful for debugging / printouts!
-      // m_event->resetCurrentSeedTracks();
+      // ctx.ev->resetCurrentSeedTracks();
 
       builder.end_event();
     }
 
     printf("Shell::ProcessEvent found %d tracks, number of seeds at end %d\n",
-           (int) m_tracks.size(), (int) m_seeds.size());
+           (int) ctx.tracks.size(), (int) ctx.seeds.size());
   }
 
   #pragma endregion Event processing
@@ -388,6 +412,19 @@ namespace mkfit {
   #pragma region Setters
   //===========================================================================
 
+  void Shell::EnableRdfMT(int n_thr) {
+    ROOT::EnableThreadSafety();
+    if (n_thr > 0)
+      ROOT::EnableImplicitMT(n_thr);
+    else
+      ROOT::DisableImplicitMT();
+    printf("Shell::EnableRdfMT: implicit MT %s, pool size %u.\n"
+           "  NOTE: mkFit.cc caps total TBB parallelism at --num-thr (%d) through\n"
+           "  tbb::global_control, so run with --num-thr >= %d or RDF will starve.\n",
+           ROOT::IsImplicitMTEnabled() ? "enabled" : "disabled",
+           ROOT::GetThreadPoolSize(), Config::numThreadsFinder, n_thr);
+  }
+
   bool Shell::GetDebug() const { return g_debug; }
   void Shell::SetDebug(bool b) { g_debug = b; }
   void Shell::SetCleanSeeds(bool b) { m_clean_seeds = b; }
@@ -397,10 +434,10 @@ namespace mkfit {
   void Shell::SetUseV2p2(bool b) { Config::mimiUseV2p2 = b; }
 
   void Shell::SetSeedsFromIdcs(std::vector<int> idcs) {
-    m_seeds.clear();
-    m_seeds.reserve(idcs.size());
+    m_ctx.seeds.clear();
+    m_ctx.seeds.reserve(idcs.size());
     for (int i : idcs) {
-      m_seeds.push_back(m_event->seedTracks_[i]);
+      m_ctx.seeds.push_back(m_ctx.ev->seedTracks_[i]);
     }
   }
 
@@ -424,7 +461,7 @@ namespace mkfit {
   */
 
   int Shell::LabelFromHits(Track &t, bool replace, float good_frac) {
-    auto sifh = m_event->simInfoForTrack(t);
+    auto sifh = m_ctx.ev->simInfoForTrack(t);
     bool success = sifh.good_frac()>= good_frac;
     int relabel = success ? sifh.label : -1;
     // printf("found_hits=%d, best_lab %d (%d hits), existing label=%d (replace flag=%s)\n",
@@ -435,7 +472,7 @@ namespace mkfit {
   }
 
   void Shell::FillByLabelMaps_CkfBase() {
-    Event &ev = *m_event;
+    Event &ev = *m_ctx.ev;
     const int track_algo = Config::ItrInfo[m_it_index].m_track_algorithm;
 
     m_ckf_map.clear();
@@ -482,7 +519,7 @@ namespace mkfit {
     }
 
     // Pick mkfit tracks, label by
-    for (auto &t : m_tracks) {
+    for (auto &t : m_ctx.tracks) {
       int label = LabelFromHits(t, false, 0.5);
       if (label >= 0) {
         m_mkf_map.insert(std::make_pair(label, &t));
@@ -494,8 +531,8 @@ namespace mkfit {
            track_algo, TrackBase::algoint_to_cstr(track_algo),
            (int) m_ckf_map.size(), (int) ev.cmsswTracks_.size(), rec_algo_match,
            (int) m_sim_map.size(), (int) ev.simTracks_.size(),
-           (int) m_seed_map.size(), (int) m_seeds.size(),
-           (int) m_mkf_map.size(), (int) m_tracks.size()
+           (int) m_seed_map.size(), (int) m_ctx.seeds.size(),
+           (int) m_mkf_map.size(), (int) m_ctx.tracks.size()
     );
   }
 
@@ -525,7 +562,7 @@ namespace mkfit {
   //===========================================================================
 
   void Shell::Compare() {
-    Event &ev = *m_event;
+    Event &ev = *m_ctx.ev;
     const IterationConfig &itconf = Config::ItrInfo[m_it_index];
 
     FillByLabelMaps_CkfBase();
@@ -578,7 +615,7 @@ namespace mkfit {
           // ckf label is wrong when validation is on (even quality val) for mixedTriplet, pixelless and tobtec
           // as seed tracks get removed for non-mkfit iterations and indices from rec-tracks are no longer valid.
           auto &ckf_seed = ev.seedTracks_[ckft.label()];
-          auto &mkf_seed = m_seeds[mkft.label()];
+          auto &mkf_seed = m_ctx.seeds[mkft.label()];
           print("ckf  ", 0, ckft, ev);
           print("mkfit", 0, mkft, ev);
           print("sim  ", 0, simt, ev);
@@ -590,7 +627,7 @@ namespace mkfit {
           ssss.push_back(mkf_seed);
 
           IterationSeedPartition pppp(1);
-          IterationConfig::get_seed_partitioner("phase1:1:debug")(Config::TrkInfo, ssss, *m_eoh, pppp);
+          IterationConfig::get_seed_partitioner("phase1:1:debug")(Config::TrkInfo, ssss, *m_ctx.eoh, pppp);
 
           printf("------------------------------------------------------\n");
           printf("\n");
@@ -634,9 +671,36 @@ namespace mkfit {
   #pragma region Seed study
   //===========================================================================
 
+  void Shell::select_seeds(const Event &ev, int algo, SeedSelect_e seed_select,
+                           int selected_seed, int count, TrackVec &out)
+  {
+    if (seed_select == SS_PreSet)
+      return;   // caller filled `out` itself
+
+    out.clear();
+    int n_algo = 0; // seeds are grouped by algo
+    for (auto &s : ev.seedTracks_) {
+      if (s.algoint() == algo) {
+        if (seed_select == SS_UseAll || seed_select == SS_IndexPostCleaning) {
+          out.push_back(s);
+        } else if (seed_select == SS_Label && s.label() == selected_seed) {
+          out.push_back(s);
+          if (--count <= 0)
+            break;
+        } else if (seed_select == SS_IndexPreCleaning && n_algo >= selected_seed) {
+          out.push_back(s);
+          if (--count <= 0)
+            break;
+        }
+        ++n_algo;
+      } else if (n_algo > 0)
+        break;
+    }
+  }
+
   int Shell::select_seeds_for_algo(int algo, TrackVec &seeds) {
     int n_algo = 0; // seeds are grouped by algo
-    for (auto &s : m_event->seedTracks_) {
+    for (auto &s : m_ctx.ev->seedTracks_) {
       if (s.algoint() == algo) {
         seeds.push_back(s);
         ++n_algo;
@@ -689,17 +753,17 @@ namespace mkfit {
       algo_to_idx[a] = i;
     }
 
-    int n_sim   = m_event->simTracks_.size();
-    int n_seed  = m_event->seedTracks_.size();
-    int n_cmssw = m_event->cmsswTracks_.size();
+    int n_sim   = m_ctx.ev->simTracks_.size();
+    int n_seed  = m_ctx.ev->seedTracks_.size();
+    int n_cmssw = m_ctx.ev->cmsswTracks_.size();
     for (int si = 0; si < n_seed; ++si) {
-      const Track &t = m_event->seedTracks_[si];
+      const Track &t = m_ctx.ev->seedTracks_[si];
       ++seed_counts[ t.algoint() ];
     }
     int n_seed_sum = 0, n_seed_sum_post_clean = 0;
     std::set<int> algos_left;
     for (auto [a, v] : seed_counts) algos_left.insert(a);
-    printf("Event %4d | N_sim = %5d | N_seed = %5d | N_cmssw = %5d |\n", m_event->evtID(), n_sim, n_seed, n_cmssw);
+    printf("Event %4d | N_sim = %5d | N_seed = %5d | N_cmssw = %5d |\n", m_ctx.ev->evtID(), n_sim, n_seed, n_cmssw);
     printf("  Seeds by index / algo -> total-seeds (unique-good-labels, max-good-seeds-per-label)\n");
 
     for (int i = 0; i < Config::nItersCMSSW; ++i) {
@@ -709,8 +773,8 @@ namespace mkfit {
 
       const IterationConfig &itconf = Config::ItrInfo[i];
       assert(a == itconf.m_track_algorithm);
-      m_seeds.clear();
-      int ns2 = select_seeds_for_algo(itconf.m_track_algorithm, m_seeds);
+      m_ctx.seeds.clear();
+      int ns2 = select_seeds_for_algo(itconf.m_track_algorithm, m_ctx.seeds);
       assert(ns2 == seed_counts[a]);
 
       SXIMap sxi_map;
@@ -718,9 +782,9 @@ namespace mkfit {
       // Count number of good seeds for each track
       std::map<int, int> lbl_to_good_seed;
       int max_good_seeds = 0;
-      for (int ti = 0; ti < (int) m_seeds.size(); ++ti) {
-        Track &t = m_seeds[ti];
-        auto sifh = m_event->simInfoForTrack(t, true);
+      for (int ti = 0; ti < (int) m_ctx.seeds.size(); ++ti) {
+        Track &t = m_ctx.seeds[ti];
+        auto sifh = m_ctx.ev->simInfoForTrack(t, true);
         if (sifh.good_frac() >= 1.0f) {
           ++lbl_to_good_seed[t.label()];
           max_good_seeds = std::max(lbl_to_good_seed[t.label()], max_good_seeds);
@@ -732,15 +796,15 @@ namespace mkfit {
       printf("    %-2d / %2d -> %5d (%5d, %2d)", i, a,
              seed_counts[a], (int) lbl_to_good_seed.size(), max_good_seeds);
 
-      TrackVec orig_seeds = m_seeds;
+      TrackVec orig_seeds = m_ctx.seeds;
 
       std::map<int, int> lbl_to_good_cl_seed;
       int max_good_cl_seeds = 0;
       if (itconf.m_seed_cleaner) {
-        itconf.m_seed_cleaner(m_seeds, itconf, m_eoh->refBeamSpot());
-        for (int ti = 0; ti < (int) m_seeds.size(); ++ti) {
-          Track &t = m_seeds[ti];
-          auto sifh = m_event->simInfoForTrack(t, true);
+        itconf.m_seed_cleaner(m_ctx.seeds, itconf, m_ctx.eoh->refBeamSpot());
+        for (int ti = 0; ti < (int) m_ctx.seeds.size(); ++ti) {
+          Track &t = m_ctx.seeds[ti];
+          auto sifh = m_ctx.ev->simInfoForTrack(t, true);
           if (sifh.good_frac() >= 1.0f) {
             ++lbl_to_good_cl_seed[t.label()];
             max_good_cl_seeds = std::max(lbl_to_good_cl_seed[t.label()], max_good_cl_seeds);
@@ -749,7 +813,7 @@ namespace mkfit {
             sxi_map[sifh.label].clnd.add_seed(ti, sifh.good_frac());
           }
         }
-        int ns_post_clean = m_seeds.size();
+        int ns_post_clean = m_ctx.seeds.size();
         n_seed_sum_post_clean += ns_post_clean;
         printf(" -> post-cleaning %5d (%5d, %2d) [%0.3f]",
               ns_post_clean, (int) lbl_to_good_cl_seed.size(), max_good_cl_seeds,
@@ -766,7 +830,7 @@ namespace mkfit {
           printf("      Lost 99%%-sim-match seed label %d, n_h=%d,  pt=%.3f, eta=%.3f\n", lab, s.nTotalHits(), s.pT(), s.momEta());
           auto se = sxi.clnd.best_seed();
           if (se.index >= 0) {
-            Track &cs = m_seeds[se.index];
+            Track &cs = m_ctx.seeds[se.index];
             printf("        Best cleaned n_h=%d, %.3f\n", cs.nTotalHits(), se.frac);
           }
         }
@@ -788,31 +852,31 @@ namespace mkfit {
     int a = algos[iter_idx];
     assert(a == itconf.m_track_algorithm);
 
-    m_seeds.clear();
-    select_seeds_for_algo(itconf.m_track_algorithm, m_seeds);
+    m_ctx.seeds.clear();
+    select_seeds_for_algo(itconf.m_track_algorithm, m_ctx.seeds);
     if (itconf.m_seed_cleaner) {
-      itconf.m_seed_cleaner(m_seeds, itconf, m_eoh->refBeamSpot());
+      itconf.m_seed_cleaner(m_ctx.seeds, itconf, m_ctx.eoh->refBeamSpot());
     }
 
     // Select seeds with non-neg label and all good hits. Yay.
     TrackVec selected_seeds;
-    for (int ti = 0; ti < (int) m_seeds.size(); ++ti) {
-      Track &t = m_seeds[ti];
-      auto sifh = m_event->simInfoForTrack(t, true);
+    for (int ti = 0; ti < (int) m_ctx.seeds.size(); ++ti) {
+      Track &t = m_ctx.seeds[ti];
+      auto sifh = m_ctx.ev->simInfoForTrack(t, true);
       if (sifh.label >= 0 && sifh.good_frac() >= 1.0f && selector(t)) {
         selected_seeds.push_back(t);
       }
     }
-    m_seeds.swap(selected_seeds);
-    printf("Selected %d seeds.\n", (int) m_seeds.size());
+    m_ctx.seeds.swap(selected_seeds);
+    printf("Selected %d seeds.\n", (int) m_ctx.seeds.size());
   }
 
   //----------------------------------------------------------------------------
 
   void Shell::FindInterestingSimTracks() {
-    int ns = m_event->simTracks_.size();
+    int ns = m_ctx.ev->simTracks_.size();
     for (int si = 0; si < ns; ++si) {
-      const Track &s = m_event->simTracks_[si];
+      const Track &s = m_ctx.ev->simTracks_[si];
 
       // Phase2: find overlaps in the tilted layers.
       // Count number of hits in layers 4 & 5
@@ -835,10 +899,10 @@ namespace mkfit {
           break;
       }
       if (n4o5 >= MinHits) {
-        printf("%03d %5d %2d %6.3f %+6.3f\n", m_event->evtID(), si, n4o5, s.pT(), s.momEta());
-        print("Track", si, s, hi_first, hi_last + 1, *m_event);
+        printf("%03d %5d %2d %6.3f %+6.3f\n", m_ctx.ev->evtID(), si, n4o5, s.pT(), s.momEta());
+        print("Track", si, s, hi_first, hi_last + 1, *m_ctx.ev);
         // for (int hi = hi_first; hi <= hi_last) {
-        //   // const Hit &h = m_event->simHitsInfo_
+        //   // const Hit &h = m_ctx.ev->simHitsInfo_
         // }
         printf("\n");
       }
@@ -851,7 +915,7 @@ namespace mkfit {
     TFile *F = TFile::Open("s.root", "RECREATE");
     TTree *T = new TTree("T", "mkfit sim-seed stuff");
 
-    TrackVec * tvp = & m_event->simTracks_;
+    TrackVec * tvp = & m_ctx.ev->simTracks_;
     TBranch *bv = T->Branch("s", tvp);
 
     const long long N_EVENTS = 10;
@@ -903,11 +967,11 @@ namespace mkfit {
 
     int n_lay = tracker_info()->n_layers();
     for (int l = 0; l < n_lay; ++l) {
-      int n_hit = m_event->layerHits_[l].size();
+      int n_hit = m_ctx.ev->layerHits_[l].size();
       const LayerInfo &linfo = tracker_info()->layer(l);
       printf("%2d : n_hit=%d, n_module=%d\n", l, n_hit, linfo.n_modules());
       for (int h = 0; h < n_hit; ++h) {
-        const Hit &hit = m_event->layerHits_[l][h];
+        const Hit &hit = m_ctx.ev->layerHits_[l][h];
         thit = hit;
         auto mid = hit.detIDinLayer();
         const ModuleInfo& minfo = linfo.module_info(mid);
@@ -1059,7 +1123,7 @@ namespace mkfit {
     namespace REX = ROOT::Experimental;
     ReveInit();
 
-    const Track &s = m_event->simTracks_[sim_idx];
+    const Track &s = m_ctx.ev->simTracks_[sim_idx];
 
     auto p = new TParticle();
     // int pdg = 11 * (r.Integer(2) > 0 ? 1 : -1);
@@ -1081,7 +1145,7 @@ namespace mkfit {
     for (int hi = 0; hi < nh; ++hi) {
       auto hot = s.getHitOnTrack(hi);
       if (hot.index >= 0) {
-        auto &h = m_event->layerHits_[hot.layer][hot.index];
+        auto &h = m_ctx.ev->layerHits_[hot.layer][hot.index];
         // int hl = ev.simHitsInfo_[h.mcHitID()].mcTrackID_;
         ps->SetNextPoint(h.x(), h.y(), h.z());
       }

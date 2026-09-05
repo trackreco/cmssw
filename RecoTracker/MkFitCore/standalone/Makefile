@@ -42,9 +42,9 @@ DEPS += ${ROOTDF_DICT_CC}.d
 TGTS += ${LIB_ROOTDF}
 
 ROOTDF_SRCS := $(wildcard ${SADIR}/DataFormats/*.cc)
-ROOTDF_SRCB := $(notdir ${ROOT_SRCS})
-ROOTDF_OBJS := $(ROOT_SRCB:.cc=.o) ${ROOTDF_DICT_O}
-DEPS += $(ROOT_SRCB:.cc=.d)
+ROOTDF_SRCB := $(notdir ${ROOTDF_SRCS})
+ROOTDF_OBJS := $(ROOTDF_SRCB:.cc=.o) ${ROOTDF_DICT_O}
+DEPS += $(ROOTDF_SRCB:.cc=.d)
 
 LIB_CORE_DEPS := ${LIB_ROOTDF}
 LIB_CORE_LD_EXTRA := -L.. -lMkFitRootDataFormats
