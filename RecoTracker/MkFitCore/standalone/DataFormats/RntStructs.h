@@ -238,9 +238,16 @@ struct TrKalmanUpdate {
   // Propagated track parameters are same as in TrHitMatch (as we pass it to Kalman update),
   // The local dx, dy, dz distance from point to hit is the same as for hit match.
 
-  // Optional -- with MKFIT_TRACE_KALMAN_DEBUG
-  // mkfit::TrackState updated_state {};
-  // mkfit::TrackState propagated_state {};
+  // Optional -- with MKFIT_TRACE_KALMAN_DEBUG.
+  // For an accepted update the post-update state is also reachable as
+  // trCandStates_[state_id_out].state; this member is what gives it for the
+  // REJECTED ones too, which is why it is worth the space when studying chi2
+  // and error-matrix behaviour. Set the macro in Makefile.config -- it must be
+  // in CPPFLAGS so that the code and the ROOT dictionary agree on the layout.
+#ifdef MKFIT_TRACE_KALMAN_DEBUG
+  mkfit::TrackState propagated_state {}; // pre-update, propagated onto the hit plane
+  mkfit::TrackState updated_state {};    // post-update
+#endif
 };
 
 // Another struct for missed layer, for some reason?

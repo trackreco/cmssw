@@ -1,11 +1,14 @@
 #include "AnRun.h"
 
+#include "RecoTracker/MkFitCore/standalone/RdfTrace/RdfVectorSource.h"
+
 #include "TCanvas.h"
 #include "TFile.h"
 #include "TBrowser.h"
 
 #include <format>
 #include <cstdarg>
+#include <mutex>
 
 using RNode = ROOT::RDF::RNode;
 
@@ -13,7 +16,12 @@ using RNode = ROOT::RDF::RNode;
 // an_printf -- tee of stdout into <prefix>.txt
 //====================================================================================
 
-namespace { FILE *g_an_log = nullptr; }
+namespace {
+  FILE *g_an_log = nullptr;
+  // an_printf() is called from RDF Foreach bodies, which run concurrently once
+  // implicit MT is on. The lock keeps each line whole in both destinations.
+  std::mutex g_an_print_mutex;
+}
 
 void an_log_open(const std::string &fname) {
   an_log_close();
@@ -30,6 +38,7 @@ void an_log_close() {
 }
 
 int an_printf(const char *fmt, ...) {
+  std::lock_guard<std::mutex> plock(g_an_print_mutex);
   va_list ap;
   va_start(ap, fmt);
   int n = vprintf(fmt, ap);
@@ -64,7 +73,7 @@ void AnRun::SetPrefix(const std::string &p) {
 #define EV CTX.ev
 
 void AnRun::RunOldVecBased() {
-  m_rdf_hitmatch = mkfit::RdfSources::MakeTrHitMatchDF(CTX.ev)
+  m_rdf_hitmatch = mkfit::RdfVectorSources::MakeTrHitMatchDF(CTX.ev)
   .Define("C", [this](int cid) -> const TrCandState* { return & EV.trCandStates_[cid]; }, {"state_id"})
   .Define("cand_pt", [this](int cid) { return EV.trCandStates_[cid].kine.mom.R(); }, {"state_id"})
   .Define("cand_step", [](const TrCandState* C) { return C->step; }, {"C"})
@@ -72,6 +81,13 @@ void AnRun::RunOldVecBased() {
   .Define("meta_id", [](const TrCandState* C) { return C->meta_id; }, {"C"} )
   .Define("seed_gf", [this](int mid) { return EV.trSIFHforSeedByMeta_[mid].good_frac(); }, {"meta_id"})
   .Define("cand_gf", [this](int mid) { return EV.trSIFHforCandByMeta_[mid].good_frac(); }, {"meta_id"})
+  // chi2 lives on TrKalmanUpdate now, not on TrHitMatch -- join back via kalman_id.
+  // kalman_id is -1 for hits that never reached a Kalman update, and -1 is also
+  // the low edge the chi2 histograms below already use.
+  .Define("kalman_chi2", [this](int kid) {
+      return kid >= 0 ? EV.trKalmanUpdates_[kid].chi2 : -1.0f; }, {"kalman_id"})
+  .Define("kalman_accepted", [this](int kid) {
+      return kid >= 0 && EV.trKalmanUpdates_[kid].accepted; }, {"kalman_id"})
   ;
 
   // Some ranges, could just go over a subset. Booked here, but read at the very
@@ -122,14 +138,30 @@ void AnRun::RunOldVecBased() {
 
   // ==== going into pixels layers ====
   // works for direct backward search only (cand_step == X)... to be tuned further
-  auto define_kalman_stuff = [](RNode r) -> RNode {
+  // Post-Kalman errors used to come off TrHitMatch::kalman_state, which no
+  // longer exists -- they are now on TrKalmanUpdate::updated_state, reached via
+  // kalman_id, and only present in MKFIT_TRACE_KALMAN_DEBUG builds.
+  // TrKalmanUpdate::propagated_state is available the same way, if the
+  // pre-update errors are wanted here too.
+#ifdef MKFIT_TRACE_KALMAN_DEBUG
+  #define KU_ERR_DEFINE(NAME)                                                  \
+    .Define(#NAME, [this](int kid) {                                           \
+        return kid >= 0 ? EV.trKalmanUpdates_[kid].updated_state.NAME() : -1.0f; }, \
+        {"kalman_id"})
+#endif
+
+  auto define_kalman_stuff = [this](RNode r) -> RNode {
+#ifdef MKFIT_TRACE_KALMAN_DEBUG
     return r
-    .Define("exx", "kalman_state.exx()")
-    .Define("eyy", "kalman_state.eyy()")
-    .Define("ezz", "kalman_state.ezz()")
-    .Define("epT", "kalman_state.epT()")
-    .Define("etheta", "kalman_state.etheta()")
-    .Define("emomPhi", "kalman_state.emomPhi()");
+    KU_ERR_DEFINE(exx)
+    KU_ERR_DEFINE(eyy)
+    KU_ERR_DEFINE(ezz)
+    KU_ERR_DEFINE(epT)
+    KU_ERR_DEFINE(etheta)
+    KU_ERR_DEFINE(emomPhi);
+#else
+    return r;
+#endif
   };
   auto plot_kalman_stuff = [](RNode r, CanvasGroup &C) -> void {
     C.Add(r.Histo1D("residual_x"));
@@ -140,12 +172,14 @@ void AnRun::RunOldVecBased() {
     C.Add(r.Histo1D("rank"));
     C.Add(r.Histo1D("kalman_accepted"));
     C.Add(r.Histo1D("kalman_chi2"));
+#ifdef MKFIT_TRACE_KALMAN_DEBUG
     C.Add(r.Histo1D("exx"));
     C.Add(r.Histo1D("eyy"));
     C.Add(r.Histo1D("ezz"));
     C.Add(r.Histo1D("epT"));
     C.Add(r.Histo1D("etheta"));
     C.Add(r.Histo1D("emomPhi"));
+#endif
   };
   { auto &C = NewCanvasGroup(5,3, "SeedIntoLay3", "Seed propagated into layer 3");
     auto r = m_rdf_hitmatch->Filter("cand_step == 0 && seed_gf > 0.9 && layer == 3 && mc_match");
@@ -158,7 +192,7 @@ void AnRun::RunOldVecBased() {
 
   // ==== hit goodness etc via meta ====
   { auto &C = NewCanvasGroup(2,2, "good_frac_by_meta", "good_fraction by meta");
-    m_rdf_meta = mkfit::RdfSources::MakeTrCandMetaDF(CTX.ev)
+    m_rdf_meta = mkfit::RdfVectorSources::MakeTrCandMetaDF(CTX.ev)
     .Define("seed_gf", [this](int mid) { return EV.trSIFHforSeedByMeta_[mid].good_frac(); }, { "id" })
     .Define("cand_gf", [this](int mid) { return EV.trSIFHforCandByMeta_[mid].good_frac(); }, { "id" })
     .Define("cand_good_pix", [this](int mid) { return EV.trSIFHforCandByMeta_[mid].n_pix_match; }, { "id" })
@@ -816,9 +850,12 @@ void AnRun::Run_Stage2_RootState_QualityCheck() {
       }
       return final_ids;
     }, {"event", "stage2_idx"})
+  // trSIFHforSeedByMeta_ is meta-indexed, so it gathers by "meta_id".
+  // trSeeds_ is seed-indexed, so it must gather by the seed index taken off the meta.seed
+  .Define("seed_id", EV_GATHER(trCandMetas_, seed, "meta_id"))
   .Define("seed_gf", EV_GATHER(trSIFHforSeedByMeta_, good_frac(), "meta_id"))
-  .Define("seed_eta", EV_GATHER(trSeeds_, momEta(), "meta_id"))
-  .Define("seed_pt", EV_GATHER(trSeeds_, pT(), "meta_id"))
+  .Define("seed_eta", EV_GATHER(trSeeds_, momEta(), "seed_id"))
+  .Define("seed_pt", EV_GATHER(trSeeds_, pT(), "seed_id"))
   .Define("has_nan",
     [](const mkfit::Event* ev, const ROOT::RVec<int>& root_state_id) {
       ROOT::RVec<int> nans(root_state_id.size());

@@ -47,6 +47,7 @@
 // RDF Trace etc
 
 #pragma link C++ class mkfit::RdfSources - ;
+#pragma link C++ class mkfit::RdfVectorSources - ;
 #pragma link C++ class mkfit::RdfCtx - ;
 
 #pragma link C++ class CanvasGroup - ;

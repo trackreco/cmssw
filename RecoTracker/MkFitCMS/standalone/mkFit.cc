@@ -1044,7 +1044,7 @@ int main(int argc, const char* argv[]) {
 
     initGeom();
     shell = new Shell(mkfit::internal::deadvectors, g_input_file, g_start_event);
-    shell->Run(shell_commands);
+    shell->RunShell(shell_commands);
 #else
     std::cerr << "shell selected on a non-ROOT build.\n";
 #endif

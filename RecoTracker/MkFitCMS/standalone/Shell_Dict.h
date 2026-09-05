@@ -8,5 +8,6 @@
 
 #include "RecoTracker/MkFitCore/standalone/RntDumper/RntDumper.h"
 #include "RecoTracker/MkFitCore/standalone/RdfTrace/RdfSources.h"
+#include "RecoTracker/MkFitCore/standalone/RdfTrace/RdfVectorSource.h"
 #include "RecoTracker/MkFitCore/standalone/RdfTrace/CanvasGroup.h"
 #include "RecoTracker/MkFitCore/standalone/RdfTrace/AnRun.h"

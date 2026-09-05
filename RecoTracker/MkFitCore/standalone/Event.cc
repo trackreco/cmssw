@@ -1452,6 +1452,10 @@ namespace mkfit {
             "chi2=% f chi2_trk=% f accepted=%d\n",
             pfx.c_str(), ku.id, ku.hit_match_id, ku.state_id_in, ku.state_id_out,
             ku.chi2, ku.chi2_trk, ku.accepted);
+#ifdef MKFIT_TRACE_KALMAN_DEBUG
+    print("    prop ", ku.propagated_state);
+    print("    updt ", ku.updated_state);
+#endif
   }
 
 #endif
