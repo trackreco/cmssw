@@ -413,10 +413,18 @@ namespace mkfit {
         const TrackCand &bcand = eoccs[i].front();
         out_vec.emplace_back(bcand.exportTrack(remove_missing_hits));
 #ifdef MKFIT_TRACE
-        auto &cs = m_event->tr_candstate(bcand.m_trace_state_id);
-        auto &cm = m_event->tr_candmeta(cs.meta_id);
-        cm.global_seed = m_event->currentSeed(cm.seed).label();
-        cm.cand = out_vec.size() - 1;
+        // Only the v2p2 path assigns trace states -- m_trace_state_id is set in
+        // MkFinderV2p2 and in findTracksStandardv2p2(), and defaults to -1
+        // everywhere else. tr_candstate() is an unchecked vector index, so
+        // without this guard any MKFIT_TRACE build segfaults here as soon as
+        // findTracksCloneEngine or findTracksStandard is used, i.e. --build-mimi
+        // without --build-mimi-v2p2.
+        if (bcand.m_trace_state_id >= 0) {
+          auto &cs = m_event->tr_candstate(bcand.m_trace_state_id);
+          auto &cm = m_event->tr_candmeta(cs.meta_id);
+          cm.global_seed = m_event->currentSeed(cm.seed).label();
+          cm.cand = out_vec.size() - 1;
+        }
 #endif
       }
     }
