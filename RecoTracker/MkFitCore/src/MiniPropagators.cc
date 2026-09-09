@@ -1,5 +1,6 @@
 #include "RecoTracker/MkFitCore/src/MiniPropagators.h"
 #include "RecoTracker/MkFitCore/interface/MathInlineCore.h"
+#include <vdt/atan2.h>
 
 namespace mkfit::mini_propagators {
 
@@ -14,6 +15,12 @@ namespace mkfit::mini_propagators {
   }
 
   bool InitialState::propagate_to_r(PropAlgo_e algo, float R, State& c, bool update_momentum) const {
+    // Scalar mirror of InitialStatePlex::propagate_to_r(). The derivation, the
+    // precision argument for dc2_m_Rc2, and the meaning of the fail_flag values
+    // are documented there -- keep the two in step.
+    float R_eff = R;
+    bool unreachable = false;
+
     switch (algo) {
       case PA_Line: {
       }
@@ -21,48 +28,73 @@ namespace mkfit::mini_propagators {
       }
 
       case PA_Exact: {
-        // Momentum is always updated -- used as temporary for stepping.
         const float k = 1.0f / inv_k;
 
-        const float curv = 0.5f * inv_k * inv_pt;
-        const float oo_curv = 1.0f / curv;  // 2 * radius of curvature
-        const float lambda = pz * inv_pt;
-
-        float D = 0;
-
         c = *this;
-        for (int i = 0; i < Config::Niter; ++i) {
-          // compute tangental and ideal distance for the current iteration.
-          // 3-rd order asin for symmetric incidence (shortest arc lenght).
-          float r0 = hipo(c.x, c.y);
-          float td = (R - r0) * curv;
-          float id = oo_curv * td * (1.0f + 0.16666666f * td * td);
-          // This would be for line approximation:
-          // float id = R - r0;
-          D += id;
 
-          //printf("%-3d r0=%f R-r0=%f td=%f id=%f id_line=%f delta_id=%g\n",
-          //       i, r0, R-r0, td, id, R - r0, id - (R-r0));
+        const float cx = x - k * py;
+        const float cy = y + k * px;
+        const float d_c = hipo(cx, cy);
+        const float R_c = std::abs(k) * hipo(px, py);
+        const float dc2_m_Rc2 = x * x + y * y - 2.0f * k * (x * py - y * px);
 
-          float alpha = id * inv_pt * inv_k;
-          float sina, cosa;
-          vdt::fast_sincosf(alpha, sina, cosa);
-
-          // update parameters
-          c.dalpha += alpha;
-          c.x += k * (c.px * sina - c.py * (1.0f - cosa));
-          c.y += k * (c.py * sina + c.px * (1.0f - cosa));
-
-          const float o_px = c.px;  // copy before overwriting
-          c.px = c.px * cosa - c.py * sina;
-          c.py = c.py * cosa + o_px * sina;
+        float r_lo = std::abs(d_c - R_c) + kReachMargin;
+        float r_hi = d_c + R_c - kReachMargin;
+        if (r_lo > r_hi)
+          r_lo = r_hi = 0.5f * (std::abs(d_c - R_c) + d_c + R_c);
+        if (R < r_lo) {
+          R_eff = r_lo;
+          unreachable = true;
+        } else if (R > r_hi) {
+          R_eff = r_hi;
+          unreachable = true;
         }
 
-        c.z += lambda * D;
+        const float R2 = R_eff * R_eff;
+        const float a = (R2 + dc2_m_Rc2) / (2.0f * d_c);
+        const float b2 = R2 - a * a;
+        const float b = b2 > 0.0f ? std::sqrt(b2) : 0.0f;
+
+        const float inv_dc = 1.0f / d_c;
+        const float hx = cx * inv_dc, hy = cy * inv_dc;  // Chat; Chat_perp = (-hy, hx)
+
+        const float u0x = x - cx, u0y = y - cy;
+        const float inv_Rc2 = 1.0f / (R_c * R_c);
+
+        const float p1x = a * hx - b * hy, p1y = a * hy + b * hx;
+        const float p2x = a * hx + b * hy, p2y = a * hy - b * hx;
+        const float u1x = p1x - cx, u1y = p1y - cy;
+        const float u2x = p2x - cx, u2y = p2y - cy;
+        const float cos1 = (u0x * u1x + u0y * u1y) * inv_Rc2;
+        const float sin1 = (u0x * u1y - u0y * u1x) * inv_Rc2;
+        const float cos2 = (u0x * u2x + u0y * u2y) * inv_Rc2;
+        const float sin2 = (u0x * u2y - u0y * u2x) * inv_Rc2;
+        const float alpha1 = vdt::fast_atan2f(sin1, cos1);
+        const float alpha2 = vdt::fast_atan2f(sin2, cos2);
+
+        const bool first = std::abs(alpha1) <= std::abs(alpha2);
+        const float alpha = first ? alpha1 : alpha2;
+        const float sina = first ? sin1 : sin2;
+        const float cosa = first ? cos1 : cos2;
+        c.x = first ? p1x : p2x;
+        c.y = first ? p1y : p2y;
+
+        c.z = z + k * pz * alpha;
+        c.dalpha = dalpha + alpha;
+
+        if (update_momentum) {
+          const float o_px = px;
+          c.px = px * cosa - py * sina;
+          c.py = py * cosa + o_px * sina;
+          c.pz = pz;
+        }
       }
     }
-    // should have some epsilon constant / member? relative vs. abs?
-    c.fail_flag = std::abs(hipo(c.x, c.y) - R) < 0.1f ? 0 : 1;
+
+    if (unreachable)
+      c.fail_flag = 2;
+    else
+      c.fail_flag = std::abs(R_eff - hipo(c.x, c.y)) > kReachTolerance ? 1 : 0;
     return c.fail_flag;
   }
 
@@ -176,6 +208,11 @@ namespace mkfit::mini_propagators {
   // propagate to radius; returns number of failed propagations
   int InitialStatePlex::propagate_to_r(
       PropAlgo_e algo, const MPF& R, StatePlex& c, bool update_momentum, int N_proc) const {
+    // Effective target radius, clamped to what the trajectory can actually
+    // reach, and the per-lane flag saying it had to be clamped.
+    MPF R_eff = R;
+    MPI unreachable(0);
+
     switch (algo) {
       case PA_Line: {
       }
@@ -183,54 +220,123 @@ namespace mkfit::mini_propagators {
       }
 
       case PA_Exact: {
-        // Momentum is always updated -- used as temporary for stepping.
         const MPF k = 1.0f / inv_k;
 
-        const MPF curv = 0.5f * inv_k * inv_pt;
-        const MPF oo_curv = 1.0f / curv;  // 2 * radius of curvature
-        const MPF lambda = pz * inv_pt;
-
-        MPF D = 0.0f;
-
         c = *this;
-        for (int i = 0; i < Config::Niter; ++i) {
-          // compute tangental and ideal distance for the current iteration.
-          // 3-rd order asin for symmetric incidence (shortest arc lenght).
-          MPF r0 = Matriplex::hypot(c.x, c.y);
-          MPF td = (R - r0) * curv;
-          MPF id = oo_curv * td * (1.0f + 0.16666666f * td * td);
-          // This would be for line approximation:
-          // float id = R - r0;
-          D += id;
 
-          //printf("%-3d r0=%f R-r0=%f td=%f id=%f id_line=%f delta_id=%g\n",
-          //       i, r0, R-r0, td, id, R - r0, id - (R-r0));
+        // Closed-form intersection of the trajectory circle with the target
+        // cylinder -- no iteration. The transverse projection is a circle of
+        // radius R_c about C = (x - k py, y + k px). Subtracting the equation
+        // of that circle from |P| = R leaves the radical line, LINEAR in P:
+        //     P.C = (R^2 - R_c^2 + d_c^2) / 2
+        // so with Chat = C/d_c,   P = a Chat +/- b Chat_perp,
+        //     a = (R^2 + (d_c^2 - R_c^2)) / (2 d_c),   b = sqrt(R^2 - a^2).
+        //
+        // PRECISION -- the part that bites, and why the naive closed form has a
+        // bad reputation. Written literally as (R^2 - d_c^2 - R_c^2) it
+        // subtracts two nearly equal large numbers: for a stiff track the
+        // centre is far away and d_c ~ R_c ~ 87.8 pT cm, so at 100 GeV both are
+        // ~9e3 cm with squares ~8e7, while their difference carries the impact
+        // parameter, O(0.1 cm). In float that is a total loss of the answer.
+        // The identity below removes the cancellation ALGEBRAICALLY -- expand
+        // d_c^2 = (x - k py)^2 + (y + k px)^2 and use R_c^2 = k^2 pT^2, and the
+        // large terms cancel symbolically instead of numerically:
+        //     d_c^2 - R_c^2 = r0^2 - 2 k (x py - y px)
+        // Both survivors are O(r0^2), so `a` keeps full float accuracy however
+        // stiff the track. Everything after that is well conditioned except
+        // grazing incidence (b -> 0), which is exactly what the clamp below
+        // keeps us away from.
+        const MPF cx = x - k * py;
+        const MPF cy = y + k * px;
+        const MPF d_c = Matriplex::hypot(cx, cy);
+        const MPF R_c = Matriplex::abs(k) * Matriplex::hypot(px, py);
+        const MPF dc2_m_Rc2 = x * x + y * y - 2.0f * k * (x * py - y * px);
 
-          MPF alpha = id * inv_pt * inv_k;
-
-          MPF sina, cosa;
-          Matriplex::fast_sincos(alpha, sina, cosa);
-
-          // update parameters
-          c.dalpha += alpha;
-          c.x += k * (c.px * sina - c.py * (1.0f - cosa));
-          c.y += k * (c.py * sina + c.px * (1.0f - cosa));
-
-          MPF o_px = c.px;  // copy before overwriting
-          c.px = c.px * cosa - c.py * sina;
-          c.py = c.py * cosa + o_px * sina;
+        // Reachability -- see kReachMargin in the header. |a| <= R is
+        // algebraically the same condition as |d_c - R_c| <= R <= d_c + R_c, so
+        // the guard and the solve share one computation. Clamping R keeps the
+        // returned point ON the trajectory, at its closest approach to the
+        // requested cylinder, instead of nowhere at all.
+        for (int i = 0; i < N_proc; ++i) {
+          float r_lo = std::abs(d_c[i] - R_c[i]) + kReachMargin;
+          float r_hi = d_c[i] + R_c[i] - kReachMargin;
+          if (r_lo > r_hi) {
+            // Band thinner than twice the margin -- a nearly closed loop that
+            // barely spans any radius. Aim at its middle.
+            r_lo = r_hi = 0.5f * (std::abs(d_c[i] - R_c[i]) + d_c[i] + R_c[i]);
+          }
+          if (R[i] < r_lo) {
+            R_eff[i] = r_lo;
+            unreachable[i] = 1;
+          } else if (R[i] > r_hi) {
+            R_eff[i] = r_hi;
+            unreachable[i] = 1;
+          }
         }
 
-        c.z += lambda * D;
+        const MPF R2 = R_eff * R_eff;
+        const MPF a = (R2 + dc2_m_Rc2) / (2.0f * d_c);
+        const MPF b = Matriplex::sqrt(Matriplex::max(R2 - a * a, MPF(0.0f)));
+
+        const MPF inv_dc = 1.0f / d_c;
+        const MPF hx = cx * inv_dc, hy = cy * inv_dc;  // Chat; Chat_perp = (-hy, hx)
+
+        // Radius vector of the current point and of the two candidate crossings.
+        // cos and sin of the turning angle come straight out of the dot and
+        // cross products, so no trig is needed for the position or the
+        // momentum -- only for alpha itself, which z and dalpha need.
+        const MPF u0x = x - cx, u0y = y - cy;
+        const MPF inv_Rc2 = 1.0f / (R_c * R_c);
+
+        const MPF p1x = a * hx - b * hy, p1y = a * hy + b * hx;
+        const MPF p2x = a * hx + b * hy, p2y = a * hy - b * hx;
+        const MPF u1x = p1x - cx, u1y = p1y - cy;
+        const MPF u2x = p2x - cx, u2y = p2y - cy;
+        const MPF cos1 = (u0x * u1x + u0y * u1y) * inv_Rc2;
+        const MPF sin1 = (u0x * u1y - u0y * u1x) * inv_Rc2;
+        const MPF cos2 = (u0x * u2x + u0y * u2y) * inv_Rc2;
+        const MPF sin2 = (u0x * u2y - u0y * u2x) * inv_Rc2;
+        const MPF alpha1 = Matriplex::fast_atan2(sin1, cos1);
+        const MPF alpha2 = Matriplex::fast_atan2(sin2, cos2);
+
+        // Of the two crossings take the nearer one. atan2 returns in (-pi, pi],
+        // so this is the smaller turn in either direction -- the standard
+        // choice, and wrong only for a track already beyond salvage.
+        MPF alpha, sina, cosa;
+        for (int i = 0; i < N_proc; ++i) {
+          const bool first = std::abs(alpha1[i]) <= std::abs(alpha2[i]);
+          alpha[i] = first ? alpha1[i] : alpha2[i];
+          sina[i] = first ? sin1[i] : sin2[i];
+          cosa[i] = first ? cos1[i] : cos2[i];
+          c.x[i] = first ? p1x[i] : p2x[i];
+          c.y[i] = first ? p1y[i] : p2y[i];
+        }
+
+        c.z = z + k * pz * alpha;
+        c.dalpha = dalpha + alpha;
+
+        if (update_momentum) {
+          // The momentum rotates by exactly the same alpha as the radius vector.
+          const MPF o_px = px;
+          c.px = px * cosa - py * sina;
+          c.py = py * cosa + o_px * sina;
+          c.pz = pz;
+        }
       }
     }
 
-    // should have some epsilon constant / member? relative vs. abs?
+    // fail_flag: 2 = target radius not on the trajectory at all (pre-checked,
+    // c was clamped to the closest reachable radius), 1 = solved but landed
+    // further than kReachTolerance from the target, which should now only
+    // happen through round-off.
     MPF r = Matriplex::hypot(c.x, c.y);
     c.fail_flag = 0;
     int n_fail = 0;
     for (int i = 0; i < N_proc; ++i) {
-      if (std::abs(R[i] - r[i]) > 0.1f) {
+      if (unreachable[i]) {
+        c.fail_flag[i] = 2;
+        ++n_fail;
+      } else if (std::abs(R_eff[i] - r[i]) > kReachTolerance) {
         c.fail_flag[i] = 1;
         ++n_fail;
       }
@@ -357,6 +463,39 @@ namespace mkfit::mini_propagators {
     hermite_1d(sp1.z, sp1.pz, sp2.z, sp2.pz, m_Hderfac, m_Hz);
     m_Hderfac = 1.0f / m_Hderfac;
 
+  }
+
+  void Hermite3D::calculate_coeffs(const StatePlex &sp, const MPF &inv_k, const MPF &dalpha)
+  {
+    // One-point / extrapolating mode -- see the comment on the declaration.
+    //
+    // Substituting a = dalpha * t into the Taylor series of the exact helix
+    // about a = 0, with K = k * dalpha:
+    //   r(t) = r0 + K p t + (K dalpha / 2) (-py, px, 0) t^2
+    //                     - (K dalpha^2 / 6) ( px, py, 0) t^3
+    // z is linear in a, so its quadratic and cubic terms vanish identically.
+    const MPF K = dalpha / inv_k;                          // = k * dalpha
+    const MPF Kp2 = 0.5f * K * dalpha;                     // +K dalpha / 2
+    const MPF Kn2 = -0.5f * K * dalpha;                    // -K dalpha / 2
+    const MPF Kn3 = -(1.0f / 6.0f) * K * dalpha * dalpha;  // -K dalpha^2 / 6
+    const MPF zero = 0.0f;
+
+    m_Hx.aij(0, 0) = sp.x;
+    m_Hx.aij(1, 0) = K * sp.px;
+    m_Hx.aij(2, 0) = Kn2 * sp.py;
+    m_Hx.aij(3, 0) = Kn3 * sp.px;
+
+    m_Hy.aij(0, 0) = sp.y;
+    m_Hy.aij(1, 0) = K * sp.py;
+    m_Hy.aij(2, 0) = Kp2 * sp.px;
+    m_Hy.aij(3, 0) = Kn3 * sp.py;
+
+    m_Hz.aij(0, 0) = sp.z;
+    m_Hz.aij(1, 0) = K * sp.pz;
+    m_Hz.aij(2, 0) = zero;
+    m_Hz.aij(3, 0) = zero;
+
+    m_Hderfac = 1.0f / K;
   }
 
   void Hermite3D::evaluate(const MPF &t, MPF &x, MPF &y, MPF &z) const

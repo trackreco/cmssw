@@ -8,6 +8,29 @@ namespace mkfit::mini_propagators {
 
   enum PropAlgo_e { PA_Line, PA_Quadratic, PA_Exact };
 
+  // Guard band, in cm, kept away from the two radii where the trajectory turns
+  // around (dr/ds = 0), where the solve is ill-conditioned (b -> 0).
+  //
+  // PROVISIONAL -- do not read 0.1 cm as tuned. It comes from a single sample in
+  // a single direction (10 events, March HLT ntuple, T5 inward search: catches
+  // 138 of 148 real failures and vetoes none of 2087 healthy searches, while
+  // 0.25 cm already vetoes 7 and 1 cm vetoes 47). That is a plausible starting
+  // value, not a measurement of the right one -- and one global length is very
+  // likely the wrong shape. It is plausibly too SHORT for the strips, where
+  // everything is coarser, so this probably wants to be per layer, or derived
+  // from a per-layer property, rather than a single constant for the whole
+  // detector. What it is really standing in for: "does the track reach this
+  // layer" is a statement about a track that has an error on it, so the band
+  // should scale with the expected dq of the track, 5 to 7 sigma. Fix it only
+  // against a larger sample -- outward searches, pixel seeds, the full pT range.
+  // See the WSR / near-miss item in RecoTracker/CLAUDE.md.
+  constexpr float kReachMargin = 0.1f;
+
+  // How close to the target radius propagate_to_r() must land to count as
+  // converged. Was an inline 0.1f. With the closed form it should only ever trip
+  // on round-off.
+  constexpr float kReachTolerance = 0.1f;
+
   struct StatePlex;
   struct InitialStatePlex;
 
@@ -154,11 +177,24 @@ namespace mkfit::mini_propagators {
   // Hermite interpolation
   //-----------------------------------------------------------
 
+  // Hermite3D -- cubic model of the helix, parametrized by t.
+  //
+  // In both modes below t is LINEAR in the helix turning angle alpha, spanning
+  // dalpha over t in [0,1]. Everything downstream depends on that and on nothing
+  // else: Hermite3DOnPlane, the momentum returned by evaluate(), the linear
+  // dalpha interpolation in MkFinderV2p2, and path_length() below.
+  //
+  // The helix, exactly, in the turning angle alpha (k = 1/inv_k, p in GeV):
+  //   x(a) = x0 + k (px sin a - py (1 - cos a))
+  //   y(a) = y0 + k (py sin a + px (1 - cos a))
+  //   z(a) = z0 + k pz a
+  //   p(a) = p rotated by a about z;  pz constant
+  // so  dr/da = k p(a)  exactly, which is where m_Hderfac comes from and why
+  // z is reproduced exactly (it is linear in a) while x, y are cubic-accurate.
   struct Hermite3D {
     // Hermite p(3) for trajectory approximation, could be Matriplex<float, 4, 3, NN>
     MP4V m_Hx, m_Hy, m_Hz; // Hermite p(3) coefficients for x, y, z
-    MPF  m_Hderfac; // derivative scaling factor
-    // do we need delta-alpha to transition for t -> alpha -> path-length
+    MPF  m_Hderfac; // 1 / (k * dalpha) -- turns dr/dt back into momentum
 
     void copyIn(int dst_slot, const Hermite3D &src, int src_slot) {
       m_Hx.copyIn(dst_slot, src.m_Hx, src_slot);
@@ -176,11 +212,34 @@ namespace mkfit::mini_propagators {
                            const MPF &derfac,
                            MP4V &h);
 
+    // Two-point / interpolating mode: t = 0 at sp1, t = 1 at sp2, matching
+    // position and momentum at both. Truncation error ~ R_c * dalpha^4 / 384.
     void calculate_coeffs(const StatePlex &sp1, const StatePlex &sp2, const MPF &inv_k);
+
+    // One-point / extrapolating mode: Taylor expansion of the helix about sp,
+    // with t = 1 at sp.dalpha + dalpha. Needs no second propagation -- the
+    // derivatives are known analytically from the helix model:
+    //   r'   = k ( px,  py, pz)
+    //   r''  = k (-py,  px, 0 )
+    //   r''' = k (-px, -py, 0 )
+    // Truncation error ~ R_c * dalpha^4 / 24, i.e. 16x the two-point mode, so
+    // half the usable span at equal accuracy. Usable transverse path for 10 um
+    // is s ~ (24 eps)^1/4 * R_c^3/4: about 11 cm at 1 GeV, 63 cm at 10 GeV --
+    // ample for re-expanding inside a layer after a Kalman update, which is what
+    // this is for. Cheaper than the two-point mode: no trig, no propagation.
+    void calculate_coeffs(const StatePlex &sp, const MPF &inv_k, const MPF &dalpha);
 
     void evaluate(const MPF &t, MPF &x, MPF &y, MPF &z) const;
     void evaluate(const MPF &t, MPF &x, MPF &y, MPF &z, MPF &dx, MPF &dy, MPF &dz) const;
     void evaluate(const MPF &t, StatePlex &sp) const;
+
+    // Signed path length from the expansion point to t, positive along
+    // increasing t. EXACT in both modes -- arc length is linear in the helix
+    // angle -- so this is the length to hand to the Kalman propagation, not an
+    // approximation of it. Pass |p| for the 3D length, pT for the transverse
+    // one; k cancels, which is why only m_Hderfac is needed.
+    //   s = k * |p| * alpha,  alpha = dalpha * t,  m_Hderfac = 1 / (k * dalpha)
+    MPF path_length(const MPF &t, const MPF &p_mag) const { return p_mag * t / m_Hderfac; }
   };
 
   struct Hermite3DOnPlane {
