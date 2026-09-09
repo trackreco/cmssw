@@ -184,8 +184,24 @@ namespace mkfit {
     void ProcessEventHlt(const int wanted_algo = 4) { ProcessEventHlt(m_ctx, wanted_algo); }
     void LoopNEventsHlt(int N_events = -1, const int wanted_algo = 4);
 
+    // ---- Standard (non-HLT) forward search, traced ------------------------
+    // The Hlt drivers above run the inward T5-into-pixels search on LST seeds.
+    // These run the ordinary outward forward search on the iteration's own
+    // seeds. ProcessEvent() already produces a full trace on the v2p2 path, so
+    // all that was missing was a driver. Written as a deliberate parallel of
+    // the *Hlt versions rather than factored with them -- commonalities to be
+    // pulled out once we know which parts really are common.
+    // Motivation: pre-selection pulls are only the visible end. Kalman, chi2
+    // and scoring are where a bad covariance actually costs tracks, and that
+    // wants the outward direction as well as the inward one.
+    void ProcessEventStd(EvCtx &ctx);
+    void ProcessEventStd() { ProcessEventStd(m_ctx); }
+    void TraceFwdSearch(int Nevents = -1, const char *prefix = "mkfit-fwd", int n_thr = 1);
+
     // Current default processing. N_events <= 0 means "use the configured
     // event range", see SetEventRangeFirstLast() / SetEventRangeBegCnt().
+    // NOTE on naming: Test() really is a test; TestVectorSource() and
+    // TestEventSource() are tracing drivers and want to be Trace*.
     void Test(int Nevents = -1);
     void TestVectorSource();
     // n_thr > 1 runs that many events in flight, each in its own EvCtx; the RDF
@@ -198,6 +214,8 @@ namespace mkfit {
     // Find tracks over [ev_first, ev_last] and hand the processed Events out,
     // in event order. Serial for n_thr <= 1.
     void collect_events_hlt(int ev_first, int ev_last, int n_thr, int wanted_algo,
+                            std::vector<const Event *> &out);
+    void collect_events_std(int ev_first, int ev_last, int n_thr,
                             std::vector<const Event *> &out);
 
     // Effective range for one driver call: count > 0 overrides the length of

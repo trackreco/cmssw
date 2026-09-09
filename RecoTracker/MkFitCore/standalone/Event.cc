@@ -1434,19 +1434,33 @@ namespace mkfit {
   }
 
   void print(std::string pfx, const TrLayerSearch &ls) {
-    printf("%s: id=%d state_id=%d layer=%d dphi_track=% f dq_track=% f\n"
-           "    pos1=%s; pos2=%s\n",
-           pfx.c_str(), ls.id, ls.state_id, ls.layer, ls.dphi_track, ls.dq_track,
-          format(ls.pos1, 10, 8, ' ').c_str(), format(ls.pos2, 10, 8, ' ').c_str());
+    printf("%s: id=%d state_id=%d layer=%d layer_sec=%d %s %s\n",
+           pfx.c_str(), ls.id, ls.state_id, ls.layer, ls.layer_sec,
+           ls.is_barrel ? "barrel" : "endcap", ls.is_outward ? "outward" : "inward");
+    printf("    entry=%s dalpha=% f fail=%d\n"
+           "    exit =%s dalpha=% f fail=%d\n",
+           format(ls.prop_entry.pos, 10, 8, ' ').c_str(), ls.prop_entry.dalpha, ls.prop_entry.fail_flag,
+           format(ls.prop_exit.pos, 10, 8, ' ').c_str(), ls.prop_exit.dalpha, ls.prop_exit.fail_flag);
+    printf("    phi_c=% f phi_d=% f dphi_track=% f | q_c=% f q=[% f,% f] dq_track=% f\n",
+           ls.phi_center, ls.phi_delta, ls.dphi_track,
+           ls.q_center, ls.q_min, ls.q_max, ls.dq_track);
+    printf("    cov xx=% .4g xy=% .4g yy=% .4g zz=% .4g\n",
+           ls.cov_xx, ls.cov_xy, ls.cov_yy, ls.cov_zz);
+    printf("    bins p=[%u,%u) q=[%u,%u)", ls.p1, ls.p2, ls.q1, ls.q2);
+    if (ls.layer_sec >= 0)
+      printf(" | sec p=[%u,%u) q=[%u,%u)", ls.p1_sec, ls.p2_sec, ls.q1_sec, ls.q2_sec);
+    printf("\n    hits scanned=%d masked=%d presel=%d pqueue=%d\n",
+           ls.n_hits_scanned, ls.n_hits_masked, ls.n_hits_presel, ls.n_hits_pqueue);
   }
 
   void print(std::string pfx, const TrHitMatch &hm) {
-    printf("%s: id=%d state_id=%d layer=%d hit=%d mc_match=%d "
+    printf("%s: id=%d state_id=%d search_id=%d layer=%d hit=%d mc_match=%d "
           "score=% f dphi=% f dq=% f passed_preselect=%d "
           "rank=%d passed_pqueue=%d kalman_id=%d\n",
-          pfx.c_str(), hm.id, hm.state_id, hm.layer,
+          pfx.c_str(), hm.id, hm.state_id, hm.search_id, hm.layer,
           hm.hit, hm.mc_match, hm.score, hm.dphi, hm.dq, hm.passed_preselect,
           hm.rank, hm.passed_pqueue, hm.kalman_id);
+    printf("    t_hermite=% f d_plane_h3=% .3e\n", hm.t_hermite, hm.d_plane_h3);
     printf("    residual_xyz=(res_x=% f res_y=% f res_z=% f); ", hm.residual_x, hm.residual_y, hm.residual_z);
     print("kine", hm.kine_on_plane);
   }

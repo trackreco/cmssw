@@ -183,19 +183,76 @@ struct TrCandState {
   bool on_final_path = false; // true if it is on the final selected candidate path (final candidate and its ancestors)
 };
 
+// TrLayerSearch -- one hit-search window, for one candidate state, on one layer.
+//
+// Filled by MkFinderV2p2::process_pre_select(), stage 1 ("initial propagation"):
+// the mini-propagator is run to the two layer bounding surfaces, the full
+// propagation supplies the covariance, and the two together give the phi/q
+// window and the bin ranges that the stage-2 hit loop then scans.
+//
+// This is the v2p2 counterpart of the old RntDumper BinSearch plus the two
+// PropInfos in CandInfo (ps_min / ps_max) -- keep them comparable.
 struct TrLayerSearch {
-  int id;
-  int state_id;
-  int layer;
-  float dphi_track, dq_track;
-  EVec3 pos1, pos2; // propagated position on near / far layer bounding cylinder
-  // search windows
-  // bin ranges
+  int id = -1;
+  int state_id = -1;
+  int layer = -1;
+  int layer_sec = -1;      // second sub-layer of a double layer, -1 when not double
+  bool is_barrel = false;
+  bool is_outward = false; // false for the inward search into the pixels
+
+  // Stage 1a -- mini-propagator (PA_Exact) onto the layer bounding surfaces,
+  // in propagation order: entry is crossed first, exit second. NOT sorted by
+  // q or phi. dalpha is the helix angle turned, fail_flag the propagation status.
+  // The Hermite cubic used for the per-hit propagation is built from these two,
+  // so its interpolation error scales as (dalpha_exit - dalpha_entry)^4.
+  PropInfo prop_entry;     // MkBins::m_sp1
+  PropInfo prop_exit;      // MkBins::m_sp2
+
+  // Stage 1b -- search window from MkBins::determine_bin_windows().
+  // phi_delta, dphi_track and dq_track are HALF-widths; q_min/q_max a full range.
+  float phi_center = -999.99f, phi_delta = -999.99f;
+  float q_center = -999.99f, q_min = -999.99f, q_max = -999.99f;
+  float dphi_track = -999.99f, dq_track = -999.99f; // 3 sigma track errors
+
+  // Covariance the window was built from (MkBinTrackCovExtract), i.e. err(0,0),
+  // err(0,1), err(1,1), err(2,2) after the full propagation to prop_exit.
+  // NOTE: the phi jacobian is evaluated at min(r_entry, r_exit) -- the smallest
+  // radius the track crosses in the layer, where sigma_phi is largest, so one
+  // window covers the whole layer. It used to be taken at m_isp (the entry edge)
+  // while the covariance came from m_sp2 (the exit), which scaled dphi_track by
+  // rout/rin: 1.33 at pixel layer 0. The ENDCAP dq jacobian is still at m_isp,
+  // but |grad r| = 1 there so there is no scale factor. Recorded
+  // here so the size of that mismatch can actually be measured.
+  float cov_xx = -999.99f, cov_xy = -999.99f, cov_yy = -999.99f, cov_zz = -999.99f;
+
+  // Stage 1c -- bin ranges. p2/q2 are exclusive; p wraps around, q does not.
+  unsigned short p1 = 0, p2 = 0, q1 = 0, q2 = 0;             // primary layer
+  unsigned short p1_sec = 0, p2_sec = 0, q1_sec = 0, q2_sec = 0; // secondary sub-layer
+
+  // Stage 2 tallies over the hit loop. n_hits_pqueue is capped at
+  // MkBins::NEW_MAX_HIT and equals the number of TrHitMatch with passed_pqueue.
+  int n_hits_scanned = 0;  // hits visited inside the bin ranges
+  int n_hits_masked = 0;   // of those, rejected by the iteration hit mask
+  int n_hits_presel = 0;   // of those, passed the dq/dphi pre-selection
+  int n_hits_pqueue = 0;   // of those, survived the priority queue -> Kalman
+
+  // Only computed with MKFIT_TRACE_PROP_COMPARE, otherwise left at zero. The
+  // member itself is unconditional: unlike the per-hit compare state this is one
+  // vector per search, not per scanned hit, and keeping it out of the #ifdef
+  // means one less layout the ROOT dictionary has to agree with.
+  //
+  // How far the Hermite cubic strays from the helix in the middle of the layer,
+  // where it is furthest from the two endpoints it was built to interpolate:
+  // evaluate the cubic at t = 0.5, then propagate the mini-propagator exactly to
+  // the bounding surface (r or z) that point lands on, and difference the two.
+  // Both are on the same surface, so this is a pure in-surface deviation.
+  EVec3 hermite_mid_dev { 0, 0, 0 };
 };
 
 struct TrHitMatch {
   int id;
   int state_id;
+  int search_id = -1; // TrLayerSearch this hit was scanned for
   int layer; // NOTE: TrCandState.layer we are pointing to is PREVIUOUS layer
   int hit;
   bool mc_match; // is hit mc-matching
@@ -207,10 +264,26 @@ struct TrHitMatch {
   // float hit_qbar;
   // int   hit_lbl;
 
-  // pre-selection quantities
-  EBiVec3 kine_on_plane { EVec3(), EVec3() }; // Hermite-propagated track state
+  // pre-selection quantities.
+  // kine_on_plane is the state the dphi / dq / residual_* below were computed
+  // from -- currently the mini-propagator PA_Line step onto the module plane.
+  EBiVec3 kine_on_plane { EVec3(), EVec3() };
+  // Hermite parameter at the module-plane crossing. Inside [0,1] the crossing is
+  // between the layer bounding surfaces; outside it the cubic is extrapolating
+  // and both kine_on_plane and the window it was pre-selected against are suspect.
+  float t_hermite = -999.99;
+  // Distance from the Hermite point at t_hermite to the module plane, in cm.
+  // Hermite3DOnPlane::solve() takes a SINGLE Newton step, so this is not
+  // machine-zero by construction -- it is the measure of whether one step
+  // sufficed for this hit.
+  float d_plane_h3 = -999.99;
   float dphi = -999.99;
   float dq = -999.99;
+  // Half-length of the hit in the q direction, i.e. half the strip length in the
+  // barrel. Needed to make dq interpretable: for a long strip the residual is
+  // dominated by this, not by the track error, so dq / sigma_track is NOT a
+  // covariance pull there. It is also the second term of the dq cut.
+  float hit_q_half_len = -999.99;
   float score = -999.99; // usually dphi, could add dq checks
   bool passed_preselect = false;
 
@@ -223,6 +296,20 @@ struct TrHitMatch {
   bool passed_pqueue = false;
 
   int kalman_id = -1;
+
+  // Optional -- with MKFIT_TRACE_PROP_COMPARE.
+  // The OTHER of the two cheap propagations onto the module plane: the code runs
+  // both a mini-propagator PA_Line step and a Hermite-cubic plane solve for every
+  // scanned hit, and uses one of them (see kine_on_plane) for the cuts. This is
+  // the one it did not use, so the two can be differenced for ALL scanned hits,
+  // including rejected ones.
+  // For the pre-selected hits the exact reference is already in the trace and
+  // needs no define: TrKalmanUpdate::propagated_state, via kalman_id.
+  // Set the macro in Makefile.config -- it must be in CPPFLAGS so that the code
+  // and the ROOT dictionary agree on the layout.
+#ifdef MKFIT_TRACE_PROP_COMPARE
+  EBiVec3 kine_on_plane_cmp { EVec3(), EVec3() };
+#endif
 };
 
 struct TrKalmanUpdate {

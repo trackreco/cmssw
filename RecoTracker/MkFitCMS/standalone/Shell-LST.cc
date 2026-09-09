@@ -605,4 +605,187 @@ namespace mkfit {
 
   #pragma endregion Tests etc
 
+  //===========================================================================
+  #pragma region Standard forward search, traced
+  //===========================================================================
+
+  // Per-event processing for the ordinary OUTWARD forward search, as opposed to
+  // the inward T5-into-pixels search the *Hlt functions above drive.
+  //
+  // ProcessEvent() already does all of it and already traces -- on the v2p2
+  // path findTracksStandardv2p2() creates the TrCandMeta / TrCandStage /
+  // TrCandState nodes -- so this is just the per-event wrapper the collector
+  // needs, mirroring ProcessEventHlt().
+  //
+  // Deliberately a parallel implementation rather than a refactor of the Hlt
+  // path. The differences that are real, not incidental:
+  //  - no seed-kind classification: we want every seed of the iteration, so
+  //    SS_UseAll, not a contiguous [first, count) block picked by index;
+  //  - hence no relabelSeedTracksSequentially() -- nothing indexes seeds here;
+  //  - seed cleaning, backward fit and backward search follow the
+  //    IterationConfig as in a real job, instead of the Hlt path's hand-picked
+  //    selection.
+  void Shell::ProcessEventStd(EvCtx &ctx) {
+    printf("\n##### BEG Event %d ##### standard forward search\n\n", ctx.ev->evtID());
+
+    // Sim-truth cleanup, as in the Hlt path. The trace's mc_match comes off
+    // these labels, so it matters for any pull or efficiency study.
+    ctx.ev->filterOutMislabeledHitsInSimTracks();
+
+    ProcessEvent(ctx, SS_UseAll);
+
+    // Publish the found tracks into the Event, as RunLSTintoPix() does. Both
+    // quality_val() and the tracing need it: TrCandMeta::cand is an index into
+    // candidateTracks_, assigned in MkBuilder::export_best_comb_cands(), and
+    // ProcessEvent() exports into the caller's vector (ctx.tracks) only.
+    ctx.ev->candidateTracks_ = ctx.tracks;
+
+    {
+      // quality_val() ends in add_to_quality_sum(), which writes the static
+      // Quality::s_quality_sum -- guard it so several events can be in flight.
+      // Also keeps each event's quality printout in one piece.
+      static std::mutex s_qual_mutex;
+      std::lock_guard<std::mutex> qlock(s_qual_mutex);
+      StdSeq::Quality qval;
+      qval.quality_val(ctx.ev);
+    }
+
+    printf("\n##### END Event %d ##### standard forward search\n\n", ctx.ev->evtID());
+  }
+
+  // Near-copy of collect_events_hlt() with ProcessEventStd() in place of
+  // ProcessEventHlt(). See the comments there for why tbb::parallel_for and not
+  // TBB_PARALLEL_FOR, and for what is and is not shared between slots.
+  void Shell::collect_events_std(int ev_first, int ev_last, int n_thr,
+                                 std::vector<const Event *> &out)
+  {
+    const int n_ev = ev_last - ev_first + 1;
+    out.assign(n_ev, nullptr);
+
+    StdSeq::Quality::s_quality_sum.quality_reset();
+
+    if (n_thr <= 1) {
+      for (int i = 0; i < n_ev; ++i) {
+        GoToEvent(ev_first + i);
+        ProcessEventStd(m_ctx);
+        m_ctx.ev->build_trace_maps_etc();
+        out[i] = RelinquishEvent();
+      }
+      StdSeq::Quality::s_quality_sum.quality_print();
+      return;
+    }
+
+    tbb::task_arena arena(n_thr);
+    const int n_slots = arena.max_concurrency();
+
+    std::vector<EvCtx> ctxs(n_slots);
+    for (auto &c : ctxs) {
+      c.ev  = new Event(0, Config::TrkInfo.n_layers());
+      c.eoh = new EventOfHits(Config::TrkInfo);
+      c.bld = new MkBuilder(Config::silent);
+      c.fp  = fopen(m_in_file.c_str(), "r");
+      if (c.fp == nullptr)
+        throw std::runtime_error("collect_events_std: could not open input file for a worker slot");
+    }
+
+    m_data_file->rewind();
+    if (ev_first > 1)
+      m_data_file->skipNEvents(ev_first - 1);
+
+    printf("\nShell::collect_events_std: %d events over %d slots (--num-thr-ev %d)\n\n",
+           n_ev, n_slots, Config::numThreadsEvents);
+
+    std::mutex read_mutex;
+    int claimed = 0;
+    const auto t_coll_beg = std::chrono::steady_clock::now();
+
+    arena.execute([&]() {
+      tbb::parallel_for(tbb::blocked_range<int>(0, n_ev, 1),
+        [&](const tbb::blocked_range<int> &br) {
+          const int slot = tbb::this_task_arena::current_thread_index();
+          if (slot < 0 || slot >= n_slots)
+            throw std::runtime_error("collect_events_std: task arena slot index out of range");
+          EvCtx &ctx = ctxs[slot];
+
+          for (int k = br.begin(); k != br.end(); ++k) {
+            int idx;
+            {
+              std::lock_guard<std::mutex> rlock(read_mutex);
+              idx = claimed++;
+              ctx.ev->reset(ev_first + idx);
+              ctx.ev->read_in(*m_data_file, ctx.fp);
+            }
+
+            StdSeq::loadHitsAndBeamSpot(*ctx.ev, *ctx.eoh);
+            if (Config::useDeadModules)
+              StdSeq::loadDeads(*ctx.eoh, m_deadvectors);
+
+            ProcessEventStd(ctx);
+            ctx.ev->build_trace_maps_etc();
+
+            out[idx] = ctx.ev;
+            ctx.ev = new Event(0, Config::TrkInfo.n_layers());
+          }
+        });
+    });
+
+    for (auto &c : ctxs) {
+      delete c.ev;
+      delete c.bld;
+      delete c.eoh;
+      if (c.fp) fclose(c.fp);
+    }
+
+    std::sort(out.begin(), out.end(),
+              [](const Event *a, const Event *b) { return a->evtID() < b->evtID(); });
+
+    const double t_coll = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - t_coll_beg).count();
+    printf("\nShell::collect_events_std: %d events in %.2f s over %d slots\n\n",
+           n_ev, t_coll, n_slots);
+
+    StdSeq::Quality::s_quality_sum.quality_print();
+  }
+
+  // Driver: traced forward search over the configured event range, Events then
+  // handed to AnRun.
+  //
+  // Intended for a sample with ordinary CMSSW iteration seeds, e.g.
+  //   ./mkFit --input-file .../ntuple_ttbar_PU-p2.bin --geom CMS-phase2
+  //     --seed-input cmssw --seed-cleaning n2 --build-mimi --build-mimi-v2p2
+  //     --num-iters-cmssw 1 --num-events 10 --shell
+  //     --shell-command "gROOT->SetBatch(kTRUE)"
+  //     --shell-command 's.TraceFwdSearch(10, "fwd", 4)'
+  // (one line in the shell; the breaks above are only for readability)
+  //
+  // The canned AnRun analyses used by the Hlt driver are mostly about the
+  // backward-search stage (stage 2) and are not run here. For the forward-search
+  // pull work the Events are reachable from the interpreter as ar.m_ev_vec,
+  // which is what the exploratory macros use.
+  void Shell::TraceFwdSearch(int Nevents, const char *prefix, int n_thr) {
+    std::vector<const Event*> ev_vec;
+
+    int ev_first, ev_last;
+    resolve_event_range(Nevents, ev_first, ev_last);
+    if (n_thr < 0)
+      n_thr = Config::numThreadsEvents;
+    printf("\n######### Shell::TraceFwdSearch() -- events [%d, %d], n_thr = %d.\n\n",
+           ev_first, ev_last, n_thr);
+
+    collect_events_std(ev_first, ev_last, n_thr, ev_vec);
+
+    AnRun *ar = new AnRun(*tracker_info());
+    ar->SetPrefix(prefix);
+    ar->SetupRdfEvent(ev_vec);
+
+    ar->RunBasicSeedCandCheck();
+
+    ar->DrawCanvasGroups();
+    ar->WriteCanvasGroupsToFile();
+
+    export_AnRun(ar);
+  }
+
+  #pragma endregion Standard forward search, traced
+
 } // end namespace mkfit
