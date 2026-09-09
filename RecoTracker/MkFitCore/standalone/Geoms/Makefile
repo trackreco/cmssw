@@ -1,6 +1,6 @@
 include ${SADIR}/Makefile.config
 
-CPPFLAGS := -I${SRCDIR} -I../mkFit-external ${CPPFLAGS}
+CPPFLAGS := -I${SRCDIR} -I${BLDDIR}/mkFit-external ${CPPFLAGS}
 
 .PHONY: all clean distclean echo
 

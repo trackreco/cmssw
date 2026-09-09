@@ -1160,7 +1160,11 @@ namespace mkfit {
     for (int i = 0; i < (int)trCandMetas_.size(); ++i) {
       auto& c = trCandMetas_[i];
       trSIFHforSeedByMeta_[i] = simInfoForCurrentSeed(c.seed);
-      trSIFHforCandByMeta_[i] = simInfoForTrack(candidateTracks_[c.cand]);
+      // c.cand stays -1 for a meta whose candidate never got exported -- it was
+      // filtered out, or the driver did not publish its tracks into
+      // candidateTracks_ at all. candidateTracks_[] is unchecked, so guard it.
+      if (c.cand >= 0 && c.cand < (int)candidateTracks_.size())
+        trSIFHforCandByMeta_[i] = simInfoForTrack(candidateTracks_[c.cand]);
       c.sim = trSIFHforSeedByMeta_[i].label;
     }
 
