@@ -122,8 +122,32 @@ namespace mkfit {
     // Calculate dphi_track, dq_track differs for barrel/endcap
     MPlexQF r2_c = m_isp.x * m_isp.x + m_isp.y * m_isp.y;
     MPlexQF r2inv_c = 1.0f / r2_c;
-    MPlexQF dphidx_c = -m_isp.y * r2inv_c;
-    MPlexQF dphidy_c = m_isp.x * r2inv_c;
+
+    // sigma_phi = J sigma_xy J^T with J = grad phi = (-y, x)/r^2, so |J| = 1/r and
+    // sigma_phi is LARGEST at the smallest radius the track crosses inside the layer.
+    // One window has to cover the whole layer, so evaluate J there -- the conservative
+    // end -- rather than at whichever end the propagation happened to stop at.
+    //
+    // This also fixes an inconsistency: cov_ex is the covariance at m_sp2, while m_isp
+    // is left at m_sp1 by prop_to_limits_in_order(), so J and sigma were being taken at
+    // different points. |J| = 1/r makes that a direct scale error, and rout/rin is 1.34
+    // at pixel layer 0, 1.27 at the inner TOB double layer.
+    //
+    // Note it is a no-op for an OUTWARD search, where m_sp1 is already at rin; it only
+    // widens INWARD searches, which is where the window was too tight.
+    MPlexQF jx, jy, r2inv_j;
+    {
+      const MPlexQF r2_1 = m_sp1.x * m_sp1.x + m_sp1.y * m_sp1.y;
+      const MPlexQF r2_2 = m_sp2.x * m_sp2.x + m_sp2.y * m_sp2.y;
+      for (int i = 0; i < m_n_proc; ++i) {
+        const bool first = r2_1[i] <= r2_2[i];
+        jx[i] = first ? m_sp1.x[i] : m_sp2.x[i];
+        jy[i] = first ? m_sp1.y[i] : m_sp2.y[i];
+        r2inv_j[i] = 1.0f / (first ? r2_1[i] : r2_2[i]);
+      }
+    }
+    MPlexQF dphidx_c = -jy * r2inv_j;
+    MPlexQF dphidy_c = jx * r2inv_j;
     m_dphi_track = 3.0f * cov_ex.calc_err_xy(dphidx_c, dphidy_c).abs().sqrt();
 
     // MPlexQF qmin, qmax;

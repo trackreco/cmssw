@@ -403,64 +403,17 @@ namespace mkfit {
     MkBinLimits BL_p;
     B.find_bin_ranges(mp_job->m_event_of_hits[spi->m_layer], BL_p);
 
-#ifdef MKFIT_TRACE
-    for (int i = 0; i < N_proc; ++i) {
-      mp_event->trace_layersearch(TrLayerSearch {
-        -1, prim_tcand_ptrs[i]->tcand().m_trace_state_id, spi->m_layer,
-        B.m_dphi_track[i], B.m_dq_track[i], statep2pos(B.m_sp1, i), statep2pos(B.m_sp2, i) });
-    }
-#endif
-
-    // This might belong better somewhere else, TPrimCanRep? Calculation into minipropagators.
-    // Also, debug should go out of here or/and be added to traces.
-    // Anyway, here for now.
-
-    namespace mp = mini_propagators;
-
-    mp::Hermite3D H;
-    H.calculate_coeffs(B.m_sp1, B.m_sp2, B.m_isp.inv_k);
-
-    for (int i = 0; i < N_proc; ++i) {
-        dprintf("%d: BinCheck Prim %c %+8.6f %+8.6f | %3d %3d || %+8.6f %+8.6f | %2d %2d\n",
-                i, m_rz_limits.m_is_barrel ? 'B' : 'E',
-                B.m_phi_center[i], B.m_phi_delta[i], BL_p.p1[i], BL_p.p2[i],
-                B.m_q_min[i], B.m_q_max[i], BL_p.q1[i], BL_p.q2[i]);
-    }
-
-    MPlexQF hx, hy, hz;
-    MPlexQF hdx, hdy, hdz;
-    H.evaluate(0.0f, hx, hy, hz, hdx, hdy, hdz);
-    for (int i = 0; i < N_proc; ++i) {
-      dprintf("%d: sp1 %7.3f %7.3f %7.3f | %7.3f %7.3f %7.3f | dalpha = %.4f |   AT 0\n"
-              "   her %7.3f %7.3f %7.3f | %7.3f %7.3f %7.3f -- derfac %.5f\n", i,
-             B.m_sp1.x[i], B.m_sp1.y[i], B.m_sp1.z[i],
-             B.m_sp1.px[i], B.m_sp1.py[i], B.m_sp1.pz[i], B.m_sp1.dalpha[i],
-             hx[i], hy[i], hz[i],
-             hdx[i], hdy[i], hdz[i], H.m_Hderfac[i]);
-    }
-    H.evaluate(0.5f, hx, hy, hz, hdx, hdy, hdz);
-    for (int i = 0; i < N_proc; ++i) {
-      dprintf("%d: isp %7.3f %7.3f %7.3f | %7.3f %7.3f %7.3f | dalpha = %.4f |   AT 0.5\n"
-              "   her %7.3f %7.3f %7.3f | %7.3f %7.3f %7.3f -- derfac %.5f\n", i,
-             B.m_isp.x[i], B.m_isp.y[i], B.m_isp.z[i],
-             B.m_isp.px[i], B.m_isp.py[i], B.m_isp.pz[i], B.m_isp.dalpha[i],
-             hx[i], hy[i], hz[i],
-             hdx[i], hdy[i], hdz[i], H.m_Hderfac[i]);
-    }
-    H.evaluate(1.0f, hx, hy, hz, hdx, hdy, hdz);
-    for (int i = 0; i < N_proc; ++i) {
-      dprintf("%d: sp2 %7.3f %7.3f %7.3f | %7.3f %7.3f %7.3f | dalpha = %.4f |   AT 1\n"
-              "   her %7.3f %7.3f %7.3f | %7.3f %7.3f %7.3f -- derfac %.5f\n", i,
-             B.m_sp2.x[i], B.m_sp2.y[i], B.m_sp2.z[i],
-             B.m_sp2.px[i], B.m_sp2.py[i], B.m_sp2.pz[i], B.m_sp2.dalpha[i],
-             hx[i], hy[i], hz[i],
-             hdx[i], hdy[i], hdz[i], H.m_Hderfac[i]);
-    }
-
     MkBinLimits BL_s; // This should really be optional ... or somewhere else ... well, both.
     if (m_rz_limits.m_is_double) {
       B.find_bin_ranges(mp_job->m_event_of_hits[spi->m_layer_sec], BL_s);
-      for (int i = 0; i < N_proc; ++i) {
+    }
+
+    for (int i = 0; i < N_proc; ++i) {
+      dprintf("%d: BinCheck Prim %c %+8.6f %+8.6f | %3d %3d || %+8.6f %+8.6f | %2d %2d\n",
+              i, m_rz_limits.m_is_barrel ? 'B' : 'E',
+              B.m_phi_center[i], B.m_phi_delta[i], BL_p.p1[i], BL_p.p2[i],
+              B.m_q_min[i], B.m_q_max[i], BL_p.q1[i], BL_p.q2[i]);
+      if (m_rz_limits.m_is_double) {
         dprintf("%d: BinCheck Sec  %c %+8.6f %+8.6f | %3d %3d || %+8.6f %+8.6f | %2d %2d\n",
                 i, m_rz_limits.m_is_barrel ? 'B' : 'E',
                 B.m_phi_center[i], B.m_phi_delta[i], BL_s.p1[i], BL_s.p2[i],
@@ -468,12 +421,93 @@ namespace mkfit {
       }
     }
 
+    // The Hermite cubic through the two bounding-surface crossings. This is the
+    // trajectory model the per-hit plane intersection below is solved on -- the
+    // full propagation is only ever run once per candidate (pea, above) and then
+    // again in the Kalman stage, never per scanned hit.
+    // This might belong better somewhere else, TPrimCanRep? Calculation into minipropagators.
+
+    namespace mp = mini_propagators;
+
+    mp::Hermite3D H;
+    H.calculate_coeffs(B.m_sp1, B.m_sp2, B.m_isp.inv_k);
+
+#ifdef MKFIT_TRACE
+    int tr_layersearch_ids[NN];
+    for (int i = 0; i < N_proc; ++i) {
+      TrLayerSearch ls;
+      ls.state_id   = prim_tcand_ptrs[i]->tcand().m_trace_state_id;
+      ls.layer      = spi->m_layer;
+      ls.layer_sec  = m_rz_limits.m_is_double ? spi->m_layer_sec : -1;
+      ls.is_barrel  = m_rz_limits.m_is_barrel;
+      ls.is_outward = m_rz_limits.m_is_outward;
+
+      ls.prop_entry = statep2propinfo(B.m_sp1, i);
+      ls.prop_exit  = statep2propinfo(B.m_sp2, i);
+
+      ls.phi_center = B.m_phi_center[i];
+      ls.phi_delta  = B.m_phi_delta[i];
+      ls.q_center   = B.m_q_center[i];
+      ls.q_min      = B.m_q_min[i];
+      ls.q_max      = B.m_q_max[i];
+      ls.dphi_track = B.m_dphi_track[i];
+      ls.dq_track   = B.m_dq_track[i];
+
+      ls.cov_xx = TCE.m_cov_0_0[i];
+      ls.cov_xy = TCE.m_cov_0_1[i];
+      ls.cov_yy = TCE.m_cov_1_1[i];
+      ls.cov_zz = TCE.m_cov_2_2[i];
+
+      ls.p1 = BL_p.p1[i];  ls.p2 = BL_p.p2[i];
+      ls.q1 = BL_p.q1[i];  ls.q2 = BL_p.q2[i];
+      if (m_rz_limits.m_is_double) {
+        ls.p1_sec = BL_s.p1[i];  ls.p2_sec = BL_s.p2[i];
+        ls.q1_sec = BL_s.q1[i];  ls.q2_sec = BL_s.q2[i];
+      }
+
+      tr_layersearch_ids[i] = mp_event->trace_layersearch(std::move(ls)).id;
+    }
+#endif
+
+#ifdef MKFIT_TRACE_PROP_COMPARE
+    // Hermite vs helix in mid-layer, where the cubic is furthest from the two
+    // endpoints it interpolates (at t = 0 and 1 it reproduces them by
+    // construction, so those are roundoff checks only and not worth taking).
+    // Evaluate the cubic at t = 0.5, then propagate exactly to the bounding
+    // surface -- r in the barrel, z in the endcap -- that the cubic's midpoint
+    // landed on, so both points sit on the same surface and the difference is a
+    // pure in-surface deviation.
+    {
+      MPlexQF hx, hy, hz;
+      H.evaluate(0.5f, hx, hy, hz);
+      mp::StatePlex sp_mid;
+      if (m_rz_limits.m_is_barrel) {
+        MPlexQF r_mid = Matriplex::hypot(hx, hy);
+        B.m_isp.propagate_to_r(mp::PA_Exact, r_mid, sp_mid, false, N_proc);
+      } else {
+        B.m_isp.propagate_to_z(mp::PA_Exact, hz, sp_mid, false, N_proc);
+      }
+      for (int i = 0; i < N_proc; ++i) {
+        EVec3 dev(hx[i] - sp_mid.x[i], hy[i] - sp_mid.y[i], hz[i] - sp_mid.z[i]);
+        dprintf("%d: HermiteMid dev %+9.6f %+9.6f %+9.6f  (|d| = %.6f, dalpha %.4f -> %.4f, derfac %.5f)\n",
+                i, dev[0], dev[1], dev[2], std::sqrt(dev.Mag2()),
+                B.m_sp1.dalpha[i], B.m_sp2.dalpha[i], H.m_Hderfac[i]);
+#ifdef MKFIT_TRACE
+        mp_event->tr_layersearch(tr_layersearch_ids[i]).hermite_mid_dev = dev;
+#endif
+      }
+    }
+#endif
+
     // Prototype for extract hits
 
     int fill_pos = 0;
-    namespace mp = mini_propagators;
     mp::InitialStatePlex is_plex; // initial state
-    mp::StatePlex h_plex; // state on hit
+#ifdef MKFIT_TRACE_PROP_COMPARE
+    // The uncurved PA_Line step onto the module plane. Kept only as the
+    // cross-check against the Hermite solve -- see the note in do_select_hits().
+    mp::StatePlex h_plex;
+#endif
     MPlexQI prim_idcs; // primary indices into input and MkBins
     MPlexQUI hit_idcs;
     MPlexQUI hit_orig_idcs;
@@ -507,42 +541,79 @@ namespace mkfit {
         int hit_lbl = mchinfo.mcTrackID();
 
         tr_hitmatch_ids[h] = mp_event->trace_hitmatch(TrHitMatch
-          { -1, ptc.tcand().m_trace_state_id, spi->m_layer, (int) hit_orig_idcs[h], sim_lbl == hit_lbl }
+          { -1, ptc.tcand().m_trace_state_id, tr_layersearch_ids[ prim_idcs[h] ],
+            spi->m_layer, (int) hit_orig_idcs[h], sim_lbl == hit_lbl }
         ).id;
 #endif
       }
 
+#ifdef MKFIT_TRACE_PROP_COMPARE
       is_plex.propagate_to_plane(mp::PA_Line, module_pos, module_norm, h_plex, true);
+#endif
 
       mp::Hermite3DOnPlane h3dop;
       h3dop.init_coeffs(h3d, module_pos, module_norm);
-      MPlexQF t2, d2, d3;
+#ifdef DEBUG
+      // Distance-to-plane at the two layer bounding surfaces (d0, d1) and at the
+      // Newton start point (t2, d2) -- debug-only, so keep them inside the ifdef
+      // rather than trusting the optimiser to drop the calls.
+      MPlexQF d0, d1, d2, t2;
+      h3dop.evaluate(0.0f, d0);
+      h3dop.evaluate(1.0f, d1);
       t2 = h3dop.m_T;
       h3dop.evaluate(h3dop.m_T, d2);
+#endif
+      // NOTE: solve() is a SINGLE Newton step, not an iteration to convergence.
+      // d3 below is what says whether that one step was enough, so it goes into
+      // the trace and not just into DEBUG.
       h3dop.solve();
-      h3dop.evaluate(h3dop.m_T, d3);
+#if defined(MKFIT_TRACE) || defined(DEBUG)
+      MPlexQF d3;
+      h3dop.evaluate(h3dop.m_T, d3); // residual distance to plane after the solve
+#endif
 
       mp::StatePlex h3_state;
       h3d.evaluate(h3dop.m_T, h3_state);
       // h3_state.dalpha calculated below, as needed
 
-      // Just for printouts, internal to init_coeffs()
-      MPlexQF d0, d1;
-      h3dop.evaluate(0.0f, d0);
-      h3dop.evaluate(1.0f, d1);
-
-      // Post-process hits into a heap in PrimTCandReps
-      // XXXX Should use h3_state, not h_plex (from mimi::prop-to-plane). DEBUG below shows they are identical.
+      // Post-process hits into a heap in PrimTCandReps.
+      //
+      // Pre-selection runs on h3_state, the Hermite cubic solved onto the module
+      // plane -- consistently with the state that goes into the pqueue and on to
+      // the Kalman update.
+      //
+      // It used to run on h_plex, a PA_Line step, and that was not a modelling
+      // choice: propagate_to_plane() implements ONLY PA_Line, PA_Quadratic and
+      // PA_Exact both throw. (Nor is that unreasonable -- substituting the helix
+      // into n.(r-p)=0 gives A sin(a) + B (1-cos(a)) + C a + D = 0 with
+      // C = n_z k p_z, which is transcendental unless the module is untilted.
+      // Hermite3DOnPlane IS the curved answer.)
+      //
+      // The line step was fine when it was written, because prop_to_limits()
+      // left m_isp at the LAYER CENTRE -- see its "m_isp is now at the layer
+      // center" comment. prop_to_limits_in_order(), which replaced it, leaves
+      // m_isp at m_sp1, the entry edge, turning a short symmetric hop into a
+      // one-sided extrapolation across the whole layer. Measured over 10 events
+      // (52375 scanned hits, clean searches): |h3 - h_plex| median 32 um, 90th
+      // pct 4 mm, 99th pct 110 cm -- for a tenth of hits, more than the entire
+      // phi window.
+      //
+      // Switching gained: found tracks 2145 -> 2152, nH >= 80% 1500 -> 1505,
+      // and unassociated 505 -> 498. More tracks, more good tracks, fewer fakes.
+      //
+      // NOTE: two other things still assume m_isp is the layer centre --
+      // MkBins::determine_bin_windows() evaluates the dphi/dq jacobian there,
+      // and m_q_center is set from it. See RecoTracker/CLAUDE.md.
       for (int h = 0; h < N_proc_hits; ++h) {
         PrimTCandRep &ptc = * prim_tcand_ptrs[ prim_idcs[h] ];
         float q, ddq, phi, ddphi;
         if (m_rz_limits.m_is_barrel) {
-          q = h_plex.z[h];
+          q = h3_state.z[h];
         } else {
-          q = hipo(h_plex.x[h], h_plex.y[h]);
+          q = hipo(h3_state.x[h], h3_state.y[h]);
         }
         ddq = std::abs(q - L.hit_q(hit_idcs[h]));
-        phi = vdt::fast_atan2f(h_plex.y[h], h_plex.x[h]);
+        phi = vdt::fast_atan2f(h3_state.y[h], h3_state.x[h]);
         ddphi = cdist(std::abs(phi - L.hit_phi(hit_idcs[h])));
 
         const float EXTRA_DQ = 3.0f; // Inwards search into pixels verry tight.
@@ -570,21 +641,42 @@ namespace mkfit {
         dprintf("      H3 d0=%.4f d1=%.4f -> d2=%e t2=%e -> d3=%e t3=%e ... dalpha=%6.4f\n",
                d0[h], d1[h], d2[h], t2[h], d3[h], h3dop.m_T[h],
                h3_state.dalpha[h]);
-              //  B.m_sp1.dalpha[prim_idcs[h]] + h3dop.m_T[h]*(B.m_sp2.dalpha[prim_idcs[h]] - B.m_sp1.dalpha[prim_idcs[h]]));
-        dprintf("      H3 PARS %f %f %f; %f %f %f\n", h3_state.x[h], h3_state.y[h], h3_state.z[h],
+        // The two cheap propagations onto this module plane, side by side.
+        // t3 outside [0,1] means the Hermite is extrapolating past the layer.
+        dprintf("      H3   pos %8.4f %8.4f %8.4f | mom %8.4f %8.4f %8.4f\n",
+                h3_state.x[h], h3_state.y[h], h3_state.z[h],
                 h3_state.px[h], h3_state.py[h], h3_state.pz[h]);
+        dprintf("      LINE pos %8.4f %8.4f %8.4f | mom %8.4f %8.4f %8.4f\n",
+                h_plex.x[h], h_plex.y[h], h_plex.z[h],
+                h_plex.px[h], h_plex.py[h], h_plex.pz[h]);
+        dprintf("      H3 - LINE %+9.6f %+9.6f %+9.6f -- |d| = %.6f\n",
+                h3_state.x[h] - h_plex.x[h], h3_state.y[h] - h_plex.y[h], h3_state.z[h] - h_plex.z[h],
+                hipo(hipo(h3_state.x[h] - h_plex.x[h], h3_state.y[h] - h_plex.y[h]),
+                     h3_state.z[h] - h_plex.z[h]));
         // clang-format on
 #endif
 
 #ifdef MKFIT_TRACE
         auto &tr_hitmatch = mp_event->tr_hitmatch(tr_hitmatch_ids[h]);
+        // h3_state -- the state the cuts just above were taken on.
         tr_hitmatch.kine_on_plane = statep2bivec3(h3_state, h);
+        tr_hitmatch.t_hermite = h3dop.m_T[h];
+        tr_hitmatch.d_plane_h3 = d3[h];
         tr_hitmatch.dphi = ddphi;
         tr_hitmatch.dq = ddq;
+        tr_hitmatch.hit_q_half_len = L.hit_q_half_length(hit_idcs[h]);
         tr_hitmatch.passed_preselect = dqdphi_presel;
 
+        auto &tr_ls = mp_event->tr_layersearch(tr_layersearch_ids[ prim_idcs[h] ]);
+        if (dqdphi_presel)
+          ++tr_ls.n_hits_presel;
+
+#ifdef MKFIT_TRACE_PROP_COMPARE
+        tr_hitmatch.kine_on_plane_cmp = statep2bivec3(h_plex, h);
+#endif
+
         // residuals
-        EVec3 res = EVec3(h_plex.x[h], h_plex.y[h], h_plex.z[h]) - hit2pos(L.refHit(hit_orig_idcs[h]));
+        EVec3 res = EVec3(h3_state.x[h], h3_state.y[h], h3_state.z[h]) - hit2pos(L.refHit(hit_orig_idcs[h]));
         tr_hitmatch.residual_x = res.Dot( EVec3(module_xdir(h, 0, 0), module_xdir(h, 1, 0), module_xdir(h, 2, 0)) );
         tr_hitmatch.residual_y = res.Dot( EVec3(module_ydir(h, 0, 0), module_ydir(h, 1, 0), module_ydir(h, 2, 0)) );
         tr_hitmatch.residual_z = res.Dot( EVec3(module_norm(h, 0, 0), module_norm(h, 1, 0), module_norm(h, 2, 0)) );
@@ -642,9 +734,16 @@ namespace mkfit {
               dprintf(" %d: P_HIT %3u %4u %5u [%5u]  %6.3f %6.3f %6.3f\n",
                 i, pi, qi, hi, hi_orig, L.hit_phi(hi), L.hit_q(hi), L.hit_qbar(hi));
 
+#ifdef MKFIT_TRACE
+              ++mp_event->tr_layersearch(tr_layersearch_ids[i]).n_hits_scanned;
+#endif
+
               if (iteration_hit_mask && (*iteration_hit_mask)[hi_orig]) {
                 dprintf("Yay, denying masked hit on layer %u, hi %u, orig idx %u\n",
                         L.layer_info().layer_id(), hi, hi_orig);
+#ifdef MKFIT_TRACE
+                ++mp_event->tr_layersearch(tr_layersearch_ids[i]).n_hits_masked;
+#endif
                 continue;
               }
 
@@ -697,6 +796,7 @@ namespace mkfit {
       PrimTCandRep &ptc = * prim_tcand_ptrs[i];
 #ifdef MKFIT_TRACE
       int rank = ptc.m_pqueue_size;
+      mp_event->tr_layersearch(tr_layersearch_ids[i]).n_hits_pqueue = ptc.m_pqueue_size;
 #endif
       while (ptc.m_pqueue_size) {
         --ptc.m_pqueue_size;
