@@ -110,6 +110,11 @@ namespace mkfit {
                     const int N_proc,
                     const PropagationFlags& pflags);
 
+  // Selects the root form used by getS() in the plane solve: true (default) the
+  // numerically stable one, false the historical (-B +- sqrt)/(2C). A runtime
+  // switch so the two can be compared in one binary -- see pkv_task5().
+  extern bool g_getS_stable_root;
+
   void propagateHelixToPlaneMPlex(const MPlexLS& inErr,
                                   const MPlexLV& inPar,
                                   const MPlexQI& inChg,

@@ -366,8 +366,19 @@ namespace {
     const float rho = kinv * ip;
     const float C = -(eta0 * p0[1] - eta1 * p0[0]) * rho * 0.5f * ip;
     const float sqb2m4ac = std::sqrt(B * B - 4.f * A * C);
-    const float s1 = (-B + sqb2m4ac) * 0.5f / C;
-    const float s2 = (-B - sqb2m4ac) * 0.5f / C;
+    float s1, s2;
+    if (g_getS_stable_root) {
+      // C is proportional to rho, i.e. to 1/p, so in the stiff-track limit the
+      // naive form below cancels in the numerator of the SMALL root -- which is
+      // the one returned. Form the root that does not cancel, take the other
+      // from s1*s2 = A/C. Equivalent to leo/fit_incrementalchanges 92b785fcf67.
+      const float qq = -0.5f * (B + std::copysign(sqb2m4ac, B));
+      s1 = A / qq;
+      s2 = qq / C;
+    } else {
+      s1 = (-B + sqb2m4ac) * 0.5f / C;
+      s2 = (-B - sqb2m4ac) * 0.5f / C;
+    }
 #ifdef DEBUG
     if (debug)
       std::cout << "A=" << A << " B=" << B << " C=" << C << " s1=" << s1 << " s2=" << s2 << std::endl;
@@ -492,6 +503,8 @@ namespace {
 // ============================================================================
 
 namespace mkfit {
+
+  bool g_getS_stable_root = true;
 
   void helixAtPlane(const MPlexLV& inPar,
                     const MPlexQI& inChg,
