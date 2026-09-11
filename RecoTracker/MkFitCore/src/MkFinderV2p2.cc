@@ -78,7 +78,7 @@ namespace mkfit {
       if (ccand.state() == CombCandidate::Dormant &&
           (ccand.pickupLayer() == lc.m_layer || ccand.pickupLayer() == lc.m_layer_sec)) {
         ccand.setState(CombCandidate::Finding);
-        auto ccrep = m_active_ccreps.emplace_back(m_hot_tub, ccand);
+        auto ccrep = m_active_ccreps.emplace_back(ccand);
         dprintf("MkFinderV2p2::awaken_candidates dummy printout N_TrackCands=%d\n",
                (int) ccand.size());
         ++count;

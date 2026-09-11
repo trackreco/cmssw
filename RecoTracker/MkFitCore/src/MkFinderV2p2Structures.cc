@@ -13,6 +13,59 @@
 
 namespace mkfit {
 
+  //----------------------------------------------------------------------------
+  // SecTCandRep storage -- decision and plan.
+  //
+  // In-layer combinatorial search produces, for every PrimTCandRep, a set of
+  // partial extensions: hits from both sub-layers and from module overlaps,
+  // taken in propagation order, with Kalman updates applied along the way. Which
+  // of those paths materialise into the CombCandidate as TrackCands is decided
+  // only at end_layer(). So what has to be stored is a DECISION TREE -- exactly
+  // the shape CombCandidate::m_hots already uses for its HoTNodes, and for the
+  // same reason: every node needs a way back to its predecessor, nothing needs a
+  // way forward, and the whole thing is reclaimed in one go.
+  //
+  // A plain std::vector<SecTCandRep> is the simpler and cleaner implementation of
+  // that. A node's index IS its handle, a single int m_parent_idx gives the way
+  // back, appending is a push_back, and end_layer() is a size rewind that keeps
+  // capacity -- after a few layers the arena is at high water and stops
+  // allocating. Nothing else is needed: no per-node bookkeeping, no free list.
+  //
+  // Design points to keep when this gets built:
+  //
+  //  - ONE arena per MkFinderV2p2 (i.e., per thread), NOT one per CCandRep. A
+  //    Matriplex batch will want to pack lanes from SecTCandReps drawn across
+  //    several PrimTCandReps and several CCandReps, so a single base pointer must
+  //    reach all of them. (MkFinder carries const HoTNode *m_HoTNodeArr[NN] --
+  //    NN separate bases chased scalar-ly -- precisely because m_hots is
+  //    per-CombCandidate.)
+  //
+  //  - Reach nodes by INDEX, never by pointer. Then the vector may grow freely:
+  //    the single-allocation requirement for slurpIn is instantaneous (the
+  //    offsets are computed right before the gather), unlike CcPool's, which is
+  //    hard because raw TrackCand*s outlive it.
+  //
+  //  - Expand the frontier breadth-first BY TREE DEPTH, not depth-first per rep.
+  //    That is what fills NN lanes from the whole depth-d frontier at once, and
+  //    it keeps parent_idx < child_idx unconditionally true, so a forward sweep
+  //    over the arena is always a valid topological order.
+  //
+  //  - The frontier is search state, not node state: a std::vector<int> of live
+  //    leaves, double-buffered per sub-layer / overlap step, carrying the hit
+  //    cursor (skipping a hit is a cursor advance) and the running hole count.
+  //    The node itself carries only parent, hit, chi2 and the updated state --
+  //    what is needed to register hits into the CombCandidate at end of layer.
+  //
+  //  - Materialise survivors at EVERY end_layer(). Holding to that as an
+  //    invariant is what makes the bulk rewind correct and means finished or
+  //    dropped CombCandidates never need to be weeded out of the arena.
+  //
+  // Note the lifetime asymmetry against m_hots, which is why this is a separate
+  // arena rather than an extension of HoTNode: sizeof(HoTNode) is 12 B and it
+  // lives for the whole event, while a SecTCandRep is ~136 B (a TrackState alone
+  // is 112) and lives for one layer.
+  //----------------------------------------------------------------------------
+
   void PropErrsArgs::do_propagation_stuff() {
     MPlexHV dummy {0.0f};
     propagateHelixToPlaneMPlex(tsErr, tsPar, tsChg, dummy, dummy, &sPerp,

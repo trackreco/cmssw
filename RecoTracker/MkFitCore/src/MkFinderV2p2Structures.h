@@ -4,7 +4,6 @@
 #include "RecoTracker/MkFitCore/interface/HitStructures.h"
 #include "RecoTracker/MkFitCore/interface/TrackStructures.h"
 
-#include "HotTub.h"
 #include "MiniPropagators.h"
 
 #include <queue>
@@ -21,7 +20,7 @@ namespace mkfit {
 
     // Intermediate storage of post-kalman-update with enough state to properly
     // update the TrackCand. Will potentially have multiple hits.
-    struct SecTCandRep /* : public HotTubItem */ {
+    struct SecTCandRep {
       TrackCand *m_tcand; // or, PrimTCandRep? Or either? To accomodate missed/glazed layers?
       TrackState m_state;
       HitOnTrack m_hot;
@@ -97,10 +96,10 @@ namespace mkfit {
 
     //----------------------------------------------------------------------------
 
-    struct CCandRep : public HotTubConsumer<SecTCandRep> {
+    struct CCandRep {
       CombCandidate &m_ccand;
 
-      std::vector<PrimTCandRep> m_primTCs; // for now, could be in another hot-tub
+      std::vector<PrimTCandRep> m_primTCs; // for now, could live in the shared arena
 
       // We could also keep track of the TrackCands that do not enter layer
       // processing at all -- either already stopped or missing this layer.
@@ -120,8 +119,7 @@ namespace mkfit {
       // int m_n_mc_hits_in_layer_sec = -1;
     #endif
 
-      CCandRep(HotTub<SecTCandRep> &htub, CombCandidate& ccand) :
-        HotTubConsumer<SecTCandRep>(htub),
+      CCandRep(CombCandidate& ccand) :
         m_ccand(ccand)
       {
          // QQQQ reserve also in begin_next_Ccrep_in_layer()

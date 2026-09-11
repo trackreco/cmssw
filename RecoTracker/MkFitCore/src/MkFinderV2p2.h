@@ -106,8 +106,7 @@ namespace mkfit {
     //-------------------------------------------------------------------------
 
   public:
-    MkFinderV2p2() : m_hot_tub(2 * NN) // XX to be checked, probably some more
-    {}
+    MkFinderV2p2() = default;
 
     //----------------------------------------------------------------------------
 
@@ -156,8 +155,6 @@ namespace mkfit {
 
     //----------------------------------------------------------------------------
     // Per-(di)layer state & control
-    HotTub<SecTCandRep> m_hot_tub;
-
     std::list<CCandRep> m_active_ccreps;
     // Current CombCand and next TrackCand to go through layer initialization, i.e.,
     // propagation to layer limits, Binnor creation and extraction of bin-indices, and
