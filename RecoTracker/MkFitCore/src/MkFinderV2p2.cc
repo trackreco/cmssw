@@ -69,16 +69,70 @@ namespace mkfit {
     const LayerControl &lc = mp_steeringparams_iter->layer_control();
     for (auto &ccand : m_batch_mgr) {
 
-      // XXXX What do we do with "crossed" cases in double layers?
-      // XXXX   Question is, do we pick them up before (so we could recuperate extra hits)
-      // XXXX   or after (as now) and how we make sure
-      // XXXX   we don't re-find the pre-existing hit.
-      // XXXX Also, should ccand.pickupLayer() be flexible in this respect?
+      // Answered (2026-09-09) -- picking up *at* the pair, as now, is right, and
+      // all three questions below collapse into one mechanism once the two
+      // sub-layers' hits are merged into a single path-length-ordered list:
+      //
+      //   A seed whose last hit already sits in one layer of the pair is just
+      //   the cursor-initialisation case, i.e. the same machinery as hit
+      //   skipping. And no cursor arithmetic is even needed: the candidate's
+      //   state *is* at that hit, so propagating from there puts it at
+      //   dalpha = 0 and everything further along at dalpha > 0. Extending
+      //   forward-only therefore excludes it structurally -- the same canonical
+      //   ordering that makes each hit subset reachable exactly once -- so
+      //   "don't re-find the pre-existing hit" needs no check at all.
+      //
+      //   Two details: take dalpha > eps rather than > 0, since the hit itself
+      //   sits at 0 +- eps while a genuine *overlap partner* in the same
+      //   sub-layer sits at essentially the same path length and is exactly the
+      //   "recuperate extra hits" case worth keeping (eps below the
+      //   module-to-module path-length separation, above float noise). And
+      //   "just move on" is the degenerate case of the same code path, not a
+      //   decision: if the existing hit is already past every pre-selected hit
+      //   the list after the cursor is empty and the pair is a no-op.
+      //
+      //   So pickupLayer() matching either sub-layer (as below) is what we want.
+      //   If the goal is instead to *re-evaluate* the seed's hit rather than
+      //   extend past it, that is a different question with an existing idiom:
+      //   chop the hit off and let the search re-find it, as clear_out_pixel_hits
+      //   does in RunLSTintoPix(), rather than special-casing the pair.
+      //
+      // What *does* differ for these candidates is the propagation setup, not the
+      // hit bookkeeping: they sit INSIDE the pair's bounding shell, so their rin
+      // crossing is at negative dalpha -- they are mid-layer, not at the entry
+      // edge. That still needs no branch: propagate_to_r() takes the crossing with
+      // the smaller |alpha|, so it finds the backward rin crossing, and since both
+      // sp1 and sp2 dalphas are measured from the candidate's own state, dalpha = 0
+      // *is* the existing hit. The only cost is that the window then also covers
+      // the part of the shell behind the candidate -- more hits scanned, no wrong
+      // answers.
+      //
+      // So the unclamped version is correct as-is, and batching these separately
+      // is a pure optimisation. Its right shape is a *different MkRZLimits*, not a
+      // branch in the kernel: clamp the shell to [r_hit, rout], give them their own
+      // pre-select queue, run the same kernel on it -- partition the work by which
+      // parameter set it needs, the same way the WSR near-miss / clear-miss split
+      // wants to. Classification is free right here, since we already test both
+      // sub-layers below.
+      //
+      // Worth measuring before building it: how many candidates per layer actually
+      // pick up at m_layer_sec. A separate batch means partly-empty Matriplex
+      // lanes, so a trickle is cheaper handled by the wider window, while a large
+      // fraction (plausible for T5 seeds starting in TOB) makes the partition pay.
+      //
+      // See RecoTracker/CLAUDE.md, "A seed whose last hit is already in one
+      // layer of the pair".
 
       if (ccand.state() == CombCandidate::Dormant &&
           (ccand.pickupLayer() == lc.m_layer || ccand.pickupLayer() == lc.m_layer_sec)) {
         ccand.setState(CombCandidate::Finding);
-        auto ccrep = m_active_ccreps.emplace_back(ccand);
+        // NB: auto& -- std::list::emplace_back returns a *reference*. With a plain
+        // `auto` this copy-constructed the CCandRep (it is copyable: its members
+        // are references), so the m_seed_mc_label / m_mc_layer_sequence stores
+        // below landed on a temporary and the list element kept -1. Harmless
+        // while those three MKFIT_STANDALONE fields are write-only, silently
+        // wrong the moment they are wired into the trace.
+        auto &ccrep = m_active_ccreps.emplace_back(ccand);
         dprintf("MkFinderV2p2::awaken_candidates dummy printout N_TrackCands=%d\n",
                (int) ccand.size());
         ++count;
@@ -618,19 +672,19 @@ namespace mkfit {
 
         const float EXTRA_DQ = 3.0f; // Inwards search into pixels verry tight.
         bool dqdphi_presel = ddq < EXTRA_DQ * B.m_dq_track[prim_idcs[h]] + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]) &&
-                             ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * 0.0123f;
+                             ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * MkBins::HIT_PHI_HALF_EXTENT;
 
         // To be moved down, only for hits that pass pre-selection, needed here for printout.
         // Could be vectorized if we repack binnor stuff.
         h3_state.dalpha[h] = B.m_sp1.dalpha[prim_idcs[h]] + h3dop.m_T[h]*(B.m_sp2.dalpha[prim_idcs[h]] - B.m_sp1.dalpha[prim_idcs[h]]);
 
         // QQQQQQ testing, just keep phi cut
-        // dqdphi_presel = ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * 0.0123f;
+        // dqdphi_presel = ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * MkBins::HIT_PHI_HALF_EXTENT;
 
 #ifdef DEBUG
         // clang-format off
         bool dq_presel = ddq < EXTRA_DQ * B.m_dq_track[prim_idcs[h]] + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]);
-        bool dphi_presel = ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * 0.0123f;
+        bool dphi_presel = ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * MkBins::HIT_PHI_HALF_EXTENT;
         dprintf("     SelHit %6.3f %6.3f %6.4f %7.5f   %6.4f   %s [dq = %d, dphi = %d]\n",
                 L.hit_q(hit_idcs[h]), L.hit_phi(hit_idcs[h]),
                 ddq, ddphi, h_plex.dalpha[h], dqdphi_presel ? "PASS" : "REJECT", dq_presel, dphi_presel);
@@ -863,6 +917,20 @@ namespace mkfit {
 
     // This, esp. the combinatorial part, should be done once prim-tcand is finished.
     // And, merging results, when ccand is finished.
+
+    // XXXX MISSING HERE: both candidate-stopping cuts that V1/V2 apply in
+    // MkBuilder::find_tracks_unroll_candidates() -- pT < iter_params.minPtCut,
+    // and the looper cut (fwd search, pT < 1.2, r > 25 cm, transverse angle
+    // between position and momentum past pi/2 - 0.2). v2p2 reaches NEITHER:
+    // its copy of that function is the commented-out
+    // find_tracks_unroll_candidates_v2p2() below, and minPtCut appears nowhere
+    // else here. This is where they belong -- the tcand is extended in the layer
+    // right here -- but it is not a paste-in: the per-layer tcand state machine
+    // to hang them off does not exist yet, so take them as requirements on the
+    // SecTCandRep / end-of-layer materialisation design. When porting, copy the
+    // TwoPI - kMaxAngPosMom expression rather than writing a second literal, and
+    // have the stop RECORD why (loopers are wanted later for the phase-2 timing
+    // detectors and HGCal).
     for (int i = 0; i < N_proc; ++i) {
       PrimTCandRep &ptc = * prim_tcand_ptrs[i];
       TrackCand &tc = ptc.tcand();

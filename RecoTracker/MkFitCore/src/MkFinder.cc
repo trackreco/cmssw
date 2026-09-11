@@ -958,7 +958,7 @@ namespace mkfit {
             new_phi = vdt::fast_atan2f(mp_s.y, mp_s.x);
             new_ddphi = cdist(std::abs(new_phi - L.hit_phi(hi)));
             bool dqdphi_presel = new_ddq < B.m_dq_track[itrack] + MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hi) &&
-                                 new_ddphi < B.m_dphi_track[itrack] + MkBins::DDPHI_PRESEL_FAC * 0.0123f;
+                                 new_ddphi < B.m_dphi_track[itrack] + MkBins::DDPHI_PRESEL_FAC * MkBins::HIT_PHI_HALF_EXTENT;
 
             // clang-format off
             dprintf("     SHI[%4u] %3u %4u %5u  %6.3f %6.3f %6.4f %7.5f  PROP-%s  %s\n",

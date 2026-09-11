@@ -691,10 +691,25 @@ namespace mkfit {
               ccand[ic].addHitIdx(-2, layer, 0.0f);
               continue;
             }
-            // Check if the candidate is close to it's max_r, pi/2 - 0.2 rad (11.5 deg)
+            // Stop the candidate once the transverse angle between position and
+            // momentum exceeds pi/2 - 0.2 rad (78.5 deg): hits at that grazing
+            // an incidence are wide and spoil the measurement.
+            //
+            // dphi is |posPhi - momPhi| with both wrapped to (-pi, pi], so an
+            // angle past the limit appears either as dphi > kMaxAngPosMom or,
+            // when the pair straddles the +-pi branch cut, as
+            // dphi < TwoPI - kMaxAngPosMom. The upper bound is the wrap image of
+            // the lower and must be DERIVED from it -- the previous hardcoded
+            // 4.512f was pi + kMaxAngPosMom, letting the 78.5-101.5 deg band
+            // escape whenever the pair straddled (3.2% of the (posPhi, momPhi)
+            // square, ~0.1% of displaced low-pT tracks, each stopped by 101.5
+            // deg anyway). As written the test is exactly equivalent to
+            // cos(momPhi - posPhi) < sin(0.2), verified over a 1200x1200 grid.
             if (iteration_dir == SteeringParams::IT_FwdSearch && ccand[ic].pT() < 1.2f) {
+              constexpr float kMaxAngPosMom = Const::PIOver2 - 0.2f;
               const float dphi = std::abs(ccand[ic].posPhi() - ccand[ic].momPhi());
-              if (ccand[ic].posRsq() > 625.f && dphi > 1.371f && dphi < 4.512f) {
+              if (ccand[ic].posRsq() > 625.f && dphi > kMaxAngPosMom &&
+                  dphi < Const::TwoPI - kMaxAngPosMom) {
                 // printf("Stopping cand at r=%f, posPhi=%.1f momPhi=%.2f pt=%.2f emomEta=%.2f\n",
                 //        ccand[ic].posR(), ccand[ic].posPhi(), ccand[ic].momPhi(), ccand[ic].pT(), ccand[ic].momEta());
                 ccand[ic].addHitIdx(-2, layer, 0.0f);

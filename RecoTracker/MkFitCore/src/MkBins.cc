@@ -169,8 +169,8 @@ namespace mkfit {
         // const float dphi_clamp = 0.1;
         // if (dphi_min[i] > 0.0f || dphi_min[i] < -dphi_clamp) dphi_min[i] = -dphi_clamp;
         // if (dphi_max[i] < 0.0f || dphi_max[i] > dphi_clampf) dphi_max[i] = dphi_clamp;
-        bl.p1[i] = loh.phiBinChecked(m_phi_min[i] - m_dphi_track[i] - PHI_BIN_EXTRA_FAC * 0.0123f);
-        bl.p2[i] = loh.phiBinChecked(m_phi_max[i] + m_dphi_track[i] + PHI_BIN_EXTRA_FAC * 0.0123f);
+        bl.p1[i] = loh.phiBinChecked(m_phi_min[i] - m_dphi_track[i] - PHI_BIN_EXTRA_FAC * HIT_PHI_HALF_EXTENT);
+        bl.p2[i] = loh.phiBinChecked(m_phi_max[i] + m_dphi_track[i] + PHI_BIN_EXTRA_FAC * HIT_PHI_HALF_EXTENT);
 
         bl.q0[i] = loh.qBinChecked(m_q_center[i]);
         bl.q1[i] = loh.qBinChecked(m_q_min[i] - m_dq_track[i] - Q_BIN_EXTRA_FAC * 0.5f * loh.layer_info().q_bin());

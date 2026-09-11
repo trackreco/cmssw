@@ -69,6 +69,19 @@ namespace mkfit {
       std::priority_queue<PQE, std::vector<PQE>> m_pqueue;
       int m_pqueue_size = 0;
 
+      // XXXX Two separate vectors is the wrong shape for a double layer, and
+      // m_layer_sec_hits is currently declared and never filled.
+      // The two sub-layers of a pair are nested and radially INTERLEAVED -- L4
+      // spans r(22.14, 28.73) and L5 r(22.39, 28.54), offset 2.5 mm out of a
+      // 6.5 cm shell, because TBPS is tilted -- and which member is at larger r
+      // flips module by module. So a track's L5 hit can easily sit at SHORTER
+      // path length than its L4 hit and the sub-layers cannot be processed in
+      // sequence. These want to be ONE list, merged across both sub-layers and
+      // sorted ascending by pqe.mixed_state.dalpha, which is also exactly what
+      // the in-layer combinatorial search needs. Overlaps then need no mechanism
+      // of their own: "up to 4 hits" = 2 sub-layers x 2 phi-overlapping modules,
+      // the phi axis already coming from the phi bin range in find_bin_ranges().
+      // See RecoTracker/CLAUDE.md, "The one real gap: sub-layers are interleaved".
       std::vector<PQE> m_layer_hits;
       std::vector<PQE> m_layer_sec_hits;
 

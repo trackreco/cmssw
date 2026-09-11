@@ -51,6 +51,24 @@ namespace mkfit {
     static constexpr float PHI_BIN_EXTRA_FAC = 2.75f;
     static constexpr float Q_BIN_EXTRA_FAC = 1.6f;
 
+    // Assumed phi half-extent of a hit, in radians -- the phi-side counterpart of
+    // LayerOfHits::hit_q_half_length(). Unlike that one it is NOT derived from the
+    // hit covariance: it is a single detector-wide constant, with no per-hit,
+    // per-layer or geometry dependence. Was an unnamed 0.0123f literal repeated in
+    // five places (this file, MkFinderV2p2 pre-selection, MkFinder V2 path).
+    //
+    // What the phi extent of a strip hit actually is: the module frame has xdir
+    // perpendicular to the strips (i.e. essentially azimuthal), ydir along the
+    // strips and zdir along the normal -- so ydir and zdir both lie in the (r,z)
+    // plane. Consequently the strip *length* contributes to z and r but **nothing
+    // to phi**, and the only phi extent is the across-strip pitch term. For a TOB
+    // 2S strip at r = 69 cm with 90 um pitch that is sigma_phi ~ 1.3e-4 rad, so
+    // DDPHI_PRESEL_FAC * this constant is ~190x the pitch term -- uniformly and
+    // hugely over-generous, tilted layers included. That costs scanned hits, not
+    // efficiency, so it is a tuning/cleanup item rather than a bug. See
+    // RecoTracker/CLAUDE.md for the full q/phi extraction cross-check.
+    static constexpr float HIT_PHI_HALF_EXTENT = 0.0123f;
+
     static constexpr int NEW_MAX_HIT = 6;  // 4 - 6 give about the same # of tracks in quality-val
 
     mini_propagators::InitialStatePlex m_isp;
