@@ -1,0 +1,143 @@
+#ifndef RecoTracker_MkFitCore_standalone_RdfTrace_ValProp_h
+#define RecoTracker_MkFitCore_standalone_RdfTrace_ValProp_h
+
+// ===========================================================================
+// Synthetic validation of propagation, Kalman operations and fitting.
+//
+// GENERATION lives here and needs the mkFit build (the propagator). ANALYSIS
+// does not: the output is a plain TTree of dictionary-ed Val* structs, so a
+// bare root.exe session can read it after
+//     gSystem->Load("libMkFitRootDataFormats.so")
+// and run RDataFrame over it with no mkFit at all.
+//
+// No detector geometry is used. Closure is a property of the PROPAGATOR, not
+// of the detector, so the planes here are constructed analytically at chosen
+// radii. That also removes a whole class of contamination -- a synthetic plane
+// cannot be geometry-incompatible with a sample. Real modules earn their way
+// back in at a higher rung of the ladder.
+//
+// Declaration-only on purpose: this header is parsed by cling through
+// test/val-prop.C, so it must pull in no Matriplex header.
+//
+//   cd /foo/matevz/mic-dev/current/src/standalone
+//   unset DISPLAY; export LD_LIBRARY_PATH=.
+//   echo .q | ./mkFit --geom CMS-phase2 --input-file <any .bin> --num-events 1 \
+//     --num-thr 1 --shell \
+//     --shell-command 'gROOT->SetBatch(kTRUE)'
+//     --shell-command 'gROOT->ProcessLine(".L ../RecoTracker/MkFitCore/standalone/test/val-prop.C")'
+//     --shell-command 'val_gen("val-closure.root")'
+// ===========================================================================
+
+namespace mkfit {
+
+  class Event;
+
+
+  // Generates a jittered stratified sample of truth helices and, for each of
+  // the built-in plane configurations, runs the three-leg round trip
+  //     O -> A (conditioning) -> B (the step under test) -> A'
+  // writing one ValClosure per trial into TTree "closure", plus the
+  // configuration legend into TTree "cfgs".
+  //
+  // The sampling is a grid with per-cell jitter: every cell is populated, so
+  // per-bin statistics stay exact, but no two tracks share a pT, an eta or a
+  // phi -- which is what keeps the scan from aliasing against plane radii or
+  // against the float grid itself.
+  //
+  // pT is flat in log10 over [0.05, 200] GeV, eta flat over [-4, +4]. The range
+  // reaches below the physics band on purpose: the pixel-scale plane pairs can
+  // only approach tangency there. Cut at pT >= 0.3 for physics statements.
+  // d0 / z0 displace the production vertex (0 = from the origin).
+  void val_gen_closure(const char *out_file = "val-closure.root",
+                       int n_pt = 18,
+                       int n_eta = 32,
+                       int n_phi = 8,
+                       unsigned seed = 20260911u,
+                       float d0 = 0.0f,
+                       float z0 = 0.0f);
+
+  // What turn angles does a REAL track present between consecutive hits?
+  //
+  // Accumulates across events; call val_dalpha_reset() first, then
+  // val_dalpha_add_event(ev) per event, then val_dalpha_write(file).
+  // `which`: 0 = cmsswTracks_, 1 = simTracks_, 2 = candidateTracks_.
+  void val_dalpha_reset();
+  void val_dalpha_add_event(const Event *ev, int which = 0, float pt_min = 0.5f);
+  void val_dalpha_write(const char *out_file = "val-dalpha.root");
+
+  // Is a sample's geometry the one this build has?
+  //
+  // Hit::detIDinLayer() is a SHORT ID assigned when the ntuple was written,
+  // by tkinfo[ilay].short_id(detId). It is only meaningful against the
+  // geometry the file was written with. A hit lies on its own module's plane
+  // by construction, so |n.(hit - plPnt)| must be ~0; anything else is proof
+  // that the module lookup is wrong, and then every module-frame quantity on
+  // that sample -- residuals, the Kalman projection, chi2 -- is meaningless.
+  //
+  // Reference values measured with this test: 2.9e-9 cm median on a compatible
+  // sample, 0.26 cm median (max 220 cm) on an incompatible one.
+  void val_geom_check_reset();
+  void val_geom_check_event(const Event *ev);
+  void val_geom_check_report(const char *sample_name = "");
+
+  // What is actually in a sample: collection sizes, seed algorithms, and the
+  // kinematic reach of each. Decides what can be asked of it before anything
+  // is measured on it.
+  void val_sample_info(const Event *ev);
+
+  // Where are a sim track's parameters given? At the production vertex, or at
+  // its first hit? Everything built on the truth helix depends on the answer.
+  void val_simtrack_anchor(const Event *ev, int n_print = 5);
+
+  // Seed diagnostics, before any fit: is the input covariance a fit result or a
+  // canned matrix, is it positive definite, and where is the state anchored?
+  // `kind`: 0 = pT5 (pix->strip), 1 = T5 (strip->strip), 2 = pix, -1 = all.
+  void val_seed_cov(const Event *ev, int kind = 1);
+
+  void val_cov_transport(const char *out_file, int n_samp = 10000, unsigned seed = 20260913);
+
+  void val_force_mc(bool on);
+  void val_max_cands(int n);
+  void val_search_material(bool on);
+  void val_mkbins_surface_q(bool on);
+  void val_extra_dq(float f);
+  void val_surf_q_hit(bool on);
+  void val_search_lite(int mode);
+  void val_cluster_sizes(const Event *ev);
+  void val_material_profile(float z);
+  void val_kgain_reset();
+  void val_kgain_event(const Event *ev);
+  void val_kgain_report();
+  void val_kinfo_reset();
+  void val_kinfo_event(const Event *ev);
+  void val_kinfo_report();
+  void val_mat_scale(float f);
+  void val_eloss_var_scale(float f);
+  void val_mat_fwdpix(float f);
+  void val_chop_recovery_event(const Event *ev);
+  void val_chop_recovery_report(const char *tag);
+  void val_track_eff_reset();
+  void val_track_eff_event(const Event *ev);
+  void val_track_eff_report(const char *tag);
+
+  void val_search_reset();
+  void val_search_event(const Event *ev, int event_idx);
+  void val_search_write(const char *out_file);
+
+  void val_bkfit_trace_reset();
+  void val_bkfit_trace_event(const Event *ev);
+  void val_bkfit_trace_report(const char *prefix);
+  // Relabels every seed with its best-matching sim track and records the
+  // truth purity of each. The labels on file are not sim indices, so without
+  // this there is no way to join a fitted track back to truth.
+  void val_bkfit_err_scale(float s);
+  void val_bkfit_material(bool on);
+
+  // Are cmsswTracks_ independent of the seeds in the same file, or are they
+  // built FROM them? If each track contains its seed's hits, the collection is
+  // downstream of the seeds and cannot serve as an independent reference.
+  void val_seed_vs_cmssw(const Event *ev);
+
+}  // namespace mkfit
+
+#endif
