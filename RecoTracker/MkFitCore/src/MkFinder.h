@@ -26,6 +26,11 @@ namespace mkfit {
 
   class Event;
 
+  // Variance scale applied to the seed covariance by both bkFitInputTracks
+  // overloads -- 100 by default, i.e. 10x in sigma. Runtime so it can be
+  // scanned in one process; see MkFinder::bkFitInputTracks(..., scale_errors).
+  extern float g_bkfit_err_scale;
+
   struct UpdateIndices {
     int seed_idx;
     int cand_idx;
@@ -155,10 +160,14 @@ namespace mkfit {
     //----------------------------------------------------------------------------
     // Backward fit
 
-    void bkFitInputTracks(TrackVec &cands, int beg, int end);
+    // scale_errors: inflate the input covariance by g_bkfit_err_scale (default
+    // 100, i.e. 10x in sigma). Correct when SEEDING the fit; WRONG when
+    // RE-LOADING an already-fitted state, which fit_cands does before the PCA
+    // propagation -- there it would inflate the fitted covariance a second time.
+    void bkFitInputTracks(TrackVec &cands, int beg, int end, bool scale_errors = true);
     void bkFitOutputTracks(TrackVec &cands, int beg, int end, bool outputProp);
 
-    void bkFitInputTracks(EventOfCombCandidates &eocss, int beg, int end);
+    void bkFitInputTracks(EventOfCombCandidates &eocss, int beg, int end, bool scale_errors = true);
     void bkFitOutputTracks(EventOfCombCandidates &eocss, int beg, int end, bool outputProp);
 
     void bkFitFitTracksBH(const EventOfHits &eventofhits,

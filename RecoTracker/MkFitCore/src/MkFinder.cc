@@ -30,6 +30,9 @@
 
 namespace mkfit {
 
+  float g_bkfit_err_scale = 100.0f;
+
+
   void MkFinder::setup(const PropagationConfig &pc,
                        const IterationConfig &ic,
                        const IterationParams &ip,
@@ -1870,7 +1873,7 @@ namespace mkfit {
   // Backward Fit hack
   //==============================================================================
 
-  void MkFinder::bkFitInputTracks(TrackVec &cands, int beg, int end) {
+  void MkFinder::bkFitInputTracks(TrackVec &cands, int beg, int end, bool scale_errors) {
     // Uses HitOnTrack vector from Track directly + a local cursor array to current hit.
 
     MatriplexTrackPacker mtp(&cands[beg]);
@@ -1891,10 +1894,11 @@ namespace mkfit {
 
     mtp.pack(m_Err[iC], m_Par[iC]);
 
-    m_Err[iC].scale(100.0f);
+    if (scale_errors)
+      m_Err[iC].scale(g_bkfit_err_scale);
   }
 
-  void MkFinder::bkFitInputTracks(EventOfCombCandidates &eocss, int beg, int end) {
+  void MkFinder::bkFitInputTracks(EventOfCombCandidates &eocss, int beg, int end, bool scale_errors) {
     // Could as well use HotArrays from tracks directly + a local cursor array to last hit.
 
     // XXXX - shall we assume only TrackCand-zero is needed and that we can freely
@@ -1922,7 +1926,8 @@ namespace mkfit {
 
     mtp.pack(m_Err[iC], m_Par[iC]);
 
-    m_Err[iC].scale(100.0f);
+    if (scale_errors)
+      m_Err[iC].scale(g_bkfit_err_scale);
   }
 
   //------------------------------------------------------------------------------

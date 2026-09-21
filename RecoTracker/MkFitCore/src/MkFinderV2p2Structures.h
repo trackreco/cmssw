@@ -104,6 +104,15 @@ namespace mkfit {
       float bChi2 = 999.999f;
 #ifdef MKFIT_TRACE
       int b_tr_hitmatch_id = -1;
+      // Truth-forcing diagnostic (g_v2p2_force_mc). The best-hit choice is made
+      // on bKey, which is normally just bChi2; with forcing on, an MC-matched
+      // hit gets a key below any non-matched one so it always wins its layer,
+      // while bChi2 keeps the REAL chi2 so nothing downstream is falsified.
+      // bIsMc then lets the acceptance cut be bypassed for it. This exists to
+      // separate "the true hit was never available" from "the ranking or the
+      // pruning threw it away" -- it is an oracle, never a production path.
+      float bKey = 999.999f;
+      bool  bIsMc = false;
 #endif
     }; // end struct PrimTCandRep
 

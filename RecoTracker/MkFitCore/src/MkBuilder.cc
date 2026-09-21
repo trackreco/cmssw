@@ -1556,7 +1556,13 @@ namespace mkfit {
         // tracks are put back into correcponding TrackCand when finsihed in the above function
         // now move one last time to PCA
         if (prop_config.backward_fit_to_pca) {
-          mkfndr->bkFitInputTracks(eoccs, icand, end);
+          // Re-load is REQUIRED, not redundant: the fit loop does not mask
+          // finished lanes -- propagate/update/chargeFlip all run over N_proc
+          // until the slowest lane drains -- so a lane's registers are clobbered
+          // after its own copy-out. The TrackCands are the only place its final
+          // state survives. scale_errors=false because that state is already
+          // fitted; scaling here would inflate its covariance a second time.
+          mkfndr->bkFitInputTracks(eoccs, icand, end, false);
           mkfndr->bkFitPropTracksToPCA(end - icand);
           mkfndr->bkFitOutputTracks(eoccs, icand, end, prop_config.backward_fit_to_pca);
         }
