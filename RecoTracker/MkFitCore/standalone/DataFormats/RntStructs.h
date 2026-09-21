@@ -312,6 +312,63 @@ struct TrHitMatch {
 #endif
 };
 
+// One hit of the BACKWARD FIT. Deliberately NOT TrHitMatch + TrKalmanUpdate:
+// those are split because in the SEARCH one state scans many hits and only a
+// few reach a Kalman update, and the split carries that fan-out. The fit has no
+// fan-out -- one state, one hit, one update, always -- so a single record at
+// 1:1 with hits collapses them and costs no join.
+//
+// The fit is a CHAIN, not a tree: TrCandStates linked by parent_id with one of
+// these hanging between each consecutive pair. Its stage is TrCandStage with
+// stage == 1 (BkwFit), which is also the discriminator telling a consumer to
+// read this collection rather than trHitMatches_ / trKalmanUpdates_.
+struct TrBkFitUpdate {
+  int id;
+  int state_id_in = -1;   // TrCandState before this update
+  int state_id_out = -1;  // TrCandState after it; the fit rejects nothing, so
+                          // this is always set, and the updated state is
+                          // reachable there -- hence no updated_state member.
+  int layer = -1;
+  int hit = -1;           // index in the layer
+  // simHitsInfo_[hit.mcHitID()].mcTrackID(), i.e. WHICH PARTICLE made this hit.
+  // Stored as the id and NOT as a "matches the track" bool: the comparison is
+  // against the track's SIM label, which is not known at fill time -- the only
+  // label MkFinder has is the seed's, and after
+  // relabelSeedTracksSequentially() that is the seed's INDEX, a different
+  // namespace. Resolve it in analysis via TrCandMeta::global_seed.
+  int mc_track_id = -2;   // -2 = not resolved
+  int step = -1;          // hit index along the fit, 0 = outermost (first)
+
+  // Propagation status from helixAtPlane_impl. The fit calls the
+  // sPerp == nullptr branch, i.e. it SOLVES the plane with getS.
+  // NOTE it is currently ALWAYS 0: Leonardo's getS carries no bracket and so
+  // detects no failure. Non-zero values only appear if a solver with failure
+  // detection is put back (the Hermite bracket did, and that is how the fit's
+  // missing state gate was found). Do not read 0 as "the fit did not fail".
+  int fail = 0;
+
+  // step == 0 is a propagation to the plane the state is ALREADY on -- the seed
+  // sits on the outermost hit -- so it is zero-length and its chi2 re-uses the
+  // hit that produced the state. EXCLUDE step 0 from any chi2 measurement.
+
+  float chi2 = -999.99f;
+  float chi2_cum = -999.99f;  // running total BEFORE this hit
+
+  // Propagated state on the module plane, and the residual to the hit decomposed
+  // in the MODULE frame: x = plDir (across strip, precise), y = plNrm x plDir
+  // (along strip, coarse), z = plNrm (normal, must be ~0).
+  EBiVec3 kine_on_plane { EVec3(), EVec3() };
+  float residual_x = -999.99f;
+  float residual_y = -999.99f;
+  float residual_z = -999.99f;
+
+  // Optional -- with MKFIT_TRACE_KALMAN_DEBUG. Only the PRE-update state needs
+  // a member: the post-update one is trCandStates_[state_id_out].state.
+#ifdef MKFIT_TRACE_KALMAN_DEBUG
+  mkfit::TrackState propagated_state {};
+#endif
+};
+
 struct TrKalmanUpdate {
   int id;
   int hit_match_id;

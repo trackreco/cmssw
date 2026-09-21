@@ -130,6 +130,7 @@ namespace mkfit {
     mutable std::vector<TrLayerSearch> trLayerSearches_;
     mutable std::vector<TrHitMatch> trHitMatches_;
     mutable std::vector<TrKalmanUpdate> trKalmanUpdates_;
+    mutable std::vector<TrBkFitUpdate> trBkFitUpdates_;
 
     mutable TrackVec trSeeds_;
     /* *** for multiple iteration tracing ***
@@ -153,6 +154,7 @@ namespace mkfit {
     TrLayerSearch& tr_layersearch(int i) const { return trLayerSearches_[i]; }
     TrHitMatch& tr_hitmatch(int i) const { return trHitMatches_[i]; }
     TrKalmanUpdate& tr_kalmanupdate(int i) const { return trKalmanUpdates_[i]; }
+    TrBkFitUpdate& tr_bkfitupdate(int i) const { return trBkFitUpdates_[i]; }
 
     TrCandMeta& trace_candmeta(TrCandMeta && cm) const {
       int s = trCandMetas_.size();
@@ -190,8 +192,14 @@ namespace mkfit {
       t.id = s;
       return t;
     }
+    TrBkFitUpdate& trace_bkfitupdate(TrBkFitUpdate && bu) const {
+      int s = trBkFitUpdates_.size();
+      auto &t = trBkFitUpdates_.emplace_back(bu);
+      t.id = s;
+      return t;
+    }
 
-    int trace_new_cand_meta(int event, int seed_index) {
+    int trace_new_cand_meta(int event, int seed_index) const {
       auto &cm = trace_candmeta({ -1, event, seed_index });
       return cm.id;
     }
@@ -214,7 +222,7 @@ namespace mkfit {
       auto &cs = trace_candstate({ -1, parent_state_id, pcs.meta_id, pcs.stage_id, layer, pcs.step + 1, kine, state });
       return cs.id;
     }
-    int trace_new_kalman_update(int hit_match_id, int state_id_in, float chi2, float chi2_trk) {
+    int trace_new_kalman_update(int hit_match_id, int state_id_in, float chi2, float chi2_trk) const {
       auto &ku = trace_kalmanupdate({ -1, hit_match_id, state_id_in, -1, chi2, chi2_trk });
       return ku.id;
     }
@@ -226,6 +234,7 @@ namespace mkfit {
     std::unordered_map<int, std::vector<int>> trChildrenByState_;
     std::unordered_map<int, std::vector<int>> trHitMatchesByState_;
     std::unordered_map<int, std::vector<int>> trKalmanUpdatesByState_;
+    std::unordered_map<int, std::vector<int>> trBkFitUpdatesByState_;
 
     std::vector<SimInfoFromHits> trSIFHforSeedByMeta_;
     std::vector<SimInfoFromHits> trSIFHforCandByMeta_;

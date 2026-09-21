@@ -63,6 +63,7 @@ namespace mkfit {
     trLayerSearches_.clear();
     trHitMatches_.clear();
     trKalmanUpdates_.clear();
+    trBkFitUpdates_.clear();
     trSeeds_.clear();
   #endif
   }
@@ -1093,6 +1094,7 @@ namespace mkfit {
       total += trCandStates_.size() * sizeof(TrCandState);
       total += trHitMatches_.size() * sizeof(TrHitMatch);
       total += trKalmanUpdates_.size() * sizeof(TrKalmanUpdate);
+      total += trBkFitUpdates_.size() * sizeof(TrBkFitUpdate);
     #endif
 
     return total;
@@ -1118,6 +1120,7 @@ namespace mkfit {
       printf("Trace cand states:    %6zu * %3zu = %zu bytes\n", trCandStates_.size(), sizeof(TrCandState), trCandStates_.size() * sizeof(TrCandState));
       printf("Trace hit matches:    %6zu * %3zu = %zu bytes\n", trHitMatches_.size(), sizeof(TrHitMatch), trHitMatches_.size() * sizeof(TrHitMatch));
       printf("Trace kalman updates: %6zu * %3zu = %zu bytes\n", trKalmanUpdates_.size(), sizeof(TrKalmanUpdate), trKalmanUpdates_.size() * sizeof(TrKalmanUpdate));
+      printf("Trace bkfit updates: %6zu * %3zu = %zu bytes\n", trBkFitUpdates_.size(), sizeof(TrBkFitUpdate), trBkFitUpdates_.size() * sizeof(TrBkFitUpdate));
     #endif
 
     printf("========================\n");
@@ -1149,6 +1152,10 @@ namespace mkfit {
     trKalmanUpdatesByState_.clear();
     for (auto& k : trKalmanUpdates_) {
       trKalmanUpdatesByState_[k.state_id_in].push_back(k.id);
+    }
+    trBkFitUpdatesByState_.clear();
+    for (auto& b : trBkFitUpdates_) {
+      trBkFitUpdatesByState_[b.state_id_in].push_back(b.id);
     }
 
     int msize = trCandMetas_.size();

@@ -50,6 +50,33 @@
 #pragma link C++ class TrKalmanUpdate + ;
 #pragma link C++ class std::vector < TrKalmanUpdate > +;
 
+#pragma link C++ class TrBkFitUpdate + ;
+#pragma link C++ class std::vector < TrBkFitUpdate > +;
+
 // #pragma link C++ class KalmanInfo + ;
+
+// Val -- synthetic propagation / Kalman / fit validation
+
+#pragma link C++ class ValClosure + ;
+#pragma link C++ class std::vector < ValClosure > +;
+
+#pragma link C++ class ValStep + ;
+#pragma link C++ class std::vector < ValStep > +;
+
+
+#pragma link C++ class ValCfgInfo + ;
+#pragma link C++ class std::vector < ValCfgInfo > +;
+
+#pragma link C++ class ValCovXport + ;
+#pragma link C++ class std::vector < ValCovXport > +;
+
+#pragma link C++ class ValSearchHit + ;
+#pragma link C++ class std::vector < ValSearchHit > +;
+
+#pragma link C++ class ValSearchMiss + ;
+#pragma link C++ class std::vector < ValSearchMiss > +;
+
+#pragma link C++ class ValCovStep + ;
+#pragma link C++ class std::vector < ValCovStep > +;
 
 #pragma link C++ class SeedVecInsp + ;
