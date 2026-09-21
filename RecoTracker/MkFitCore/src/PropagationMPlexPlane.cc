@@ -378,7 +378,8 @@ namespace {
     }
 
     // Original form, retained behind the switch so the before/after is
-    // measurable in one binary -- see pkv_task5().
+    // measurable in one binary -- the A/B that established this lives in
+    // mkFit-external/mkfit-standalone-attic/prop-kalman-validation (pkv_task5).
     const float s1 = (-B + sqb2m4ac) * 0.5f / C;
     const float s2 = (-B - sqb2m4ac) * 0.5f / C;
 #ifdef DEBUG
