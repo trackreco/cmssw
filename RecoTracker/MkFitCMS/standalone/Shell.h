@@ -62,6 +62,19 @@ namespace mkfit {
 
     static const char* hlt_seed_kind_name(HltSeedKind_e k);
 
+    // Runtime selectors for ProcessEventHlt(), so the pT5-chopped control can
+    // be run against plain T5 in one binary. A pT5's pixel hits were FOUND by
+    // the upstream reconstruction, so chopping them off gives a denominator of
+    // hits known to be findable -- which a plain T5 does not.
+    static HltSeedKind_e s_hlt_seed_kind;
+    static bool          s_hlt_chop_pixels;
+
+    // What the chop actually removed, keyed by the seed's (sequential) label.
+    // This is the exact denominator for "did the inward search put them back":
+    // these hits were found by the upstream reconstruction, so they are known
+    // findable, and no truth matching is involved in the comparison.
+    static std::map<int, std::vector<HitOnTrack>> s_chopped_hits;
+
     // Copy the seeds of one algo into `out`, honouring the SS_* selector.
     // Seeds are taken to be grouped by algo, so the scan stops once it leaves
     // that block. SS_PreSet leaves `out` untouched.
@@ -129,6 +142,20 @@ namespace mkfit {
     const TrackVec &tracks() const { return m_ctx.tracks; }
 
     void SetSeedsFromIdcs(std::vector<int> idcs);
+
+    // Build "fake but true" seeds from the SIM tracks: the seed state is the
+    // sim track's own state and its hits are that track's innermost ones. Run
+    // with SS_PreSet, this lets the FORWARD search start at layer 0 and go
+    // outward through the pixel barrel -- the one region the normal forward
+    // search never scans, because that is where its real seeds already are.
+    // n_seed_hits: how many innermost hits to hand the seed (>=1).
+    // Returns the number of seeds built.
+    int MakeSimSeeds(EvCtx &ctx, int n_seed_hits = 1, float pt_min = 0.5f);
+    int MakeSimSeeds(int n_seed_hits = 1, float pt_min = 0.5f)
+      { return MakeSimSeeds(m_ctx, n_seed_hits, pt_min); }
+    void ProcessEventSimSeeded(EvCtx &ctx, int n_seed_hits = 1, float pt_min = 0.5f);
+    void ProcessEventSimSeeded(int n_seed_hits = 1, float pt_min = 0.5f)
+      { ProcessEventSimSeeded(m_ctx, n_seed_hits, pt_min); }
 
     // --------------------------------------------------------
     // Analysis helpers

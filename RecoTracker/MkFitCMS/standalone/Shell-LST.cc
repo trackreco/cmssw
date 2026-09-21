@@ -32,6 +32,12 @@
 
 namespace mkfit {
 
+  // Runtime selectors for the HLT-seed driver; see Shell.h.
+  Shell::HltSeedKind_e Shell::s_hlt_seed_kind = Shell::HSK_T5;
+  bool                 Shell::s_hlt_chop_pixels = false;
+  std::map<int, std::vector<HitOnTrack>> Shell::s_chopped_hits;
+
+
   //===========================================================================
   #pragma region Event Loops
   //===========================================================================
@@ -137,9 +143,12 @@ namespace mkfit {
     ctx.ev->filterOutMislabeledHitsInSimTracks();
     ctx.ev->relabelSeedTracksSequentially();
 
-    // Which kind of HLT seeds to run over. Was two const bools; still a
-    // compile-time choice, but now one named selector.
-    const HltSeedKind_e wanted_kind = HSK_T5;
+    // Which kind of HLT seeds to run over, and whether to chop a pT5's pixel
+    // hits off before searching. Runtime now, so the pT5-chopped control can be
+    // run against plain T5 in one binary: a pT5's pixel hits were FOUND by the
+    // upstream reconstruction, so chopping them gives a denominator of hits
+    // known to be findable -- unlike a plain T5, where they were not found.
+    const HltSeedKind_e wanted_kind = s_hlt_seed_kind;
 
     const HltSeedBlocks blk =
         hlt_seed_preselect(*ctx.ev, *tracker_info(), wanted_algo, wanted_kind);
@@ -295,13 +304,16 @@ namespace mkfit {
       //
       // Note it interacts with the hit sorting above; those comments are about
       // exactly this pickup being fragile in barrel and transition.
-      const bool clear_out_pixel_hits = false;
+      const bool clear_out_pixel_hits = s_hlt_chop_pixels;
       if (clear_out_pixel_hits) {
         std::vector<HitOnTrack> ohits;
         s.swapOutAndResetHits(ohits);
+        auto &rec = s_chopped_hits[s.label()];
         for (auto &oh : ohits) {
-          if (trackerInfo[oh.layer].is_pixel())
+          if (trackerInfo[oh.layer].is_pixel()) {
+            if (oh.index >= 0) rec.push_back(oh);
             continue;
+          }
           s.addHitIdx(oh, 0.0f);
         }
       }
@@ -625,6 +637,93 @@ namespace mkfit {
   //  - seed cleaning, backward fit and backward search follow the
   //    IterationConfig as in a real job, instead of the Hlt path's hand-picked
   //    selection.
+  //===========================================================================
+  // Sim-seeded forward search: start at layer 0 and go OUTWARD through the
+  // pixels.
+  //
+  // Why this exists: the normal forward search is seeded in the pixels, so it
+  // never scans the pixel barrel -- yet that is exactly where the inward search
+  // shows the q covariance 22x too small. Without an outward pass through the
+  // same layers there is no like-for-like comparison. Seeding from the sim
+  // tracks gives one: the state is true by construction, so anything the
+  // covariance does wrong afterwards is the code's, not the seed's.
+  //
+  // The seeds are "completely fake, well, completely true": state copied from
+  // the sim track, hits taken as that track's innermost n_seed_hits.
+  //===========================================================================
+
+  int Shell::MakeSimSeeds(EvCtx &ctx, int n_seed_hits, float pt_min) {
+    ctx.seeds.clear();
+    for (int is = 0; is < (int) ctx.ev->simTracks_.size(); ++is) {
+      const Track &st = ctx.ev->simTracks_[is];
+      if (st.pT() < pt_min) continue;
+      // innermost hits, by layer number -- the sim hit list is not guaranteed
+      // ordered, and for an outward search the seed must sit at the INSIDE.
+      std::vector<HitOnTrack> hots;
+      for (int i = 0; i < st.nTotalHits(); ++i) {
+        const HitOnTrack hot = st.getHitOnTrack(i);
+        if (hot.index >= 0 && hot.layer >= 0) hots.push_back(hot);
+      }
+      if ((int) hots.size() < n_seed_hits) continue;
+      std::sort(hots.begin(), hots.end(),
+                [](const HitOnTrack &a, const HitOnTrack &b) { return a.layer < b.layer; });
+      // require the seed to actually start in the innermost pixel layer, or the
+      // outward pass does not cover what it is meant to cover
+      if (hots[0].layer != 0) continue;
+      Track seed(st.state(), 0.0f, is, 0, nullptr);
+      // The sim track's own covariance is a PLACEHOLDER -- err(i,i) = value^2,
+      // i.e. a 100 % relative error, and singular at the origin (CLAUDE.md).
+      // Left as is it gives sigma_q ~ 4.5 cm at layer 1 and the first two
+      // layers measure nothing but the placeholder washing out. Replace it with
+      // a small, non-degenerate, deliberately TIGHT covariance: the state is
+      // true, so the only honest prior is a narrow one, and the filter forgets
+      // a prior within 3-4 hits anyway (measured: the bkfit error-scale scan is
+      // flat over 1 .. 1e4).
+      {
+        SMatrixSym66 &e = seed.errors_nc();
+        for (int a = 0; a < 6; ++a) for (int b = 0; b <= a; ++b) e(a,b) = 0.0f;
+        const float sp = 1.0e-3f;             // 10 um on each position
+        const float sa = 1.0e-4f;             // 0.1 mrad on each angle
+        e(0,0) = e(1,1) = e(2,2) = sp*sp;
+        e(3,3) = 1.0e-4f * st.invpT() * st.invpT();   // 1 % on 1/pT
+        e(4,4) = e(5,5) = sa*sa;
+      }
+      for (int i = 0; i < n_seed_hits; ++i) seed.addHitIdx(hots[i], 0.0f);
+      seed.setLabel(is);
+      ctx.seeds.push_back(seed);
+    }
+    printf("Shell::MakeSimSeeds: %d sim-seeded tracks (pt > %.2f, starting at layer 0, "
+           "%d seed hits)\n", (int) ctx.seeds.size(), pt_min, n_seed_hits);
+    return (int) ctx.seeds.size();
+  }
+
+  void Shell::ProcessEventSimSeeded(EvCtx &ctx, int n_seed_hits, float pt_min) {
+    if (MakeSimSeeds(ctx, n_seed_hits, pt_min) == 0) return;
+    // The forward pickup is a FIXED plan index (make_iterator does
+    // `m_cur_index = m_fwd_search_pickup`), NOT something derived from the
+    // seed's last hit. The barrel default is 2, so a seed ending at layer 0
+    // would have the search begin at layer 2 and silently skip layer 1. Move
+    // the pickup to just past the seed's last layer.
+    // A candidate is picked up at the plan entry matching its seed's LAST hit
+    // layer, and the pickup entry is itself search-free (is_pickup_only() is
+    // `m_cur_index == m_fwd_search_pickup`). Our seeds end at layer 0, so the
+    // pickup must be plan index 0 -- with anything else nothing ever matches
+    // and the search produces literally zero layer-searches.
+    // Every region's plan starts with fill_plan(0, ...), so index 0 is layer 0
+    // in all of them; set it everywhere, not just the barrel, since a sim seed
+    // can land in any region.
+    IterationConfig &ic = Config::ItrInfo[m_it_index];
+    int saved[TrackerInfo::Reg_Count];
+    for (int r = 0; r < TrackerInfo::Reg_Count; ++r) {
+      saved[r] = ic.m_steering_params[r].m_fwd_search_pickup;
+      ic.m_steering_params[r].m_fwd_search_pickup = n_seed_hits - 1;
+    }
+    ctx.tracks.clear();
+    ProcessEvent(ctx, SS_PreSet);
+    for (int r = 0; r < TrackerInfo::Reg_Count; ++r)
+      ic.m_steering_params[r].m_fwd_search_pickup = saved[r];
+  }
+
   void Shell::ProcessEventStd(EvCtx &ctx) {
     printf("\n##### BEG Event %d ##### standard forward search\n\n", ctx.ev->evtID());
 
