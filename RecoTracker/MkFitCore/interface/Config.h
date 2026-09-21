@@ -48,7 +48,6 @@ namespace mkfit {
 
     // Config for propagation - could/should enter into PropagationFlags?!
     constexpr int Niter = 5;
-    constexpr bool useTrigApprox = true;
     // for prop to plane getS step
     constexpr int nSStepsInProp2Plane = 2;
     // Move to Config.cc, make a command-line option in mkFit.cc to ease profiling comparisons.

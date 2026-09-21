@@ -95,11 +95,7 @@ namespace {
     const MPF alpha = s * mpt::fast_sin(inPar(5, 0)) * inPar(3, 0) * kinv;
 
     MPF sinah, cosah;
-    if constexpr (Config::useTrigApprox) {
-      mpt::sincos4(0.5f * alpha, sinah, cosah);
-    } else {
-      mpt::fast_sincos(0.5f * alpha, sinah, cosah);
-    }
+    mpt::fast_sincos(0.5f * alpha, sinah, cosah);
 
     MPF sin_mom_phi, cos_mom_phi;
     mpt::fast_sincos(inPar(4, 0), sin_mom_phi, cos_mom_phi);
