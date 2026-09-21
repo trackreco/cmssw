@@ -5,7 +5,12 @@
 #include "RecoTracker/MkFitCore/interface/HitStructures.h"
 #include "RecoTracker/MkFitCore/interface/TrackStructures.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace mkfit {
+
+  bool g_mkbins_surface_q = false;
 
   namespace mp = mini_propagators;
 
@@ -159,6 +164,85 @@ namespace mkfit {
       Matriplex::min_max(Matriplex::hypot(m_sp1.x, m_sp1.y), Matriplex::hypot(m_sp2.x, m_sp2.y), m_q_min, m_q_max);
       m_q_center = Matriplex::sqrt(r2_c);
       m_dq_track = 3.0f * (r2inv_c * cov_ex.calc_err_xy(m_isp.x, m_isp.y).abs()).sqrt();
+    }
+
+    if (g_mkbins_surface_q)
+      surface_reference_dq(cov_ex);
+  }
+
+  //----------------------------------------------------------------------------
+  // Reference the q variance to the LAYER SURFACE.
+  //
+  // errPropFromPathL_impl() takes no plane -- it transports the curvilinear
+  // jacobian to a fixed PATH LENGTH s -- and MkBinTrackCovExtract then reads
+  // err(2,2) verbatim as the q variance. So the window covariance describes the
+  // spread of where the track is AFTER A GIVEN DISTANCE, not the spread of where
+  // it crosses the layer. The Kalman update does carry this term, in
+  // jacCurv2Loc's cosz block (KalmanUtilsMPlex.cc); the window never has.
+  //
+  // The correction is a pure linear map on the POSITION block: slide each sample
+  // along the momentum until it meets the surface,
+  //
+  //     dx_s = (I - p^ n^T / (n^.p^)) dx
+  //
+  // with n the surface normal (radial for a barrel cylinder, z for an endcap
+  // disc). For a radial barrel track it amplifies sigma_q by exactly 1/sin^2(t)
+  // -- unity at eta = 0, 8.3x at |eta| = 2 -- and leaves sigma_phi untouched,
+  // since the whole correction lies in the (r,z) plane.
+  //
+  // Everything is evaluated at m_sp2, which is where pea propagated to and hence
+  // where cov_ex lives. (The dphi jacobian above deliberately uses the smaller
+  // radius instead; that is a conservative choice for a 1/r scale factor, not a
+  // consistency requirement.)
+  //
+  // The two limits recover the old code exactly: g -> 0 (normal incidence on a
+  // barrel) gives Var = C22, and 1/g -> 0 (normal incidence on a disc) gives the
+  // old radial projection.
+  //----------------------------------------------------------------------------
+
+  void MkBins::surface_reference_dq(const MkBinTrackCovExtract &cov_ex) {
+    // Amplification clamp. g = cot(theta) for a radial barrel track, so 20 is
+    // |eta| ~ 3.7 -- beyond the tracker, i.e. it only ever catches degenerate
+    // lanes (grazing incidence, failed propagation) and never a real operating
+    // point.
+    constexpr float kMaxSlope = 20.0f;
+
+    for (int i = 0; i < m_n_proc; ++i) {
+      const float x = m_sp2.x[i], y = m_sp2.y[i];
+      const float r2 = x * x + y * y;
+      if (r2 <= 0.0f)
+        continue;
+      const float rinv = 1.0f / std::sqrt(r2);
+      const float nx = x * rinv, ny = y * rinv;   // radial unit vector
+
+      const float pr = nx * m_sp2.px[i] + ny * m_sp2.py[i];  // p . n_radial
+      const float pz = m_sp2.pz[i];
+
+      const float c00 = cov_ex.m_cov_0_0[i], c01 = cov_ex.m_cov_0_1[i];
+      const float c11 = cov_ex.m_cov_1_1[i], c22 = cov_ex.m_cov_2_2[i];
+      const float c02 = cov_ex.m_cov_0_2[i], c12 = cov_ex.m_cov_1_2[i];
+
+      float var;
+      if (m_is_barrel) {
+        // v = e_z - (p_z / (p.n)) * n ; note |p| cancels out of the ratio.
+        if (pr == 0.0f)
+          continue;
+        float g = pz / pr;
+        g = std::clamp(g, -kMaxSlope, kMaxSlope);
+        const float v0 = -g * nx, v1 = -g * ny;
+        var = v0 * v0 * c00 + v1 * v1 * c11 + c22 + 2.0f * (v0 * v1 * c01 + v0 * c02 + v1 * c12);
+      } else {
+        // w = r^ - ((r^.p) / p_z) * e_z
+        if (pz == 0.0f)
+          continue;
+        float ginv = pr / pz;
+        ginv = std::clamp(ginv, -kMaxSlope, kMaxSlope);
+        var = nx * nx * c00 + ny * ny * c11 + ginv * ginv * c22 +
+              2.0f * (nx * ny * c01 - ginv * nx * c02 - ginv * ny * c12);
+      }
+
+      if (var > 0.0f)
+        m_dq_track[i] = 3.0f * std::sqrt(var);
     }
   }
 

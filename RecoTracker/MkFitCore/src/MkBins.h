@@ -9,11 +9,20 @@ namespace mkfit {
   class LayerOfHits;
   struct MkRZLimits;
 
+  // Reference the window covariance to the LAYER SURFACE instead of to the fixed
+  // path length errPropFromPathL_impl() transports it to. See MkBins.cc.
+  // Runtime switch so the A/B needs one build.
+  extern bool g_mkbins_surface_q;
+
   struct MkBinTrackCovExtract {
     MPlexQF m_cov_0_0 = { 0.0f };
     MPlexQF m_cov_0_1 = { 0.0f };
     MPlexQF m_cov_1_1 = { 0.0f };
     MPlexQF m_cov_2_2 = { 0.0f };
+    // Needed only for the surface referencing above -- the position block of the
+    // covariance is what the projection acts on, and these two complete it.
+    MPlexQF m_cov_0_2 = { 0.0f };
+    MPlexQF m_cov_1_2 = { 0.0f };
 
     MkBinTrackCovExtract() = default;
 
@@ -26,6 +35,8 @@ namespace mkfit {
       m_cov_0_1 = err.ReduceFixedIJ(0, 1);
       m_cov_1_1 = err.ReduceFixedIJ(1, 1);
       m_cov_2_2 = err.ReduceFixedIJ(2, 2);
+      m_cov_0_2 = err.ReduceFixedIJ(0, 2);
+      m_cov_1_2 = err.ReduceFixedIJ(1, 2);
     }
 
     MPlexQF calc_err_xy(const MPlexQF &x, const MPlexQF &y) const {
@@ -105,6 +116,7 @@ namespace mkfit {
     void prop_to_limits_in_order(const MkRZLimits &ls);
 
     void determine_bin_windows(const MkBinTrackCovExtract &cov_ex);
+    void surface_reference_dq(const MkBinTrackCovExtract &cov_ex);
 
     void find_bin_ranges(const LayerOfHits &loh, MkBinLimits &bl);
 

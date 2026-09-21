@@ -19,6 +19,11 @@
 
 namespace mkfit {
 
+  bool g_v2p2_force_mc = false;
+  float g_v2p2_extra_dq = 3.0f;
+  bool  g_v2p2_surface_q = true;
+
+
   //------------------------------------------------------------------------------
   // Setup variables for full processing of a batch of CombCanditates
 
@@ -670,8 +675,71 @@ namespace mkfit {
         phi = vdt::fast_atan2f(h3_state.y[h], h3_state.x[h]);
         ddphi = cdist(std::abs(phi - L.hit_phi(hit_idcs[h])));
 
-        const float EXTRA_DQ = 3.0f; // Inwards search into pixels verry tight.
-        bool dqdphi_presel = ddq < EXTRA_DQ * B.m_dq_track[prim_idcs[h]] + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]) &&
+        // Runtime so it can be scanned in one process. It was 3.0 because the
+        // window it multiplies was missing its surface reference (see
+        // MkBins::surface_reference_dq) and was therefore up to 9x too small
+        // at |eta| > 2 -- the factor was compensating for that, not for
+        // genuine tails. With the reference present it should be re-scanned;
+        // note the dphi side carries no such factor and never needed one.
+        // ---- Reference the q error to THIS MODULE'S PLANE ------------------
+        //
+        // The predicted POINT is already on the plane -- h3_state is the Hermite
+        // solved onto it. The covariance behind B.m_dq_track is not: pea
+        // transported it to a fixed PATH LENGTH (errPropFromPathL_impl takes no
+        // plane at all), so it describes the spread of where the track is after
+        // travelling s -- a disc perpendicular to p^ -- and NOT the spread of
+        // where the trajectory crosses the plane. Prediction and uncertainty
+        // were being evaluated under two different conditions, and the gap is
+        // exactly the ds degree of freedom: to put every member of the ensemble
+        // ON the plane, each needs a different path length.
+        //
+        // Sliding along p^ until the surface is met is a linear map on the
+        // position block,
+        //      dx_s = (I - p^ n^T / (n^.p^)) dx ,
+        // so the q variance is v^T C v with v = e_q - ((e_q.p^)/(n^.p^)) n^.
+        //
+        // n^ is the MODULE normal, not the layer cylinder's. That matters: TBPS
+        // modules are tilted to face the IP, so n^.p^ ~ 1 and the correction is
+        // ~1 there, while a cylinder normal would claim 1/sin^2(theta) and
+        // over-widen by ~8x. Using the module normal makes tilted and flat
+        // layers the same formula with no branching -- which is the reason to do
+        // this per hit rather than in MkBins.
+        float dq_trk = B.m_dq_track[prim_idcs[h]];
+        if (g_v2p2_surface_q) {
+          const int pi = prim_idcs[h];
+          const float px = h3_state.px[h], py = h3_state.py[h], pz = h3_state.pz[h];
+          const float nx = module_norm(h, 0, 0), ny = module_norm(h, 1, 0), nz = module_norm(h, 2, 0);
+          const float np = nx * px + ny * py + nz * pz;      // (n^.p) -- |p| cancels below
+          // q direction: z in the barrel -- so e_q.p is just pz, with no dot
+          // product and no hipo -- and r^ in the endcap.
+          float ex = 0.0f, ey = 0.0f, ez = 1.0f, eqp = pz;
+          bool ok = (np != 0.0f);
+          if (ok && !m_rz_limits.m_is_barrel) {
+            const float rr = hipo(h3_state.x[h], h3_state.y[h]);
+            ok = (rr > 0.0f);
+            if (ok) {
+              ex = h3_state.x[h] / rr; ey = h3_state.y[h] / rr; ez = 0.0f;
+              eqp = ex * px + ey * py;
+            }
+          }
+          if (ok) {
+            // f = (e_q.p^)/(n^.p^); |p| cancels, so no normalisation is needed.
+            // Clamped: it diverges only at grazing incidence on the module, which
+            // is not an operating point (the cluster is then too wide in phi to
+            // be a hit).
+            const float f = std::clamp(eqp / np, -20.0f, 20.0f);
+            const float v0 = ex - f * nx, v1 = ey - f * ny, v2 = ez - f * nz;
+            const float var = v0 * v0 * TCE.m_cov_0_0[pi] + v1 * v1 * TCE.m_cov_1_1[pi] +
+                              v2 * v2 * TCE.m_cov_2_2[pi] +
+                              2.0f * (v0 * v1 * TCE.m_cov_0_1[pi] + v0 * v2 * TCE.m_cov_0_2[pi] +
+                                      v1 * v2 * TCE.m_cov_1_2[pi]);
+            if (var > 0.0f)
+              dq_trk = 3.0f * std::sqrt(var);
+          }
+        }
+
+        const float EXTRA_DQ = g_v2p2_extra_dq;
+        bool dqdphi_presel = ddq < EXTRA_DQ * dq_trk + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]) &&
                              ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * MkBins::HIT_PHI_HALF_EXTENT;
 
         // To be moved down, only for hits that pass pre-selection, needed here for printout.
@@ -683,14 +751,14 @@ namespace mkfit {
 
 #ifdef DEBUG
         // clang-format off
-        bool dq_presel = ddq < EXTRA_DQ * B.m_dq_track[prim_idcs[h]] + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]);
+        bool dq_presel = ddq < EXTRA_DQ * dq_trk + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]);
         bool dphi_presel = ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * MkBins::HIT_PHI_HALF_EXTENT;
         dprintf("     SelHit %6.3f %6.3f %6.4f %7.5f   %6.4f   %s [dq = %d, dphi = %d]\n",
                 L.hit_q(hit_idcs[h]), L.hit_phi(hit_idcs[h]),
                 ddq, ddphi, h_plex.dalpha[h], dqdphi_presel ? "PASS" : "REJECT", dq_presel, dphi_presel);
         dprintf("       ddq=%.3f, dq_track=%.4f, hit_q_half_len=%.4f, dq_expr=%.4f\n",
                 ddq, B.m_dq_track[prim_idcs[h]], L.hit_q_half_length(hit_idcs[h]),
-                EXTRA_DQ * B.m_dq_track[prim_idcs[h]] + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]))
+                EXTRA_DQ * dq_trk + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]))
 
         dprintf("      H3 d0=%.4f d1=%.4f -> d2=%e t2=%e -> d3=%e t3=%e ... dalpha=%6.4f\n",
                d0[h], d1[h], d2[h], t2[h], d3[h], h3dop.m_T[h],
@@ -935,7 +1003,11 @@ namespace mkfit {
       PrimTCandRep &ptc = * prim_tcand_ptrs[i];
       TrackCand &tc = ptc.tcand();
 
+#ifdef MKFIT_TRACE
+      if (ptc.bChi2 < 30.0f || (g_v2p2_force_mc && ptc.bIsMc)) {
+#else
       if (ptc.bChi2 < 30.0f) {
+#endif
         // XXXX Extra missed layer -- to check stuff / maxgrowth / scores etc
         // This is somewhat impure :)
         // Add a copy of the held-back candidate before adding the hit.

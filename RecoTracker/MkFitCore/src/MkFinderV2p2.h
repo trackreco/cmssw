@@ -16,6 +16,18 @@
 
 namespace mkfit {
 
+  // Diagnostic oracles, both default OFF and both meaningful only in a
+  // MKFIT_TRACE build. See PrimTCandRep::bKey.
+  //   g_v2p2_force_mc -- make the MC-matched hit win its layer and bypass the
+  //                      chi2 < 30 acceptance cut.
+  extern bool g_v2p2_force_mc;
+  // Pre-selection dq allowance, MkFinderV2p2.cc. Runtime so it can be scanned.
+  extern float g_v2p2_extra_dq;
+  // Reference the pre-selection q error to the HIT'S OWN MODULE PLANE. Exact for
+  // tilted and flat layers alike -- see MkFinderV2p2.cc.
+  extern bool  g_v2p2_surface_q;
+
+
   class FindingFoos;
   class IterationParams;
   class IterationLayerConfig;
