@@ -37,6 +37,11 @@ export BLDDIR := $bld
 
 all:
 
+# Explicit rule, so it beats the catch-all below and does not fan out to the
+# four sub-makes (only Core defines it).  Consumed by ACLiC-based studies.
+echo-aclic:
+	@\${MAKE} -s --no-print-directory -C objs-Core -f \${SADIR}/Makefile echo-aclic
+
 
 SUBPKGS := Core CylCowWLids CMS
 

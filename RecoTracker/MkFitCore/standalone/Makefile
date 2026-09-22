@@ -135,3 +135,20 @@ echo-flags:
 
 echo-tbb:
 	@echo "TBB_GCC=${TBB_GCC}, TBB_PREFIX=${TBB_PREFIX}, TBB_ROOT=${TBB_ROOT}"
+
+# Flags for compiling a study OUTSIDE this build with ACLiC -- see
+# mkFit-external/mkfit-standalone-seedgeom/seedgeom-load.C, which reads them
+# from here rather than hardcoding a copy.
+#
+# ACLIC_CPP is ABI-critical, not a convenience: standalone/Event.h gains members
+# under MKFIT_TRACE, so an ACLiC build compiled without the identical -D set does
+# not fail to link -- it silently reads every member at the wrong offset.
+# ACLIC_OPT keeps the numerics identical (-Ofast implies fast-math, so borderline
+# float comparisons differ without it) and makes timings comparable.
+# NOTE the split: this emits only what the mkFit build owns. ROOT's own -I and
+# -std are deliberately NOT included -- ACLiC supplies those from the RUNNING
+# ROOT, and root-config here may resolve to a different one (without ROOTSYS it
+# falls back to system ROOT and injects -std=c++17).
+echo-aclic:
+	@echo "ACLIC_DEFS=$(filter -D%,${CPPFLAGS})"
+	@echo "ACLIC_OPT=${OPT} ${VEC_HOST} $(filter -f% -m%,${CXXFLAGS})"
