@@ -2378,12 +2378,14 @@ namespace mkfit {
     MPlexQF tmp_chi2{0.0f};
     MPlexQI done_flag(0);
 
-    // Hook bookkeeping: which hit each lane is on this pass, and how many steps
-    // it has taken. Costs nothing when the hook is null.
+#ifdef MKFIT_TRACE
+    // Per-lane bookkeeping for the trace: which hit each lane is on this pass
+    // and how many steps it has taken. These existed for the old BkFitHook,
+    // which is gone, so they are now trace-only and live inside the guard --
+    // outside it they are set and never read, which is a -Werror build failure.
     int hk_layer[NN], hk_mcid[NN], hk_hit[NN], hk_step[NN], hk_live[NN];
     for (int i = 0; i < NN; ++i) { hk_layer[i] = hk_mcid[i] = hk_hit[i] = -1; hk_step[i] = 0; hk_live[i] = 0; }
 
-#ifdef MKFIT_TRACE
     // Trace chain: one TrCandState per lane, advanced at every accepted hit.
     // Kept LOCAL rather than on TrackCand::m_trace_state_id, which belongs to
     // the search -- writing it here would make the search chain its own states
@@ -2424,8 +2426,6 @@ namespace mkfit {
       }
     }
     const bool bk_rec = bk_trace;
-#else
-    constexpr bool bk_rec = false;
 #endif
 
     MPlexHV plNrm{0.0f};  // input detector plane [pl - plane]
@@ -2503,12 +2503,14 @@ namespace mkfit {
           plDir.copyIn(i, mi.xdir.Array());
           plPnt.copyIn(i, mi.pos.Array());
 
+#ifdef MKFIT_TRACE
           if (bk_rec) {
             hk_layer[i] = layer;
             hk_mcid[i] = hit.mcHitID();
             hk_hit[i] = m_HoTNodeArr[i][m_CurNode[i]].m_hot.index;
             hk_live[i] = 1;
           }
+#endif
 
           ++here_count;
 
@@ -2548,6 +2550,10 @@ namespace mkfit {
                                 m_Err[iC], m_Par[iC], tmp_chi2, N_proc);
       kalmanCheckChargeFlip(m_Par[iC], m_Chg, N_proc);
 
+#ifdef MKFIT_TRACE
+      // The whole block records TrBkFitUpdate and nothing else, so it is guarded
+      // as a unit. It used to be compiled unconditionally with bk_rec forced
+      // false, which left its locals unused and broke a non-tracing -Werror build.
       if (bk_rec) {
         for (int i = 0; i < N_proc; ++i) {
           if (!hk_live[i]) continue;
@@ -2568,8 +2574,6 @@ namespace mkfit {
           const float pt = ipt != 0.f ? 1.f / std::abs(ipt) : 0.f;
           const float theta = m_Par[iP].constAt(i, 5, 0);
 
-
-#ifdef MKFIT_TRACE
           if (bk_trace && tr_state[i] >= 0) {
             const float phi_p = m_Par[iP].constAt(i, 4, 0);
             TrBkFitUpdate bu;
@@ -2610,9 +2614,9 @@ namespace mkfit {
             tr_state[i] = sid;
             m_event->trace_bkfitupdate(std::move(bu));
           }
-#endif
         }
       }
+#endif
 
 #if defined(DEBUG_PROP_UPDATE)
       printf("\nbkfit at layer %d, track in slot %d -- fail=%d, hit_xyz = (%g, %g, %g)\n",
