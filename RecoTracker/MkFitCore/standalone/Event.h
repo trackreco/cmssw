@@ -271,12 +271,23 @@ namespace mkfit {
     // geometry binary's own stamp by writeMemoryFile. Empty means the file
     // predates the stamp. This is the thing whose absence let two 2024 samples
     // pass every check while sitting 0.26 cm off their own module planes.
-    char f_geom_version[64] = {0};
+    static constexpr int s_geom_version_size = 64;
+    char f_geom_version[s_geom_version_size] = {0};
 
     DataFileHeader() = default;
 
-    // Size of the v7/v8 prefix: 7 ints through f_n_events, plus f_extra_sections.
+    // Size of the v7/v8 header: 7 ints through f_n_events, plus f_extra_sections.
     static constexpr size_t s_v8_size = 8 * sizeof(int);
+
+    // Header size ON FILE for a given format version. Magic and version are the
+    // first two ints of the file precisely so this can be asked before anything
+    // else is read; every future growth adds a case here and nothing else in the
+    // reader has to know. Never use sizeof(DataFileHeader) for this -- that is
+    // the CURRENT version's size, and using it both over-reads an older file's
+    // header and seeks past its first event.
+    static constexpr size_t size_of_version(int v) {
+      return v >= 9 ? s_v8_size + s_geom_version_size : s_v8_size;
+    }
   };
 
   struct DataFile {
@@ -290,6 +301,11 @@ namespace mkfit {
     };
 
     FILE *f_fp = 0;
+    // Byte offset of the first event, i.e. the header size AS IT IS ON THIS FILE.
+    // Not sizeof(DataFileHeader): that grows with every format version, and a v7
+    // or v8 file has a shorter header, so positioning off sizeof() would seek
+    // past the first event's size word and read nothing at all.
+    long f_data_start = sizeof(DataFileHeader);
     long f_pos = sizeof(DataFileHeader);
 
     DataFileHeader f_header;

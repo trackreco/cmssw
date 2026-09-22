@@ -1218,25 +1218,34 @@ namespace mkfit {
     f_fp = fopen(fname.c_str(), "r");
     assert(f_fp != 0 && "Opening of input file failed.");
 
-    // Two-step, so a v7/v8 file is not over-read into its event data.
-    fread(&f_header, DataFileHeader::s_v8_size, 1, f_fp);
-    if (f_header.f_format_version >= 9)
-      fread(f_header.f_geom_version, sizeof(f_header.f_geom_version), 1, f_fp);
-    else
-      f_header.f_geom_version[0] = '\0';
+    // Magic and version are the first two ints of the file so that the rest can
+    // be read knowing what it is. Read those two alone, decide, then read the
+    // header for THAT version.
+    int magic = 0, version = 0;
+    fread(&magic, sizeof(int), 1, f_fp);
+    fread(&version, sizeof(int), 1, f_fp);
 
-    if (f_header.f_magic != 0xBEEF) {
+    if (magic != 0xBEEF) {
       fprintf(stderr, "Incompatible input file (wrong magick).\n");
       exit(1);
     }
-    if (f_header.f_format_version < min_ver || f_header.f_format_version > max_ver) {
+    if (version < min_ver || version > max_ver) {
       fprintf(stderr,
               "Unsupported file version %d. Supported versions are from %d to %d.\n",
-              f_header.f_format_version,
+              version,
               min_ver,
               max_ver);
       exit(1);
     }
+
+    const size_t hdr_size = DataFileHeader::size_of_version(version);
+    f_header = DataFileHeader();  // f_geom_version stays empty unless the file has one
+    fseek(f_fp, 0, SEEK_SET);
+    fread(&f_header, hdr_size, 1, f_fp);
+
+    f_data_start = hdr_size;
+    f_pos = f_data_start;
+
     if (f_header.f_sizeof_track != sizeof(Track)) {
       fprintf(stderr,
               "sizeof(Track) on file (%d) different from current value (%d).\n",
@@ -1329,11 +1338,14 @@ namespace mkfit {
       f_header.f_geom_version[sizeof(f_header.f_geom_version) - 1] = '\0';
     }
     fwrite(&f_header, sizeof(DataFileHeader), 1, f_fp);
+
+    f_data_start = ftell(f_fp);
+    f_pos = f_data_start;
   }
 
   void DataFile::rewind() {
     std::lock_guard<std::mutex> readlock(f_next_ev_mutex);
-    f_pos = sizeof(DataFileHeader);
+    f_pos = f_data_start;
     fseek(f_fp, f_pos, SEEK_SET);
   }
 
@@ -1347,7 +1359,7 @@ namespace mkfit {
     if (Config::loopOverFile) {
       // File ended, rewind back to beginning
       if (feof(fp) != 0) {
-        f_pos = sizeof(DataFileHeader);
+        f_pos = f_data_start;
         fseek(fp, f_pos, SEEK_SET);
         fread(&evsize, sizeof(int), 1, fp);
       }
