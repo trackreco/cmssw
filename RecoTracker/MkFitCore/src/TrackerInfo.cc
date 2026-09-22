@@ -144,7 +144,7 @@ namespace mkfit {
 
       // Identity of the geometry, e.g. "Run4D127". Fixed-size so the header
       // stays a POD that can be fwrite'd in one go.
-      char f_geom_version[64] = {0};
+      char f_geom_version[TrackerInfo::s_geom_version_size] = {0};
 
       GeomFileHeader() = default;
 
@@ -201,6 +201,18 @@ namespace mkfit {
     }
   }  // namespace
 
+  void TrackerInfo::set_geom_version(const std::string& v) {
+    if (v.size() >= s_geom_version_size) {
+      fprintf(stderr,
+              "TrackerInfo::set_geom_version: '%s' is %zu characters, the limit is %zu.\n",
+              v.c_str(),
+              v.size(),
+              s_geom_version_size - 1);
+      throw std::runtime_error("geometry version string too long in TrackerInfo::set_geom_version");
+    }
+    std::memcpy(m_geom_version, v.c_str(), v.size() + 1);
+  }
+
   void TrackerInfo::write_bin_file(const std::string& fname, const std::string& geom_version) const {
     FILE* fp = fopen(fname.c_str(), "w");
     if (!fp) {
@@ -214,8 +226,18 @@ namespace mkfit {
     GeomFileHeader fh;
     fh.f_n_layers = n_layers();
     if (!geom_version.empty()) {
-      std::strncpy(fh.f_geom_version, geom_version.c_str(), sizeof(fh.f_geom_version) - 1);
-      fh.f_geom_version[sizeof(fh.f_geom_version) - 1] = '\0';
+      // Refuse rather than truncate: a silently shortened stamp compares wrong
+      // in both directions, and a stamp is only useful if it is exact.
+      if (geom_version.size() >= sizeof(fh.f_geom_version)) {
+        fprintf(stderr,
+                "TrackerInfo::write_bin_file: geometry version '%s' is %zu characters, the limit is %zu.\n",
+                geom_version.c_str(),
+                geom_version.size(),
+                sizeof(fh.f_geom_version) - 1);
+        fclose(fp);
+        throw std::runtime_error("geometry version string too long in TrackerInfo::write_bin_file");
+      }
+      std::memcpy(fh.f_geom_version, geom_version.c_str(), geom_version.size() + 1);
     }
     fwrite(&fh, sizeof(GeomFileHeader), 1, fp);
 
@@ -231,6 +253,22 @@ namespace mkfit {
       write_std_vec(fp, m_layers[l].m_modules);
       write_std_vec(fp, m_layers[l].m_shapes);
     }
+
+    // These two lines stream PARTS OF TrackerInfo AS IF THEY WERE PODs: the four
+    // range/fac floats as one contiguous block, and rectvec's leading two ints.
+    // TrackerInfo is not a POD -- it holds vectors and a string -- but that buys
+    // no licence here, because these take the address of a member and walk past
+    // it. Inserting a member anywhere inside either group silently corrupts the
+    // material grid header, so pin both layouts down at compile time.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winvalid-offsetof"
+    static_assert(offsetof(TrackerInfo, m_mat_range_r) == offsetof(TrackerInfo, m_mat_range_z) + sizeof(float) &&
+                      offsetof(TrackerInfo, m_mat_fac_z) == offsetof(TrackerInfo, m_mat_range_z) + 2 * sizeof(float) &&
+                      offsetof(TrackerInfo, m_mat_fac_r) == offsetof(TrackerInfo, m_mat_range_z) + 3 * sizeof(float),
+                  "write_bin_file streams m_mat_range_z/_r and m_mat_fac_z/_r as one 4-float block");
+    static_assert(offsetof(rectvec<Material>, m_n2) == sizeof(int),
+                  "write_bin_file streams rectvec's m_n1/m_n2 as two leading ints");
+#pragma GCC diagnostic pop
 
     fwrite(&m_mat_range_z, 4 * sizeof(float), 1, fp);
     fwrite(&m_mat_vec, 2 * sizeof(int), 1, fp);
@@ -272,23 +310,36 @@ namespace mkfit {
     GeomFileHeader fh;
     fseek(fp, 0, SEEK_SET);
     fread(&fh, GeomFileHeader::size_of_version(version), 1, fp);
-    // TrackerInfo is NOT streamed as a POD -- only its vectors are, member by
-    // member -- so this check is an ABI sanity guard, not a stream requirement.
-    // Skip it for v3 files: they recorded the sizeof from before geom_version was
-    // added, so a mismatch there is expected and means nothing.
-    if (fh.f_format_version >= 4)
-      assert_sizeof_match(fh.f_sizeof_trackerinfo, sizeof(TrackerInfo), "TrackerInfo");
-    assert_sizeof_match(fh.f_sizeof_layerinfo, sizeof(LayerInfo), "LayerInfo");
+    // Only ModuleInfo and ModuleShape are streamed at their full sizeof, so only
+    // those two sizes are a statement about the file and only those two are
+    // enforced. TrackerInfo is never streamed as a whole -- its vectors are
+    // written one member at a time -- and LayerInfo is streamed as a prefix
+    // bounded by offsetof(m_final_member_for_streaming). Enforcing either turned
+    // any added member into a format break: adding the geometry stamp to
+    // TrackerInfo took its sizeof from 248 to 312 and made every file written by
+    // the other build unreadable, though not one streamed byte had moved. The
+    // other two sizes are still written, and are reported on a mismatch.
     assert_sizeof_match(fh.f_sizeof_moduleinfo, sizeof(ModuleInfo), "ModuleInfo");
     assert_sizeof_match(fh.f_sizeof_moduleshape, sizeof(ModuleShape), "ModuleShape");
+    if (fh.f_sizeof_trackerinfo != (int)sizeof(TrackerInfo) || fh.f_sizeof_layerinfo != (int)sizeof(LayerInfo))
+      printf(
+          "  note: TrackerInfo/LayerInfo sizes differ from this build (%d/%d on file, %zu/%zu here);"
+          " neither is streamed at its sizeof, so this is informational.\n",
+          fh.f_sizeof_trackerinfo,
+          fh.f_sizeof_layerinfo,
+          sizeof(TrackerInfo),
+          sizeof(LayerInfo));
 
-    m_geom_version = fh.f_geom_version;  // empty for v3, i.e. "not stamped"
+    // Guarantee termination: the file's field is only as trustworthy as whoever
+    // wrote it, and everything downstream treats this as a C string.
+    std::memcpy(m_geom_version, fh.f_geom_version, sizeof(m_geom_version));
+    m_geom_version[sizeof(m_geom_version) - 1] = '\0';  // empty for v3, i.e. "not stamped"
 
     printf("Opened TrackerInfoGeom file '%s', format version %d, n_layers %d, geometry '%s'\n",
            fname.c_str(),
            fh.f_format_version,
            fh.f_n_layers,
-           m_geom_version.empty() ? "UNKNOWN (file predates the stamp)" : m_geom_version.c_str());
+           m_geom_version[0] == '\0' ? "UNKNOWN (file predates the stamp)" : m_geom_version);
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"

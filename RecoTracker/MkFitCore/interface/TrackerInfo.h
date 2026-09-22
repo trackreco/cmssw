@@ -217,6 +217,11 @@ namespace mkfit {
     bool check_idcs(int i1, int i2) const { return i1 >= 0 && i1 < m_n1 && i2 >= 0 && i2 < m_n2; }
 
   private:
+    // TrackerInfo::write_bin_file() streams m_n1/m_n2 by taking the address of
+    // the rectvec itself and writing two ints, so their position is part of the
+    // geometry file format and it static_asserts on it.
+    friend class TrackerInfo;
+
     int m_n1, m_n2;
     std::vector<T> m_vec;
   };
@@ -267,8 +272,15 @@ namespace mkfit {
     void write_bin_file(const std::string& fname, const std::string& geom_version = "") const;
     void read_bin_file(const std::string& fname);
 
-    const std::string& geom_version() const { return m_geom_version; }
-    void set_geom_version(const std::string& v) { m_geom_version = v; }
+    // Fixed-size storage, because the value's only destination is a fixed-size
+    // field in the geometry file header. A std::string here would have to be
+    // truncated on the way out, silently: two versions sharing a 63-character
+    // prefix would then stamp identically, and a truncated stamp would falsely
+    // mismatch a full one. Setting an over-long value is an error instead.
+    static constexpr size_t s_geom_version_size = 64;
+
+    std::string geom_version() const { return m_geom_version; }
+    void set_geom_version(const std::string& v);
     void print_tracker(int level, int precision = 3) const;
 
     void create_material(int nBinZ, float rngZ, int nBinR, float rngR);
@@ -310,7 +322,7 @@ namespace mkfit {
     // from the binary; EMPTY means the file predates the stamp (format v3) or the
     // dumper was not told. Not streamed as part of this object -- it lives in
     // GeomFileHeader.
-    std::string m_geom_version;
+    char m_geom_version[s_geom_version_size] = {0};
   };
 
 }  // end namespace mkfit
