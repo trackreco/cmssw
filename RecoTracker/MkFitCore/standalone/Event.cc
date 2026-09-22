@@ -42,6 +42,7 @@ namespace mkfit {
 
     simHitsInfo_.clear();
     simTrackStates_.clear();
+    simHitStates_.clear();
     simTracks_.clear();
     simTracksExtra_.clear();
     seedTracks_.clear();
@@ -145,6 +146,14 @@ namespace mkfit {
       evsize += sizeof(int) + nts * sizeof(TrackState);
     }
 
+    if (data_file.hasSimHitStates()) {
+      int nhs = simHitStates_.size();
+      fwrite(&nhs, sizeof(int), 1, fp);
+      if (nhs > 0)
+        fwrite(&simHitStates_[0], sizeof(SimHitState), nhs, fp);
+      evsize += sizeof(int) + nhs * sizeof(SimHitState);
+    }
+
     int nl = layerHits_.size();
     fwrite(&nl, sizeof(int), 1, fp);
     evsize += sizeof(int);
@@ -228,6 +237,22 @@ namespace mkfit {
       fread(&nts, sizeof(int), 1, fp);
       simTrackStates_.resize(nts);
       fread(&simTrackStates_[0], sizeof(TrackState), nts, fp);
+    }
+
+    // Genuinely optional on the read side, unlike simTrackStates_ above: without
+    // --read-sim-hit-states the section is seeked past, so a file carrying it
+    // costs disk and nothing else.
+    if (data_file.hasSimHitStates()) {
+      int nhs;
+      fread(&nhs, sizeof(int), 1, fp);
+      if (Config::readSimHitStates) {
+        simHitStates_.resize(nhs);
+        if (nhs > 0)
+          fread(&simHitStates_[0], sizeof(SimHitState), nhs, fp);
+      } else {
+        simHitStates_.clear();
+        std::fseek(fp, (long) nhs * sizeof(SimHitState), SEEK_CUR);
+      }
     }
 
     int nl;
@@ -1185,14 +1210,20 @@ namespace mkfit {
   // DataFile
   //==============================================================================
 
-  int DataFile::openRead(const std::string &fname, int expected_n_layers) {
-    constexpr int min_ver = 7;
-    constexpr int max_ver = 7;
+  int DataFile::openRead(const std::string &fname, int expected_n_layers,
+                         const std::string &expected_geom_version) {
+    constexpr int min_ver = 7;  // v7/v8 files stay readable; they simply carry
+    constexpr int max_ver = 9;  // no geometry stamp, so none is compared.
 
     f_fp = fopen(fname.c_str(), "r");
     assert(f_fp != 0 && "Opening of input file failed.");
 
-    fread(&f_header, sizeof(DataFileHeader), 1, f_fp);
+    // Two-step, so a v7/v8 file is not over-read into its event data.
+    fread(&f_header, DataFileHeader::s_v8_size, 1, f_fp);
+    if (f_header.f_format_version >= 9)
+      fread(f_header.f_geom_version, sizeof(f_header.f_geom_version), 1, f_fp);
+    else
+      f_header.f_geom_version[0] = '\0';
 
     if (f_header.f_magic != 0xBEEF) {
       fprintf(stderr, "Incompatible input file (wrong magick).\n");
@@ -1235,12 +1266,28 @@ namespace mkfit {
       exit(1);
     }
 
+    // The check the SAMPLE PROVENANCE disaster needed and did not have: a stale
+    // sample and the current geometry agree on n_layers (both phase-2 geometries
+    // have 60), so nothing caught it. The names differ, and that is cheap.
+    if (!expected_geom_version.empty() && f_header.f_geom_version[0] != '\0' &&
+        expected_geom_version != f_header.f_geom_version) {
+      fprintf(stderr,
+              "GEOMETRY MISMATCH: sample '%s' was written against geometry '%s', "
+              "but the loaded geometry is '%s'.\n"
+              "Module short-ids are assigned per geometry, so every module-frame "
+              "quantity from this pairing would be meaningless.\n",
+              fname.c_str(), f_header.f_geom_version, expected_geom_version.c_str());
+      exit(1);
+    }
+
     printf("Opened file '%s', format version %d, n_layers %d, n_events %d\n",
            fname.c_str(),
            f_header.f_format_version,
            f_header.f_n_layers,
            f_header.f_n_events);
     if (f_header.f_extra_sections) {
+      if (f_header.f_geom_version[0] != '\0')
+        printf("  Geometry: %s\n", f_header.f_geom_version);
       printf("  Extra sections:");
       if (f_header.f_extra_sections & ES_SimTrackStates)
         printf(" SimTrackStates");
@@ -1248,6 +1295,12 @@ namespace mkfit {
         printf(" Seeds");
       if (f_header.f_extra_sections & ES_CmsswTracks)
         printf(" CmsswTracks");
+      if (f_header.f_extra_sections & ES_HitIterMasks)
+        printf(" HitIterMasks");
+      if (f_header.f_extra_sections & ES_BeamSpot)
+        printf(" BeamSpot");
+      if (f_header.f_extra_sections & ES_SimHitStates)
+        printf(" SimHitStates%s", Config::readSimHitStates ? "" : "(skipped)");
       printf("\n");
     }
 
@@ -1264,12 +1317,17 @@ namespace mkfit {
     return f_header.f_n_events;
   }
 
-  void DataFile::openWrite(const std::string &fname, int n_layers, int n_ev, int extra_sections) {
+  void DataFile::openWrite(const std::string &fname, int n_layers, int n_ev, int extra_sections,
+                           const std::string &geom_version) {
     f_fp = fopen(fname.c_str(), "w");
     f_header.f_n_layers = n_layers;
     f_header.f_n_events = n_ev;
     f_header.f_extra_sections = extra_sections;
 
+    if (!geom_version.empty()) {
+      std::strncpy(f_header.f_geom_version, geom_version.c_str(), sizeof(f_header.f_geom_version) - 1);
+      f_header.f_geom_version[sizeof(f_header.f_geom_version) - 1] = '\0';
+    }
     fwrite(&f_header, sizeof(DataFileHeader), 1, f_fp);
   }
 
@@ -1466,7 +1524,7 @@ namespace mkfit {
           "rank=%d passed_pqueue=%d kalman_id=%d\n",
           pfx.c_str(), hm.id, hm.state_id, hm.search_id, hm.layer,
           hm.hit, hm.mc_match, hm.score, hm.dphi, hm.dq, hm.passed_preselect,
-          hm.rank, hm.passed_pqueue, hm.kalman_id);
+          hm.sub_rank, hm.passed_pqueue, hm.kalman_id);
     printf("    t_hermite=% f d_plane_h3=% .3e\n", hm.t_hermite, hm.d_plane_h3);
     printf("    residual_xyz=(res_x=% f res_y=% f res_z=% f); ", hm.residual_x, hm.residual_y, hm.residual_z);
     print("kine", hm.kine_on_plane);

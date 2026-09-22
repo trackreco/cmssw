@@ -212,7 +212,7 @@ void test_standard() {
 
   DataFile data_file;
   if (g_operation == "read") {
-    int evs_in_file = data_file.openRead(g_input_file, Config::TrkInfo.n_layers());
+    int evs_in_file = data_file.openRead(g_input_file, Config::TrkInfo.n_layers(), Config::TrkInfo.geom_version());
     int evs_available = evs_in_file - g_start_event + 1;
     if (Config::nEvents == -1) {
       Config::nEvents = evs_available;
@@ -512,6 +512,7 @@ int main(int argc, const char* argv[]) {
           "  --best-out-of    <int>   run test num times, report best time (def: %d)\n"
           "  --input-file             file name for reading (def: %s)\n"
           "  --output-file            file name for writitng (def: %s)\n"
+          "  --read-sim-hit-states    read per-sim-hit truth states if present in the file (def: %s)\n"
           "  --read-cmssw-tracks      read external cmssw reco tracks if available (def: %s)\n"
           "  --read-simtrack-states   read in simTrackStates for pulls in validation (def: %s)\n"
           "  --num-events     <int>   number of events to run over or simulate (def: %d)\n"
@@ -685,6 +686,7 @@ int main(int argc, const char* argv[]) {
           Config::finderReportBestOutOfN,
           g_input_file.c_str(),
           g_output_file.c_str(),
+          b2a(Config::readSimHitStates),
           b2a(Config::readCmsswTracks),
           b2a(Config::readSimTrackStates),
           Config::nEvents,
@@ -807,6 +809,8 @@ int main(int argc, const char* argv[]) {
       Config::readCmsswTracks = true;
     } else if (*i == "--read-simtrack-states") {
       Config::readSimTrackStates = true;
+    } else if (*i == "--read-sim-hit-states") {
+      Config::readSimHitStates = true;
     } else if (*i == "--num-events") {
       next_arg_or_die(mArgs, i);
       Config::nEvents = atoi(i->c_str());

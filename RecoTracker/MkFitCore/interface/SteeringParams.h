@@ -178,10 +178,41 @@ namespace mkfit {
       }
     }
 
+    // Plan INDEX of the entry covering the given layer, or -1. Matches either
+    // member of a paired entry, so the answer is stable whether or not the OT
+    // double layers are emitted as pairs.
+    int plan_index_of_layer(int layer) const {
+      for (int i = 0; i < (int)m_layer_plan.size(); ++i)
+        if (m_layer_plan[i].m_layer == layer || m_layer_plan[i].m_layer_sec == layer)
+          return i;
+      return -1;
+    }
+
     void set_iterator_limits(int fwd_search_pu, int bkw_fit_last, int bkw_search_pu = -1) {
+      // Bounds-check. iterator::is_valid() only tests != -1, so an index past the
+      // end of the plan is an unchecked out-of-range read of m_layer_plan --
+      // which is exactly what happened when these were written as arithmetic
+      // restating the plan's structure ("4 + 8 + 2*6 + 3") and the plan then got
+      // shorter. Use set_bkw_search_pickup_at_layer() instead of a literal.
+      if (fwd_search_pu < 0 || fwd_search_pu >= (int)m_layer_plan.size())
+        throw std::runtime_error("SteeringParams: fwd_search pickup index outside layer plan");
+      if (bkw_search_pu != -1 && (bkw_search_pu < 0 || bkw_search_pu >= (int)m_layer_plan.size()))
+        throw std::runtime_error("SteeringParams: bkw_search pickup index outside layer plan");
+
       m_fwd_search_pickup = fwd_search_pu;
       m_bkw_fit_last = bkw_fit_last;
       m_bkw_search_pickup = bkw_search_pu;
+    }
+
+    // Name the backward-search pickup by LAYER rather than by plan index. The
+    // layer is a property of the detector and does not move when the plan is
+    // rebuilt; the index restates the plan's own structure and silently goes
+    // wrong when it changes.
+    void set_bkw_search_pickup_at_layer(int layer) {
+      int idx = plan_index_of_layer(layer);
+      if (idx == -1)
+        throw std::runtime_error("SteeringParams: bkw_search pickup layer not in layer plan");
+      m_bkw_search_pickup = idx;
     }
 
     bool has_bksearch_plan() const { return m_bkw_search_pickup != -1; }

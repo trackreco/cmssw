@@ -23,6 +23,9 @@
 #pragma link C++ class mkfit::HitOnTrack + ;
 #pragma link C++ class std::vector < mkfit::HitOnTrack> + ;
 #pragma link C++ class mkfit::TrackState + ;
+#pragma link C++ class mkfit::SimHitState + ;
+#pragma link C++ class std::vector < mkfit::SimHitState> + ;
+#pragma link C++ typedef mkfit::SHSVec;
 #pragma link C++ class mkfit::TrackBase + ;
 #pragma link C++ class mkfit::TrackBase::Status + ;
 #pragma link C++ enum  mkfit::TrackBase::TrackAlgorithm + ;

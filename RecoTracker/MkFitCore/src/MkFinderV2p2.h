@@ -41,11 +41,6 @@ namespace mkfit {
   class MkFinderV2p2 {
     friend class MkBuilder;
 
-    // Unrolled indices of CombCands and TrackCands.
-    struct BatchInfo {
-
-    };
-
     //-------------------------------------------------------------------------
     class BatchManager {
     //-------------------------------------------------------------------------
@@ -135,7 +130,6 @@ namespace mkfit {
     void release();
 
     int awaken_candidates();
-    // int unroll_candidates();
 
     void begin_layer();
 
@@ -144,7 +138,6 @@ namespace mkfit {
 
     bool enough_work_for_pre_select() const { return (int) m_pre_select_queue.size() >= NN; }
     bool any_work_for_pre_select() const { return ! m_pre_select_queue.empty(); }
-    // ??? void pre_select_hits(int layer, MkBinLimits &BL);
     void process_pre_select();
 
     void end_layer();
@@ -157,6 +150,58 @@ namespace mkfit {
     //----------------------------------------------------------------------------
 
   private:
+    //----------------------------------------------------------------------------
+    // Per-pass state of process_pre_select().
+    //
+    // TWO batch widths are in play, and keeping them apart is most of what makes
+    // the layer pass readable: LayerBatch is NN CANDIDATES wide, HitBatch is NN
+    // (candidate, hit) PAIRS wide. Everything in LayerBatch is per candidate and
+    // indexed by the same i; everything in HitBatch is per scanned hit and
+    // indexed by h, with prim_idcs[h] naming the candidate it belongs to.
+    //
+    // This is also the carrier the earlier procedural split was missing. The
+    // abandoned sketch at the bottom of MkFinderV2p2.cc names exactly these
+    // phases and is annotated "can't quite work" -- without an explicit batch
+    // object each phase needed a dozen arguments, so it stayed a monolith.
+    struct LayerBatch {
+      int N_proc = 0;
+      PrimTCandRep *ptc[NN];             // the candidates in this pass
+      MkBins B { 0 };                    // isp + the two bounding-surface crossings
+      MkBinTrackCovExtract TCE;          // position block of the window covariance
+      MkBinLimits BL_p, BL_s;            // binnor ranges, primary / secondary layer
+      mini_propagators::Hermite3D H;     // cubic through sp1, sp2 -- the trajectory model
+#ifdef MKFIT_TRACE
+      int tr_layersearch_ids[NN];
+#endif
+    };
+
+    struct HitBatch {
+      int fill_pos = 0;
+      MPlexQI  prim_idcs;                // -> LayerBatch::ptc
+      MPlexQUI hit_idcs;                 // index within the LayerOfHits
+      MPlexQUI hit_orig_idcs;            // index in the event hit vector
+      mini_propagators::InitialStatePlex is_plex;
+#ifdef MKFIT_TRACE_PROP_COMPARE
+      mini_propagators::StatePlex h_plex;  // PA_Line cross-check against the Hermite
+#endif
+    };
+
+    void select_hits_prepare(LayerBatch &b);
+    void determine_search_windows(LayerBatch &b);
+    void select_hits(LayerBatch &b);
+    void preselect_hit_batch(LayerBatch &b, HitBatch &hb, const LayerOfHits &L, int N_proc_hits,
+                             bool is_sec_layer);
+    // Re-reference the pre-selection q error from a fixed path length onto the
+    // hit's own module plane. Static: a pure function of the state, the module
+    // normal and the covariance. See MkFinderV2p2.cc for the derivation.
+    static float surface_referenced_dq(float dq_track_fallback,
+                                       const MkBinTrackCovExtract &TCE, int pi,
+                                       const mini_propagators::StatePlex &h3_state, int h,
+                                       const MPlex3V &module_norm, bool is_barrel);
+    void prepare_kalman_workload(LayerBatch &b);
+    void kalman_update(LayerBatch &b);
+    void process_kalman_results(LayerBatch &b);
+
     //----------------------------------------------------------------------------
     // Job / batch-of-seeds control variables and globel references
     const MkJob *mp_job = nullptr;
@@ -172,9 +217,6 @@ namespace mkfit {
     // propagation to layer limits, Binnor creation and extraction of bin-indices, and
     // pre-selection of hits.
     std::list<CCandRep>::iterator m_active_ccreps_pos; // Current CombCand to be processed or is in processing.
-    int m_active_ccreps_tC_pos;                        // Index of next TrackCand to be processed.
-
-    int m_n_Ccs_to_finalize; // or something, with indices or referenes or iterators.
 
     // Pre-selection queue -- list of pTcs to do initial prop + Binnor + hit extraction for.
     // Elements are slots in the pTC hot-tub.

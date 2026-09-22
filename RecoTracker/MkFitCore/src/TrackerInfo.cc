@@ -136,10 +136,22 @@ namespace mkfit {
       int f_sizeof_moduleshape = sizeof(ModuleShape);
       int f_n_layers = -1;
 
+      // ---- everything above this line is the v3 header, byte for byte ----
+      // New fields go BELOW, and read_bin_file() reads the prefix first and the
+      // rest only for the versions that have it. That is what keeps v3 files
+      // readable after the struct grows: a blind
+      // fread(&fh, sizeof(GeomFileHeader), ...) would swallow layer data.
+
+      // Identity of the geometry, e.g. "Run4D127". Fixed-size so the header
+      // stays a POD that can be fwrite'd in one go.
+      char f_geom_version[64] = {0};
+
       GeomFileHeader() = default;
 
       constexpr static int s_magic = 0xB00F;
-      constexpr static int s_version = 3;
+      constexpr static int s_version = 4;      // v4 adds f_geom_version
+      constexpr static int s_min_version = 3;  // v3 files still read, with no stamp
+      constexpr static size_t s_v3_size = 7 * sizeof(int);
     };
 
     template <typename T>
@@ -181,7 +193,7 @@ namespace mkfit {
     }
   }  // namespace
 
-  void TrackerInfo::write_bin_file(const std::string& fname) const {
+  void TrackerInfo::write_bin_file(const std::string& fname, const std::string& geom_version) const {
     FILE* fp = fopen(fname.c_str(), "w");
     if (!fp) {
       fprintf(stderr,
@@ -193,6 +205,10 @@ namespace mkfit {
     }
     GeomFileHeader fh;
     fh.f_n_layers = n_layers();
+    if (!geom_version.empty()) {
+      std::strncpy(fh.f_geom_version, geom_version.c_str(), sizeof(fh.f_geom_version) - 1);
+      fh.f_geom_version[sizeof(fh.f_geom_version) - 1] = '\0';
+    }
     fwrite(&fh, sizeof(GeomFileHeader), 1, fp);
 
 #pragma GCC diagnostic push
@@ -226,28 +242,41 @@ namespace mkfit {
       throw std::runtime_error("Failed opening file in TrackerInfo::read_bin_file");
     }
     GeomFileHeader fh;
-    fread(&fh, sizeof(GeomFileHeader), 1, fp);
+    // Two-step: the v3-sized prefix, then the fields later versions added. A
+    // single sizeof-sized read would over-run a v3 file into the layer data.
+    fread(&fh, GeomFileHeader::s_v3_size, 1, fp);
+    if (fh.f_format_version >= 4)
+      fread(fh.f_geom_version, sizeof(fh.f_geom_version), 1, fp);
 
     if (fh.f_magic != GeomFileHeader::s_magic) {
       fprintf(stderr, "Incompatible input file (wrong magick).\n");
       throw std::runtime_error("Filed opening file in TrackerInfo::read_bin_file");
     }
-    if (fh.f_format_version != GeomFileHeader::s_version) {
+    if (fh.f_format_version < GeomFileHeader::s_min_version || fh.f_format_version > GeomFileHeader::s_version) {
       fprintf(stderr,
-              "Unsupported file version %d. Supported version is %d.\n",
+              "Unsupported file version %d. Supported versions are from %d to %d.\n",
               fh.f_format_version,
+              GeomFileHeader::s_min_version,
               GeomFileHeader::s_version);
       throw std::runtime_error("Unsupported file version in TrackerInfo::read_bin_file");
     }
-    assert_sizeof_match(fh.f_sizeof_trackerinfo, sizeof(TrackerInfo), "TrackerInfo");
+    // TrackerInfo is NOT streamed as a POD -- only its vectors are, member by
+    // member -- so this check is an ABI sanity guard, not a stream requirement.
+    // Skip it for v3 files: they recorded the sizeof from before geom_version was
+    // added, so a mismatch there is expected and means nothing.
+    if (fh.f_format_version >= 4)
+      assert_sizeof_match(fh.f_sizeof_trackerinfo, sizeof(TrackerInfo), "TrackerInfo");
     assert_sizeof_match(fh.f_sizeof_layerinfo, sizeof(LayerInfo), "LayerInfo");
     assert_sizeof_match(fh.f_sizeof_moduleinfo, sizeof(ModuleInfo), "ModuleInfo");
     assert_sizeof_match(fh.f_sizeof_moduleshape, sizeof(ModuleShape), "ModuleShape");
 
-    printf("Opened TrackerInfoGeom file '%s', format version %d, n_layers %d\n",
+    m_geom_version = fh.f_geom_version;  // empty for v3, i.e. "not stamped"
+
+    printf("Opened TrackerInfoGeom file '%s', format version %d, n_layers %d, geometry '%s'\n",
            fname.c_str(),
            fh.f_format_version,
-           fh.f_n_layers);
+           fh.f_n_layers,
+           m_geom_version.empty() ? "UNKNOWN (file predates the stamp)" : m_geom_version.c_str());
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"

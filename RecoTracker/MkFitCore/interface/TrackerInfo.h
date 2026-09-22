@@ -253,8 +253,15 @@ namespace mkfit {
     const PropagationConfig& prop_config() const { return m_prop_config; }
     PropagationConfig& prop_config_nc() { return m_prop_config; }
 
-    void write_bin_file(const std::string& fname) const;
+    // geom_version is the geometry's identity, e.g. "Run4D127". Passed in rather
+    // than stored on the object because the caller is an EventSetup product that
+    // must not be mutated. Empty writes an empty stamp, which reads back as
+    // "unknown".
+    void write_bin_file(const std::string& fname, const std::string& geom_version = "") const;
     void read_bin_file(const std::string& fname);
+
+    const std::string& geom_version() const { return m_geom_version; }
+    void set_geom_version(const std::string& v) { m_geom_version = v; }
     void print_tracker(int level, int precision = 3) const;
 
     void create_material(int nBinZ, float rngZ, int nBinR, float rngR);
@@ -290,6 +297,13 @@ namespace mkfit {
     rectvec<Material> m_mat_vec;
 
     PropagationConfig m_prop_config;
+
+    // Identity of the geometry this TrackerInfo was built from, e.g. "Run4D127".
+    // Set by the dumper from its configuration (see write_bin_file) and read back
+    // from the binary; EMPTY means the file predates the stamp (format v3) or the
+    // dumper was not told. Not streamed as part of this object -- it lives in
+    // GeomFileHeader.
+    std::string m_geom_version;
   };
 
 }  // end namespace mkfit

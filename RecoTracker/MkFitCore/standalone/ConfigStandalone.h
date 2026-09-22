@@ -133,6 +133,7 @@ namespace mkfit {
     extern bool cmssw_val;
     extern bool fit_val;
     extern bool readSimTrackStates;  // need this to fill pulls
+    extern bool readSimHitStates;    // per-sim-hit truth states, see SimHitState
     extern bool inclusiveShorts;
     extern bool keepHitInfo;
     extern bool tryToSaveSimInfo;

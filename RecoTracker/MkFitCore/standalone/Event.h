@@ -118,6 +118,12 @@ namespace mkfit {
     mutable TrackExtraVec cmsswTracksExtra_;
 
     TSVec simTrackStates_;
+    // Truth state per SIM HIT, indexed by mcHitID (parallel to simHitsInfo_).
+    // Optional on both sides: written only with --write-sim-hit-states, and read
+    // only with --read-sim-hit-states (otherwise the section is seeked past, so
+    // it costs nothing but disk). See SimHitState in TrackState.h for why it is
+    // not a TrackState.
+    SHSVec simHitStates_;
 
     const TrackVec *currentSeedTracks_ = nullptr;
     mutable std::vector<SimInfoFromHits> currentSeedSimFromHits_;
@@ -247,7 +253,7 @@ namespace mkfit {
 
   struct DataFileHeader {
     int f_magic = 0xBEEF;
-    int f_format_version = 7;  //last update with ph2 geom
+    int f_format_version = 9;  //v9 adds f_geom_version; v8 added ES_SimHitStates
     int f_sizeof_track = sizeof(Track);
     int f_sizeof_hit = sizeof(Hit);
     int f_sizeof_hot = sizeof(HitOnTrack);
@@ -256,7 +262,21 @@ namespace mkfit {
 
     int f_extra_sections = 0;
 
+    // ---- everything above is the v7/v8 header, byte for byte ----
+    // New fields go BELOW, and openRead() reads the prefix first and the rest
+    // only for versions that have it; a blind sizeof-sized fread would swallow
+    // event data from an older file.
+
+    // Identity of the geometry this sample was written against, copied from the
+    // geometry binary's own stamp by writeMemoryFile. Empty means the file
+    // predates the stamp. This is the thing whose absence let two 2024 samples
+    // pass every check while sitting 0.26 cm off their own module planes.
+    char f_geom_version[64] = {0};
+
     DataFileHeader() = default;
+
+    // Size of the v7/v8 prefix: 7 ints through f_n_events, plus f_extra_sections.
+    static constexpr size_t s_v8_size = 8 * sizeof(int);
   };
 
   struct DataFile {
@@ -265,7 +285,8 @@ namespace mkfit {
       ES_Seeds = 0x2,
       ES_CmsswTracks = 0x4,
       ES_HitIterMasks = 0x8,
-      ES_BeamSpot = 0x10
+      ES_BeamSpot = 0x10,
+      ES_SimHitStates = 0x20
     };
 
     FILE *f_fp = 0;
@@ -282,9 +303,13 @@ namespace mkfit {
     bool hasCmsswTracks() const { return f_header.f_extra_sections & ES_CmsswTracks; }
     bool hasHitIterMasks() const { return f_header.f_extra_sections & ES_HitIterMasks; }
     bool hasBeamSpot() const { return f_header.f_extra_sections & ES_BeamSpot; }
+    bool hasSimHitStates() const { return f_header.f_extra_sections & ES_SimHitStates; }
+    const char* geomVersion() const { return f_header.f_geom_version; }
 
-    int openRead(const std::string &fname, int expected_n_layers);
-    void openWrite(const std::string &fname, int n_layers, int n_ev, int extra_sections = 0);
+    int openRead(const std::string &fname, int expected_n_layers,
+                 const std::string &expected_geom_version = "");
+    void openWrite(const std::string &fname, int n_layers, int n_ev, int extra_sections = 0,
+                   const std::string &geom_version = "");
 
     void rewind();
 

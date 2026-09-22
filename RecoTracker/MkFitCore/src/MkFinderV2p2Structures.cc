@@ -4,6 +4,10 @@
 #include "KalmanUtilsMPlex.h"
 #include "MatriplexPackers.h"
 
+// NOTE: this is ON here and OFF in MkFinderV2p2.cc (`//#define DEBUG`), so a
+// g_debug run prints the Kalman side and not the search side. Left as it is
+// rather than "fixed", because which half you want is a choice -- but it is a
+// choice, not the accident the one-character asymmetry looks like.
 #define DEBUG
 #include "Debug.h"
 

@@ -138,6 +138,18 @@ namespace mkfit {
   // downstream of the seeds and cannot serve as an independent reference.
   void val_seed_vs_cmssw(const Event *ev);
 
+  // How often a hit has a sister in the partner sub-layer of the same physical
+  // layer, and how far away. Decides whether in-layer processing may anchor on
+  // one sensor. See ValProp.cc.
+  void val_qbins_reset();
+  void val_qbins_event(const Event *ev);
+  void val_qbins_report();
+
+  void val_sister_reset();
+  void val_sister_mcfilter(bool on);
+  void val_sister_event(const Event *ev, float pt_min = 0.5f);
+  void val_sister_report();
+
 }  // namespace mkfit
 
 #endif

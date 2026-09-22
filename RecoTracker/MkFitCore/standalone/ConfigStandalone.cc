@@ -38,6 +38,7 @@ namespace mkfit {
     bool cmssw_val = false;
     bool fit_val = false;
     bool readSimTrackStates = false;
+    bool readSimHitStates = false;
     bool inclusiveShorts = false;
     bool keepHitInfo = false;
     bool tryToSaveSimInfo = false;

@@ -291,8 +291,27 @@ struct TrHitMatch {
   float residual_y = -999.99; // distance from hit to track in coarse direction, for accepted hits
   float residual_z = -999.99; // distance from detector plane, should be about 0
 
+  // Which SOURCE this hit came from. Pre-selection runs per sub-layer -- one
+  // bounded pqueue each -- so that a shower in one sensor cannot evict the
+  // other's hits, and so that each sub-layer's pre-selection quality can be
+  // measured on its own. Do NOT infer this from `layer` once the split layers
+  // are merged into fat layers: both sensors are then in ONE layer and the layer
+  // number stops distinguishing them. This flag survives that.
+  bool is_sec_layer = false;
+
   // after pre-selection via priority-queue
-  int  rank = -1; // for those that pass pqueue selection (would be nice to have it for others, std::vec instead of pqueue for MKFIT_TRACE?)
+  //
+  // TWO ranks, because there are two populations and they answer different
+  // questions. Both are by score (ddphi), 1 = best, -1 = did not pass the pqueue.
+  //   sub_rank  -- within this hit's OWN sub-layer. Measures that sub-layer's
+  //                pre-selection quality, and is what the single `rank` field
+  //                meant back when only one sub-layer was ever scanned.
+  //   full_rank -- across the merged layer, both sub-layers together. Says
+  //                whether the layer's best hit sits in P or in S.
+  // NEITHER is the position in the step-ordered list the combinatorial search
+  // walks: that is ordered by path length, not by score, and is a third thing.
+  int  sub_rank = -1;  // (would be nice to have for rejected hits too, std::vec instead of pqueue for MKFIT_TRACE?)
+  int  full_rank = -1;
   bool passed_pqueue = false;
 
   int kalman_id = -1;

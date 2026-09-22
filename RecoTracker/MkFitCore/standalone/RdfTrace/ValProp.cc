@@ -1940,7 +1940,7 @@ namespace mkfit {
       v.layer = hm.layer;  v.hit = hm.hit;  v.mc_match = hm.mc_match;
       v.dphi = hm.dphi;  v.dq = hm.dq;  v.hit_q_half_len = hm.hit_q_half_len;
       v.passed_preselect = hm.passed_preselect;
-      v.passed_pqueue = hm.passed_pqueue;  v.rank = hm.rank;
+      v.passed_pqueue = hm.passed_pqueue;  v.rank = hm.sub_rank;
       v.t_hermite = hm.t_hermite;  v.d_plane_h3 = hm.d_plane_h3;
       v.search_id = hm.search_id;
       // signed residuals, from the predicted point on the module plane
@@ -2357,5 +2357,241 @@ namespace mkfit {
     printf("val_bkfit_material: backward_fit_pflags.apply_material = %d\n", (int) on);
   }
 
+
+
+  //============================================================================
+  // val_sister -- how often does a hit have a SISTER HIT in the partner
+  // sub-layer of the same physical CMS layer, and how far away is it?
+  //
+  // The question this answers (maintainer, 2026-09-21): "not all PS or 2S hits
+  // will have sister hits ... but most probably should? I don't know what the
+  // efficiency implications would be." It decides whether in-layer processing
+  // may ANCHOR on one sensor (e.g. pre-select the pair on the finer-q P hit) or
+  // must treat the two symmetrically: anchoring is only safe if the anchor
+  // sensor is almost always present.
+  //
+  // Truth direction is sim -> rec: the sim track's OWN hit list, which is built
+  // from rhIdxs at ntuple-writing time and is NOT gated by the bestTkIdx
+  // arbitration. So this does not inherit the percent-level truth-link loss
+  // measured for the rec -> sim direction.
+  //
+  // "Sister" here means only "a hit in the partner sub-layer". Whether it sits
+  // on the BONDED partner module or on a different (phi-overlapping) module of
+  // the same layer is not knowable from the data today -- ModuleInfo carries no
+  // partner link -- so it is separated geometrically instead, by the 3-D
+  // distance between the two hits. A bonded stack is ~1.6-4 mm thick; an overlap
+  // partner is a module width away.
+  //============================================================================
+
+  namespace {
+    struct SisterGroup {
+      const char *name;
+      long n_cross = 0;      // sim-track crossings with >= 1 hit in the pair
+      long n_a_only = 0, n_b_only = 0, n_both = 0;
+      long n_mult[5] = {0,0,0,0,0};   // hits in the pair: 1, 2, 3, 4, >=5
+      std::vector<float> dist;        // 3-D distance, closest A-B pair
+      std::vector<float> hl_a, hl_b;  // q half-lengths, to show the asymmetry
+    };
+    std::vector<SisterGroup> g_sis;
+    long g_sis_ntrk = 0;
+    bool g_sis_mcfilter = true;
+
+    int sister_group_of(int lay) {
+      if (lay >=  4 && lay <=  9) return 0;   // TBPS  (P/S)
+      if (lay >= 10 && lay <= 15) return 1;   // TB2S  (2S/2S)
+      if (lay >= 28 && lay <= 37) return 2;   // TEDD+
+      if (lay >= 50 && lay <= 59) return 3;   // TEDD-
+      return -1;
+    }
+  }
+
+  void val_sister_reset() {
+    g_sis.assign(5, SisterGroup());
+    g_sis[0].name = "TBPS  4-9   (P + S)";
+    g_sis[1].name = "TB2S  10-15 (2S + 2S)";
+    g_sis[2].name = "TEDD+ 28-37";
+    g_sis[3].name = "TEDD- 50-59";
+    g_sis[4].name = "TEDD inner r<65 (PS region)";
+    g_sis_ntrk = 0;
+  }
+
+  void val_sister_mcfilter(bool on) {
+    g_sis_mcfilter = on;
+    printf("val_sister_mcfilter: require hit mcTrackID == sim label: %d\n", (int) on);
+  }
+
+  void val_sister_event(const Event *ev, float pt_min) {
+    if (g_sis.empty()) val_sister_reset();
+
+    for (const auto &st : ev->simTracks_) {
+      if (st.pT() < pt_min) continue;
+      ++g_sis_ntrk;
+
+      // Bucket this track's rec hits by mkFit layer.
+      std::map<int, std::vector<int>> by_layer;   // layer -> hit indices
+      const int nh = st.nTotalHits();
+      for (int i = 0; i < nh; ++i) {
+        int hi = st.getHitIdx(i), hl = st.getHitLyr(i);
+        if (hi < 0 || hl < 0) continue;
+        if (hl >= (int) ev->layerHits_.size()) continue;
+        if (hi >= (int) ev->layerHits_[hl].size()) continue;
+        // Truth BINDING, not truth similarity: 27 % of the hits sitting on a
+        // sim track belong to a different particle (delta rays, neighbours).
+        // Without this a delta-ray hit in sub-layer B makes "both" true when the
+        // track itself only crossed A, and it is what puts 120 cm entries in the
+        // sister-distance tail. This is a truth decision independent of any
+        // residual or chi2, so it does not drag the survivors toward zero the
+        // way a chi2 cut would.
+        if (g_sis_mcfilter) {
+          unsigned int mch = ev->layerHits_[hl][hi].mcHitID();
+          if (mch >= ev->simHitsInfo_.size()) continue;
+          if (ev->simHitsInfo_[mch].mcTrackID() != st.label()) continue;
+        }
+        by_layer[hl].push_back(hi);
+      }
+
+      // Walk the pairs. Even layer = A, odd = B; post-10781bd48eb the EVEN one
+      // is P in a PS stack (verified from the data: median sqrt(3 ezz) is
+      // 0.037/0.042/0.053 cm on L4/6/8 against 0.589/0.676/0.847 on L5/7/9).
+      for (int la = 4; la <= 58; la += 2) {
+        int g = sister_group_of(la);
+        if (g < 0 || sister_group_of(la + 1) != g) continue;
+        auto ia = by_layer.find(la), ib = by_layer.find(la + 1);
+        const bool ha = ia != by_layer.end(), hb = ib != by_layer.end();
+        if (!ha && !hb) continue;
+
+        const int na = ha ? (int) ia->second.size() : 0;
+        const int nb = hb ? (int) ib->second.size() : 0;
+
+        auto tally = [&](SisterGroup &G) {
+          ++G.n_cross;
+          if (ha && hb) ++G.n_both; else if (ha) ++G.n_a_only; else ++G.n_b_only;
+          int m = std::min(na + nb, 5);
+          ++G.n_mult[m - 1];
+          // Same branch LayerOfHits::registerHit() uses: ezz in the barrel, the
+          // transverse trace in the endcap. Using ezz everywhere reports the
+          // module THICKNESS for a disc, which is not the q extent at all.
+          const bool brl = (la < 16);
+          auto qhl = [&](const Hit &H) {
+            return std::sqrt(3.0f * (brl ? H.ezz() : H.exx() + H.eyy()));
+          };
+          if (ha) for (int x : ia->second) G.hl_a.push_back(qhl(ev->layerHits_[la][x]));
+          if (hb) for (int x : ib->second) G.hl_b.push_back(qhl(ev->layerHits_[la+1][x]));
+          if (ha && hb) {
+            float best = 1e9f;
+            for (int x : ia->second) for (int y : ib->second) {
+              const Hit &A = ev->layerHits_[la][x], &B = ev->layerHits_[la+1][y];
+              float dx = A.x()-B.x(), dy = A.y()-B.y(), dz = A.z()-B.z();
+              best = std::min(best, std::sqrt(dx*dx + dy*dy + dz*dz));
+            }
+            G.dist.push_back(best);
+          }
+        };
+
+        tally(g_sis[g]);
+        // TEDD is radially mixed: PS inside (r out to ~65 cm), 2S outside. Split
+        // it on the radius of the first hit found, so the PS region of the discs
+        // can be compared against TBPS.
+        if (g == 2 || g == 3) {
+          float r = ha ? ev->layerHits_[la][ia->second[0]].r()
+                       : ev->layerHits_[la+1][ib->second[0]].r();
+          if (r < 65.0f) tally(g_sis[4]);
+        }
+      }
+    }
+  }
+
+  void val_sister_report() {
+    auto q = [](std::vector<float> &v, float f) {
+      if (v.empty()) return -1.0f;
+      std::sort(v.begin(), v.end());
+      return v[std::min(v.size() - 1, (size_t)(f * v.size()))];
+    };
+    printf("\n=== val_sister: sister hits in the partner sub-layer ===\n");
+    printf("sim tracks scanned: %ld\n", g_sis_ntrk);
+    printf("%-28s %8s | %7s %7s %7s | %s\n", "group", "crossings",
+           "A only", "B only", "both", "hits in pair: 1 / 2 / 3 / 4 / 5+");
+    for (auto &G : g_sis) {
+      if (!G.name || G.n_cross == 0) continue;
+      double n = G.n_cross;
+      printf("%-28s %8ld | %6.1f%% %6.1f%% %6.1f%% | %5.1f %5.1f %5.1f %5.1f %5.1f\n",
+             G.name, G.n_cross,
+             100.0 * G.n_a_only / n, 100.0 * G.n_b_only / n, 100.0 * G.n_both / n,
+             100.0*G.n_mult[0]/n, 100.0*G.n_mult[1]/n, 100.0*G.n_mult[2]/n,
+             100.0*G.n_mult[3]/n, 100.0*G.n_mult[4]/n);
+    }
+    printf("\n%-28s %8s %8s %8s %8s | %10s %10s\n", "group", "d p10", "d p50",
+           "d p90", "d max", "q_hl A", "q_hl B");
+    for (auto &G : g_sis) {
+      if (!G.name || G.n_cross == 0) continue;
+      // q half-length as the code computes it: sqrt(3 * ezz) for a strip layer.
+      std::vector<float> a(G.hl_a), b(G.hl_b);
+      printf("%-28s %8.4f %8.4f %8.4f %8.4f | %10.4f %10.4f\n", G.name,
+             q(G.dist, 0.10f), q(G.dist, 0.50f), q(G.dist, 0.90f),
+             G.dist.empty() ? -1.0f : *std::max_element(G.dist.begin(), G.dist.end()),
+             q(a, 0.50f), q(b, 0.50f));
+    }
+    printf("(distances in cm, closest A-B pair; q_hl = median sqrt(3*ezz) in cm)\n\n");
+  }
+
+
+  //============================================================================
+  // val_qbins -- what the q BINNING actually costs, per layer.
+  //
+  // phase2QBins gives q_bin = 6.0 cm to EVERY outer-tracker barrel layer, P and
+  // S alike (MkFitGeometryESProducer.cc, carrying its own "TODO: Review these
+  // numbers"). The two sensors' q extents differ by ~16x, so one number cannot
+  // be right for both. This reports, per layer: the q-bin span actually opened
+  // (q2 - q1 from MkBinLimits), the q window that span is covering, and how many
+  // hits were scanned against how many survived pre-selection.
+  //
+  // The ratio that matters is (bin span in cm) / (window width in cm): it is the
+  // over-scan factor, i.e. how much of the q range pulled out of the binnor the
+  // cut was never going to accept.
+  //============================================================================
+
+  namespace {
+    struct QBinRow {
+      long n = 0;
+      double span_bins = 0, win_cm = 0, scanned = 0, presel = 0;
+    };
+    std::map<int, QBinRow> g_qb;
+  }
+
+  void val_qbins_reset() { g_qb.clear(); }
+
+  void val_qbins_event(const Event *ev) {
+    for (const auto &ls : ev->trLayerSearches_) {
+      if (ls.layer < 0) continue;
+      auto &R = g_qb[ls.layer];
+      ++R.n;
+      // q1/q2 are binnor bin indices; the walk is `for (qi = q1; qi != q2; ++qi)`.
+      int nb = (int) ls.q2 - (int) ls.q1;
+      if (nb < 0) nb += 1 << 16;          // wrap, defensive
+      R.span_bins += nb;
+      // The q window the cut will actually use, full width. dq_track is 3 sigma.
+      R.win_cm  += (double) (ls.q_max - ls.q_min);
+      R.scanned += ls.n_hits_scanned;
+      R.presel  += ls.n_hits_presel;
+    }
+  }
+
+  void val_qbins_report() {
+    printf("\n=== val_qbins: q binning vs the q window actually used ===\n");
+    printf("%5s %8s %10s %10s %10s %10s %9s %9s\n", "layer", "searches", "q_bin[cm]",
+           "bins", "binspan cm", "window cm", "over-scan", "scan/presel");
+    for (auto &[lay, R] : g_qb) {
+      if (R.n < 100) continue;
+      const float qb = Config::TrkInfo[lay].q_bin();
+      double bins = R.span_bins / R.n;
+      double bspan = bins * qb;
+      double win = R.win_cm / R.n;
+      printf("%5d %8ld %10.2f %10.2f %10.2f %10.3f %9.1f %9.2f\n",
+             lay, R.n, qb, bins, bspan, win,
+             win > 0 ? bspan / win : -1.0,
+             R.presel > 0 ? R.scanned / R.presel : -1.0);
+    }
+    printf("over-scan = (q range pulled from the binnor) / (q window the cut uses)\n\n");
+  }
 
 }  // namespace mkfit

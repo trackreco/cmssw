@@ -86,3 +86,11 @@ void val_gen_displaced(const char *out = "val-closure-displaced.root",
                        float d0 = 10.0f, float z0 = 30.0f) {
   mkfit::val_gen_closure(out, 14, 32, 8, 20260911u, d0, z0);
 }
+
+void val_sister_reset() { mkfit::val_sister_reset(); }
+void val_sister_ev(const mkfit::Event *ev, float pt_min = 0.5) { mkfit::val_sister_event(ev, pt_min); }
+void val_sister_report() { mkfit::val_sister_report(); }
+void val_sister_mcfilter(bool on) { mkfit::val_sister_mcfilter(on); }
+void val_qbins_reset() { mkfit::val_qbins_reset(); }
+void val_qbins_ev(const mkfit::Event *ev) { mkfit::val_qbins_event(ev); }
+void val_qbins_report() { mkfit::val_qbins_report(); }

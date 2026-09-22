@@ -73,7 +73,7 @@ namespace mkfit {
     m_ctx.ev = new Event(0, Config::TrkInfo.n_layers());
 
     if ( ! in_file.empty() && Config::nEvents > 0) {
-      m_evs_in_file = m_data_file->openRead(in_file, Config::TrkInfo.n_layers());
+      m_evs_in_file = m_data_file->openRead(in_file, Config::TrkInfo.n_layers(), Config::TrkInfo.geom_version());
       SetEventRangeBegCnt(start_ev, Config::nEvents); // --start-event / --num-events
       GoToEvent(start_ev);
     } else {

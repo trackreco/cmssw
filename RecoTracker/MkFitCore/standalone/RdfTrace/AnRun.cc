@@ -1193,7 +1193,7 @@ RNode AnRun::define_hitmatch_stuff(RNode r, const std::string &idx_column, const
   .Define(pref + "passed_pqueue", EV_GATHER(trHitMatches_, passed_pqueue, idx_column))
   .Define(pref + "dphi", EV_GATHER(trHitMatches_, dphi, idx_column))
   .Define(pref + "dq", EV_GATHER(trHitMatches_, dq, idx_column))
-  .Define(pref + "rank", EV_GATHER(trHitMatches_, rank, idx_column))
+  .Define(pref + "rank", EV_GATHER(trHitMatches_, sub_rank, idx_column))
   ;
 }
 
