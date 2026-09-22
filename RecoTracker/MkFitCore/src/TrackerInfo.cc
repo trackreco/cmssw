@@ -152,6 +152,14 @@ namespace mkfit {
       constexpr static int s_version = 4;      // v4 adds f_geom_version
       constexpr static int s_min_version = 3;  // v3 files still read, with no stamp
       constexpr static size_t s_v3_size = 7 * sizeof(int);
+
+      // Header size ON FILE for a given version. Magic and version are the first
+      // two ints of the file precisely so this can be asked before anything else
+      // is read. Never use sizeof(GeomFileHeader): that is the CURRENT version's
+      // size, and it both over-reads an older file and mis-places what follows.
+      constexpr static size_t size_of_version(int v) {
+        return v >= 4 ? s_v3_size + sizeof(f_geom_version) : s_v3_size;
+      }
     };
 
     template <typename T>
@@ -241,25 +249,29 @@ namespace mkfit {
               strerror(errno));
       throw std::runtime_error("Failed opening file in TrackerInfo::read_bin_file");
     }
-    GeomFileHeader fh;
-    // Two-step: the v3-sized prefix, then the fields later versions added. A
-    // single sizeof-sized read would over-run a v3 file into the layer data.
-    fread(&fh, GeomFileHeader::s_v3_size, 1, fp);
-    if (fh.f_format_version >= 4)
-      fread(fh.f_geom_version, sizeof(fh.f_geom_version), 1, fp);
+    // Magic and version are the first two ints of the file so that the rest can
+    // be read knowing what it is. Read those two alone, decide, then read the
+    // header that version has.
+    int magic = 0, version = 0;
+    fread(&magic, sizeof(int), 1, fp);
+    fread(&version, sizeof(int), 1, fp);
 
-    if (fh.f_magic != GeomFileHeader::s_magic) {
+    if (magic != GeomFileHeader::s_magic) {
       fprintf(stderr, "Incompatible input file (wrong magick).\n");
       throw std::runtime_error("Filed opening file in TrackerInfo::read_bin_file");
     }
-    if (fh.f_format_version < GeomFileHeader::s_min_version || fh.f_format_version > GeomFileHeader::s_version) {
+    if (version < GeomFileHeader::s_min_version || version > GeomFileHeader::s_version) {
       fprintf(stderr,
               "Unsupported file version %d. Supported versions are from %d to %d.\n",
-              fh.f_format_version,
+              version,
               GeomFileHeader::s_min_version,
               GeomFileHeader::s_version);
       throw std::runtime_error("Unsupported file version in TrackerInfo::read_bin_file");
     }
+
+    GeomFileHeader fh;
+    fseek(fp, 0, SEEK_SET);
+    fread(&fh, GeomFileHeader::size_of_version(version), 1, fp);
     // TrackerInfo is NOT streamed as a POD -- only its vectors are, member by
     // member -- so this check is an ABI sanity guard, not a stream requirement.
     // Skip it for v3 files: they recorded the sizeof from before geom_version was
