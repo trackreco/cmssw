@@ -55,6 +55,13 @@ namespace mkfit {
     SVector3 xdir;  // the precise / "phi" direction
     unsigned int detid;
     unsigned short shapeid;
+    // Explicit, zero-initialised tail padding. The struct is fwrite'n whole into
+    // the geometry binary, and the two bytes the compiler inserts after shapeid
+    // were going to file uninitialised: two dumps of the SAME geometry then
+    // differed in ~46 kB of 2.1 MB, which makes a byte comparison of two
+    // geometry files meaningless. sizeof(ModuleInfo) is unchanged at 44, so the
+    // file format and f_sizeof_moduleinfo are unaffected.
+    unsigned short pad_ = 0;
 
     ModuleInfo() = default;
     ModuleInfo(SVector3 p, SVector3 zd, SVector3 xd, unsigned int did, unsigned short sid)
