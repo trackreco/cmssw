@@ -55,6 +55,11 @@ namespace mkfit {
 
   //============================================================================
 
+  // See the block on the three dphi factors inside MkBins, below.
+  extern float g_v2p2_dphi_trk_fac;
+  extern float g_v2p2_hit_dphi_fac;
+  extern float g_v2p2_bin_dphi_fac;
+
   struct MkBins {
     // To become members ... or go into a helper struct / config.
     static constexpr float DDPHI_PRESEL_FAC = 2.0f;
@@ -79,6 +84,21 @@ namespace mkfit {
     // efficiency, so it is a tuning/cleanup item rather than a bug. See
     // RecoTracker/CLAUDE.md for the full q/phi extraction cross-check.
     static constexpr float HIT_PHI_HALF_EXTENT = 0.0123f;
+
+    // Runtime overrides for the three dphi factors, so the phi side can be
+    // scanned the way EXTRA_DQ was. Defaults reproduce the constants above
+    // exactly. Deliberately THREE knobs and not one: the dq scan showed that a
+    // single factor over both terms of a cut cannot be interpreted, because
+    // which term binds is a property of the layer.
+    //
+    //   g_v2p2_dphi_trk_fac  multiplies m_dphi_track, in the CUT and the BINNOR
+    //   g_v2p2_hit_dphi_fac  replaces DDPHI_PRESEL_FAC, in the CUT
+    //   g_v2p2_bin_dphi_fac  replaces PHI_BIN_EXTRA_FAC, in the BINNOR
+    //
+    // The binnor pair is not optional bookkeeping: the cut can only reject hits
+    // the binnor already fetched, so raising hit_dphi_fac above bin_dphi_fac, or
+    // dphi_trk_fac above 1 without the binnor following, is a silent NO-OP and
+    // the resulting flatness is an artefact of the fetch, not physics.
 
     static constexpr int NEW_MAX_HIT = 6;  // 4 - 6 give about the same # of tracks in quality-val
 

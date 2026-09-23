@@ -12,6 +12,10 @@ namespace mkfit {
 
   bool g_mkbins_surface_q = false;
 
+  float g_v2p2_dphi_trk_fac = 1.0f;
+  float g_v2p2_hit_dphi_fac = MkBins::DDPHI_PRESEL_FAC;
+  float g_v2p2_bin_dphi_fac = MkBins::PHI_BIN_EXTRA_FAC;
+
   namespace mp = mini_propagators;
 
   //==============================================================================
@@ -253,8 +257,10 @@ namespace mkfit {
         // const float dphi_clamp = 0.1;
         // if (dphi_min[i] > 0.0f || dphi_min[i] < -dphi_clamp) dphi_min[i] = -dphi_clamp;
         // if (dphi_max[i] < 0.0f || dphi_max[i] > dphi_clampf) dphi_max[i] = dphi_clamp;
-        bl.p1[i] = loh.phiBinChecked(m_phi_min[i] - m_dphi_track[i] - PHI_BIN_EXTRA_FAC * HIT_PHI_HALF_EXTENT);
-        bl.p2[i] = loh.phiBinChecked(m_phi_max[i] + m_dphi_track[i] + PHI_BIN_EXTRA_FAC * HIT_PHI_HALF_EXTENT);
+        const float bin_dphi = g_v2p2_dphi_trk_fac * m_dphi_track[i] +
+                               g_v2p2_bin_dphi_fac * HIT_PHI_HALF_EXTENT;
+        bl.p1[i] = loh.phiBinChecked(m_phi_min[i] - bin_dphi);
+        bl.p2[i] = loh.phiBinChecked(m_phi_max[i] + bin_dphi);
 
         bl.q0[i] = loh.qBinChecked(m_q_center[i]);
         bl.q1[i] = loh.qBinChecked(m_q_min[i] - m_dq_track[i] - Q_BIN_EXTRA_FAC * 0.5f * loh.layer_info().q_bin());

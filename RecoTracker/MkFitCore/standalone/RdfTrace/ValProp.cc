@@ -1352,6 +1352,21 @@ namespace mkfit {
     printf("val_extra_dq: g_v2p2_extra_dq = %.3f\n", f);
   }
 
+  // The dphi side of the same cut. THREE factors, not one: the dq scan showed a
+  // single factor over both terms of a cut cannot be interpreted, since which
+  // term binds is a property of the layer. And the binnor factor is not optional
+  // -- the cut can only reject hits the binnor already fetched, so raising
+  // hit_fac above bin_fac (or trk_fac above 1 without the binnor following) is a
+  // silent no-op that looks like flatness.
+  void val_dphi(float trk_fac, float hit_fac, float bin_fac) {
+    g_v2p2_dphi_trk_fac = trk_fac;
+    g_v2p2_hit_dphi_fac = hit_fac;
+    g_v2p2_bin_dphi_fac = bin_fac;
+    printf("val_dphi: trk_fac = %.3f  hit_fac = %.3f  bin_fac = %.3f%s\n",
+           trk_fac, hit_fac, bin_fac,
+           hit_fac > bin_fac ? "   *** hit_fac > bin_fac: the extra width is a NO-OP ***" : "");
+  }
+
   // Per-hit surface reference, using the HIT'S OWN MODULE NORMAL. This is the
   // real fix; MkBins::surface_reference_dq (val_surf_q) is the layer-cylinder
   // scaffold that proved the mechanism and over-widens tilted TBPS ~8x.

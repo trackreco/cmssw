@@ -1327,7 +1327,8 @@ namespace mkfit {
 
         const float EXTRA_DQ = g_v2p2_extra_dq;
         bool dqdphi_presel = ddq < EXTRA_DQ * dq_trk + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]) &&
-                             ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * MkBins::HIT_PHI_HALF_EXTENT;
+                             ddphi < g_v2p2_dphi_trk_fac * B.m_dphi_track[prim_idcs[h]] +
+                                     g_v2p2_hit_dphi_fac * MkBins::HIT_PHI_HALF_EXTENT;
 
         // To be moved down, only for hits that pass pre-selection, needed here for printout.
         // Could be vectorized if we repack binnor stuff.
@@ -1339,7 +1340,8 @@ namespace mkfit {
 #ifdef DEBUG
         // clang-format off
         bool dq_presel = ddq < EXTRA_DQ * dq_trk + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]);
-        bool dphi_presel = ddphi < B.m_dphi_track[prim_idcs[h]] + MkBins::DDPHI_PRESEL_FAC * MkBins::HIT_PHI_HALF_EXTENT;
+        bool dphi_presel = ddphi < g_v2p2_dphi_trk_fac * B.m_dphi_track[prim_idcs[h]] +
+                                   g_v2p2_hit_dphi_fac * MkBins::HIT_PHI_HALF_EXTENT;
         dprintf("     SelHit %6.3f %6.3f %6.4f %7.5f   %6.4f   %s [dq = %d, dphi = %d]\n",
                 L.hit_q(hit_idcs[h]), L.hit_phi(hit_idcs[h]),
                 ddq, ddphi, h_plex.dalpha[h], dqdphi_presel ? "PASS" : "REJECT", dq_presel, dphi_presel);
