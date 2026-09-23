@@ -63,6 +63,7 @@ namespace mkfit {
     std::atomic<long> n_selections{0};     // end-of-layer selections run
     std::atomic<long> n_same_module{0};    // extra hit from the SAME module -- not an overlap
     std::atomic<long> n_diff_module{0};    // extra hit from another module -- a genuine overlap
+    std::atomic<long> n_same_module_vetoed{0};  // extensions refused for sharing a module
 
     void reset();
     void print(const char *tag) const;

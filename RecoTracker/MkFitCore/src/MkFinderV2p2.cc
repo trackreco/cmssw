@@ -63,7 +63,7 @@ namespace mkfit {
     n_ccand_retired = 0;
     n_sec_nodes = 0; n_sec_deep = 0; n_path_taken = 0; n_extra_hits = 0;
     n_sel_entries = 0; n_sel_kept = 0; n_selections = 0;
-    n_same_module = 0; n_diff_module = 0;
+    n_same_module = 0; n_diff_module = 0; n_same_module_vetoed = 0;
   }
 
   void V2p2PolicyCounters::print(const char *tag) const {
@@ -79,7 +79,8 @@ namespace mkfit {
            "  retired    : %ld CombCandidates\n"
            "  in-layer   : %ld tree nodes (%ld at depth >= 2), %ld paths taken, %ld extra hits\n"
            "  selection  : %ld of them, %ld competitors -> %ld kept (%.2f -> %.2f per seed)\n"
-           "  extra hits : %ld from another module (overlap), %ld from the SAME module (%.1f%%)\n",
+           "  extra hits : %ld from another module (overlap), %ld from the SAME module (%.1f%%)"
+           ", %ld same-module extensions vetoed\n",
            tag,
            n_quadrant_skip.load(), n_stop_minpt.load(), n_stop_looper.load(),
            n_wsr, n_wsr_inside.load(), f * n_wsr_inside, n_wsr_edge.load(), f * n_wsr_edge,
@@ -93,7 +94,8 @@ namespace mkfit {
            n_selections > 0 ? (double) n_sel_kept / n_selections : 0.0,
            n_diff_module.load(), n_same_module.load(),
            (n_same_module + n_diff_module) > 0 ?
-             100.0 * n_same_module / (n_same_module + n_diff_module) : 0.0);
+             100.0 * n_same_module / (n_same_module + n_diff_module) : 0.0,
+           n_same_module_vetoed.load());
   }
 
   //------------------------------------------------------------------------------
@@ -1795,6 +1797,32 @@ namespace mkfit {
         const int nlh = (int) ptc.m_layer_hits.size();
         for (int lh = m_sec_arena[ni].m_hit_pos + 1; lh < nlh; ++lh) {
           const PrimTCandRep::PQE &pqe = ptc.m_layer_hits[lh];
+
+          // A SECOND HIT FROM THE SAME MODULE IS NOT AN OVERLAP, AND IS FORBIDDEN.
+          // An overlap is the track crossing two DIFFERENT modules. Two hits in
+          // one module are a split cluster or two tracks' hits, and a split
+          // cluster is one measurement seen twice: taking both feeds the same
+          // information into the Kalman filter twice, which shrinks the
+          // covariance without adding knowledge. Measured at 6.0 % of the extra
+          // hits taken before this check.
+          //
+          // No truth is needed for the test -- the module id is on the hit -- and
+          // the walk is cheap because it only ever looks back along one path,
+          // which is at most g_v2p2_max_sec_depth long.
+          bool same_module = false;
+          for (int ci = ni; ci >= 0 && !same_module; ci = m_sec_arena[ci].m_parent_idx) {
+            const SecTCandRep &an = m_sec_arena[ci];
+            if (an.m_hot.layer != pqe.layer)
+              continue;
+            const auto &La = mp_job->m_event_of_hits[an.m_hot.layer];
+            same_module = La.refHit(an.m_hot.index).detIDinLayer() ==
+                          La.refHit(pqe.hit_orig_index).detIDinLayer();
+          }
+          if (same_module) {
+            ++g_v2p2_policy_counters.n_same_module_vetoed;
+            continue;
+          }
+
           koa.item_begin(&ptc, { (int) pqe.hit_orig_index, pqe.layer }, ni, lh, pqe.hit_index);
           koa.load_state_err_chg(m_sec_arena[ni].m_state);
 #ifdef MKFIT_TRACE

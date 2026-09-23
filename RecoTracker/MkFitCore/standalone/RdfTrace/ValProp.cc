@@ -2419,7 +2419,7 @@ namespace mkfit {
       const char *name;
       long n_cross = 0;      // sim-track crossings with >= 1 hit in the pair
       long n_a_only = 0, n_b_only = 0, n_both = 0;
-      long n_mult[5] = {0,0,0,0,0};   // hits in the pair: 1, 2, 3, 4, >=5
+      long n_mult[9] = {0,0,0,0,0,0,0,0,0};   // hits in the pair: 1 .. 8, >=9
       std::vector<float> dist;        // 3-D distance, closest A-B pair
       std::vector<float> hl_a, hl_b;  // q half-lengths, to show the asymmetry
     };
@@ -2497,8 +2497,8 @@ namespace mkfit {
         auto tally = [&](SisterGroup &G) {
           ++G.n_cross;
           if (ha && hb) ++G.n_both; else if (ha) ++G.n_a_only; else ++G.n_b_only;
-          int m = std::min(na + nb, 5);
-          ++G.n_mult[m - 1];
+          int m = na + nb;
+          ++G.n_mult[std::min(m, 9) - 1];
           // Same branch LayerOfHits::registerHit() uses: ezz in the barrel, the
           // transverse trace in the endcap. Using ezz everywhere reports the
           // module THICKNESS for a disc, which is not the q extent at all.
@@ -2541,15 +2541,15 @@ namespace mkfit {
     printf("\n=== val_sister: sister hits in the partner sub-layer ===\n");
     printf("sim tracks scanned: %ld\n", g_sis_ntrk);
     printf("%-28s %8s | %7s %7s %7s | %s\n", "group", "crossings",
-           "A only", "B only", "both", "hits in pair: 1 / 2 / 3 / 4 / 5+");
+           "A only", "B only", "both", "hits in the pair: 1 / 2 / 3 / 4 / 5 / 6 / 7 / 8 / 9+");
     for (auto &G : g_sis) {
       if (!G.name || G.n_cross == 0) continue;
       double n = G.n_cross;
-      printf("%-28s %8ld | %6.1f%% %6.1f%% %6.1f%% | %5.1f %5.1f %5.1f %5.1f %5.1f\n",
-             G.name, G.n_cross,
-             100.0 * G.n_a_only / n, 100.0 * G.n_b_only / n, 100.0 * G.n_both / n,
-             100.0*G.n_mult[0]/n, 100.0*G.n_mult[1]/n, 100.0*G.n_mult[2]/n,
-             100.0*G.n_mult[3]/n, 100.0*G.n_mult[4]/n);
+      printf("%-28s %8ld | %6.1f%% %6.1f%% %6.1f%% |", G.name, G.n_cross,
+             100.0 * G.n_a_only / n, 100.0 * G.n_b_only / n, 100.0 * G.n_both / n);
+      for (int m = 0; m < 9; ++m)
+        printf(" %5.2f", 100.0 * G.n_mult[m] / n);
+      printf("\n");
     }
     printf("\n%-28s %8s %8s %8s %8s | %10s %10s\n", "group", "d p10", "d p50",
            "d p90", "d max", "q_hl A", "q_hl B");
