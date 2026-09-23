@@ -539,6 +539,8 @@ int main(int argc, const char* argv[]) {
           "  --best-out-of    <int>   run test num times, report best time (def: %d)\n"
           "  --max-cands-per-seed <int>  override IterationParams::maxCandsPerSeed on every\n"
           "                           iteration config, forward AND backward (def: from the geometry)\n"
+          "  --v2p2-extra-dq <float>  MkFinderV2p2 pre-selection: the factor on BOTH terms of the\n"
+          "                           dq cut -- the covariance term and the hit-extent term (def: %.2f)\n"
           "  --input-file             file name for reading (def: %s)\n"
           "  --output-file            file name for writitng (def: %s)\n"
           "  --read-sim-hit-states    read per-sim-hit truth states if present in the file (def: %s)\n"
@@ -734,6 +736,7 @@ int main(int argc, const char* argv[]) {
           Config::geomPlugin.c_str(),
           b2a(Config::silent),
           Config::finderReportBestOutOfN,
+          mkfit::g_v2p2_extra_dq,
           g_input_file.c_str(),
           g_output_file.c_str(),
           b2a(Config::readSimHitStates),
@@ -858,6 +861,9 @@ int main(int argc, const char* argv[]) {
       Config::geomPlugin = *i;
     } else if (*i == "--silent") {
       Config::silent = true;
+    } else if (*i == "--v2p2-extra-dq") {
+      next_arg_or_die(mArgs, i);
+      mkfit::g_v2p2_extra_dq = (float) atof(i->c_str());
     } else if (*i == "--max-cands-per-seed") {
       next_arg_or_die(mArgs, i);
       g_max_cands_per_seed = atoi(i->c_str());
