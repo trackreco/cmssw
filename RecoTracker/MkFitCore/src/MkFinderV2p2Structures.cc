@@ -109,7 +109,7 @@ namespace mkfit {
 
     kalmanOperationPlaneLocal(KFO_Calculate_Chi2 | KFO_Update_Params | KFO_Local_Cov,
                               propErr, propPar, tsChg, msErr, msPar, plNrm, plDir, plPnt,
-                              tsErr, tsPar, tsChi2, N_filled);
+                              tsErr, tsPar, tsChi2, N_filled, nullptr, nullptr, false, &tsDetV);
     kalmanCheckChargeFlip(tsPar, tsChg, N_filled);
 
     // The original -- but Chi2 only.
@@ -191,6 +191,7 @@ namespace mkfit {
         o.hot = hot[i];
         o.hit_in_layer = hit_in_layer[i];
         o.chi2 = tsChi2[i];
+        o.det_v = tsDetV[i];
         tsPar.copyOut(i, o.state.parArray_nc());
         tsErr.copyOut(i, o.state.errArray_nc());
         o.state.charge = tsChg[i];

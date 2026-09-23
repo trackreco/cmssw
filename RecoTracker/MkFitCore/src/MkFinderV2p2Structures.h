@@ -307,6 +307,7 @@ namespace mkfit {
       MPlexHV plPnt { 0.0f }; // ""
 
       MPlexQF tsChi2 { 0.0f };   // output
+      MPlexQF tsDetV { 0.0f };   // output: det of the 2x2 residual covariance
 
 #ifdef MKFIT_TRACE
       int tr_hitmatch_ids[NN];
@@ -325,6 +326,7 @@ namespace mkfit {
         HitOnTrack hot;
         unsigned int hit_in_layer;   // index WITHIN the LayerOfHits, for hit_q_half_length()
         float chi2;
+        float det_v;                 // det of the 2x2 residual covariance, for the score
         TrackState state;
 #ifdef MKFIT_TRACE
         int   tr_hitmatch_id;

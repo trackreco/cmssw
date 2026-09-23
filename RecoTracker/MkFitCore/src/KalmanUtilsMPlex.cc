@@ -1358,7 +1358,8 @@ namespace mkfit {
                                  const int N_proc,
                                  const MPlexQI* doCPE,
                                  cpe_func cpe_corr_func,
-                                 bool use_param_b_field) {
+                                 bool use_param_b_field,
+                                 MPlexQF* outDetV) {
 #ifdef DEBUG
     {
       dmutex_guard;
@@ -1594,7 +1595,16 @@ namespace mkfit {
     //*/
 
     //invert the 2x2 matrix
-    Matriplex::invertCramerSym(resErr_loc);
+    if (outDetV) {
+      // Cramer computes the determinant in double on its way to the inverse; the
+      // only cost of keeping it is asking for it.
+      double determ[NN];
+      Matriplex::invertCramerSym(resErr_loc, determ);
+      for (int n = 0; n < NN; ++n)
+        (*outDetV)[n] = (float) determ[n];
+    } else {
+      Matriplex::invertCramerSym(resErr_loc);
+    }
 
     if (kfOp & KFO_Calculate_Chi2) {
       Chi2Similarity(res_loc, resErr_loc, outChi2);

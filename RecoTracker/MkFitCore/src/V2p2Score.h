@@ -3,6 +3,8 @@
 
 #include "RecoTracker/MkFitCore/interface/Hit.h"
 
+#include <cmath>
+
 namespace mkfit {
 
   //============================================================================
@@ -93,6 +95,18 @@ namespace mkfit {
     // stereo bit, and in a 2S stack, where a stereo bit would be meaningless,
     // it correctly says the two sensors are equal.
     float q_half_len_best = 0.0f;
+    // Sum over the hits taken of ln(det V), V being the 2x2 residual covariance
+    // in the module frame -- the very matrix chi2 is formed with. chi2 is
+    // dimensionless, so it has already divided the precision out; this is what
+    // puts it back. Two hits at chi2 = 1, one a P macro-pixel and one a 2S strip,
+    // are not equally informative and only this term says so.
+    float log_det_v_sum = 0.0f;
+    // ln of the local hit density in the search window, hits per cm^2. Per layer
+    // step, so common to the hits of one path. A good-looking hit in a crowded
+    // window is more likely to be an accident, and this is what makes the bar
+    // rise with occupancy -- which is most of what a fitted chi2 cut in 1/pT and
+    // theta was absorbing, occupancy varying with both.
+    float log_rho = 0.0f;
     short n_hits = 0;            // hits taken in this layer: 0, 1, 2, ...
     short n_overlap = 0;         // = max(n_hits - 1, 0)
     short hole_kind = V2P2_NoHole;
@@ -129,6 +143,10 @@ namespace mkfit {
   // too and are deliberately not invented yet -- there is no measurement behind
   // them, and inventing them before the features are recorded is exactly the
   // hand-tuning this struct exists to replace.
+  // 0 = the linear form below, kept as the A/B reference. 1 = the log-likelihood
+  // ratio. See v2p2_layer_step_score().
+  extern int g_v2p2_score_mode;
+
   struct V2p2ScoreParams {
     float hit_bonus = 30.0f;      // per hit taken
     float overlap_bonus = 0.0f;   // per hit beyond the first in a layer
@@ -137,6 +155,10 @@ namespace mkfit {
     float edge_penalty = 0.0f;    // crossing the boundary -- absence is explained
     float gap_penalty = 0.0f;     // inactive module -- absence is explained
     float stop_penalty = 8.0f;    // out of hole budget
+
+    // Likelihood mode. Per-layer hit efficiency; the only free number in it, and
+    // a measurable one rather than a tuned one.
+    float hit_eff = 0.99f;
   };
 
   // Outward: trailing holes sit at large radius where a track legitimately runs
@@ -147,8 +169,38 @@ namespace mkfit {
   extern V2p2ScoreParams g_v2p2_score_fwd;
   extern V2p2ScoreParams g_v2p2_score_bkw;
 
+  // THE LOG-LIKELIHOOD RATIO, against "this layer produced no hit" as the
+  // reference, which is why the hole scores exactly zero and needs no penalty of
+  // its own.
+  //
+  //   take hit j :  ln(eps/(1-eps)) - ln(2pi) - chi2_j/2 - ln(det V_j)/2 - ln rho
+  //   take none  :  0
+  //
+  // The first two terms are constants, the middle two come from the Gaussian
+  // density of the residual, and the last from modelling the other hits in the
+  // window as uniform at density rho. Dimensions cancel: det V is in cm^4 and rho
+  // in hits/cm^2.
+  //
+  // What it buys over a tuned linear form is that the hit-versus-hole break-even
+  // is DERIVED. At 30 um pixel resolution and rho = 1/cm^2 it sits near chi2 = 29;
+  // for a 2S strip, near 17. Nobody chose either.
+  //
+  // It assumes chi2 is trustworthy, which it is only to the 1.4-2x the covariance
+  // is still short by -- that biases the chi2 term without changing its shape.
+  // And "background is uniform at rho" ignores that other tracks make CORRELATED
+  // hits. Both are nameable and measurable, which the fitted constants are not.
+  inline float v2p2_layer_step_loglh(const LayerStepFeatures &f, const V2p2ScoreParams &p) {
+    if (f.n_hits == 0)
+      return 0.0f;   // the reference hypothesis, whatever kind of hole it was
+    const float c_eps = std::log(p.hit_eff / (1.0f - p.hit_eff)) - 1.8378771f;  // ln(2pi)
+    return f.n_hits * (c_eps - f.log_rho) - 0.5f * (f.chi2_sum + f.log_det_v_sum);
+  }
+
   inline float v2p2_layer_step_score(const LayerStepFeatures &f) {
     const V2p2ScoreParams &p = f.is_outward ? g_v2p2_score_fwd : g_v2p2_score_bkw;
+
+    if (g_v2p2_score_mode == 1)
+      return v2p2_layer_step_loglh(f, p);
 
     float s = p.hit_bonus * f.n_hits + p.overlap_bonus * f.n_overlap - p.chi2_weight * f.chi2_sum;
 

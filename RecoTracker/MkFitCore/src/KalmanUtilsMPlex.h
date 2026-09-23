@@ -226,7 +226,15 @@ namespace mkfit {
                                  const int N_proc,
                                  const MPlexQI* doCPE = nullptr,
                                  cpe_func cpe_corr_func = nullptr,
-                                 bool use_param_b_field = false);
+                                 bool use_param_b_field = false,
+                                 // Determinant of the 2x2 residual covariance in the
+                                 // module's local frame, the matrix chi2 is formed
+                                 // with. Cramer already computes it in double and
+                                 // throws it away. chi2 = r^T V^-1 r is dimensionless,
+                                 // so it has divided the precision out; -0.5*ln(det V)
+                                 // is what puts it back, and it is what tells a
+                                 // macro-pixel hit from a 2S strip hit at equal chi2.
+                                 MPlexQF* outDetV = nullptr);
 
 }  // end namespace mkfit
 #endif

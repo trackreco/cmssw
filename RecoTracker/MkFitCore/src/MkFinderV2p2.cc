@@ -38,6 +38,7 @@ namespace mkfit {
   // turned.
   V2p2ScoreParams g_v2p2_score_fwd;
   V2p2ScoreParams g_v2p2_score_bkw;
+  int g_v2p2_score_mode = 0;
 
   // Reduction cap, PER SUB-LAYER. Was MkBins::NEW_MAX_HIT, a compile-time 6 for
   // the whole detector. It sits UPSTREAM of the in-layer combinatorial search, so
@@ -64,6 +65,7 @@ namespace mkfit {
     n_sec_nodes = 0; n_sec_deep = 0; n_path_taken = 0; n_extra_hits = 0;
     n_sel_entries = 0; n_sel_kept = 0; n_selections = 0;
     n_same_module = 0; n_diff_module = 0; n_same_module_vetoed = 0;
+    n_hole_slot_reserved = 0;
   }
 
   void V2p2PolicyCounters::print(const char *tag) const {
@@ -80,7 +82,8 @@ namespace mkfit {
            "  in-layer   : %ld tree nodes (%ld at depth >= 2), %ld paths taken, %ld extra hits\n"
            "  selection  : %ld of them, %ld competitors -> %ld kept (%.2f -> %.2f per seed)\n"
            "  extra hits : %ld from another module (overlap), %ld from the SAME module (%.1f%%)"
-           ", %ld same-module extensions vetoed\n",
+           ", %ld same-module extensions vetoed\n"
+           "  hole slots : %ld reserved for an outranked decliner\n",
            tag,
            n_quadrant_skip.load(), n_stop_minpt.load(), n_stop_looper.load(),
            n_wsr, n_wsr_inside.load(), f * n_wsr_inside, n_wsr_edge.load(), f * n_wsr_edge,
@@ -95,7 +98,7 @@ namespace mkfit {
            n_diff_module.load(), n_same_module.load(),
            (n_same_module + n_diff_module) > 0 ?
              100.0 * n_same_module / (n_same_module + n_diff_module) : 0.0,
-           n_same_module_vetoed.load());
+           n_same_module_vetoed.load(), n_hole_slot_reserved.load());
   }
 
   //------------------------------------------------------------------------------
@@ -989,6 +992,7 @@ namespace mkfit {
               dprintf(" %d: P_HIT %3u %4u %5u [%5u]  %6.3f %6.3f %6.3f\n",
                 i, pi, qi, hi, hi_orig, L.hit_phi(hi), L.hit_q(hi), L.hit_qbar(hi));
 
+              ++b.n_scanned[i];
 #ifdef MKFIT_TRACE
               ++mp_event->tr_layersearch(tr_layersearch_ids[i]).n_hits_scanned;
 #endif
@@ -1028,7 +1032,17 @@ namespace mkfit {
       }
     }
 
-
+    // Local hit density, hits per cm^2, over the window that was actually walked.
+    // The window rather than the pre-selected hits, so the estimate does not
+    // depend on the cut it is about to feed. The phi extent becomes a length at
+    // the crossing radius.
+    for (int i = 0; i < N_proc; ++i) {
+      const float r = std::max(0.1f, std::hypot(B.m_sp2.x[i], B.m_sp2.y[i]));
+      const float w_phi = (B.m_phi_max[i] - B.m_phi_min[i]) + 2.0f * B.m_dphi_track[i];
+      const float w_q   = (B.m_q_max[i] - B.m_q_min[i]) + 2.0f * B.m_dq_track[i];
+      const float area  = std::max(1e-4f, w_phi * r * w_q);
+      b.log_rho[i] = std::log(std::max(1e-6f, (float) b.n_scanned[i] / area));
+    }
   }
 
   //----------------------------------------------------------------------------
@@ -1665,7 +1679,7 @@ namespace mkfit {
   // Per-hit acceptance, the same cut the best-hit path applies.
   static constexpr float kSecChi2Cut = 30.0f;
 
-  std::pair<int, int> MkFinderV2p2::harvest_sec_nodes() {
+  std::pair<int, int> MkFinderV2p2::harvest_sec_nodes(const LayerBatch &b) {
     const int begin = (int) m_sec_arena.size();
     for (const auto &o : m_sec_out) {
       if ( ! (o.chi2 < kSecChi2Cut))   // also rejects NaN
@@ -1685,8 +1699,12 @@ namespace mkfit {
       LayerStepFeatures &f = n.m_feat;
       if (pf)
         f = *pf;
-      else
-        fill_step_geometry(f, *o.ptc);
+      else {
+        float lrho = 0.0f;
+        for (int i = 0; i < b.N_proc; ++i)
+          if (b.ptc[i] == o.ptc) { lrho = b.log_rho[i]; break; }
+        fill_step_geometry(f, *o.ptc, lrho);
+      }
       f.n_hits    = (pf ? pf->n_hits : 0) + 1;
       f.n_overlap = f.n_hits - 1;
       f.hole_kind = V2P2_NoHole;
@@ -1697,6 +1715,7 @@ namespace mkfit {
         const float qhl = L.hit_q_half_length(o.hit_in_layer);
         f.q_half_len_best = (pf && pf->n_hits > 0) ? std::min(pf->q_half_len_best, qhl) : qhl;
       }
+      f.log_det_v_sum = (pf ? pf->log_det_v_sum : 0.0f) + std::log(std::max(1e-30f, o.det_v));
 #ifdef MKFIT_TRACE
       n.m_tr_hitmatch_id = o.tr_hitmatch_id;
 #endif
@@ -1711,7 +1730,8 @@ namespace mkfit {
   // The parts of a layer step that do not depend on which hits were taken: where
   // the step goes, which way, and what the candidate was when it arrived. Filled
   // once per path root and then carried down the tree.
-  void MkFinderV2p2::fill_step_geometry(LayerStepFeatures &f, const PrimTCandRep &ptc) const {
+  void MkFinderV2p2::fill_step_geometry(LayerStepFeatures &f, const PrimTCandRep &ptc,
+                                        float log_rho) const {
     const TrackCand &tc = const_cast<PrimTCandRep &>(ptc).tcand();
     const LayerInfo &li = m_rz_limits.layer_info_1();
     // layer_from is the layer of the candidate's LAST FOUND HIT, so the pair
@@ -1727,6 +1747,7 @@ namespace mkfit {
     f.step       = (short) tc.nTotalHits();
     f.n_found_so_far = (short) tc.nFoundHits();
     f.n_holes_so_far = (short) tc.nAllMinusOneHits();
+    f.log_rho = log_rho;
   }
 
   void MkFinderV2p2::expand_in_layer(LayerBatch &b) {
@@ -1783,7 +1804,7 @@ namespace mkfit {
     flush();
     const int arena_at_entry = (int) m_sec_arena.size() - 0;   // set below, after harvest
     (void) arena_at_entry;
-    auto [f_beg, f_end] = harvest_sec_nodes();
+    auto [f_beg, f_end] = harvest_sec_nodes(b);
     const int arena_batch_begin = f_beg;
 
     // Depths 1 and up. The starting state is now a node's UPDATED state, for
@@ -1834,7 +1855,7 @@ namespace mkfit {
         }
       }
       flush();
-      std::tie(f_beg, f_end) = harvest_sec_nodes();
+      std::tie(f_beg, f_end) = harvest_sec_nodes(b);
       g_v2p2_policy_counters.n_sec_deep += f_end - f_beg;
     }
 
@@ -1907,7 +1928,7 @@ namespace mkfit {
       } else {
         const int fake = fake_hit_index(tc, ptc.m_wsr);
         LayerStepFeatures f;
-        fill_step_geometry(f, ptc);
+        fill_step_geometry(f, ptc, 0.0f);
         f.hole_kind = v2p2_hole_kind(fake);
         m_sel.push_back({ptc.m_origin_tcand_index, -1, fake, true,
                          tc.score() + v2p2_layer_step_score(f)});
@@ -1934,6 +1955,39 @@ namespace mkfit {
     const int n_keep = std::min((int) m_sel.size(), cap);
     std::partial_sort(m_sel.begin(), m_sel.begin() + n_keep, m_sel.end(),
                       [](const SelEntry &a, const SelEntry &b) { return a.score > b.score; });
+
+    // BREATHING SPACE. Keep one continuation that declined the layer, even if it
+    // is outranked by hit-taking ones.
+    //
+    // Taking a hit always shrinks the covariance; declining is the only move that
+    // does not. So when every surviving hypothesis took a hit in this layer,
+    // there is no branch left that is open to an earlier hit having been wrong,
+    // and the windows keep narrowing around whatever the candidate has already
+    // committed to. That matters most exactly where S16b measures the damage:
+    // early, when the state is still seed-dominated and a candidate that takes a
+    // wrong hit has an 11.6x higher kill rate thereafter, and after a run of
+    // precise hits, when the covariance is smallest and a 1.4-2x under-estimate
+    // of it does the most harm.
+    //
+    // This is a BEAM POLICY, not a score. The score ranks hypotheses given that
+    // the error model is right; this hedges against its being wrong, which no
+    // single scalar can express because the two are different questions.
+    if (Config::v2p2ReserveHoleSlot && n_keep > 1) {
+      bool kept_a_decliner = false;
+      for (int k = 0; k < n_keep && !kept_a_decliner; ++k)
+        kept_a_decliner = (m_sel[k].node_idx < 0);
+      if (!kept_a_decliner) {
+        int best_decliner = -1;
+        for (int k = n_keep; k < (int) m_sel.size(); ++k)
+          if (m_sel[k].node_idx < 0 &&
+              (best_decliner < 0 || m_sel[k].score > m_sel[best_decliner].score))
+            best_decliner = k;
+        if (best_decliner >= 0) {
+          std::swap(m_sel[n_keep - 1], m_sel[best_decliner]);
+          ++g_v2p2_policy_counters.n_hole_slot_reserved;
+        }
+      }
+    }
 
     // Build the survivors as copies BEFORE touching the CombCandidate: several
     // winners can descend from the same TrackCand -- that is what branching is --

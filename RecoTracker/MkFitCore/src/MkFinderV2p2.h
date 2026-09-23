@@ -64,6 +64,7 @@ namespace mkfit {
     std::atomic<long> n_same_module{0};    // extra hit from the SAME module -- not an overlap
     std::atomic<long> n_diff_module{0};    // extra hit from another module -- a genuine overlap
     std::atomic<long> n_same_module_vetoed{0};  // extensions refused for sharing a module
+    std::atomic<long> n_hole_slot_reserved{0};  // beam slots given to an outranked decliner
 
     void reset();
     void print(const char *tag) const;
@@ -212,6 +213,11 @@ namespace mkfit {
       MkBinTrackCovExtract TCE;          // position block of the window covariance
       MkBinLimits BL_p, BL_s;            // binnor ranges, primary / secondary layer
       mini_propagators::Hermite3D H;     // cubic through sp1, sp2 -- the trajectory model
+      // Local hit density per candidate, ln(hits / cm^2), for the likelihood
+      // score. Counted over the bins actually walked, so it is independent of the
+      // pre-selection cut and cannot be circular.
+      int   n_scanned[NN] = {0};
+      float log_rho[NN] = {0.0f};
 #ifdef MKFIT_TRACE
       int tr_layersearch_ids[NN];
 #endif
@@ -260,10 +266,10 @@ namespace mkfit {
     void select_and_materialise(CCandRep &ccrep);
     // The direction-, layer- and candidate-dependent part of a layer step, filled
     // once per path root and carried down the tree.
-    void fill_step_geometry(LayerStepFeatures &f, const PrimTCandRep &ptc) const;
+    void fill_step_geometry(LayerStepFeatures &f, const PrimTCandRep &ptc, float log_rho) const;
     // Turn the Kalman results accumulated in m_sec_out into arena nodes, keeping
     // those that pass the chi2 cut. Returns the arena range that was appended.
-    std::pair<int, int> harvest_sec_nodes();
+    std::pair<int, int> harvest_sec_nodes(const LayerBatch &b);
 
     //----------------------------------------------------------------------------
     // Job / batch-of-seeds control variables and globel references

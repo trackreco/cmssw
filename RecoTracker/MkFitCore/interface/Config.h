@@ -75,6 +75,14 @@ namespace mkfit {
     // single best-chi2 hit. Off recovers the best-hit hack. See SESSIONS.md S8.
     extern bool v2p2InLayerComb;
 
+    // Keep one beam slot for a continuation that DECLINED the layer, even when
+    // it is outranked. A hole is the only move that does not shrink the
+    // covariance, so it is the only branch that stays open to the possibility
+    // that an earlier hit was wrong -- and the score is computed with an error
+    // model known to be 1.4-2x short, so the ranking it produces is not a reason
+    // to throw the hedge away. See MkFinderV2p2::select_and_materialise().
+    extern bool v2p2ReserveHoleSlot;
+
     // Config for Bfield. Note: for now the same for CMS-phase1 and CylCowWLids.
     constexpr float Bfield = 3.8112;
     constexpr float mag_c1 = 3.8114;
