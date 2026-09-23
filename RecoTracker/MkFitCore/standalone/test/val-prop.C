@@ -99,3 +99,13 @@ void val_sister_mcfilter(bool on) { mkfit::val_sister_mcfilter(on); }
 void val_qbins_reset() { mkfit::val_qbins_reset(); }
 void val_qbins_ev(const mkfit::Event *ev) { mkfit::val_qbins_event(ev); }
 void val_qbins_report() { mkfit::val_qbins_report(); }
+
+void val_eff_reset() { mkfit::val_eff_reset(); }
+void val_eff_ref(const char *c) { mkfit::val_eff_ref(c); }
+void val_eff_ev(const mkfit::Event *e, const char *c) { mkfit::val_eff_event(e, c); }
+void val_eff_report(const char *p) { mkfit::val_eff_report(p); }
+
+void val_chopres_reset() { mkfit::val_chopres_reset(); }
+void val_chopres_ref(const char *c) { mkfit::val_chopres_ref(c); }
+void val_chopres_ev(const mkfit::Event *e, const char *c) { mkfit::val_chopres_event(e, c); }
+void val_chopres_report(const char *p) { mkfit::val_chopres_report(p); }

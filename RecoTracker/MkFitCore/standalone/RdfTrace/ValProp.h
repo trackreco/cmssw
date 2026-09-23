@@ -148,6 +148,20 @@ namespace mkfit {
   // How often a hit has a sister in the partner sub-layer of the same physical
   // layer, and how far away. Decides whether in-layer processing may anchor on
   // one sensor. See ValProp.cc.
+  // Per-sim-track efficiency, resolved in |eta|, pT and hits-per-layer, paired
+  // across configurations. val_eff_ref() names the configuration everything else
+  // is differenced against; without it the first one accumulated is used.
+  void val_eff_reset();
+  void val_eff_ref(const char *cfg);
+  void val_eff_event(const Event *ev, const char *cfg);
+  void val_eff_report(const char *prefix);
+
+  // pT5 pixel-chop recovery, resolved and paired. Truth-free.
+  void val_chopres_reset();
+  void val_chopres_ref(const char *cfg);
+  void val_chopres_event(const Event *ev, const char *cfg);
+  void val_chopres_report(const char *prefix);
+
   void val_qbins_reset();
   void val_qbins_event(const Event *ev);
   void val_qbins_report();

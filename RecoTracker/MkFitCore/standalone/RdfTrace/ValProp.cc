@@ -17,6 +17,7 @@
 #include "RecoTracker/MkFitCore/interface/Hit.h"
 #include "RecoTracker/MkFitCore/interface/Track.h"
 #include "RecoTracker/MkFitCore/standalone/Event.h"
+#include "RecoTracker/MkFitCore/standalone/TrackExtra.h"
 #include "RecoTracker/MkFitCMS/standalone/Shell.h"
 #include "RecoTracker/MkFitCore/standalone/ConfigStandalone.h"
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
@@ -31,12 +32,16 @@
 
 #include "TFile.h"
 #include "TTree.h"
+#include "TH1D.h"
+#include "TCanvas.h"
+#include "TLegend.h"
 #include "TVectorD.h"
 #include "TMatrixD.h"
 #include "TMatrixDSymEigen.h"
 #include "TMatrixDSym.h"
 
 #include <cmath>
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <random>
@@ -1302,11 +1307,19 @@ namespace mkfit {
     printf("val_force_mc: g_v2p2_force_mc = %d\n", (int) on);
   }
 
+  // Both parameter sets, not just the forward one: the beam width a candidate
+  // actually gets is CombCandidate::capacity(), reserved from
+  // MkJob::max_max_cands() = max(params(), params_bks()), so setting the forward
+  // one alone leaves the capacity at whichever is larger and the knob does
+  // nothing. That is not hypothetical -- it is what an earlier version of this
+  // function did, and cap 3 and cap 6 then came out bit-identical.
   void val_max_cands(int n) {
     const int ni = Config::ItrInfo.size();
-    for (int i = 0; i < ni; ++i)
+    for (int i = 0; i < ni; ++i) {
       Config::ItrInfo[i].m_params.maxCandsPerSeed = n;
-    printf("val_max_cands: maxCandsPerSeed = %d for %d iteration configs\n", n, ni);
+      Config::ItrInfo[i].m_backward_params.maxCandsPerSeed = n;
+    }
+    printf("val_max_cands: maxCandsPerSeed = %d (fwd and bkw) for %d iteration configs\n", n, ni);
   }
 
   void val_search_material(bool on) {
@@ -2638,6 +2651,588 @@ namespace mkfit {
              R.presel > 0 ? R.scanned / R.presel : -1.0);
     }
     printf("over-scan = (q range pulled from the binnor) / (q window the cut uses)\n\n");
+  }
+
+  // ==========================================================================
+  // val_eff -- per-SIM-TRACK efficiency, resolved in |eta|, pT and hits-per-layer.
+  //
+  // WHY THIS AND NOT THE STANDARD COUNTERS. Everything measured for the in-layer
+  // combinatorial search so far is a scalar summed over a run, so none of it says
+  // WHERE the gain lands. The two decisions waiting on that -- whether the search
+  // should default ON and at which maxCandsPerSeed, and whether the likelihood
+  // score's -ln(rho) occupancy term behaves per region -- are both regional.
+  //
+  // THE METRIC, and why each piece is safe:
+  //  - Association is `TrackExtra::setMCTrackIDInfo`, i.e. `2*mccount >= nCandHits`
+  //    over the non-seed hits -- exactly what quality-val's "found tracks" counts.
+  //    A WRONG extra hit raises the denominator only, so a gain here cannot be
+  //    bought by taking more hits. `nH >= 80 %` is NOT used anywhere: it tests raw
+  //    reco HITS against sim LAYERS and therefore rewards the thing under test.
+  //  - The denominator is SIM tracks, not reco tracks, and it is restricted to sim
+  //    tracks that a seed actually points at (`Event::simInfoForCurrentSeed`). That
+  //    removes the seeding efficiency, which is common to both configurations and
+  //    would otherwise dilute the regional shape without changing the difference.
+  //  - Duplicates and fakes come off the same pass, so the three move together and
+  //    an efficiency gain paid for in fakes cannot hide.
+  //
+  // PAIRING. Same events, same seeds, same denominator in every configuration, so
+  // the error bar quoted on a difference is the spread of the per-EVENT difference
+  // in the numerator, not Poisson on the total. The denominator is checked to be
+  // identical across configurations and a mismatch is reported.
+  namespace {
+    // Axis 0: |eta| of the sim track.  Axis 1: its pT.  Axis 2: hits per layer,
+    // i.e. how much overlap the sim track's own hit content offers -- the axis
+    // along which the in-layer combinatorial is supposed to pay.
+    constexpr int VE_NAX = 3;
+    constexpr int VE_NB  = 12;
+    const int   ve_nbin[VE_NAX] = {12, 9, 6};
+    const char *ve_axname[VE_NAX] = {"|eta|", "pT [GeV]", "sim hits / layer"};
+
+    const float ve_pt_edge[10] = {0.5f, 0.7f, 1.0f, 1.5f, 2.0f, 3.0f, 5.0f, 10.0f, 20.0f, 1e9f};
+    const char *ve_hpl_lab[6]  = {"= 1.00", "1.0-1.1", "1.1-1.2", "1.2-1.35", "1.35-1.5", "> 1.5"};
+
+    int ve_bin_eta(float ae) { int b = (int)(ae / 0.25f); return (b < 0 || b > 11) ? -1 : b; }
+    int ve_bin_pt(float pt) {
+      if (pt < ve_pt_edge[0]) return -1;
+      for (int b = 0; b < 9; ++b) if (pt < ve_pt_edge[b+1]) return b;
+      return 8;
+    }
+    int ve_bin_hpl(float r) {
+      if (r < 1.0001f) return 0;
+      if (r <= 1.1f)  return 1;
+      if (r <= 1.2f)  return 2;
+      if (r <= 1.35f) return 3;
+      if (r <= 1.5f)  return 4;
+      return 5;
+    }
+    // Regions, for the per-region read the likelihood score needs. Barrel /
+    // transition / endcap by |eta| of the sim track, matching the eta ranges the
+    // phase-2 seed partitioner uses closely enough to name them.
+    const char *ve_regname[3] = {"barrel   |eta|<0.9", "transition 0.9-1.7", "endcap    >1.7"};
+    int ve_region(float ae) { return ae < 0.9f ? 0 : (ae < 1.7f ? 1 : 2); }
+
+    struct VeBins { long b[VE_NAX][VE_NB] = {}; long reg[3] = {}; long tot = 0; };
+    struct VeRes { int evt; int lbl; int reg; float r; };
+
+    struct VeCfg {
+      std::string name;
+      VeBins den, num, dup;        // sim-binned
+      VeBins reco, fake;           // reco-binned (axes 0,1 and region only)
+      long n_ev = 0;
+      std::vector<VeBins> ev_num, ev_den, ev_fake, ev_reco, ev_dup;
+      // d(pT)/pT of the best-matched reco track of each found sim track, one row
+      // per found sim track and keyed by (event, sim label) so the report can
+      // restrict every configuration to the tracks they ALL found. That
+      // restriction is not a refinement -- unrestricted, a configuration that
+      // finds more tracks is measured on a harder population, and the difference
+      // that produces is larger than the effect being looked for.
+      std::vector<VeRes> res;
+    };
+
+    std::vector<VeCfg> g_ve;
+    std::string g_ve_ref;
+    FILE *g_ve_log = nullptr;
+
+    int ve_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+    int ve_printf(const char *fmt, ...) {
+      va_list ap;  va_start(ap, fmt);  int n = vprintf(fmt, ap);  va_end(ap);
+      if (g_ve_log) { va_start(ap, fmt); vfprintf(g_ve_log, fmt, ap); va_end(ap); }
+      return n;
+    }
+
+    VeCfg &ve_cfg(const char *name) {
+      for (auto &c : g_ve) if (c.name == name) return c;
+      g_ve.push_back(VeCfg());  g_ve.back().name = name;  return g_ve.back();
+    }
+
+    void ve_fill(VeBins &v, int be, int bp, int bh, int reg) {
+      if (be >= 0) ++v.b[0][be];
+      if (bp >= 0) ++v.b[1][bp];
+      if (bh >= 0) ++v.b[2][bh];
+      if (reg >= 0) ++v.reg[reg];
+      ++v.tot;
+    }
+    void ve_add(VeBins &a, const VeBins &b) {
+      for (int x = 0; x < VE_NAX; ++x) for (int i = 0; i < VE_NB; ++i) a.b[x][i] += b.b[x][i];
+      for (int r = 0; r < 3; ++r) a.reg[r] += b.reg[r];
+      a.tot += b.tot;
+    }
+    // Paired: mean and sigma-on-the-sum of the per-event difference num(A) - num(B).
+    void ve_paired(const std::vector<long> &a, const std::vector<long> &b, double &sum, double &sig) {
+      const size_t n = std::min(a.size(), b.size());
+      sum = 0.0;  sig = 0.0;
+      if (n < 2) return;
+      double s = 0.0, s2 = 0.0;
+      for (size_t i = 0; i < n; ++i) { const double d = (double)a[i] - (double)b[i]; s += d; s2 += d*d; }
+      sum = s;
+      const double mean = s / n;
+      const double var = (s2 - n*mean*mean) / (n - 1);
+      sig = std::sqrt(std::max(0.0, var) * n);   // sigma on the SUM of the n differences
+    }
+  }
+
+  void val_eff_reset() { g_ve.clear(); g_ve_ref.clear(); }
+  void val_eff_ref(const char *cfg) { g_ve_ref = cfg; }
+
+  void val_eff_event(const Event *ev, const char *cfg) {
+    if (ev == nullptr) return;
+    VeCfg &C = ve_cfg(cfg);
+    VeBins e_den, e_num, e_dup, e_reco, e_fake;
+
+    // ---- seeds: which sim tracks did the search actually get a chance at, and
+    // where is each seed, so its hits can be excluded from the association count.
+    std::map<int, int> seed_by_label;      // seed label -> index in currentSeedTracks()
+    std::set<int> seeded_sim;
+    const TrackVec *seeds = nullptr;
+    try { seeds = &ev->currentSeedTracks(); } catch (...) { seeds = nullptr; }
+    if (seeds) {
+      for (int i = 0; i < (int) seeds->size(); ++i) {
+        seed_by_label.emplace((*seeds)[i].label(), i);
+        const int sl = ev->simInfoForCurrentSeed(i).label;
+        if (sl >= 0 && sl < (int) ev->simTracks_.size()) seeded_sim.insert(sl);
+      }
+    }
+
+    // ---- reco side: association exactly as quality-val defines it.
+    std::map<int, int> n_assoc;            // sim label -> number of reco tracks on it
+    std::map<int, std::pair<float,int>> best; // sim label -> (pT of best match, n matched)
+    for (const Track &c : ev->candidateTracks_) {
+      TrackExtra extra(c.label());
+      auto si = seed_by_label.find(c.label());
+      if (seeds && si != seed_by_label.end())
+        extra.findMatchingSeedHits(c, (*seeds)[si->second], ev->layerHits_);
+      extra.setMCTrackIDInfo(c, ev->layerHits_, ev->simHitsInfo_, ev->simTracks_, false, false);
+      const int mc = extra.mcTrackID();
+
+      const float rae = std::abs(c.momEta());
+      const int rbe = ve_bin_eta(rae), rbp = ve_bin_pt(c.pT()), rreg = ve_region(rae);
+      ve_fill(e_reco, rbe, rbp, -1, rreg);
+      if (mc < 0 || mc >= (int) ev->simTracks_.size())
+        ve_fill(e_fake, rbe, rbp, -1, rreg);
+      else {
+        ++n_assoc[mc];
+        // Keep the best-matched reco track per sim track, so a duplicate does not
+        // get to vote twice on the resolution.
+        auto &b = best[mc];
+        if (extra.nHitsMatched() > b.second) b = {c.pT(), extra.nHitsMatched()};
+      }
+    }
+
+    // ---- sim side: the denominator, and the numerator over it.
+    for (int L : seeded_sim) {
+      const Track &st = ev->simTracks_[L];
+      const float ae = std::abs(st.momEta()), pt = st.pT();
+      if (!st.isFindable() || pt < 0.5f || ae >= 3.0f) continue;
+      const int nlay = st.nUniqueLayers();
+      if (nlay < 4) continue;
+      int nval = 0;
+      for (int i = 0; i < st.nTotalHits(); ++i)
+        if (st.getHitOnTrack(i).index >= 0) ++nval;
+      const int be = ve_bin_eta(ae), bp = ve_bin_pt(pt), reg = ve_region(ae);
+      const int bh = ve_bin_hpl((float) nval / (float) nlay);
+      ve_fill(e_den, be, bp, bh, reg);
+      auto it = n_assoc.find(L);
+      if (it != n_assoc.end()) {
+        ve_fill(e_num, be, bp, bh, reg);
+        for (int d = 1; d < it->second; ++d) ve_fill(e_dup, be, bp, bh, reg);
+        auto bi = best.find(L);
+        if (bi != best.end() && pt > 0.0f)
+          C.res.push_back({ev->evtID(), L, reg, (bi->second.first - pt) / pt});
+      }
+    }
+
+    ve_add(C.den, e_den);  ve_add(C.num, e_num);  ve_add(C.dup, e_dup);
+    ve_add(C.reco, e_reco); ve_add(C.fake, e_fake);
+    C.ev_den.push_back(e_den);  C.ev_num.push_back(e_num);  C.ev_dup.push_back(e_dup);
+    C.ev_reco.push_back(e_reco); C.ev_fake.push_back(e_fake);
+    ++C.n_ev;
+  }
+
+  namespace {
+    // Pull one bin's per-event series out of a config, for the paired statistics.
+    std::vector<long> ve_series(const std::vector<VeBins> &ev, int ax, int bin) {
+      std::vector<long> v;  v.reserve(ev.size());
+      for (const auto &e : ev) v.push_back(ax < 0 ? e.tot : (ax == 3 ? e.reg[bin] : e.b[ax][bin]));
+      return v;
+    }
+    std::string ve_binlabel(int ax, int b) {
+      char s[32];
+      if (ax == 0) snprintf(s, sizeof(s), "%.2f-%.2f", 0.25*b, 0.25*(b+1));
+      else if (ax == 1) {
+        if (b == 8) snprintf(s, sizeof(s), "> 20");
+        else snprintf(s, sizeof(s), "%.1f-%.1f", ve_pt_edge[b], ve_pt_edge[b+1]);
+      }
+      else snprintf(s, sizeof(s), "%s", ve_hpl_lab[b]);
+      return s;
+    }
+
+    // One resolved table: efficiency per bin for every configuration, and the
+    // paired difference of each against the reference.
+    void ve_table(int ax, const VeCfg *ref) {
+      const int nb = (ax == 3) ? 3 : ve_nbin[ax];
+      ve_printf("\n--- efficiency vs %s ---\n", ax == 3 ? "region" : ve_axname[ax]);
+      ve_printf("%-20s %9s", ax == 3 ? "region" : "bin", "sim trks");
+      for (const auto &c : g_ve) ve_printf(" | %-10.10s", c.name.c_str());
+      ve_printf("\n");
+      for (int b = 0; b < nb; ++b) {
+        const long den = (ax == 3) ? ref->den.reg[b] : ref->den.b[ax][b];
+        if (den < 20) continue;
+        std::string lab = (ax == 3) ? ve_regname[b] : ve_binlabel(ax, b);
+        ve_printf("%-20s %9ld", lab.c_str(), den);
+        for (const auto &c : g_ve) {
+          const long d = (ax == 3) ? c.den.reg[b] : c.den.b[ax][b];
+          const long n = (ax == 3) ? c.num.reg[b] : c.num.b[ax][b];
+          if (&c == ref) ve_printf(" |   %6.2f%% ", d ? 100.0*n/d : 0.0);
+          else {
+            double sum, sig;
+            ve_paired(ve_series(c.ev_num, ax == 3 ? 3 : ax, b),
+                      ve_series(ref->ev_num, ax == 3 ? 3 : ax, b), sum, sig);
+            const double dp = d ? 100.0*sum/d : 0.0;          // difference in points
+            const double sp = d ? 100.0*sig/d : 0.0;
+            ve_printf(" | %+6.2f%s%-3.3s", dp,
+                      sp > 0 && std::abs(dp) > 3*sp ? "*" : " ",
+                      sp > 0 ? (std::abs(dp) > 3*sp ? "sig" : "") : "");
+          }
+        }
+        ve_printf("\n");
+      }
+      ve_printf("  reference column is the absolute efficiency; the others are the\n"
+                "  PAIRED difference in points, * = |delta| > 3 sigma of the per-event spread.\n");
+    }
+
+    void ve_ratio_table(int ax, const VeCfg *ref, bool fakes) {
+      const int nb = (ax == 3) ? 3 : ve_nbin[ax];
+      ve_printf("\n--- %s vs %s ---\n",
+                fakes ? "FAKE fraction, per RECO track" : "EXTRA reco tracks per found SIM track",
+                ax == 3 ? "region" : ve_axname[ax]);
+      ve_printf("%-20s", ax == 3 ? "region" : "bin");
+      for (const auto &c : g_ve) ve_printf(" | %-10.10s", c.name.c_str());
+      ve_printf("\n");
+      for (int b = 0; b < nb; ++b) {
+        const long dref = (ax == 3) ? (fakes ? ref->reco.reg[b] : ref->den.reg[b])
+                                    : (fakes ? ref->reco.b[ax][b] : ref->den.b[ax][b]);
+        if (dref < 20) continue;
+        std::string lab = (ax == 3) ? ve_regname[b] : ve_binlabel(ax, b);
+        ve_printf("%-20s", lab.c_str());
+        for (const auto &c : g_ve) {
+          const long d = (ax == 3) ? (fakes ? c.reco.reg[b] : c.den.reg[b])
+                                   : (fakes ? c.reco.b[ax][b] : c.den.b[ax][b]);
+          const long n = (ax == 3) ? (fakes ? c.fake.reg[b] : c.dup.reg[b])
+                                   : (fakes ? c.fake.b[ax][b] : c.dup.b[ax][b]);
+          ve_printf(" |   %6.2f%% ", d ? 100.0*n/d : 0.0);
+        }
+        ve_printf("\n");
+      }
+    }
+  }
+
+  void val_eff_report(const char *prefix) {
+    if (g_ve.empty()) { printf("val_eff_report: nothing accumulated.\n"); return; }
+    const VeCfg *ref = &g_ve[0];
+    if (!g_ve_ref.empty())
+      for (const auto &c : g_ve) if (c.name == g_ve_ref) ref = &c;
+
+    const std::string txt = std::string(prefix) + ".txt";
+    g_ve_log = fopen(txt.c_str(), "w");
+
+    ve_printf("\n================================================================\n");
+    ve_printf("  val_eff -- per-sim-track efficiency, resolved\n");
+    ve_printf("================================================================\n");
+    ve_printf("Denominator: SIM tracks a seed points at, findable, pT > 0.5, |eta| < 3,\n");
+    ve_printf("  >= 4 distinct layers. Numerator: >= 1 reco track associated to it by\n");
+    ve_printf("  2*mccount >= nCandHits over non-seed hits (TrackExtra::setMCTrackIDInfo),\n");
+    ve_printf("  which is what quality-val's 'found tracks' counts. nH >= 80%% is NOT used.\n");
+    ve_printf("Reference configuration: %s\n", ref->name.c_str());
+
+    ve_printf("\n--- totals ---\n");
+    ve_printf("%-22s %7s %9s %9s %8s %9s %9s %8s\n", "configuration", "events",
+              "sim trks", "found", "eff", "reco trks", "fakes", "dup/sim");
+    for (const auto &c : g_ve) {
+      ve_printf("%-22s %7ld %9ld %9ld %7.2f%% %9ld %9ld %7.2f%%\n",
+                c.name.c_str(), c.n_ev, c.den.tot, c.num.tot,
+                c.den.tot ? 100.0*c.num.tot/c.den.tot : 0.0,
+                c.reco.tot, c.fake.tot,
+                c.den.tot ? 100.0*c.dup.tot/c.den.tot : 0.0);
+      if (c.den.tot != ref->den.tot)
+        ve_printf("   !! denominator differs from the reference by %ld -- pairing is NOT exact\n",
+                  c.den.tot - ref->den.tot);
+    }
+    ve_printf("\n--- paired differences against %s, whole sample ---\n", ref->name.c_str());
+    ve_printf("%-22s %14s %14s %14s\n", "configuration", "d found", "d fakes", "d duplicates");
+    for (const auto &c : g_ve) {
+      if (&c == ref) continue;
+      double s1, e1, s2, e2, s3, e3;
+      ve_paired(ve_series(c.ev_num, -1, 0),  ve_series(ref->ev_num, -1, 0),  s1, e1);
+      ve_paired(ve_series(c.ev_fake, -1, 0), ve_series(ref->ev_fake, -1, 0), s2, e2);
+      ve_paired(ve_series(c.ev_dup, -1, 0),  ve_series(ref->ev_dup, -1, 0),  s3, e3);
+      ve_printf("%-22s %+8.0f %4.1fs %+8.0f %4.1fs %+8.0f %4.1fs\n", c.name.c_str(),
+                s1, e1 > 0 ? s1/e1 : 0.0, s2, e2 > 0 ? s2/e2 : 0.0, s3, e3 > 0 ? s3/e3 : 0.0);
+    }
+    ve_printf("  's' is the paired significance: the sum of the per-event difference over\n"
+              "  the sigma of that sum, so it is the spread of the DIFFERENCE, not Poisson.\n");
+
+    // Resolution, per region. NOT paired -- the population differs between
+    // configurations by construction, since a configuration that finds more
+    // tracks finds harder ones. Read it as the price of the extra tracks, and
+    // read the "common" rows, which restrict every configuration to the sim
+    // tracks ALL of them found, as the like-for-like comparison.
+    // The COMMON subset: sim tracks every configuration found. Built as the
+    // intersection over configurations of the (event, sim label) keys.
+    std::map<std::pair<int,int>, int> seen;
+    for (const auto &c : g_ve)
+      for (const auto &x : c.res) ++seen[{x.evt, x.lbl}];
+    const int ncfg = (int) g_ve.size();
+
+    ve_printf("\n--- d(pT)/pT of the best-matched reco track, per region ---\n");
+    ve_printf("ALL = every track that configuration found; COMMON = only the sim tracks\n"
+              "every configuration found, which is the like-for-like comparison.\n");
+    ve_printf("%-22s %-20s %-7s %8s %9s %9s %8s\n", "configuration", "region",
+              "sample", "n", "median", "width", "|d|>20%");
+    for (const auto &c : g_ve) {
+      for (int pass = 0; pass < 2; ++pass) {
+        for (int r = 0; r < 4; ++r) {
+          std::vector<float> v;
+          for (const auto &x : c.res) {
+            if (r < 3 && x.reg != r) continue;
+            if (pass == 1 && seen[{x.evt, x.lbl}] != ncfg) continue;
+            v.push_back(x.r);
+          }
+          if (v.size() < 50) continue;
+          std::sort(v.begin(), v.end());
+          const size_t n = v.size();
+          const double med = v[n/2];
+          const double wid = 0.5 * (v[(size_t)(0.84*n)] - v[(size_t)(0.16*n)]);
+          long tail = 0;
+          for (float x : v) if (std::abs(x) > 0.2f) ++tail;
+          ve_printf("%-22s %-20s %-7s %8zu %+9.5f %9.5f %7.2f%%\n", c.name.c_str(),
+                    r == 3 ? "ALL REGIONS" : ve_regname[r], pass ? "COMMON" : "all",
+                    n, med, wid, 100.0*tail/n);
+        }
+      }
+    }
+
+    ve_table(3, ref);
+    for (int ax = 0; ax < VE_NAX; ++ax) ve_table(ax, ref);
+    ve_ratio_table(3, ref, true);
+    ve_ratio_table(0, ref, true);
+    ve_ratio_table(3, ref, false);
+    ve_ratio_table(2, ref, false);
+
+    // ---- the .root file: one efficiency TH1 per configuration per axis, with
+    // binomial errors, plus an overlay canvas per axis so show-anrun's TBrowser
+    // opens on something readable.
+    const std::string rootf = std::string(prefix) + ".root";
+    TFile f(rootf.c_str(), "RECREATE");
+    for (int ax = 0; ax < VE_NAX; ++ax) {
+      const int nb = ve_nbin[ax];
+      TCanvas *cv = new TCanvas(Form("c_eff_ax%d", ax), Form("efficiency vs %s", ve_axname[ax]), 900, 600);
+      TLegend *lg = new TLegend(0.60, 0.15, 0.98, 0.15 + 0.05*g_ve.size());
+      int ic = 0;
+      for (const auto &c : g_ve) {
+        TH1D *hn = new TH1D(Form("num_ax%d_%d", ax, ic), "", nb, -0.5, nb - 0.5);
+        TH1D *hd = new TH1D(Form("den_ax%d_%d", ax, ic), "", nb, -0.5, nb - 0.5);
+        for (int b = 0; b < nb; ++b) {
+          hn->SetBinContent(b+1, (double) c.num.b[ax][b]);
+          hd->SetBinContent(b+1, (double) c.den.b[ax][b]);
+        }
+        TH1D *he = (TH1D*) hn->Clone(Form("eff_ax%d_%s", ax, c.name.c_str()));
+        he->SetTitle(Form("efficiency vs %s;%s;eff", ve_axname[ax], ve_axname[ax]));
+        he->Divide(hn, hd, 1.0, 1.0, "B");
+        for (int b = 0; b < nb; ++b)
+          he->GetXaxis()->SetBinLabel(b+1, ve_binlabel(ax, b).c_str());
+        he->SetLineColor(1 + ic);  he->SetMarkerColor(1 + ic);  he->SetMarkerStyle(20 + ic);
+        he->SetMinimum(0.0);  he->SetMaximum(1.0);
+        he->Write();
+        cv->cd();  he->Draw(ic == 0 ? "E1" : "E1 SAME");
+        lg->AddEntry(he, c.name.c_str(), "lp");
+        delete hn;  delete hd;
+        ++ic;
+      }
+      lg->Draw();
+      cv->Write();
+    }
+    f.Close();
+
+    ve_printf("\nval_eff_report: wrote %s and %s (%zu configurations)\n",
+              rootf.c_str(), txt.c_str(), g_ve.size());
+    if (g_ve_log) { fclose(g_ve_log); g_ve_log = nullptr; }
+  }
+
+  // ==========================================================================
+  // val_chopres -- the pT5 pixel-chop recovery, RESOLVED.
+  //
+  // Same measurement as val_chop_recovery_* and the same reason for preferring
+  // it on this sample: the chopped hits were found by the upstream
+  // reconstruction, so the comparison is an exact (layer, index) match and NO
+  // TRUTH IS INVOLVED. That matters here beyond the usual mc_match caution --
+  // the HLT March sample predates the split-cluster arbitration fix, so its
+  // rec->sim links are stale and any truth-matched efficiency on it is biased.
+  // This metric is immune to that.
+  //
+  // Resolved in |eta| and pT of the candidate itself, and in chopped hits per
+  // chopped LAYER, which is the axis the one-hit-per-layer ceiling lives on.
+  namespace {
+    struct ChopCfg {
+      std::string name;
+      VeBins hden, hnum;             // chopped hits, recovered hits
+      VeBins tden, tnum;             // tracks with chopped hits, fully recovered
+      std::vector<VeBins> ev_hnum, ev_tnum;
+      long n_ev = 0;
+    };
+    std::vector<ChopCfg> g_cr;
+    std::string g_cr_ref;
+
+    ChopCfg &cr_cfg(const char *name) {
+      for (auto &c : g_cr) if (c.name == name) return c;
+      g_cr.push_back(ChopCfg());  g_cr.back().name = name;  return g_cr.back();
+    }
+    void ve_fill_n(VeBins &v, int be, int bp, int bh, int reg, long n) {
+      if (be >= 0) v.b[0][be] += n;
+      if (bp >= 0) v.b[1][bp] += n;
+      if (bh >= 0) v.b[2][bh] += n;
+      if (reg >= 0) v.reg[reg] += n;
+      v.tot += n;
+    }
+  }
+
+  void val_chopres_reset() { g_cr.clear(); g_cr_ref.clear(); }
+  void val_chopres_ref(const char *cfg) { g_cr_ref = cfg; }
+
+  void val_chopres_event(const Event *ev, const char *cfg) {
+    if (ev == nullptr) return;
+    ChopCfg &C = cr_cfg(cfg);
+    VeBins e_hnum, e_tnum;
+    for (const Track &c : ev->candidateTracks_) {
+      auto it = Shell::s_chopped_hits.find(c.label());
+      if (it == Shell::s_chopped_hits.end() || it->second.empty()) continue;
+      const auto &chopped = it->second;
+      std::set<int> clay;
+      for (const HitOnTrack &ch : chopped) clay.insert(ch.layer);
+      const float ae = std::abs(c.momEta());
+      const int be = ve_bin_eta(ae), bp = ve_bin_pt(c.pT()), reg = ve_region(ae);
+      const int bh = ve_bin_hpl((float) chopped.size() / (float) std::max<size_t>(1, clay.size()));
+      int back = 0;
+      for (const HitOnTrack &ch : chopped) {
+        for (int i = 0; i < c.nTotalHits(); ++i) {
+          const HitOnTrack hot = c.getHitOnTrack(i);
+          if (hot.layer == ch.layer && hot.index == ch.index) { ++back; break; }
+        }
+      }
+      ve_fill_n(C.hden, be, bp, bh, reg, (long) chopped.size());
+      ve_fill_n(e_hnum, be, bp, bh, reg, back);
+      ve_fill(C.tden, be, bp, bh, reg);
+      if (back == (int) chopped.size()) ve_fill(e_tnum, be, bp, bh, reg);
+    }
+    ve_add(C.hnum, e_hnum);  ve_add(C.tnum, e_tnum);
+    C.ev_hnum.push_back(e_hnum);  C.ev_tnum.push_back(e_tnum);
+    ++C.n_ev;
+    Shell::s_chopped_hits.clear();
+  }
+
+  namespace {
+    void cr_table(int ax, const ChopCfg *ref, bool track_level) {
+      const int nb = (ax == 3) ? 3 : ve_nbin[ax];
+      ve_printf("\n--- %s vs %s ---\n",
+                track_level ? "tracks FULLY recovered" : "chopped hits recovered",
+                ax == 3 ? "region" : (ax == 2 ? "chopped hits / chopped layer" : ve_axname[ax]));
+      ve_printf("%-20s %9s", ax == 3 ? "region" : "bin", track_level ? "tracks" : "hits");
+      for (const auto &c : g_cr) ve_printf(" | %-10.10s", c.name.c_str());
+      ve_printf("\n");
+      for (int b = 0; b < nb; ++b) {
+        const VeBins &D = track_level ? ref->tden : ref->hden;
+        const long den = (ax == 3) ? D.reg[b] : D.b[ax][b];
+        if (den < 20) continue;
+        std::string lab = (ax == 3) ? ve_regname[b] : ve_binlabel(ax, b);
+        ve_printf("%-20s %9ld", lab.c_str(), den);
+        for (const auto &c : g_cr) {
+          const VeBins &Dc = track_level ? c.tden : c.hden;
+          const VeBins &Nc = track_level ? c.tnum : c.hnum;
+          const long d = (ax == 3) ? Dc.reg[b] : Dc.b[ax][b];
+          const long n = (ax == 3) ? Nc.reg[b] : Nc.b[ax][b];
+          if (&c == ref) ve_printf(" |   %6.2f%% ", d ? 100.0*n/d : 0.0);
+          else {
+            double sum, sig;
+            ve_paired(ve_series(track_level ? c.ev_tnum : c.ev_hnum, ax == 3 ? 3 : ax, b),
+                      ve_series(track_level ? ref->ev_tnum : ref->ev_hnum, ax == 3 ? 3 : ax, b),
+                      sum, sig);
+            const double dp = d ? 100.0*sum/d : 0.0;
+            const double sp = d ? 100.0*sig/d : 0.0;
+            ve_printf(" | %+6.2f%s%-3.3s", dp,
+                      sp > 0 && std::abs(dp) > 3*sp ? "*" : " ",
+                      sp > 0 && std::abs(dp) > 3*sp ? "sig" : "");
+          }
+        }
+        ve_printf("\n");
+      }
+    }
+  }
+
+  void val_chopres_report(const char *prefix) {
+    if (g_cr.empty()) { printf("val_chopres_report: nothing accumulated.\n"); return; }
+    const ChopCfg *ref = &g_cr[0];
+    if (!g_cr_ref.empty())
+      for (const auto &c : g_cr) if (c.name == g_cr_ref) ref = &c;
+
+    const std::string txt = std::string(prefix) + ".txt";
+    g_ve_log = fopen(txt.c_str(), "w");
+
+    ve_printf("\n================================================================\n");
+    ve_printf("  val_chopres -- pT5 pixel-chop recovery, resolved\n");
+    ve_printf("================================================================\n");
+    ve_printf("Truth-FREE: exact (layer, index) match against the hits the chop removed.\n");
+    ve_printf("Reference configuration: %s\n", ref->name.c_str());
+    ve_printf("\n--- totals ---\n");
+    ve_printf("%-22s %7s %9s %9s %8s %9s %9s %8s\n", "configuration", "events",
+              "hits", "recovered", "frac", "tracks", "full", "frac");
+    for (const auto &c : g_cr)
+      ve_printf("%-22s %7ld %9ld %9ld %7.2f%% %9ld %9ld %7.2f%%\n",
+                c.name.c_str(), c.n_ev, c.hden.tot, c.hnum.tot,
+                c.hden.tot ? 100.0*c.hnum.tot/c.hden.tot : 0.0,
+                c.tden.tot, c.tnum.tot, c.tden.tot ? 100.0*c.tnum.tot/c.tden.tot : 0.0);
+    for (const auto &c : g_cr)
+      if (c.hden.tot != ref->hden.tot)
+        ve_printf("  !! %s: chopped-hit denominator differs from the reference by %ld\n",
+                  c.name.c_str(), c.hden.tot - ref->hden.tot);
+
+    cr_table(3, ref, false);  cr_table(0, ref, false);
+    cr_table(1, ref, false);  cr_table(2, ref, false);
+    cr_table(3, ref, true);   cr_table(2, ref, true);
+    ve_printf("  reference column is absolute; the others are the PAIRED difference in\n"
+              "  points, * = |delta| > 3 sigma of the per-event spread.\n");
+
+    const std::string rootf = std::string(prefix) + ".root";
+    TFile f(rootf.c_str(), "RECREATE");
+    for (int ax = 0; ax < VE_NAX; ++ax) {
+      const int nb = ve_nbin[ax];
+      TCanvas *cv = new TCanvas(Form("c_chop_ax%d", ax), Form("chop recovery vs axis %d", ax), 900, 600);
+      TLegend *lg = new TLegend(0.60, 0.15, 0.98, 0.15 + 0.05*g_cr.size());
+      int ic = 0;
+      for (const auto &c : g_cr) {
+        TH1D *hn = new TH1D(Form("cnum_ax%d_%d", ax, ic), "", nb, -0.5, nb - 0.5);
+        TH1D *hd = new TH1D(Form("cden_ax%d_%d", ax, ic), "", nb, -0.5, nb - 0.5);
+        for (int b = 0; b < nb; ++b) {
+          hn->SetBinContent(b+1, (double) c.hnum.b[ax][b]);
+          hd->SetBinContent(b+1, (double) c.hden.b[ax][b]);
+        }
+        TH1D *he = (TH1D*) hn->Clone(Form("chop_ax%d_%s", ax, c.name.c_str()));
+        he->SetTitle(Form("chopped hits recovered vs %s;%s;recovered",
+                          ax == 2 ? "chopped hits / layer" : ve_axname[ax],
+                          ax == 2 ? "chopped hits / layer" : ve_axname[ax]));
+        he->Divide(hn, hd, 1.0, 1.0, "B");
+        for (int b = 0; b < nb; ++b) he->GetXaxis()->SetBinLabel(b+1, ve_binlabel(ax, b).c_str());
+        he->SetLineColor(1 + ic);  he->SetMarkerColor(1 + ic);  he->SetMarkerStyle(20 + ic);
+        he->SetMinimum(0.0);  he->SetMaximum(1.05);
+        he->Write();
+        cv->cd();  he->Draw(ic == 0 ? "E1" : "E1 SAME");
+        lg->AddEntry(he, c.name.c_str(), "lp");
+        delete hn;  delete hd;  ++ic;
+      }
+      lg->Draw();  cv->Write();
+    }
+    f.Close();
+    ve_printf("\nval_chopres_report: wrote %s and %s (%zu configurations)\n",
+              rootf.c_str(), txt.c_str(), g_cr.size());
+    if (g_ve_log) { fclose(g_ve_log); g_ve_log = nullptr; }
   }
 
 }  // namespace mkfit
