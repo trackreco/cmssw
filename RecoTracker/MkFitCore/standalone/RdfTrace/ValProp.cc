@@ -2776,6 +2776,10 @@ namespace mkfit {
       // for, and MTV's "central" requirement is in practice imposed by the seeds
       // rather than by us -- so the seeding efficiency and the seed purity are
       // the ceiling every number below sits under, and belong in the same report.
+      // How often the shared-hit seed lookup succeeded. If it fails often for one
+      // collection its association is computed over more hits than the other's,
+      // which is not a like-for-like comparison -- so it is reported, not assumed.
+      long n_seed_found = 0, n_seed_missing = 0;
       long n_seed[3] = {}, n_seed_pure[3] = {}, n_seed_on_sel[3] = {};
       double sum_seed_gf[3] = {};
       // What the seeds are MADE OF, which is as close as the .bin gets to naming
@@ -2851,12 +2855,49 @@ namespace mkfit {
     }
   }
 
+  namespace {
+    // Which seed produced this track, found by SHARED HITS rather than by label.
+    //
+    // It has to be done this way for cmsswTracks_, and is then done this way for
+    // ours too so that the association rule is identical for both. The labels
+    // cannot be joined: WriteMemoryFile gives a seed the label seedSimIdx[is] --
+    // a SIM track index -- while it gives a rec track the label
+    // trk_seedIdx->at(ir), the NTUPLE's seed index, and the written seed vector
+    // skips every seed that is not initialStep or hltIter0, so the two indices
+    // are not the same namespace and the mapping is not in the file.
+    //
+    // This matters rather than being pedantry: setMCTrackIDInfo excludes seed
+    // hits from the association count, and excluding them makes association
+    // HARDER (removing a matched hit takes 2m >= n to 2(m-1) >= n-1). Failing to
+    // identify a collection's seeds would therefore flatter that collection.
+    int ve_seed_of_track(const TrackVec &seeds,
+                         const std::map<std::pair<int,int>, std::vector<int>> &hit2seed,
+                         const Track &t) {
+      std::map<int, int> shared;
+      for (int i = 0; i < t.nTotalHits(); ++i) {
+        const HitOnTrack hot = t.getHitOnTrack(i);
+        if (hot.index < 0 || hot.layer < 0) continue;
+        auto it = hit2seed.find({hot.layer, hot.index});
+        if (it == hit2seed.end()) continue;
+        for (int si : it->second) ++shared[si];
+      }
+      int best = -1, bn = 0;
+      for (const auto &[si, n] : shared)
+        if (n > bn || (n == bn && best >= 0 && seeds[si].nFoundHits() < seeds[best].nFoundHits())) {
+          if (n > bn) { bn = n; best = si; }
+        }
+      return bn > 0 ? best : -1;
+    }
+  }
+
   void val_eff_reset() { g_ve.clear(); g_ve_ref.clear(); }
   void val_eff_ref(const char *cfg) { g_ve_ref = cfg; }
 
-  void val_eff_event(const Event *ev, const char *cfg) {
-    if (ev == nullptr) return;
-    VeCfg &C = ve_cfg(cfg);
+  // tracks is the collection under test. It is candidateTracks_ for a v2p2
+  // configuration and cmsswTracks_ for the production reference; everything else
+  // -- selection, association rule, seed-hit exclusion -- is identical, which is
+  // the only way the two can be put on one axis.
+  static void ve_accumulate(const Event *ev, const TrackVec &tracks, VeCfg &C) {
     VeBins e_den, e_num, e_dup, e_reco, e_fake, e_dens;
 
     // ---- seeds: which sim tracks did the search actually get a chance at, and
@@ -2895,11 +2936,20 @@ namespace mkfit {
     std::map<int, int> n_assoc;            // sim label -> number of reco tracks on it
     struct VeBest { float pt = 0.0f; int n_match = -1; int n_found = 0; };
     std::map<int, VeBest> best;            // sim label -> its best-matched reco track
-    for (const Track &c : ev->candidateTracks_) {
+    // (layer, index) -> the seeds holding that hit, for the shared-hit seed
+    // lookup. Built once per event; seeds are a few hits each, so it is small.
+    std::map<std::pair<int,int>, std::vector<int>> hit2seed;
+    if (seeds)
+      for (int i = 0; i < (int) seeds->size(); ++i)
+        for (int h = 0; h < (*seeds)[i].nTotalHits(); ++h) {
+          const HitOnTrack hot = (*seeds)[i].getHitOnTrack(h);
+          if (hot.index >= 0 && hot.layer >= 0) hit2seed[{hot.layer, hot.index}].push_back(i);
+        }
+    for (const Track &c : tracks) {
       TrackExtra extra(c.label());
-      auto si = seed_by_label.find(c.label());
-      if (seeds && si != seed_by_label.end())
-        extra.findMatchingSeedHits(c, (*seeds)[si->second], ev->layerHits_);
+      const int si = seeds ? ve_seed_of_track(*seeds, hit2seed, c) : -1;
+      if (si >= 0) { extra.findMatchingSeedHits(c, (*seeds)[si], ev->layerHits_); ++C.n_seed_found; }
+      else ++C.n_seed_missing;
       extra.setMCTrackIDInfo(c, ev->layerHits_, ev->simHitsInfo_, ev->simTracks_, false, false);
       const int mc = extra.mcTrackID();
 
@@ -2970,6 +3020,31 @@ namespace mkfit {
     C.ev_den.push_back(e_den);  C.ev_num.push_back(e_num);  C.ev_dup.push_back(e_dup);
     C.ev_reco.push_back(e_reco); C.ev_fake.push_back(e_fake);
     ++C.n_ev;
+  }
+
+  void val_eff_event(const Event *ev, const char *cfg) {
+    if (ev == nullptr) return;
+    ve_accumulate(ev, ev->candidateTracks_, ve_cfg(cfg));
+  }
+
+  // The production reference: whatever tracking the job that wrote the ntuple
+  // ran, which for these samples is mkFit V1 with prop-to-plane and
+  // selectHitIndicesV2. Needs --read-cmssw-tracks AND a .bin converted with
+  // --write-rec-tracks; without the latter the section is not in the file at all
+  // and this reports an empty collection rather than failing quietly.
+  void val_eff_cmssw_event(const Event *ev, const char *cfg) {
+    if (ev == nullptr) return;
+    if (ev->cmsswTracks_.empty()) {
+      static bool warned = false;
+      if (!warned) {
+        printf("val_eff_cmssw_event: cmsswTracks_ is EMPTY. Needs --read-cmssw-tracks,\n"
+               "  and a .bin written with --write-rec-tracks -- check the header's\n"
+               "  'Extra sections' line for CmsswTracks.\n");
+        warned = true;
+      }
+      return;
+    }
+    ve_accumulate(ev, ev->cmsswTracks_, ve_cfg(cfg));
   }
 
   namespace {
@@ -3150,6 +3225,14 @@ namespace mkfit {
     }
     ve_printf("  'eff' is against every selected sim track (MTV); 'of seed' is against the\n");
     ve_printf("  seeded subset, i.e. what the SEARCH alone is responsible for.\n");
+    for (const auto &c : g_ve) {
+      const long tot = c.n_seed_found + c.n_seed_missing;
+      if (tot && c.n_seed_missing * 100 > tot)   // more than 1 % unmatched is worth saying
+        ve_printf("  !! %s: the seed could not be identified for %ld of %ld tracks (%.1f%%),\n"
+                  "     so their association is computed over more hits than the others' --\n"
+                  "     that is NOT like-for-like and flatters this configuration.\n",
+                  c.name.c_str(), c.n_seed_missing, tot, 100.0*c.n_seed_missing/tot);
+    }
     ve_printf("\n--- paired differences against %s, whole sample ---\n", ref->name.c_str());
     ve_printf("%-22s %14s %14s %14s\n", "configuration", "d found", "d fakes", "d duplicates");
     for (const auto &c : g_ve) {
@@ -3293,6 +3376,32 @@ namespace mkfit {
         delete hn;  delete hd;
         ++ic;
       }
+      // THE SEEDING CEILING, on the same axes. It is identical in every
+      // configuration by construction -- the seeds are the same -- so it is one
+      // curve off the reference, and it is the line every efficiency below must
+      // be read against: a track with no seed cannot be found. Named
+      // eff_ax<N>_seeded so it is just another "configuration" to a plotter.
+      {
+        TH1D *hn = new TH1D(Form("sn_ax%d", ax), "", nb, -0.5, nb - 0.5);
+        TH1D *hd = new TH1D(Form("sd_ax%d", ax), "", nb, -0.5, nb - 0.5);
+        for (int b = 0; b < nb; ++b) {
+          hn->SetBinContent(b+1, (double) ref->dens.b[ax][b]);
+          hd->SetBinContent(b+1, (double) ref->den.b[ax][b]);
+        }
+        TH1D *he = (TH1D*) hn->Clone(Form("eff_ax%d_seeded", ax));
+        he->SetTitle(Form("seeding efficiency vs %s;%s;seeded", ve_axname[ax], ve_axname[ax]));
+        he->Divide(hn, hd, 1.0, 1.0, "B");
+        for (int b = 0; b < nb; ++b)
+          he->GetXaxis()->SetBinLabel(b+1, ve_binlabel(ax, b).c_str());
+        he->SetLineColor(kGray + 2);  he->SetLineStyle(2);  he->SetLineWidth(2);
+        he->SetMarkerStyle(1);  he->SetStats(0);
+        he->SetMinimum(0.0);  he->SetMaximum(1.05);
+        he->Write();
+        cv->cd();  he->Draw("HIST SAME");
+        lg->AddEntry(he, "has a seed", "l");
+        delete hn;  delete hd;
+      }
+
       cv->cd();  lg->Draw();  cv->Write();
       cd->cd();  ld->Draw();  cd->Write();
     }

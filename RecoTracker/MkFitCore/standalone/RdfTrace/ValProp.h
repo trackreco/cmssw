@@ -156,6 +156,7 @@ namespace mkfit {
   void val_eff_reset();
   void val_eff_ref(const char *cfg);
   void val_eff_event(const Event *ev, const char *cfg);
+  void val_eff_cmssw_event(const Event *ev, const char *cfg);
   void val_eff_report(const char *prefix);
 
   // pT5 pixel-chop recovery, resolved and paired. Truth-free.
