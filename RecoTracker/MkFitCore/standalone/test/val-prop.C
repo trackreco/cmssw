@@ -42,6 +42,8 @@ void val_extra_dq(float f) { mkfit::val_extra_dq(f); }
 void val_surf_q_hit(bool on) { mkfit::val_surf_q_hit(on); }
 void val_in_layer_comb(bool on) { mkfit::val_in_layer_comb(on); }
 void val_layer_policy(bool w, bool h, bool s) { mkfit::val_layer_policy(w, h, s); }
+void val_reserve_hole_slot(bool on) { mkfit::val_reserve_hole_slot(on); }
+void val_score_mode(int m, float e) { mkfit::val_score_mode(m, e); }
 void val_score(float b, float c, float mf, float mb) { mkfit::val_score(b, c, mf, mb); }
 void val_search_lite(int mode) { mkfit::val_search_lite(mode); }
 void val_clsize(const mkfit::Event *e) { mkfit::val_cluster_sizes(e); }

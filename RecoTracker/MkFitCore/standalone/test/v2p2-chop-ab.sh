@@ -27,15 +27,18 @@ CMD=(./mkFit --geom CMS-phase2 --seed-input cmssw --input-file "$SAMPLE"
      --shell-command "gROOT->ProcessLine(\".L $T/val-prop.C\")"
      --shell-command 'val_seeds(0, true)')
 
-#     comb wsr hol stp hit_bonus chi2_w miss_fwd miss_bkw  label
-CFG=("0    1   1   1   30        1      8        8         BASE__best_hit"
-     "1    1   1   1   30        1      8        8         COMB")
+#     comb slot mode eps    label
+CFG=("0    0    0    0.99   BASE__best_hit"
+     "1    0    0    0.99   COMB__linear"
+     "1    1    0    0.99   COMB__linear__hole_slot"
+     "1    0    1    0.9999 COMB__loglh"
+     "1    1    1    0.9999 COMB__loglh__hole_slot")
 
 for c in "${CFG[@]}"; do
   set -- $c
   CMD+=(--shell-command "val_in_layer_comb($1)"
-        --shell-command "val_layer_policy($2, $3, $4)"
-        --shell-command "val_score($5, $6, $7, $8)"
+        --shell-command "val_reserve_hole_slot($2)"
+        --shell-command "val_score_mode($3, $4)"
         --shell-command 'val_te_reset()')
   for ((i=1;i<=N;i++)); do
     CMD+=(--shell-command "s.GoToEvent($i)"
@@ -43,7 +46,7 @@ for c in "${CFG[@]}"; do
           --shell-command 'val_chop_ev(s.event())'
           --shell-command 'val_te_ev(s.event())')
   done
-  CMD+=(--shell-command "val_chop_report(\"$9\")"
-        --shell-command "val_te_report(\"$9\")")
+  CMD+=(--shell-command "val_chop_report(\"$5\")"
+        --shell-command "val_te_report(\"$5\")")
 done
 echo .q | "${CMD[@]}"

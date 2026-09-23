@@ -1344,6 +1344,21 @@ namespace mkfit {
            (int) wsr, (int) hole_limits, (int) stop_cuts);
   }
 
+  // Keep one beam slot for a continuation that declined the layer. A beam policy,
+  // not a score: declining is the only move that does not shrink the covariance,
+  // so it is the only branch left open to an earlier hit having been wrong.
+  void val_reserve_hole_slot(bool on) {
+    Config::v2p2ReserveHoleSlot = on;
+    printf("val_reserve_hole_slot: Config::v2p2ReserveHoleSlot = %d\n", (int) on);
+  }
+
+  void val_score_mode(int mode, float hit_eff) {
+    g_v2p2_score_mode = mode;
+    g_v2p2_score_fwd.hit_eff = g_v2p2_score_bkw.hit_eff = hit_eff;
+    printf("val_score_mode: g_v2p2_score_mode = %d (0 linear, 1 loglh), hit_eff = %g\n",
+           mode, hit_eff);
+  }
+
   void val_in_layer_comb(bool on) {
     Config::v2p2InLayerComb = on;
     printf("val_in_layer_comb: Config::v2p2InLayerComb = %d\n", (int) on);
