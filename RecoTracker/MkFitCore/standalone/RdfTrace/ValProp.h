@@ -21,8 +21,8 @@
 //
 //   cd /foo/matevz/mic-dev/current/src/standalone
 //   unset DISPLAY; export LD_LIBRARY_PATH=.
-//   echo .q | ./mkFit --geom CMS-phase2 --input-file <any .bin> --num-events 1 \
-//     --num-thr 1 --shell \
+//   echo .q | ./mkFit --geom CMS-phase2 --input-file <any .bin> --num-events 1
+//     --num-thr 1 --shell
 //     --shell-command 'gROOT->SetBatch(kTRUE)'
 //     --shell-command 'gROOT->ProcessLine(".L ../RecoTracker/MkFitCore/standalone/test/val-prop.C")'
 //     --shell-command 'val_gen("val-closure.root")'
