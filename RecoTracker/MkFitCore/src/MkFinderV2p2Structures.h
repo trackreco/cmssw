@@ -89,58 +89,43 @@ namespace mkfit {
         // We want the worst / highest score (dphi) at the top -- so we can replace it.
         bool operator<(const PQE& o) const { return score < o.score; }
       };
+      // ONE BOUNDED PQUEUE PER SUB-LAYER, indexed [0] primary, [1] secondary.
+      // Not one shared queue: the reduction cap is meant to be a per-SENSOR
+      // budget, so a shower in one sensor cannot starve the other of its share.
+      // The two drain into a single step-ordered m_layer_hits afterwards, which
+      // is where the merge belongs -- the reduction is per sensor, the traversal
+      // is per layer.
       // Need to sub-class it to be able to call reserve on the vec
-      std::priority_queue<PQE, std::vector<PQE>> m_pqueue;
-      int m_pqueue_size = 0;
+      std::priority_queue<PQE, std::vector<PQE>> m_pqueue[2];
+      int m_pqueue_size[2] = {0, 0};
 
-      // m_layer_sec_hits is declared and never filled: the second sub-layer is
-      // not processed at all today (OT_as_single_entry = false, so the plan emits
-      // singles and has_second_layer() is always false).
+      // ONE merged, step-ordered list per rep, filled from BOTH sub-layers and
+      // sorted once by dir * dalpha. That is the decision of 2026-09-21: the
+      // in-layer search walks the hits forward along the trajectory, and whether
+      // a hit came from the P sensor or the S sensor is a fill-side detail, not
+      // an ordering one.
       //
-      // WHAT REPLACES THE TWO VECTORS (decided 2026-09-21, maintainer): ONE
-      // merged list per rep, ordered by STEP DISTANCE along the trajectory and
-      // sorted once on the initial Hermite path length. `dalpha` is a sufficient
-      // and cheaper key than path_length(): both sub-layers are reached from the
-      // same origin state with the same k, so dalpha is monotone in arc length.
-      // The reduction stays per sub-layer -- one bounded pqueue each, so
-      // NEW_MAX_HIT remains a per-sensor budget and a shower in one sensor cannot
-      // starve the other -- and only the drained lists merge.
-      //
-      // Why step distance and not "the P hit first". An earlier draft here
-      // argued precision-first: P (macro-pixel, 1.5 mm) measures q about 16x
-      // better than S (strip, 24 mm), so anchor the pair on P and the S window
-      // shrinks. RETRACTED, and the arithmetic is the reason -- the 16x is what
+      // Why step distance and not "the P hit first". An earlier design argued
+      // precision-first: P (macro-pixel, 1.5 mm) measures q about 16x better than
+      // S (strip, 24 mm), so anchor the pair on P. RETRACTED -- the 16x is what
       // the P UPDATE gains, not what the S WINDOW gains. The S window's q term is
-      // EXTRA_DQ * DDQ_PRESEL_FAC * q_half_length = 3 * 1.2 * 0.80 = 2.89 cm in
-      // TBPS, against a track term of order 0.1-0.3 cm, so shrinking the track
-      // term 16x moves that window by a few percent. And measurement killed it
-      // outright: the FINE sensor is the one more often MISSING (B-only 4.1 % of
-      // TBPS crossings, 5.2 % in the TEDD PS region, about twice A-only), so a
-      // P-anchored pre-selection either loses those crossings or needs a branch,
-      // and branches are poison in the vectorized kernel. Step ordering covers
-      // A-only, B-only, both and overlaps with no branch at all.
+      // EXTRA_DQ * DDQ_PRESEL_FAC * q_half_length = 2.89 cm in TBPS against a
+      // track term of 0.1-0.3 cm, so shrinking the track term 16x moves it by a
+      // few percent. And the FINE sensor is the one more often MISSING (B-only
+      // 4.1 % of TBPS crossings, about twice A-only), so a P-anchored
+      // pre-selection either loses those crossings or needs a branch.
       //
-      // Per-hit precision is still wanted, but as a WEIGHT in the reduction key,
-      // never as a stage -- and it needs no new array and no stereo bit on Hit:
-      // LayerOfHits::HitInfo::q_half_length already is it (TBPS 0.042 vs 0.803,
-      // TEDD 0.074 vs 1.178, TB2S 2.5125 for both, where a stereo bit would be
-      // meaningless). The reduction key is ddphi alone today, which is what lets
-      // a 0.042 cm P hit and a 2.5 cm strip hit compete on equal terms.
+      // Per-hit precision still belongs in the score, as a WEIGHT, and needs no
+      // new array and no stereo bit: LayerOfHits::HitInfo::q_half_length already
+      // is it (TBPS 0.042 against 0.803, TB2S 2.5125 for both, where a stereo bit
+      // would say nothing).
       //
-      // The observation that motivated the retracted draft still stands and is
-      // why the ordering has to be MEASURED rather than assumed: the sub-layers
-      // of a pair are nested and radially INTERLEAVED. L4 spans r(22.14, 28.73)
-      // and L5 r(22.39, 28.54), offset 2.5 mm out of a 6.5 cm shell because TBPS
-      // is tilted, and which member sits at larger r flips module by module -- so
-      // a track's L5 hit can sit at SHORTER path length than its L4 hit.
-      //
-      // And the OT ENDCAP is the hard case, not the barrel: every TEDD disc is PS
-      // on the inside (lower r, out to ~650 mm) and 2S outside, so a single disc
-      // carries both module types at different radii and "how precise is this
-      // hit" is a per-hit question there, not a per-layer one. q_half_length
-      // answers it per hit; a per-layer flag could not.
+      // The sub-layers are nested and radially INTERLEAVED, which is why the
+      // order has to be measured rather than assumed: L4 spans r(22.14, 28.73)
+      // and L5 r(22.39, 28.54), offset 2.5 mm in a 6.5 cm shell because TBPS is
+      // tilted, and which sits at larger r flips module by module -- so a track's
+      // L5 hit can sit at SHORTER path length than its L4 hit.
       std::vector<PQE> m_layer_hits;
-      std::vector<PQE> m_layer_sec_hits;
 
       // Did this candidate produce any in-layer path? Set by expand_in_layer();
       // read at end of layer, where a candidate with none is the one that

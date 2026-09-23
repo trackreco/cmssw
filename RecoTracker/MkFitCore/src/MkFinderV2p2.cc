@@ -39,6 +39,17 @@ namespace mkfit {
   V2p2ScoreParams g_v2p2_score_fwd;
   V2p2ScoreParams g_v2p2_score_bkw;
 
+  // Reduction cap, PER SUB-LAYER. Was MkBins::NEW_MAX_HIT, a compile-time 6 for
+  // the whole detector. It sits UPSTREAM of the in-layer combinatorial search, so
+  // it bounds what that search can ever see, and one number cannot be right
+  // everywhere: overlap availability runs from 2-3 % of pixel-barrel crossings to
+  // 50-56 % of TFPX. Runtime so the question costs one build; per layer is where
+  // it should end up.
+  int g_v2p2_max_presel_hits = MkBins::NEW_MAX_HIT;
+
+  // Most hits one in-layer path may take. See kMaxSecDepthMax below.
+  int g_v2p2_max_sec_depth = 4;
+
   bool g_v2p2_force_mc = false;
   float g_v2p2_extra_dq = 3.0f;
   bool  g_v2p2_surface_q = true;
@@ -929,13 +940,21 @@ namespace mkfit {
     auto &hit_orig_idcs = hb.hit_orig_idcs;
 
 
-    {
-      // The PRIMARY sub-layer. The secondary pass is the same block against
-      // spi->m_layer_sec / BL_s with is_sec_layer = true; it does not exist yet.
-      const bool is_sec_layer = false;
-      const auto &L = mp_job->m_event_of_hits[spi->m_layer];
-      const auto &iteration_hit_mask = mp_job->get_mask_for_layer(spi->m_layer);
-      const auto &BL = BL_p;
+    // Both sub-layers, primary then secondary, through the same block. Which one
+    // a hit came from is a FILL-SIDE detail: the two feed separate reduction
+    // queues, so each sensor keeps its own budget, and prepare_kalman_workload()
+    // then merges them into one step-ordered list. Nothing downstream asks which
+    // sensor a hit is from -- the per-hit q_half_length already carries what the
+    // P/S distinction is worth, and it keeps working in a 2S stack where a stereo
+    // bit would be meaningless.
+    const int n_sub = m_rz_limits.m_is_double ? 2 : 1;
+    for (int sub = 0; sub < n_sub; ++sub) {
+      const bool is_sec_layer = (sub == 1);
+      const int lay = is_sec_layer ? spi->m_layer_sec : spi->m_layer;
+      const auto &L = mp_job->m_event_of_hits[lay];
+      const auto &iteration_hit_mask = mp_job->get_mask_for_layer(lay);
+      const auto &BL = is_sec_layer ? b.BL_s : BL_p;
+      fill_pos = 0;
 
       for (int i = 0; i < N_proc; ++i) {
 
@@ -1319,19 +1338,22 @@ namespace mkfit {
         // float dalpha = h_plex.dalpha[h];
         // is_plex might come from somewhere else, through another index.
 
+        // The reduction is PER SUB-LAYER, so each sensor keeps its own budget.
+        const int sl = is_sec_layer ? 1 : 0;
+        auto &pq = ptc.m_pqueue[sl];
         auto do_pqueue_push = [&]() {
 #ifdef MKFIT_TRACE
-          ptc.m_pqueue.push( { ddphi, hit_orig_idcs[h], hit_idcs[h], L.layer_id(), tr_hitmatch_ids[h], { h3_state, h, is_plex, h } } );
+          pq.push( { ddphi, hit_orig_idcs[h], hit_idcs[h], L.layer_id(), tr_hitmatch_ids[h], { h3_state, h, is_plex, h } } );
 #else
-          ptc.m_pqueue.push( { ddphi, hit_orig_idcs[h], hit_idcs[h], L.layer_id(), { h3_state, h, is_plex, h } } );
+          pq.push( { ddphi, hit_orig_idcs[h], hit_idcs[h], L.layer_id(), { h3_state, h, is_plex, h } } );
 #endif
         };
 
-        if (ptc.m_pqueue_size < MkBins::NEW_MAX_HIT) {
+        if (ptc.m_pqueue_size[sl] < g_v2p2_max_presel_hits) {
           do_pqueue_push();
-          ++ptc.m_pqueue_size;
-        } else if (ddphi < ptc.m_pqueue.top().score) {
-          ptc.m_pqueue.pop();
+          ++ptc.m_pqueue_size[sl];
+        } else if (ddphi < pq.top().score) {
+          pq.pop();
           do_pqueue_push();
         }
       }
@@ -1349,65 +1371,62 @@ namespace mkfit {
 #endif
 
     // At this point PrimTCandReps have hits for the (first sub-) layer.
-    // QQQQ - We also need path lengths -- but let's postpone this.
-    // We could:
-    // 1 do full propagate-update for all of them.
-    //   maybe improve the parameters? this somehow closes combinatorials
-    // 2 look for the secondary sister hit in double layer.
-    //   repeat selection for secondary layer (or delay)
-    //   where do they go? another priority_queue, same one ...
-    //   ... or extract current ones as in 3 below and then reuse.
-    // 3 consider ordering the hits in s / t / z / r -- s would be ideal.
-    //   t, really, s can go in negative direction, t is always 0 -> 1
-    // 9 re-check the "extreme" overlap case in tilted layers -- increase
-    //   max-hits there or what?
-    // 8 knowing the s, the path ... can I make a proto combinatorial plan for each hit?
+    // The open questions this block used to list are answered: the hits of both
+    // sub-layers go into one list ordered by step distance (2 and 3), which is
+    // also the plan the in-layer combinatorial search walks (8). What remains
+    // from it is the per-layer reduction budget (9) -- g_v2p2_max_presel_hits is
+    // one number for the whole detector, while overlap availability varies from
+    // 2-3 % of pixel-barrel crossings to 50-56 % of TFPX.
 
-    // Move hits from priority-queue into vector for primary layer.
-    // XXXX Should invert the order, pqueue has the worst at the top !!!!
-    // Should really go into KalmanOpArgs directly, and processed as needed.
+    // Drain BOTH sub-layer queues into ONE list, then order it by step distance.
+    //
+    // sub_rank is the rank by score (ddphi) WITHIN one sub-layer and full_rank is
+    // the rank across the merged layer; both are trace-only, and they are what
+    // measures pre-selection quality against MC matching. The pqueue pops worst
+    // first, hence the count-down.
     for (int i = 0; i < N_proc; ++i) {
       PrimTCandRep &ptc = * prim_tcand_ptrs[i];
 #ifdef MKFIT_TRACE
-      int rank = ptc.m_pqueue_size;
-      mp_event->tr_layersearch(tr_layersearch_ids[i]).n_hits_pqueue = ptc.m_pqueue_size;
+      mp_event->tr_layersearch(tr_layersearch_ids[i]).n_hits_pqueue =
+        ptc.m_pqueue_size[0] + ptc.m_pqueue_size[1];
 #endif
-      while (ptc.m_pqueue_size) {
-        --ptc.m_pqueue_size;
-        const auto &pqe = ptc.m_pqueue.top();
-        ptc.m_layer_hits.push_back( pqe );
-
+      for (int sl = 0; sl < 2; ++sl) {
 #ifdef MKFIT_TRACE
-        TrHitMatch &tr_hitmatch = mp_event->tr_hitmatch(pqe.tr_hitmatch_id);
-        tr_hitmatch.sub_rank = rank--;
-        tr_hitmatch.passed_pqueue = true;
+        int rank = ptc.m_pqueue_size[sl];
 #endif
-
-        // dprintf("pushing for %d  %f, %u %u\n", i, pqe.score, pqe.hit_orig_index, pqe.hit_index);
-        ptc.m_pqueue.pop();
+        while (ptc.m_pqueue_size[sl]) {
+          --ptc.m_pqueue_size[sl];
+          const auto &pqe = ptc.m_pqueue[sl].top();
+          ptc.m_layer_hits.push_back( pqe );
+#ifdef MKFIT_TRACE
+          TrHitMatch &tr_hitmatch = mp_event->tr_hitmatch(pqe.tr_hitmatch_id);
+          tr_hitmatch.sub_rank = rank--;
+          tr_hitmatch.passed_pqueue = true;
+#endif
+          ptc.m_pqueue[sl].pop();
+        }
       }
 
-      // STEP-DISTANCE ORDERING. The pqueue drains in ddphi order, which is the
-      // REDUCTION key -- it decides which hits survive, and it is measured
-      // against MC matching through sub_rank. It is not the TRAVERSAL key. The
-      // in-layer combinatorial search walks the survivors forward along the
-      // trajectory, so the list has to be in path order, and the hits then only
-      // ever need to be visited once each: forward-only over a totally ordered
-      // list reaches every hit SUBSET exactly once, so overlaps need no
-      // "take both" special case and de-duplication is free.
+      // STEP-DISTANCE ORDERING. ddphi is the REDUCTION key -- it decides which
+      // hits survive, and it is measured against MC matching through sub_rank.
+      // It is not the TRAVERSAL key. The in-layer combinatorial search walks the
+      // survivors forward along the trajectory, so the list has to be in path
+      // order; forward-only over a totally ordered list then reaches every hit
+      // SUBSET exactly once, so overlaps need no "take both" special case and
+      // de-duplication is free. It also puts the Kalman updates in the order the
+      // track meets the hits, without which the propagation between two of them
+      // means nothing.
       //
-      // dalpha is a sufficient key and cheaper than Hermite3D::path_length():
-      // every hit of one rep is reached from the same origin state with the same
-      // k, so s = k |p| dalpha is monotone in dalpha. The sign factor is what
-      // makes it the PATH order rather than the turn-angle order -- an inward
-      // search accumulates negative dalpha, and a candidate woken up inside the
-      // layer has its pre-existing hit at dalpha = 0 with genuine overlap
-      // partners on either side.
+      // dalpha is sufficient and cheaper than Hermite3D::path_length(): every hit
+      // of one rep is reached from the same origin state with the same k, so
+      // s = k |p| dalpha is monotone in dalpha. The sign factor makes it the PATH
+      // order rather than the turn-angle order -- an inward search accumulates
+      // negative dalpha, and a candidate woken up inside the layer has its
+      // pre-existing hit at dalpha = 0 with overlap partners on either side.
       //
-      // Sorting once per rep is enough, and that is what makes the scheme
-      // affordable: a Kalman update perturbs the trajectory by about the hit
-      // resolution, so it changes the dalphas but can only reorder pairs that
-      // were already within that of each other.
+      // Once per rep is enough: a Kalman update perturbs the trajectory by about
+      // the hit resolution, so it changes the dalphas but can only reorder pairs
+      // already within that of each other.
       const float dir = m_rz_limits.is_outward() ? 1.0f : -1.0f;
       std::sort(ptc.m_layer_hits.begin(), ptc.m_layer_hits.end(),
                 [dir](const PrimTCandRep::PQE &a, const PrimTCandRep::PQE &b) {
@@ -1416,29 +1435,18 @@ namespace mkfit {
     }
 
 #ifdef MKFIT_TRACE
-    // full_rank -- rank by score across the WHOLE layer, both sub-layers merged,
-    // against sub_rank which is within one sub-layer. Says whether the layer's
-    // best hit sits in the primary or the secondary sensor.
-    //
-    // Counted rather than sorted, deliberately: sorting would have to either
-    // reorder m_layer_hits -- which is the order kalman_update() iterates, and
-    // the best-hit comparison is strictly-less, so reordering can flip an exact
-    // chi2 tie -- or build a parallel permutation. With at most
-    // 2 * NEW_MAX_HIT entries an O(n^2) count is free and cannot perturb
-    // anything. (The step-distance sort that IS coming does reorder
-    // m_layer_hits; that is a deliberate change of execution order, not this.)
+    // full_rank -- by score across the WHOLE layer, both sub-layers, against
+    // sub_rank which is within one. Says whether the layer's best hit sits in the
+    // primary or the secondary sensor. Counted rather than sorted: m_layer_hits
+    // is already in step order and that order is what the search walks.
     for (int i = 0; i < N_proc; ++i) {
       PrimTCandRep &ptc = * prim_tcand_ptrs[i];
-      auto rank_against_both = [&](const std::vector<PrimTCandRep::PQE> &v) {
-        for (const auto &e : v) {
-          int better = 0;
-          for (const auto &o : ptc.m_layer_hits)     better += (o.score < e.score);
-          for (const auto &o : ptc.m_layer_sec_hits) better += (o.score < e.score);
-          mp_event->tr_hitmatch(e.tr_hitmatch_id).full_rank = better + 1;
-        }
-      };
-      rank_against_both(ptc.m_layer_hits);
-      rank_against_both(ptc.m_layer_sec_hits);
+      for (const auto &e : ptc.m_layer_hits) {
+        int better = 0;
+        for (const auto &o : ptc.m_layer_hits)
+          better += (o.score < e.score);
+        mp_event->tr_hitmatch(e.tr_hitmatch_id).full_rank = better + 1;
+      }
     }
 #endif
   }
@@ -1644,10 +1652,14 @@ namespace mkfit {
   // makes the propagation between them meaningless.
   //----------------------------------------------------------------------------
 
-  // Depth cap. Two is enough for what exists today -- a single sub-layer, where
-  // a second hit means a module overlap. It becomes the thing to raise when the
-  // sub-layers merge and a stack can offer P + S + both overlap partners.
-  static constexpr int kMaxSecDepth = 2;
+  // Depth cap, i.e. the most hits one path may take in one layer. Two is right
+  // while a layer is a single sub-layer, where a second hit can only be a module
+  // overlap. With the sub-layers paired it binds: a PS stack offers P and S, and
+  // the neighbouring module is a stack too, so an overlap arrives as a PAIR and a
+  // crossing can present four hits. Measured: 26-28 % of outer-tracker crossings
+  // carry three or more, and the 4-hit bin is three times the 3-hit bin.
+  // kMaxSecDepthMax only sizes the chain array; g_v2p2_max_sec_depth is the cap.
+  static constexpr int kMaxSecDepthMax = 8;
   // Per-hit acceptance, the same cut the best-hit path applies.
   static constexpr float kSecChi2Cut = 30.0f;
 
@@ -1774,7 +1786,7 @@ namespace mkfit {
 
     // Depths 1 and up. The starting state is now a node's UPDATED state, for
     // which no crossing has been solved, so propagate-to-plane solves it.
-    for (int depth = 1; depth < kMaxSecDepth && f_end > f_beg; ++depth) {
+    for (int depth = 1; depth < g_v2p2_max_sec_depth && f_end > f_beg; ++depth) {
       koa.m_solve_plane = true;
       for (int ni = f_beg; ni < f_end; ++ni) {
         // By index, not by reference: the arena grows under us only at harvest,
@@ -1905,7 +1917,7 @@ namespace mkfit {
       TrackCand &nc = m_new_cands.back();
 
       if (e.node_idx >= 0) {
-        int chain[kMaxSecDepth];
+        int chain[kMaxSecDepthMax];
         int n_chain = 0;
         for (int ci = e.node_idx; ci >= 0; ci = m_sec_arena[ci].m_parent_idx)
           chain[n_chain++] = ci;

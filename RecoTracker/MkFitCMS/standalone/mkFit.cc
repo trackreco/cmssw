@@ -589,6 +589,8 @@ int main(int argc, const char* argv[]) {
           "  --v2p2-stop-cuts <0|1>   MkFinderV2p2: apply minPtCut and the looper stop at pull-in (def: %d)\n"
           "  --v2p2-in-layer-comb <0|1>  MkFinderV2p2: in-layer combinatorial search -- take a step-ordered\n"
           "                           SEQUENCE of hits per layer instead of the single best one (def: %d)\n"
+          "  --v2p2-max-sec-depth <n> MkFinderV2p2: most hits one in-layer path may take (def: %d)\n"
+          "  --v2p2-max-presel-hits <n>  MkFinderV2p2: pre-selection reduction cap, per sub-layer (def: %d)\n"
           "  --v2p2-hit-bonus <f>     MkFinderV2p2 score: per hit taken (def: %g)\n"
           "  --v2p2-overlap-bonus <f> MkFinderV2p2 score: per hit beyond the first in a layer (def: %g)\n"
           "  --v2p2-chi2-weight <f>   MkFinderV2p2 score: per unit chi2 (def: %g)\n"
@@ -745,6 +747,8 @@ int main(int argc, const char* argv[]) {
           int(Config::v2p2UseHoleLimits),
           int(Config::v2p2UseStopCuts),
           int(Config::v2p2InLayerComb),
+          g_v2p2_max_sec_depth,
+          g_v2p2_max_presel_hits,
           g_v2p2_score_fwd.hit_bonus,
           g_v2p2_score_fwd.overlap_bonus,
           g_v2p2_score_fwd.chi2_weight,
@@ -947,6 +951,12 @@ int main(int argc, const char* argv[]) {
     } else if (*i == "--v2p2-in-layer-comb") {
       next_arg_or_die(mArgs, i);
       Config::v2p2InLayerComb = (bool)atoi(i->c_str());
+    } else if (*i == "--v2p2-max-sec-depth") {
+      next_arg_or_die(mArgs, i);
+      g_v2p2_max_sec_depth = atoi(i->c_str());
+    } else if (*i == "--v2p2-max-presel-hits") {
+      next_arg_or_die(mArgs, i);
+      g_v2p2_max_presel_hits = atoi(i->c_str());
     } else if (*i == "--v2p2-hit-bonus") {
       next_arg_or_die(mArgs, i);
       g_v2p2_score_fwd.hit_bonus = g_v2p2_score_bkw.hit_bonus = atof(i->c_str());

@@ -29,6 +29,10 @@ namespace mkfit {
   // Reference the pre-selection q error to the HIT'S OWN MODULE PLANE. Exact for
   // tilted and flat layers alike -- see MkFinderV2p2.cc.
   extern bool  g_v2p2_surface_q;
+  // Per-sub-layer hit reduction cap; see MkFinderV2p2.cc.
+  extern int   g_v2p2_max_presel_hits;
+  // Most hits one in-layer path may take; see MkFinderV2p2.cc.
+  extern int   g_v2p2_max_sec_depth;
 
 
   // Did the per-layer policy actually fire? quality-val cannot answer that: a cut
