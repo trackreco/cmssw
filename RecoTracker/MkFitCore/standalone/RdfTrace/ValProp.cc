@@ -2769,7 +2769,7 @@ namespace mkfit {
       // seed hits, since setMCTrackIDInfo skips them. n_sim is the sim track's
       // own valid-hit count, which is what both should be read against. The
       // matched one is the safe counter: a wrong extra hit cannot raise it.
-      VeSums n_found, n_match, n_sim;
+      VeSums n_found, n_match, n_sim, n_match2;   // n_match2: sum of squares, for the error on the mean
       VeBins dens;                 // ... of which a seed points at them
       VeBins reco, fake;           // reco-binned (axes 0,1 and region only)
       // Seed quality, per region. The search cannot find what it is not seeded
@@ -2954,7 +2954,9 @@ namespace mkfit {
         auto bi = best.find(L);
         if (bi != best.end()) {
           ve_fill_w(C.n_found, be, bp, bh, reg, ae, pt, bi->second.n_found);
-          ve_fill_w(C.n_match, be, bp, bh, reg, ae, pt, std::max(0, bi->second.n_match));
+          const double nm = std::max(0, bi->second.n_match);
+          ve_fill_w(C.n_match, be, bp, bh, reg, ae, pt, nm);
+          ve_fill_w(C.n_match2, be, bp, bh, reg, ae, pt, nm*nm);
           ve_fill_w(C.n_sim,   be, bp, bh, reg, ae, pt, nval);
           if (pt > 0.0f && ae < VE_ETA_CUT && pt > VE_PT_CUT)
             C.res.push_back({ev->evtID(), L, reg, (bi->second.pt - pt) / pt});
@@ -3229,12 +3231,22 @@ namespace mkfit {
     TFile f(rootf.c_str(), "RECREATE");
     static const int kCol[8] = {kBlack, kRed + 1, kBlue + 1, kGreen + 2,
                                 kMagenta + 1, kOrange + 7, kCyan + 2, kGray + 2};
+    // The x axes carry alphanumeric bin labels ("1.35-1.5", "2.5-4.0"), which
+    // need room that ROOT's default bottom margin does not give -- and these are
+    // drawn in a deck at slide size, where a clipped label is simply wrong.
+    auto ve_pad = [](TCanvas *c) {
+      c->SetBottomMargin(0.16);  c->SetLeftMargin(0.11);
+      c->SetRightMargin(0.04);   c->SetTopMargin(0.09);
+      c->SetGridy(1);
+    };
     for (int ax = 0; ax < VE_NAX; ++ax) {
       const int nb = ve_nbin[ax];
       TCanvas *cv = new TCanvas(Form("c_eff_ax%d", ax),
                                 Form("efficiency vs %s", ve_axname[ax]), 900, 600);
+      ve_pad(cv);
       TCanvas *cd = new TCanvas(Form("c_deff_ax%d", ax),
                                 Form("efficiency difference vs %s", ve_axname[ax]), 900, 600);
+      ve_pad(cd);
       TLegend *lg = new TLegend(0.60, 0.13, 0.98, 0.13 + 0.05*g_ve.size());
       TLegend *ld = new TLegend(0.60, 0.13, 0.98, 0.13 + 0.05*g_ve.size());
       int ic = 0, id = 0;
@@ -3283,6 +3295,55 @@ namespace mkfit {
       }
       cv->cd();  lg->Draw();  cv->Write();
       cd->cd();  ld->Draw();  cd->Write();
+    }
+
+    // Mean TRUTH-MATCHED hits per found track. The error is the error on the
+    // mean, sqrt((<x^2> - <x>^2)/n), which needs the sum of squares -- without
+    // it the spread of track lengths would be mistaken for a measurement error.
+    // The sim track's own content goes on the same axes as a dashed reference:
+    // these are meaningless read against 100 % and only mean something read
+    // against what the track actually left behind.
+    for (int ax = 0; ax < 2; ++ax) {
+      const int nb = ve_nbin[ax];
+      TCanvas *cl = new TCanvas(Form("c_len_ax%d", ax),
+                                Form("matched hits per track vs %s", ve_axname[ax]), 900, 600);
+      ve_pad(cl);
+      TLegend *ll = new TLegend(0.60, 0.13, 0.98, 0.13 + 0.05*(g_ve.size() + 1));
+      int ic = 0;
+      for (const auto &c : g_ve) {
+        TH1D *h = new TH1D(Form("len_ax%d_%s", ax, c.name.c_str()),
+                           Form("matched hits per found track vs %s;%s;matched hits",
+                                ve_axname[ax], ve_axname[ax]), nb, -0.5, nb - 0.5);
+        for (int b = 0; b < nb; ++b) {
+          const long n = c.num.b[ax][b];
+          h->GetXaxis()->SetBinLabel(b+1, ve_binlabel(ax, b).c_str());
+          if (n < 20) continue;
+          const double m = c.n_match.b[ax][b] / n;
+          const double v = std::max(0.0, c.n_match2.b[ax][b] / n - m*m);
+          h->SetBinContent(b+1, m);
+          h->SetBinError(b+1, std::sqrt(v / n));
+        }
+        h->SetLineColor(kCol[ic % 8]);  h->SetMarkerColor(kCol[ic % 8]);
+        h->SetMarkerStyle(20 + (ic % 8));  h->SetLineWidth(2);  h->SetStats(0);
+        h->SetMinimum(0.0);
+        h->Write();
+        cl->cd();  h->Draw(ic == 0 ? "E1" : "E1 SAME");
+        ll->AddEntry(h, c.name.c_str(), "lp");
+        ++ic;
+      }
+      TH1D *hs = new TH1D(Form("len_ax%d_simref", ax),
+                          "sim track's own hits", nb, -0.5, nb - 0.5);
+      for (int b = 0; b < nb; ++b) {
+        const long n = ref->num.b[ax][b];
+        hs->GetXaxis()->SetBinLabel(b+1, ve_binlabel(ax, b).c_str());
+        if (n >= 20) hs->SetBinContent(b+1, ref->n_sim.b[ax][b] / n);
+      }
+      hs->SetLineColor(kGray + 2);  hs->SetLineStyle(2);  hs->SetLineWidth(2);
+      hs->SetMarkerStyle(1);  hs->SetStats(0);
+      hs->Write();
+      cl->cd();  hs->Draw("HIST SAME");
+      ll->AddEntry(hs, "sim track has", "l");
+      ll->Draw();  cl->Write();
     }
     f.Close();
 
