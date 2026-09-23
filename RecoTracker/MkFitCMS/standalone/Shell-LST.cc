@@ -878,6 +878,7 @@ namespace mkfit {
     ar->SetupRdfEvent(ev_vec);
 
     ar->RunBasicSeedCandCheck();
+    ar->RunSimTrackEfficiency();
 
     ar->DrawCanvasGroups();
     ar->WriteCanvasGroupsToFile();

@@ -63,6 +63,11 @@ struct AnRun {
 
   void RunBasicSeedCandCheck();
 
+  // Per-sim-track efficiency (MTV selection) straight off the Event, plus the
+  // seeding efficiency that bounds it. Single configuration by construction --
+  // see the comment on the definition.
+  void RunSimTrackEfficiency();
+
   void RunMetaVsSeedDuplicateCheck();
 
   void Run_T5_vs_pT5_AsSeeds_DuplicateCount();

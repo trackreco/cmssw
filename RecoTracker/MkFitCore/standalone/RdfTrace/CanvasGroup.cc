@@ -151,10 +151,10 @@ void CanvasGroup::Draw() {
   for (int i = 0; i < N_draw; ++i)
   {
     auto &entry = m_entries[i];
-    if ( ! entry.histo ) continue;
+    if ( ! entry.raw && ! entry.histo ) continue;
 
     TVirtualPad* pad = m_plot_pad->cd(i + 1);
-    TH1* h_ptr = entry.histo.GetPtr();
+    TH1* h_ptr = entry.raw ? entry.raw : entry.histo.GetPtr();
 
     for (auto& func : entry.pre_funcs)
       func(h_ptr, pad);

@@ -40,6 +40,16 @@ namespace mkfit {
   V2p2ScoreParams g_v2p2_score_bkw;
   int g_v2p2_score_mode = 0;
 
+  bool  g_v2p2_score_use_rho = true;
+  float g_v2p2_score_rho_const = 0.0f;
+  bool  g_v2p2_score_use_detv = true;
+  float g_v2p2_score_detv_const = 0.0f;
+
+  bool   g_v2p2_score_accum = false;
+  long   g_v2p2_score_n_hits = 0;
+  double g_v2p2_score_sum_log_rho = 0.0;
+  double g_v2p2_score_sum_log_detv = 0.0;
+
   // Reduction cap, PER SUB-LAYER. Was MkBins::NEW_MAX_HIT, a compile-time 6 for
   // the whole detector. It sits UPSTREAM of the in-layer combinatorial search, so
   // it bounds what that search can ever see, and one number cannot be right

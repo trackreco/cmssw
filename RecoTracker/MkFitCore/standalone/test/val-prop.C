@@ -109,3 +109,6 @@ void val_chopres_reset() { mkfit::val_chopres_reset(); }
 void val_chopres_ref(const char *c) { mkfit::val_chopres_ref(c); }
 void val_chopres_ev(const mkfit::Event *e, const char *c) { mkfit::val_chopres_event(e, c); }
 void val_chopres_report(const char *p) { mkfit::val_chopres_report(p); }
+
+void val_score_terms(bool ur, float rc, bool ud, float dc) { mkfit::val_score_terms(ur, rc, ud, dc); }
+void val_score_term_stats(bool on) { mkfit::val_score_term_stats(on); }

@@ -108,6 +108,8 @@ namespace mkfit {
   void val_layer_policy(bool wsr, bool hole_limits, bool stop_cuts);
   void val_reserve_hole_slot(bool on);
   void val_score_mode(int mode, float hit_eff);
+  void val_score_terms(bool use_rho, float rho_const, bool use_detv, float detv_const);
+  void val_score_term_stats(bool on);
   void val_score(float hit_bonus, float chi2_weight, float miss_fwd, float miss_bkw);
   void val_search_lite(int mode);
   void val_cluster_sizes(const Event *ev);

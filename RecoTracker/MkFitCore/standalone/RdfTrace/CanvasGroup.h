@@ -25,6 +25,10 @@ struct CanvasGroup
 
   struct Entry {
     ROOT::RDF::RResultPtr<TH1> histo;
+    // An efficiency is a RATIO of two booked histograms, so it does not exist
+    // until after the event loop and can never be an RResultPtr. Entries made by
+    // AddTH1() carry the finished object here instead, and Draw() prefers it.
+    TH1 *raw = nullptr;
     std::string options;
     std::vector<predraw_mod_func> pre_funcs;
     std::vector<postdraw_mod_func> post_funcs;
@@ -50,7 +54,15 @@ struct CanvasGroup
 
 
   Entry& Add(ROOT::RDF::RResultPtr<TH1> histo, const std::string &opts = "") {
-    m_entries.push_back( { histo, opts, {}, {} } );
+    m_entries.push_back( { histo, nullptr, opts, {}, {} } );
+    return m_entries.back();
+  }
+
+  // For histograms the dataframe cannot produce -- ratios, efficiencies,
+  // differences between two configurations. The group does NOT take ownership;
+  // the caller keeps the object alive, which is what writing it to a TFile does.
+  Entry& AddTH1(TH1 *histo, const std::string &opts = "") {
+    m_entries.push_back( { {}, histo, opts, {}, {} } );
     return m_entries.back();
   }
 

@@ -147,6 +147,33 @@ namespace mkfit {
   // ratio. See v2p2_layer_step_score().
   extern int g_v2p2_score_mode;
 
+  //--------------------------------------------------------------------------
+  // TERM ABLATION, for finding out what each term of the likelihood does.
+  //
+  // THE POINT, and it is an algebraic one: rho and eps enter the score
+  // IDENTICALLY -- look at v2p2_layer_step_loglh(), both multiply n_hits. So
+  // replacing log_rho by a constant is EXACTLY a global shift of eps, and the
+  // only thing it can remove is rho's VARIATION across layers, eta and events.
+  // Set the constant to the measured mean and the ablation is variation-only,
+  // with the average hit-versus-hole balance untouched -- which is the one
+  // comparison that can attribute a regional effect to rho rather than to eps.
+  //
+  // Comparing the likelihood against the LINEAR score cannot do that: the two
+  // differ in eps, in the chi2 weight (0.5 against 1.0) and in ln(det V) as
+  // well, so a regional difference between them names no single term.
+  extern bool  g_v2p2_score_use_rho;
+  extern float g_v2p2_score_rho_const;    // ln(hits/cm^2), used when use_rho is false
+  extern bool  g_v2p2_score_use_detv;
+  extern float g_v2p2_score_detv_const;   // ln(det V) per hit, used when use_detv is false
+
+  // Running means, so those constants are measured and not guessed. Off by
+  // default; the accumulation is not thread safe, so switch it on only in a
+  // serialised (trace) build, which is what MkFitTbb.h gives under TBB_DEBUG.
+  extern bool   g_v2p2_score_accum;
+  extern long   g_v2p2_score_n_hits;
+  extern double g_v2p2_score_sum_log_rho;    // weighted by n_hits
+  extern double g_v2p2_score_sum_log_detv;
+
   struct V2p2ScoreParams {
     float hit_bonus = 30.0f;      // per hit taken
     float overlap_bonus = 0.0f;   // per hit beyond the first in a layer
@@ -193,7 +220,17 @@ namespace mkfit {
     if (f.n_hits == 0)
       return 0.0f;   // the reference hypothesis, whatever kind of hole it was
     const float c_eps = std::log(p.hit_eff / (1.0f - p.hit_eff)) - 1.8378771f;  // ln(2pi)
-    return f.n_hits * (c_eps - f.log_rho) - 0.5f * (f.chi2_sum + f.log_det_v_sum);
+    if (g_v2p2_score_accum) {
+      g_v2p2_score_n_hits += f.n_hits;
+      g_v2p2_score_sum_log_rho += (double) f.n_hits * f.log_rho;
+      g_v2p2_score_sum_log_detv += f.log_det_v_sum;
+    }
+    // log_rho is per layer STEP, so it multiplies n_hits; log_det_v_sum is
+    // already a sum over the hits taken, so its replacement must be scaled.
+    const float lrho = g_v2p2_score_use_rho ? f.log_rho : g_v2p2_score_rho_const;
+    const float ldetv = g_v2p2_score_use_detv ? f.log_det_v_sum
+                                              : f.n_hits * g_v2p2_score_detv_const;
+    return f.n_hits * (c_eps - lrho) - 0.5f * (f.chi2_sum + ldetv);
   }
 
   inline float v2p2_layer_step_score(const LayerStepFeatures &f) {

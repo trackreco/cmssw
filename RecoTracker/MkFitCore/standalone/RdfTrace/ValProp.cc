@@ -1365,6 +1365,37 @@ namespace mkfit {
     printf("val_reserve_hole_slot: Config::v2p2ReserveHoleSlot = %d\n", (int) on);
   }
 
+  // Ablate one term of the log-likelihood at fixed eps. Passing the term's own
+  // MEAN as the constant removes its variation and nothing else -- see the note
+  // in V2p2Score.h for why that is the only comparison that can attribute a
+  // regional effect to rho rather than to eps.
+  void val_score_terms(bool use_rho, float rho_const, bool use_detv, float detv_const) {
+    g_v2p2_score_use_rho = use_rho;      g_v2p2_score_rho_const = rho_const;
+    g_v2p2_score_use_detv = use_detv;    g_v2p2_score_detv_const = detv_const;
+    printf("val_score_terms: rho %s (const %.4f), det V %s (const %.4f)\n",
+           use_rho ? "PER STEP" : "FLAT", rho_const,
+           use_detv ? "PER HIT" : "FLAT", detv_const);
+  }
+
+  // Mean ln(rho) and mean ln(det V) per hit taken, so the ablation constants are
+  // measured. Accumulation is not thread safe; a trace build serialises the
+  // in-event loops, which is where this is meant to run.
+  void val_score_term_stats(bool on) {
+    if (on) {
+      g_v2p2_score_n_hits = 0;
+      g_v2p2_score_sum_log_rho = g_v2p2_score_sum_log_detv = 0.0;
+      g_v2p2_score_accum = true;
+      printf("val_score_term_stats: accumulating.\n");
+      return;
+    }
+    g_v2p2_score_accum = false;
+    const long n = g_v2p2_score_n_hits;
+    printf("val_score_term_stats: %ld hits scored; mean ln(rho) = %.4f, "
+           "mean ln(det V) = %.4f\n", n,
+           n ? g_v2p2_score_sum_log_rho / n : 0.0,
+           n ? g_v2p2_score_sum_log_detv / n : 0.0);
+  }
+
   void val_score_mode(int mode, float hit_eff) {
     g_v2p2_score_mode = mode;
     g_v2p2_score_fwd.hit_eff = g_v2p2_score_bkw.hit_eff = hit_eff;
@@ -2685,17 +2716,28 @@ namespace mkfit {
     // along which the in-layer combinatorial is supposed to pay.
     constexpr int VE_NAX = 3;
     constexpr int VE_NB  = 12;
-    const int   ve_nbin[VE_NAX] = {12, 9, 6};
+    const int   ve_nbin[VE_NAX] = {12, 10, 6};
     const char *ve_axname[VE_NAX] = {"|eta|", "pT [GeV]", "sim hits / layer"};
 
-    const float ve_pt_edge[10] = {0.5f, 0.7f, 1.0f, 1.5f, 2.0f, 3.0f, 5.0f, 10.0f, 20.0f, 1e9f};
+    // THE SELECTION IS CMSSW's MTV CONVENTION: |eta| < 2.5 and pT > 0.9, with the
+    // cut on the plotted variable RELEASED for that variable's own plot. So the
+    // eta axis carries every selected track of any pT above 0.2, the pT axis
+    // carries every selected track of any |eta| below 3, and everything else --
+    // the totals, the regions, the hits-per-layer axis, the resolution -- uses
+    // both cuts. Quoting one efficiency for "the sample" and another for a bin of
+    // its own plot is the convention, not an inconsistency.
+    constexpr float VE_ETA_CUT = 2.5f;
+    constexpr float VE_PT_CUT  = 0.9f;
+
+    const float ve_pt_edge[11] = {0.2f, 0.3f, 0.5f, 0.7f, 0.9f, 1.2f,
+                                  1.6f, 2.5f, 4.0f, 10.0f, 1e9f};
     const char *ve_hpl_lab[6]  = {"= 1.00", "1.0-1.1", "1.1-1.2", "1.2-1.35", "1.35-1.5", "> 1.5"};
 
     int ve_bin_eta(float ae) { int b = (int)(ae / 0.25f); return (b < 0 || b > 11) ? -1 : b; }
     int ve_bin_pt(float pt) {
       if (pt < ve_pt_edge[0]) return -1;
-      for (int b = 0; b < 9; ++b) if (pt < ve_pt_edge[b+1]) return b;
-      return 8;
+      for (int b = 0; b < 10; ++b) if (pt < ve_pt_edge[b+1]) return b;
+      return 9;
     }
     int ve_bin_hpl(float r) {
       if (r < 1.0001f) return 0;
@@ -2713,11 +2755,35 @@ namespace mkfit {
 
     struct VeBins { long b[VE_NAX][VE_NB] = {}; long reg[3] = {}; long tot = 0; };
     struct VeRes { int evt; int lbl; int reg; float r; };
+    // Same shape as VeBins but summing a weight, for mean track length. Kept
+    // separate rather than templating VeBins, which is counted in longs and is
+    // the thing every paired statistic runs on.
+    struct VeSums { double b[VE_NAX][VE_NB] = {}; double reg[3] = {}; double tot = 0.0; };
 
     struct VeCfg {
       std::string name;
-      VeBins den, num, dup;        // sim-binned
+      VeBins den, num, dup;        // sim-binned; den is the MTV denominator
+      // TRACK LENGTH, over the found sim tracks (so the denominator is num).
+      // n_found is every hit on the best-matched reco track, seed hits included;
+      // n_match is the subset whose mcTrackID is that sim track, EXCLUDING the
+      // seed hits, since setMCTrackIDInfo skips them. n_sim is the sim track's
+      // own valid-hit count, which is what both should be read against. The
+      // matched one is the safe counter: a wrong extra hit cannot raise it.
+      VeSums n_found, n_match, n_sim;
+      VeBins dens;                 // ... of which a seed points at them
       VeBins reco, fake;           // reco-binned (axes 0,1 and region only)
+      // Seed quality, per region. The search cannot find what it is not seeded
+      // for, and MTV's "central" requirement is in practice imposed by the seeds
+      // rather than by us -- so the seeding efficiency and the seed purity are
+      // the ceiling every number below sits under, and belong in the same report.
+      long n_seed[3] = {}, n_seed_pure[3] = {}, n_seed_on_sel[3] = {};
+      double sum_seed_gf[3] = {};
+      // What the seeds are MADE OF, which is as close as the .bin gets to naming
+      // the seeding algorithm: the file carries the track algorithm and the hits,
+      // not the producer. Four pixel hits is a pixel quadruplet either way --
+      // Patatrack and the standard chain differ in the fit, not in the hit
+      // content -- so this bounds the question rather than settling it.
+      long sum_seed_hits[3] = {}, sum_seed_pix[3] = {};
       long n_ev = 0;
       std::vector<VeBins> ev_num, ev_den, ev_fake, ev_reco, ev_dup;
       // d(pT)/pT of the best-matched reco track of each found sim track, one row
@@ -2745,12 +2811,26 @@ namespace mkfit {
       g_ve.push_back(VeCfg());  g_ve.back().name = name;  return g_ve.back();
     }
 
-    void ve_fill(VeBins &v, int be, int bp, int bh, int reg) {
-      if (be >= 0) ++v.b[0][be];
-      if (bp >= 0) ++v.b[1][bp];
+    // ae, pt gate which axes this track enters, per the MTV convention above:
+    // the eta axis wants the pT cut only, the pT axis the eta cut only, and
+    // everything else both.
+    void ve_fill(VeBins &v, int be, int bp, int bh, int reg, float ae, float pt) {
+      const bool ok_eta = ae < VE_ETA_CUT, ok_pt = pt > VE_PT_CUT;
+      if (be >= 0 && ok_pt) ++v.b[0][be];
+      if (bp >= 0 && ok_eta) ++v.b[1][bp];
+      if (!(ok_eta && ok_pt)) return;
       if (bh >= 0) ++v.b[2][bh];
       if (reg >= 0) ++v.reg[reg];
       ++v.tot;
+    }
+    void ve_fill_w(VeSums &v, int be, int bp, int bh, int reg, float ae, float pt, double w) {
+      const bool ok_eta = ae < VE_ETA_CUT, ok_pt = pt > VE_PT_CUT;
+      if (be >= 0 && ok_pt) v.b[0][be] += w;
+      if (bp >= 0 && ok_eta) v.b[1][bp] += w;
+      if (!(ok_eta && ok_pt)) return;
+      if (bh >= 0) v.b[2][bh] += w;
+      if (reg >= 0) v.reg[reg] += w;
+      v.tot += w;
     }
     void ve_add(VeBins &a, const VeBins &b) {
       for (int x = 0; x < VE_NAX; ++x) for (int i = 0; i < VE_NB; ++i) a.b[x][i] += b.b[x][i];
@@ -2777,25 +2857,44 @@ namespace mkfit {
   void val_eff_event(const Event *ev, const char *cfg) {
     if (ev == nullptr) return;
     VeCfg &C = ve_cfg(cfg);
-    VeBins e_den, e_num, e_dup, e_reco, e_fake;
+    VeBins e_den, e_num, e_dup, e_reco, e_fake, e_dens;
 
     // ---- seeds: which sim tracks did the search actually get a chance at, and
     // where is each seed, so its hits can be excluded from the association count.
     std::map<int, int> seed_by_label;      // seed label -> index in currentSeedTracks()
     std::set<int> seeded_sim;
+    std::map<int, int> n_seed_for_sim;     // sim label -> how many seeds point at it
     const TrackVec *seeds = nullptr;
     try { seeds = &ev->currentSeedTracks(); } catch (...) { seeds = nullptr; }
     if (seeds) {
       for (int i = 0; i < (int) seeds->size(); ++i) {
         seed_by_label.emplace((*seeds)[i].label(), i);
-        const int sl = ev->simInfoForCurrentSeed(i).label;
-        if (sl >= 0 && sl < (int) ev->simTracks_.size()) seeded_sim.insert(sl);
+        const auto sifh = ev->simInfoForCurrentSeed(i);
+        const int sl = sifh.label;
+        if (sl >= 0 && sl < (int) ev->simTracks_.size()) {
+          seeded_sim.insert(sl);
+          ++n_seed_for_sim[sl];
+        }
+        const int sr = ve_region(std::abs((*seeds)[i].momEta()));
+        if (sr >= 0 && sr < 3) {
+          ++C.n_seed[sr];
+          C.sum_seed_gf[sr] += sifh.good_frac();
+          if (sifh.good_frac() > 0.999f) ++C.n_seed_pure[sr];
+          const Track &sd = (*seeds)[i];
+          for (int h = 0; h < sd.nTotalHits(); ++h) {
+            const HitOnTrack hot = sd.getHitOnTrack(h);
+            if (hot.index < 0 || hot.layer < 0) continue;
+            ++C.sum_seed_hits[sr];
+            if (Config::TrkInfo[hot.layer].is_pixel()) ++C.sum_seed_pix[sr];
+          }
+        }
       }
     }
 
     // ---- reco side: association exactly as quality-val defines it.
     std::map<int, int> n_assoc;            // sim label -> number of reco tracks on it
-    std::map<int, std::pair<float,int>> best; // sim label -> (pT of best match, n matched)
+    struct VeBest { float pt = 0.0f; int n_match = -1; int n_found = 0; };
+    std::map<int, VeBest> best;            // sim label -> its best-matched reco track
     for (const Track &c : ev->candidateTracks_) {
       TrackExtra extra(c.label());
       auto si = seed_by_label.find(c.label());
@@ -2806,23 +2905,35 @@ namespace mkfit {
 
       const float rae = std::abs(c.momEta());
       const int rbe = ve_bin_eta(rae), rbp = ve_bin_pt(c.pT()), rreg = ve_region(rae);
-      ve_fill(e_reco, rbe, rbp, -1, rreg);
+      ve_fill(e_reco, rbe, rbp, -1, rreg, rae, c.pT());
       if (mc < 0 || mc >= (int) ev->simTracks_.size())
-        ve_fill(e_fake, rbe, rbp, -1, rreg);
+        ve_fill(e_fake, rbe, rbp, -1, rreg, rae, c.pT());
       else {
         ++n_assoc[mc];
         // Keep the best-matched reco track per sim track, so a duplicate does not
         // get to vote twice on the resolution.
         auto &b = best[mc];
-        if (extra.nHitsMatched() > b.second) b = {c.pT(), extra.nHitsMatched()};
+        if (extra.nHitsMatched() > b.n_match)
+          b = {c.pT(), extra.nHitsMatched(), c.nFoundHits()};
       }
     }
 
-    // ---- sim side: the denominator, and the numerator over it.
-    for (int L : seeded_sim) {
+    // ---- sim side. The denominator is EVERY selected sim track, not only the
+    // seeded ones, which is what MTV means by efficiency. The seeded subset is
+    // counted alongside so the seeding ceiling is visible rather than assumed.
+    //
+    // Selection, CMSSW TrackingParticleSelector's shape: findable, the production
+    // vertex central (tip < 3.5 cm, lip < 30 cm), and at least 4 distinct layers,
+    // since a seed needs four and a sim track with fewer is not reconstructible
+    // by this algorithm at all. The eta and pT cuts are applied per axis inside
+    // ve_fill(), so each plot releases the cut on its own variable.
+    const int nsim = (int) ev->simTracks_.size();
+    for (int L = 0; L < nsim; ++L) {
       const Track &st = ev->simTracks_[L];
       const float ae = std::abs(st.momEta()), pt = st.pT();
-      if (!st.isFindable() || pt < 0.5f || ae >= 3.0f) continue;
+      if (!st.isFindable()) continue;
+      if (std::hypot(st.x(), st.y()) > 3.5f || std::abs(st.z()) > 30.0f) continue;
+      if (ae >= 3.0f || pt < ve_pt_edge[0]) continue;
       const int nlay = st.nUniqueLayers();
       if (nlay < 4) continue;
       int nval = 0;
@@ -2830,18 +2941,29 @@ namespace mkfit {
         if (st.getHitOnTrack(i).index >= 0) ++nval;
       const int be = ve_bin_eta(ae), bp = ve_bin_pt(pt), reg = ve_region(ae);
       const int bh = ve_bin_hpl((float) nval / (float) nlay);
-      ve_fill(e_den, be, bp, bh, reg);
+      ve_fill(e_den, be, bp, bh, reg, ae, pt);
+      if (seeded_sim.count(L)) {
+        ve_fill(e_dens, be, bp, bh, reg, ae, pt);
+        if (reg >= 0 && ae < VE_ETA_CUT && pt > VE_PT_CUT)
+          C.n_seed_on_sel[reg] += n_seed_for_sim[L];
+      }
       auto it = n_assoc.find(L);
       if (it != n_assoc.end()) {
-        ve_fill(e_num, be, bp, bh, reg);
-        for (int d = 1; d < it->second; ++d) ve_fill(e_dup, be, bp, bh, reg);
+        ve_fill(e_num, be, bp, bh, reg, ae, pt);
+        for (int d = 1; d < it->second; ++d) ve_fill(e_dup, be, bp, bh, reg, ae, pt);
         auto bi = best.find(L);
-        if (bi != best.end() && pt > 0.0f)
-          C.res.push_back({ev->evtID(), L, reg, (bi->second.first - pt) / pt});
+        if (bi != best.end()) {
+          ve_fill_w(C.n_found, be, bp, bh, reg, ae, pt, bi->second.n_found);
+          ve_fill_w(C.n_match, be, bp, bh, reg, ae, pt, std::max(0, bi->second.n_match));
+          ve_fill_w(C.n_sim,   be, bp, bh, reg, ae, pt, nval);
+          if (pt > 0.0f && ae < VE_ETA_CUT && pt > VE_PT_CUT)
+            C.res.push_back({ev->evtID(), L, reg, (bi->second.pt - pt) / pt});
+        }
       }
     }
 
     ve_add(C.den, e_den);  ve_add(C.num, e_num);  ve_add(C.dup, e_dup);
+    ve_add(C.dens, e_dens);
     ve_add(C.reco, e_reco); ve_add(C.fake, e_fake);
     C.ev_den.push_back(e_den);  C.ev_num.push_back(e_num);  C.ev_dup.push_back(e_dup);
     C.ev_reco.push_back(e_reco); C.ev_fake.push_back(e_fake);
@@ -2859,11 +2981,40 @@ namespace mkfit {
       char s[32];
       if (ax == 0) snprintf(s, sizeof(s), "%.2f-%.2f", 0.25*b, 0.25*(b+1));
       else if (ax == 1) {
-        if (b == 8) snprintf(s, sizeof(s), "> 20");
+        if (b == 9) snprintf(s, sizeof(s), "> 10");
         else snprintf(s, sizeof(s), "%.1f-%.1f", ve_pt_edge[b], ve_pt_edge[b+1]);
       }
       else snprintf(s, sizeof(s), "%s", ve_hpl_lab[b]);
       return s;
+    }
+
+    // Mean track length per bin. which = 0 reco hits (seed included), 1 matched
+    // hits (seed excluded, the safe counter), 2 the sim track's own hits. The
+    // denominator is the FOUND sim tracks, so it is a property of the tracks a
+    // configuration reconstructed and moves with the population -- read the
+    // matched row, and read it against the sim row in the same column.
+    void ve_len_table(int ax, const VeCfg *ref, int which) {
+      const int nb = (ax == 3) ? 3 : ve_nbin[ax];
+      const char *wn[3] = {"reco hits (incl. seed)", "MATCHED hits (excl. seed)",
+                           "sim track's own hits"};
+      ve_printf("\n--- mean %s vs %s ---\n", wn[which],
+                ax == 3 ? "region" : ve_axname[ax]);
+      ve_printf("%-20s %9s", ax == 3 ? "region" : "bin", "found");
+      for (const auto &c : g_ve) ve_printf(" | %-10.10s", c.name.c_str());
+      ve_printf("\n");
+      for (int b = 0; b < nb; ++b) {
+        const long dn = (ax == 3) ? ref->num.reg[b] : ref->num.b[ax][b];
+        if (dn < 20) continue;
+        std::string lab = (ax == 3) ? ve_regname[b] : ve_binlabel(ax, b);
+        ve_printf("%-20s %9ld", lab.c_str(), dn);
+        for (const auto &c : g_ve) {
+          const VeSums &S = (which == 0) ? c.n_found : (which == 1 ? c.n_match : c.n_sim);
+          const long n = (ax == 3) ? c.num.reg[b] : c.num.b[ax][b];
+          const double v = (ax == 3) ? S.reg[b] : S.b[ax][b];
+          ve_printf(" |   %8.3f ", n ? v/n : 0.0);
+        }
+        ve_printf("\n");
+      }
     }
 
     // One resolved table: efficiency per bin for every configuration, and the
@@ -2938,25 +3089,65 @@ namespace mkfit {
     ve_printf("\n================================================================\n");
     ve_printf("  val_eff -- per-sim-track efficiency, resolved\n");
     ve_printf("================================================================\n");
-    ve_printf("Denominator: SIM tracks a seed points at, findable, pT > 0.5, |eta| < 3,\n");
-    ve_printf("  >= 4 distinct layers. Numerator: >= 1 reco track associated to it by\n");
-    ve_printf("  2*mccount >= nCandHits over non-seed hits (TrackExtra::setMCTrackIDInfo),\n");
-    ve_printf("  which is what quality-val's 'found tracks' counts. nH >= 80%% is NOT used.\n");
+    ve_printf("DENOMINATOR -- CMSSW MTV's convention. Sim tracks that are findable, have a\n");
+    ve_printf("  CENTRAL production vertex (tip < 3.5 cm, lip < 30 cm, as\n");
+    ve_printf("  TrackingParticleSelector has it), at least 4 distinct layers, |eta| < 2.5\n");
+    ve_printf("  and pT > 0.9 -- with the cut on the PLOTTED variable released for that\n");
+    ve_printf("  variable's own plot, so the eta table carries every pT above 0.2 and the pT\n");
+    ve_printf("  table every |eta| below 3. Efficiency below is against ALL of them, not\n");
+    ve_printf("  only the seeded ones; the seeded subset is in the next block, because the\n");
+    ve_printf("  search cannot find what it was not seeded for and MTV's 'central' is in\n");
+    ve_printf("  practice imposed by the seeds rather than by us.\n");
+    ve_printf("NUMERATOR: >= 1 reco track associated to it by 2*mccount >= nCandHits over the\n");
+    ve_printf("  non-seed hits (TrackExtra::setMCTrackIDInfo), which is what quality-val's\n");
+    ve_printf("  'found tracks' counts. A wrong extra hit raises the denominator of that\n");
+    ve_printf("  rule only, so nothing here can be bought by taking more hits.\n");
+    ve_printf("  nH >= 80%% is NOT used anywhere.\n");
     ve_printf("Reference configuration: %s\n", ref->name.c_str());
 
+    ve_printf("\n--- the seeding ceiling (identical in every configuration by construction) ---\n");
+    ve_printf("%-22s %10s %10s %9s %10s %8s %7s %7s %7s\n", "region", "sim sel", "seeded",
+              "seed eff", "all seeds", "per sel", "pure", "hits", "pixel");
+    for (int r = 0; r < 3; ++r) {
+      const long ds = ref->den.reg[r], ss = ref->dens.reg[r], ns = ref->n_seed[r];
+      ve_printf("%-22s %10ld %10ld %8.2f%% %10ld %8.2f %6.1f%% %7.2f %6.1f%%\n",
+                ve_regname[r], ds, ss, ds ? 100.0*ss/ds : 0.0, ns,
+                ss ? (double) ref->n_seed_on_sel[r]/ss : 0.0,
+                ns ? 100.0*ref->n_seed_pure[r]/ns : 0.0,
+                ns ? (double) ref->sum_seed_hits[r]/ns : 0.0,
+                ref->sum_seed_hits[r] ? 100.0*ref->sum_seed_pix[r]/ref->sum_seed_hits[r] : 0.0);
+    }
+    ve_printf("  'seed eff' is the ceiling on every efficiency below: a track with no seed\n");
+    ve_printf("  cannot be found. 'all seeds' is every seed of that region, most of which\n");
+    ve_printf("  are on sim tracks OUTSIDE the selection (below 0.9 GeV, mostly), so it is\n");
+    ve_printf("  not a duplicate rate; 'per sel' is, being seeds per SELECTED seeded sim\n");
+    ve_printf("  track. 'pure' = seeds all of whose valid hits come from one sim track\n");
+    ve_printf("  (Event::SimInfoFromHits::good_frac() == 1). 'hits' and 'pixel' say what the\n");
+    ve_printf("  seeds are made of; the .bin carries the track algorithm and the hits, not\n");
+    ve_printf("  the producer, so this bounds the seeding-algorithm question without\n");
+    ve_printf("  settling it -- Patatrack and the standard chain differ in the FIT.\n");
+    for (const auto &c : g_ve)
+      for (int r = 0; r < 3; ++r)
+        if (c.n_seed[r] != ref->n_seed[r])
+          ve_printf("  !! %s has %ld seeds in region %d against the reference's %ld\n",
+                    c.name.c_str(), c.n_seed[r], r, ref->n_seed[r]);
+
     ve_printf("\n--- totals ---\n");
-    ve_printf("%-22s %7s %9s %9s %8s %9s %9s %8s\n", "configuration", "events",
-              "sim trks", "found", "eff", "reco trks", "fakes", "dup/sim");
+    ve_printf("%-22s %7s %9s %9s %8s %8s %9s %9s %8s\n", "configuration", "events",
+              "sim sel", "found", "eff", "of seed", "reco trks", "fakes", "dup/sim");
     for (const auto &c : g_ve) {
-      ve_printf("%-22s %7ld %9ld %9ld %7.2f%% %9ld %9ld %7.2f%%\n",
+      ve_printf("%-22s %7ld %9ld %9ld %7.2f%% %7.2f%% %9ld %9ld %7.2f%%\n",
                 c.name.c_str(), c.n_ev, c.den.tot, c.num.tot,
                 c.den.tot ? 100.0*c.num.tot/c.den.tot : 0.0,
+                c.dens.tot ? 100.0*c.num.tot/c.dens.tot : 0.0,
                 c.reco.tot, c.fake.tot,
                 c.den.tot ? 100.0*c.dup.tot/c.den.tot : 0.0);
       if (c.den.tot != ref->den.tot)
         ve_printf("   !! denominator differs from the reference by %ld -- pairing is NOT exact\n",
                   c.den.tot - ref->den.tot);
     }
+    ve_printf("  'eff' is against every selected sim track (MTV); 'of seed' is against the\n");
+    ve_printf("  seeded subset, i.e. what the SEARCH alone is responsible for.\n");
     ve_printf("\n--- paired differences against %s, whole sample ---\n", ref->name.c_str());
     ve_printf("%-22s %14s %14s %14s\n", "configuration", "d found", "d fakes", "d duplicates");
     for (const auto &c : g_ve) {
@@ -3018,16 +3209,35 @@ namespace mkfit {
     ve_ratio_table(3, ref, false);
     ve_ratio_table(2, ref, false);
 
+    // TRACK LENGTH. Not paired: the denominator is each configuration's own
+    // found tracks, so a configuration that finds more finds shorter ones and
+    // the mean moves by composition. The sim row is the same population's truth
+    // content and is what the other two should be read against.
+    for (int w = 0; w < 3; ++w) ve_len_table(3, ref, w);
+    for (int w = 0; w < 2; ++w) { ve_len_table(0, ref, w); ve_len_table(1, ref, w); }
+    ve_len_table(0, ref, 2);  ve_len_table(1, ref, 2);
+
     // ---- the .root file: one efficiency TH1 per configuration per axis, with
     // binomial errors, plus an overlay canvas per axis so show-anrun's TBrowser
     // opens on something readable.
+    // ---- the .root file. Two canvases per axis: the efficiency overlay, and the
+    // PAIRED DIFFERENCE against the reference. The overlay alone is unreadable
+    // once several configurations are in -- they sit within a few points of each
+    // other on a 0-1 axis -- and the difference is the quantity with the small
+    // error bar, since the denominator is shared and only the numerator moves.
     const std::string rootf = std::string(prefix) + ".root";
     TFile f(rootf.c_str(), "RECREATE");
+    static const int kCol[8] = {kBlack, kRed + 1, kBlue + 1, kGreen + 2,
+                                kMagenta + 1, kOrange + 7, kCyan + 2, kGray + 2};
     for (int ax = 0; ax < VE_NAX; ++ax) {
       const int nb = ve_nbin[ax];
-      TCanvas *cv = new TCanvas(Form("c_eff_ax%d", ax), Form("efficiency vs %s", ve_axname[ax]), 900, 600);
-      TLegend *lg = new TLegend(0.60, 0.15, 0.98, 0.15 + 0.05*g_ve.size());
-      int ic = 0;
+      TCanvas *cv = new TCanvas(Form("c_eff_ax%d", ax),
+                                Form("efficiency vs %s", ve_axname[ax]), 900, 600);
+      TCanvas *cd = new TCanvas(Form("c_deff_ax%d", ax),
+                                Form("efficiency difference vs %s", ve_axname[ax]), 900, 600);
+      TLegend *lg = new TLegend(0.60, 0.13, 0.98, 0.13 + 0.05*g_ve.size());
+      TLegend *ld = new TLegend(0.60, 0.13, 0.98, 0.13 + 0.05*g_ve.size());
+      int ic = 0, id = 0;
       for (const auto &c : g_ve) {
         TH1D *hn = new TH1D(Form("num_ax%d_%d", ax, ic), "", nb, -0.5, nb - 0.5);
         TH1D *hd = new TH1D(Form("den_ax%d_%d", ax, ic), "", nb, -0.5, nb - 0.5);
@@ -3036,20 +3246,43 @@ namespace mkfit {
           hd->SetBinContent(b+1, (double) c.den.b[ax][b]);
         }
         TH1D *he = (TH1D*) hn->Clone(Form("eff_ax%d_%s", ax, c.name.c_str()));
-        he->SetTitle(Form("efficiency vs %s;%s;eff", ve_axname[ax], ve_axname[ax]));
+        he->SetTitle(Form("efficiency vs %s;%s;efficiency", ve_axname[ax], ve_axname[ax]));
         he->Divide(hn, hd, 1.0, 1.0, "B");
         for (int b = 0; b < nb; ++b)
           he->GetXaxis()->SetBinLabel(b+1, ve_binlabel(ax, b).c_str());
-        he->SetLineColor(1 + ic);  he->SetMarkerColor(1 + ic);  he->SetMarkerStyle(20 + ic);
-        he->SetMinimum(0.0);  he->SetMaximum(1.0);
+        he->SetLineColor(kCol[ic % 8]);  he->SetMarkerColor(kCol[ic % 8]);
+        he->SetMarkerStyle(20 + (ic % 8));  he->SetLineWidth(2);
+        he->SetMinimum(0.0);  he->SetMaximum(1.05);  he->SetStats(0);
         he->Write();
         cv->cd();  he->Draw(ic == 0 ? "E1" : "E1 SAME");
         lg->AddEntry(he, c.name.c_str(), "lp");
+
+        // the paired difference, in points, error = sigma of the per-event sum
+        if (&c != ref) {
+          TH1D *hdd = new TH1D(Form("d_eff_ax%d_%s", ax, c.name.c_str()),
+                               Form("efficiency difference vs %s, paired;%s;points",
+                                    ve_axname[ax], ve_axname[ax]), nb, -0.5, nb - 0.5);
+          for (int b = 0; b < nb; ++b) {
+            const long d = ref->den.b[ax][b];
+            hdd->GetXaxis()->SetBinLabel(b+1, ve_binlabel(ax, b).c_str());
+            if (d < 20) continue;
+            double sum, sig;
+            ve_paired(ve_series(c.ev_num, ax, b), ve_series(ref->ev_num, ax, b), sum, sig);
+            hdd->SetBinContent(b+1, 100.0*sum/d);
+            hdd->SetBinError(b+1, 100.0*sig/d);
+          }
+          hdd->SetLineColor(kCol[(id+1) % 8]);  hdd->SetMarkerColor(kCol[(id+1) % 8]);
+          hdd->SetMarkerStyle(20 + ((id+1) % 8));  hdd->SetLineWidth(2);  hdd->SetStats(0);
+          hdd->Write();
+          cd->cd();  hdd->Draw(id == 0 ? "E1" : "E1 SAME");
+          ld->AddEntry(hdd, c.name.c_str(), "lp");
+          ++id;
+        }
         delete hn;  delete hd;
         ++ic;
       }
-      lg->Draw();
-      cv->Write();
+      cv->cd();  lg->Draw();  cv->Write();
+      cd->cd();  ld->Draw();  cd->Write();
     }
     f.Close();
 
@@ -3086,7 +3319,7 @@ namespace mkfit {
       for (auto &c : g_cr) if (c.name == name) return c;
       g_cr.push_back(ChopCfg());  g_cr.back().name = name;  return g_cr.back();
     }
-    void ve_fill_n(VeBins &v, int be, int bp, int bh, int reg, long n) {
+    void ve_fill_n(VeBins &v, int be, int bp, int bh, int reg, long n) {  // chopres: no MTV gate
       if (be >= 0) v.b[0][be] += n;
       if (bp >= 0) v.b[1][bp] += n;
       if (bh >= 0) v.b[2][bh] += n;
@@ -3120,8 +3353,8 @@ namespace mkfit {
       }
       ve_fill_n(C.hden, be, bp, bh, reg, (long) chopped.size());
       ve_fill_n(e_hnum, be, bp, bh, reg, back);
-      ve_fill(C.tden, be, bp, bh, reg);
-      if (back == (int) chopped.size()) ve_fill(e_tnum, be, bp, bh, reg);
+      ve_fill(C.tden, be, bp, bh, reg, 0.0f, 1e9f);   // chopres is not MTV-gated
+      if (back == (int) chopped.size()) ve_fill(e_tnum, be, bp, bh, reg, 0.0f, 1e9f);
     }
     ve_add(C.hnum, e_hnum);  ve_add(C.tnum, e_tnum);
     C.ev_hnum.push_back(e_hnum);  C.ev_tnum.push_back(e_tnum);
