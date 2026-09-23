@@ -2787,6 +2787,12 @@ namespace mkfit {
       // point at a sim track and is being dropped, while no matched hit at all
       // is a seed with no truth to point at.
       long n_vote_ok = 0, n_vote_tie = 0, n_vote_notruth = 0;
+      // Seeds here are 100 % pixel hits and 4.1-6.2 of them, i.e. initialStep
+      // pixel quadruplets. A selected sim track that does not cross 4 distinct
+      // PIXEL layers cannot be seeded by one at all, so counting seeding
+      // efficiency against every selected sim track charges this iteration for
+      // tracks it is not for. Both denominators are reported.
+      long n_pix4[3] = {}, n_pix4_seeded[3] = {}, n_pix4_preseeded[3] = {};
       long n_seed[3] = {}, n_seed_pure[3] = {}, n_seed_on_sel[3] = {};
       double sum_seed_gf[3] = {};
       // What the seeds are MADE OF, which is as close as the .bin gets to naming
@@ -2918,6 +2924,15 @@ namespace mkfit {
     std::map<int, int> seed_by_label;      // seed label -> index in currentSeedTracks()
     std::set<int> seeded_sim;
     std::map<int, int> n_seed_for_sim;     // sim label -> how many seeds point at it
+    // The same vote over the file's RAW seed collection, before seed cleaning.
+    // currentSeedTracks() is what the cleaner left -- 7498 of 36042 on this
+    // sample -- so without this the quoted seeding efficiency cannot tell a seed
+    // that was never made from one that was made and then thrown away.
+    std::set<int> preclean_sim;
+    for (const Track &sd : ev->seedTracks_) {
+      const int sl = ev->simInfoForTrack(sd).label;
+      if (sl >= 0 && sl < (int) ev->simTracks_.size()) preclean_sim.insert(sl);
+    }
     const TrackVec *seeds = nullptr;
     try { seeds = &ev->currentSeedTracks(); } catch (...) { seeds = nullptr; }
     if (seeds) {
@@ -3008,6 +3023,17 @@ namespace mkfit {
         if (st.getHitOnTrack(i).index >= 0) ++nval;
       const int be = ve_bin_eta(ae), bp = ve_bin_pt(pt), reg = ve_region(ae);
       const int bh = ve_bin_hpl((float) nval / (float) nlay);
+      std::set<int> pixlay;
+      for (int i = 0; i < st.nTotalHits(); ++i) {
+        const HitOnTrack hot = st.getHitOnTrack(i);
+        if (hot.index >= 0 && hot.layer >= 0 && Config::TrkInfo[hot.layer].is_pixel())
+          pixlay.insert(hot.layer);
+      }
+      if (reg >= 0 && ae < VE_ETA_CUT && pt > VE_PT_CUT && pixlay.size() >= 4) {
+        ++C.n_pix4[reg];
+        if (seeded_sim.count(L)) ++C.n_pix4_seeded[reg];
+        if (preclean_sim.count(L)) ++C.n_pix4_preseeded[reg];
+      }
       ve_fill(e_den, be, bp, bh, reg, ae, pt);
       if (seeded_sim.count(L)) {
         ve_fill(e_dens, be, bp, bh, reg, ae, pt);
@@ -3230,6 +3256,22 @@ namespace mkfit {
                 ns ? (double) ref->sum_seed_hits[r]/ns : 0.0,
                 ref->sum_seed_hits[r] ? 100.0*ref->sum_seed_pix[r]/ref->sum_seed_hits[r] : 0.0);
     }
+    ve_printf("  %-22s %10s %10s %9s %10s %9s\n", "... of those that CAN be",
+              ">=4 pix lay", "seeded", "seed eff", "pre-clean", "pre eff");
+    for (int r = 0; r < 3; ++r)
+      ve_printf("  %-22s %10ld %10ld %8.2f%% %10ld %8.2f%%\n", ve_regname[r], ref->n_pix4[r],
+                ref->n_pix4_seeded[r],
+                ref->n_pix4[r] ? 100.0*ref->n_pix4_seeded[r]/ref->n_pix4[r] : 0.0,
+                ref->n_pix4_preseeded[r],
+                ref->n_pix4[r] ? 100.0*ref->n_pix4_preseeded[r]/ref->n_pix4[r] : 0.0);
+    ve_printf("  'pre-clean' is the same vote over the file's RAW seed collection, before\n");
+    ve_printf("  the iteration's seed cleaner ran -- 36042 seeds to 7498 on this sample --\n");
+    ve_printf("  so pre eff minus seed eff is what CLEANING removed, and the rest is what\n");
+    ve_printf("  seeding never made.\n");
+    ve_printf("  The seeds are 100%% pixel hits, i.e. initialStep pixel quadruplets, so a\n");
+    ve_printf("  selected sim track that does not cross 4 distinct PIXEL layers cannot be\n");
+    ve_printf("  seeded by one and charging this iteration for it is charging it for what\n");
+    ve_printf("  later iterations exist to do.\n");
     ve_printf("  'seed eff' is the ceiling on every efficiency below: a track with no seed\n");
     ve_printf("  cannot be found. 'all seeds' is every seed of that region, most of which\n");
     ve_printf("  are on sim tracks OUTSIDE the selection (below 0.9 GeV, mostly), so it is\n");
