@@ -188,6 +188,18 @@ namespace mkfit {
 
     int nInsideMinusOneHits() const { return nInsideMinusOneHits_; }
     int nTailMinusOneHits() const { return nTailMinusOneHits_; }
+    int nAllMinusOneHits() const { return nInsideMinusOneHits_ + nTailMinusOneHits_; }
+
+    // Why a candidate was stopped, i.e. why its last HoT is Hit::kHitStopIdx.
+    // The HoT itself cannot carry this: kHitStopIdx is tested by identity
+    // (getLastHitIdx() == -2) in several places, so a second stop index would
+    // have to be found and updated everywhere. Loopers in particular are wanted
+    // afterwards -- the phase-2 timing detectors and HGCal are past the point
+    // where the tracker stops following them -- so "stopped" alone is not enough
+    // information to keep.
+    enum StopReason_e { SR_NotStopped = 0, SR_MinPt, SR_Looper, SR_TooManyHoles };
+    int stopReason() const { return m_stop_reason; }
+    void setStopReason(StopReason_e sr) { m_stop_reason = sr; }
 
     void setNInsideMinusOneHits(int n) { nInsideMinusOneHits_ = n; }
     void setNTailMinusOneHits(int n) { nTailMinusOneHits_ = n; }
@@ -248,6 +260,10 @@ namespace mkfit {
 
     short int nInsideMinusOneHits_ = 0;
     short int nTailMinusOneHits_ = 0;
+
+    // Fits in what was tail padding: five short ints were already padded to six
+    // for the following int, so sizeof(TrackCand) is unchanged.
+    short int m_stop_reason = SR_NotStopped;
 
     short int m_origin_index = -1;  // index of origin candidate (used for overlaps in Standard)
 

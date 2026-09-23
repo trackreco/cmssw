@@ -87,9 +87,16 @@ namespace mkfit {
               tsXyz.inv_pt[i], vdt::fast_atan2(tsXyz.py[i], tsXyz.px[i]), tsXyz.theta[i],
               sPerp[i]);
     }
-    propagateHelixToPlaneMPlex(tsErr, tsPar, tsChg, plPnt, plNrm, &sPerp,
-                               propErr, propPar, outFailFlag,
-                               N_filled, prop_config->finding_inter_layer_pflags, nullptr);
+    // m_solve_plane is set exactly for the steps that stay WITHIN one layer -- the
+    // second and later hits of an in-layer path -- so those take the intra-layer
+    // flags. With Config::usePropToPlane on (which phase-2 sets) the two sets are
+    // configured identically today, so this is naming rather than behaviour; it
+    // stops being free the moment they diverge.
+    propagateHelixToPlaneMPlex(tsErr, tsPar, tsChg, plPnt, plNrm, m_solve_plane ? nullptr : &sPerp,
+                               propErr, propPar, outFailFlag, N_filled,
+                               m_solve_plane ? prop_config->finding_intra_layer_pflags
+                                             : prop_config->finding_inter_layer_pflags,
+                               nullptr);
 
 #ifdef MKFIT_TRACE_KALMAN_DEBUG
     // Charge as it goes into the update. Propagation does not change it, but the
@@ -175,6 +182,24 @@ namespace mkfit {
       // Link forward from HitMatch
       hm.kalman_id = ku.id;
 #endif
+
+      if (mp_out) {
+        ItemOut o;
+        o.ptc = ptcp[i];
+        o.parent_idx = parent_idx[i];
+        o.hit_pos = hit_pos[i];
+        o.hot = hot[i];
+        o.hit_in_layer = hit_in_layer[i];
+        o.chi2 = tsChi2[i];
+        tsPar.copyOut(i, o.state.parArray_nc());
+        tsErr.copyOut(i, o.state.errArray_nc());
+        o.state.charge = tsChg[i];
+        o.state.valid = true;
+#ifdef MKFIT_TRACE
+        o.tr_hitmatch_id = tr_hitmatch_ids[i];
+#endif
+        mp_out->push_back(o);
+      }
     }
   }
 

@@ -102,6 +102,11 @@ namespace mkfit {
   void val_mkbins_surface_q(bool on);
   void val_extra_dq(float f);
   void val_surf_q_hit(bool on);
+  // MkFinderV2p2 in-layer combinatorial search and its score, so a scan costs one
+  // build and every configuration sees identical events and seeds in one process.
+  void val_in_layer_comb(bool on);
+  void val_layer_policy(bool wsr, bool hole_limits, bool stop_cuts);
+  void val_score(float hit_bonus, float chi2_weight, float miss_fwd, float miss_bkw);
   void val_search_lite(int mode);
   void val_cluster_sizes(const Event *ev);
   void val_material_profile(float z);

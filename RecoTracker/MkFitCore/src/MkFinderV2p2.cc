@@ -5,6 +5,8 @@
 
 #include "MkBins.h"
 
+#include <algorithm>
+
 #if defined(MKFIT_STANDALONE)
 #include "RecoTracker/MkFitCore/standalone/Event.h"
 #endif
@@ -19,10 +21,69 @@
 
 namespace mkfit {
 
+  // Per-layer policy counters. These say whether a mechanism FIRED, which is a
+  // different question from whether it changed the physics -- a cut that costs
+  // nothing because it never fires and a cut that costs nothing because it fires
+  // and the candidate was doomed anyway look identical in quality-val. Summed
+  // over threads and events; mkFit.cc prints and resets them with the quality-val
+  // summary.
+  V2p2PolicyCounters g_v2p2_policy_counters;
+
+  // Starting point: the two directions carry the SAME numbers, and the hit bonus
+  // and miss penalty are phase2:LstIntoPix's 30 and 8. That is on purpose -- the
+  // first A/B then measures the SELECTION alone, with the arithmetic unchanged.
+  // The head/body asymmetry these exist to express (outward, trailing holes are
+  // at large radius and cheap; inward, they are at small radius and are the most
+  // expensive holes there are) is the next knob, and it now has somewhere to be
+  // turned.
+  V2p2ScoreParams g_v2p2_score_fwd;
+  V2p2ScoreParams g_v2p2_score_bkw;
+
   bool g_v2p2_force_mc = false;
   float g_v2p2_extra_dq = 3.0f;
   bool  g_v2p2_surface_q = true;
 
+
+  void V2p2PolicyCounters::reset() {
+    n_quadrant_skip = 0; n_stop_minpt = 0; n_stop_looper = 0;
+    n_wsr_inside = 0; n_wsr_edge = 0; n_wsr_outside = 0; n_wsr_in_gap = 0;
+    n_layer_skipped = 0;
+    n_hole = 0; n_hot_edge = 0; n_hot_gap = 0; n_stop_holes = 0;
+    n_ccand_retired = 0;
+    n_sec_nodes = 0; n_sec_deep = 0; n_path_taken = 0; n_extra_hits = 0;
+    n_sel_entries = 0; n_sel_kept = 0; n_selections = 0;
+    n_same_module = 0; n_diff_module = 0;
+  }
+
+  void V2p2PolicyCounters::print(const char *tag) const {
+    const long n_wsr = n_wsr_inside + n_wsr_edge + n_wsr_outside;
+    // Denominator is layer searches that got as far as a WSR verdict, i.e. after
+    // the pull-in skips. Those are reported separately because they are a
+    // different population: a candidate skipped at pull-in never became one.
+    const double f = n_wsr > 0 ? 100.0 / n_wsr : 0.0;
+    printf("MkFinderV2p2 layer policy (%s):\n"
+           "  pull-in    : rz-quadrant skip %ld, stop-minPt %ld, stop-looper %ld\n"
+           "  WSR of %ld : inside %ld (%.1f%%), edge %ld (%.1f%%), outside %ld (%.1f%%), in-gap %ld\n"
+           "  no-hit HoT : hole %ld, edge %ld, gap %ld, stop-out-of-holes %ld; layers skipped %ld\n"
+           "  retired    : %ld CombCandidates\n"
+           "  in-layer   : %ld tree nodes (%ld at depth >= 2), %ld paths taken, %ld extra hits\n"
+           "  selection  : %ld of them, %ld competitors -> %ld kept (%.2f -> %.2f per seed)\n"
+           "  extra hits : %ld from another module (overlap), %ld from the SAME module (%.1f%%)\n",
+           tag,
+           n_quadrant_skip.load(), n_stop_minpt.load(), n_stop_looper.load(),
+           n_wsr, n_wsr_inside.load(), f * n_wsr_inside, n_wsr_edge.load(), f * n_wsr_edge,
+           n_wsr_outside.load(), f * n_wsr_outside, n_wsr_in_gap.load(),
+           n_hole.load(), n_hot_edge.load(), n_hot_gap.load(), n_stop_holes.load(),
+           n_layer_skipped.load(),
+           n_ccand_retired.load(),
+           n_sec_nodes.load(), n_sec_deep.load(), n_path_taken.load(), n_extra_hits.load(),
+           n_selections.load(), n_sel_entries.load(), n_sel_kept.load(),
+           n_selections > 0 ? (double) n_sel_entries / n_selections : 0.0,
+           n_selections > 0 ? (double) n_sel_kept / n_selections : 0.0,
+           n_diff_module.load(), n_same_module.load(),
+           (n_same_module + n_diff_module) > 0 ?
+             100.0 * n_same_module / (n_same_module + n_diff_module) : 0.0);
+  }
 
   //------------------------------------------------------------------------------
   // Setup variables for full processing of a batch of CombCanditates
@@ -136,6 +197,13 @@ namespace mkfit {
       if (ccand.state() == CombCandidate::Dormant &&
           (ccand.pickupLayer() == lc.m_layer || ccand.pickupLayer() == lc.m_layer_sec)) {
         ccand.setState(CombCandidate::Finding);
+        // Start the in-flight score accumulator. Any constant seed term is
+        // common to every candidate of this seed and so cancels in the per-seed
+        // selection; the cross-seed comparison is done at the end, on the
+        // official score.
+        if (Config::v2p2InLayerComb)
+          for (int ic = 0; ic < (int) ccand.size(); ++ic)
+            ccand[ic].setScore(0.0f);
         // NB: auto& -- std::list::emplace_back returns a *reference*. With a plain
         // `auto` this copy-constructed the CCandRep (it is copyable: its members
         // are references), so the m_seed_mc_label / m_mc_layer_sequence stores
@@ -162,6 +230,84 @@ namespace mkfit {
     dprintf("MkFinderV2p2::awaken_candidates woke up %d cands\n", count);
 
     return count;
+  }
+
+  //------------------------------------------------------------------------------
+  // stop_cuts_at_pickup()
+  //
+  // The two reasons V1/V2 stop a candidate before a layer is even searched. Both
+  // read only the candidate's own state, which is why they belong at pull-in.
+  //
+  // The looper stop is the older of the two and the physics is worth restating:
+  // once the transverse angle between position and momentum reaches pi/2 - 0.2
+  // (78.5 deg) the track is crossing modules at grazing incidence, the clusters
+  // get wide, and further hits SPOIL the measurement rather than improve it. It
+  // is a track-level stopping condition, not a per-step guard.
+  //
+  // The band test is on |posPhi - momPhi| with both wrapped to (-pi, pi], so an
+  // angle past the limit appears either as dphi > kMaxAngPosMom or, when the pair
+  // straddles the +-pi branch cut, as dphi < TwoPI - kMaxAngPosMom. The upper
+  // bound is the wrap image of the lower and is DERIVED from it here rather than
+  // written as a second literal -- V1 carried a hardcoded 4.512f, which is
+  // pi + kMaxAngPosMom and lets the 78.5-101.5 deg band escape whenever the pair
+  // straddles. As written the test is exactly equivalent to
+  // cos(momPhi - posPhi) < sin(0.2).
+  //
+  // Both stops RECORD their reason on the TrackCand: "stopped" alone loses the
+  // fact that a looper is a looper, and loopers are wanted afterwards for the
+  // phase-2 timing detectors and HGCal, which sit past the radius at which the
+  // tracker gives up on them.
+  //----------------------------------------------------------------------------
+
+  TrackCand::StopReason_e MkFinderV2p2::stop_cuts_at_pickup(const TrackCand &tc) const {
+    const SteeringParams::iterator &spi = *mp_steeringparams_iter;
+    const auto &iter_params = (spi.type() == SteeringParams::IT_BkwSearch) ? mp_job->params_bks()
+                                                                          : mp_job->params();
+
+    if (tc.pT() < iter_params.minPtCut)
+      return TrackCand::SR_MinPt;
+
+    // Forward search only: going inward the track is leaving the turning region,
+    // so a large angle there is not evidence that it is about to curl up.
+    if (spi.type() == SteeringParams::IT_FwdSearch && tc.pT() < 1.2f && tc.posRsq() > 625.0f) {
+      constexpr float kMaxAngPosMom = Const::PIOver2 - 0.2f;
+      const float dphi = std::abs(tc.posPhi() - tc.momPhi());
+      if (dphi > kMaxAngPosMom && dphi < Const::TwoPI - kMaxAngPosMom)
+        return TrackCand::SR_Looper;
+    }
+
+    return TrackCand::SR_NotStopped;
+  }
+
+  //----------------------------------------------------------------------------
+  // fake_hit_index()
+  //
+  // What to record for a candidate that came out of a layer with no hit. V1's
+  // order, and the order matters: the hole limits decide miss-vs-stop first, and
+  // then the WSR overrides, because a layer the track only clipped must not count
+  // against maxHolesPerCand at all.
+  //----------------------------------------------------------------------------
+
+  int MkFinderV2p2::fake_hit_index(const TrackCand &tc, const WSR_Result &wsr) const {
+    const SteeringParams::iterator &spi = *mp_steeringparams_iter;
+    const auto &iter_params = (spi.type() == SteeringParams::IT_BkwSearch) ? mp_job->params_bks()
+                                                                          : mp_job->params();
+
+    int fake_hit_idx = Hit::kHitMissIdx;
+
+    if (Config::v2p2UseHoleLimits &&
+        (tc.nAllMinusOneHits() >= iter_params.maxHolesPerCand ||
+         tc.nTailMinusOneHits() >= iter_params.maxConsecHoles))
+      fake_hit_idx = Hit::kHitStopIdx;
+
+    if (Config::v2p2UseWsr) {
+      if (wsr.m_wsr == WSR_Edge)
+        fake_hit_idx = Hit::kHitEdgeIdx;
+      else if (wsr.m_in_gap)
+        fake_hit_idx = Hit::kHitInGapIdx;
+    }
+
+    return fake_hit_idx;
   }
 
   //------------------------------------------------------------------------------
@@ -242,18 +388,38 @@ namespace mkfit {
     for (int ic = 0; ic < (int) ccand.size(); ++ic) {
       TrackCand &tcand = ccand[ic];
 
-      if (tcand.getLastHitIdx() == -2)
+      if (tcand.getLastHitIdx() == Hit::kHitStopIdx)
         continue;
 
-      // XXXX V1 also did: min-pt-cut, apogee stop; and setting ccand.setState(CombCandidate::Finished)
-      // That was after prop-to-layer-centroid.
+      // The two candidate-stopping cuts, at the earliest point that can take
+      // them: both need only the candidate's own state, so they belong here,
+      // alongside the rz_quadrant_check below, and not at end of layer. V1/V2
+      // take them in MkBuilder::find_tracks_unroll_candidates(); v2p2 took
+      // neither, so it ran with no minPtCut and no looper stop at all.
+      if (Config::v2p2UseStopCuts) {
+        const TrackCand::StopReason_e sr = stop_cuts_at_pickup(tcand);
+        if (sr != TrackCand::SR_NotStopped) {
+          tcand.setStopReason(sr);
+          tcand.addHitIdx(Hit::kHitStopIdx, m_rz_limits.layer_info_1().layer_id(), 0.0f);
+          ++(sr == TrackCand::SR_MinPt ? g_v2p2_policy_counters.n_stop_minpt
+                                       : g_v2p2_policy_counters.n_stop_looper);
+          continue;
+        }
+      }
 
       // XXXX Should one do rough "layer already passed" pre-check here?
       // Or in pre-select, where we engage MkBins ... but there I loose a vector slot.
       // Let's try.
+      //
+      // Note this skips the layer WITHOUT recording anything, which is the same
+      // treatment WSR_Outside gets in process_kalman_results() -- it is the same
+      // statement (the track does not reach this layer), made more cheaply and
+      // with a much coarser test.
 
-      if ( ! m_rz_limits.rz_quadrant_check(tcand.z(), tcand.pz()))
+      if ( ! m_rz_limits.rz_quadrant_check(tcand.z(), tcand.pz())) {
+        ++g_v2p2_policy_counters.n_quadrant_skip;
         continue;
+      }
 
       // Create and Register PrimTCandRep for processing.
       // The CCandRep vector has the capacity for N_max_cands.
@@ -286,11 +452,34 @@ namespace mkfit {
     auto ai = m_active_ccreps.begin();
     while (ai != m_active_ccreps.end()) {
 
+      if (Config::v2p2InLayerComb)
+        select_and_materialise(*ai);
+
       // QQQQ should attempt to reuse the PrimTCandReps
       ai->m_primTCs.clear();
+      ai->m_sec_nodes.clear();
 
-      // XXXX something is rotten here; well, just making them run to the end
-      bool is_finished = false; // XXXX
+      // Retiring a CombCandidate is the one decision that genuinely needs the
+      // layer's outcome, which is why it is here and the stopping cuts are at
+      // pull-in. A CombCandidate is done when every TrackCand under it has been
+      // stopped -- by minPtCut, by the looper cut, or by running out of hole
+      // budget. Until the stopping cuts existed nothing could ever stop, so this
+      // was hardcoded false and m_n_finished stayed 0 for the whole event.
+      bool is_finished = false;
+      if (Config::v2p2UseStopCuts || Config::v2p2UseHoleLimits) {
+        CombCandidate &cc = ai->m_ccand;
+        is_finished = true;
+        for (int ic = 0; ic < (int) cc.size(); ++ic) {
+          if (cc[ic].getLastHitIdx() != Hit::kHitStopIdx) {
+            is_finished = false;
+            break;
+          }
+        }
+        if (is_finished) {
+          cc.setState(CombCandidate::Finished);
+          ++g_v2p2_policy_counters.n_ccand_retired;
+        }
+      }
       if (is_finished) {
         auto bi = ai++;
         m_active_ccreps.erase(bi);
@@ -301,6 +490,10 @@ namespace mkfit {
     }
     m_batch_mgr.m_n_finding -= count;
     m_batch_mgr.m_n_finished += count;
+
+    // One rewind for the whole layer, keeping capacity: after a few layers the
+    // arena is at high water and stops allocating.
+    m_sec_arena.clear();
 
     m_rz_limits.reset();
 
@@ -390,9 +583,15 @@ namespace mkfit {
     select_hits_prepare(b);       // pop the queue, propagate to the layer edges
     determine_search_windows(b);  // covariance -> dphi/dq windows -> bin ranges
     select_hits(b);               // walk the bins, pre-select, reduce in a pqueue
-    prepare_kalman_workload(b);   // pqueue -> m_layer_hits, stamping rank
-    kalman_update(b);             // propagate to each module plane + update
-    process_kalman_results(b);    // best-hit acceptance into the TrackCand
+    prepare_kalman_workload(b);   // pqueue -> m_layer_hits, step-ordered
+    if (Config::v2p2InLayerComb) {
+      // No materialisation here: the paths are left in the arena and everything
+      // competes at end of layer, in select_and_materialise().
+      expand_in_layer(b);         // grow the SecTCandRep tree over the ordered hits
+    } else {
+      kalman_update(b);           // propagate to each module plane + update
+      process_kalman_results(b);  // best-hit acceptance into the TrackCand
+    }
   }
 
   //----------------------------------------------------------------------------
@@ -489,13 +688,15 @@ namespace mkfit {
     // Can't we just take the closest hit(s) regardless of preselection?
     // But we have no good measure of what good preselection would be.
 
-    // At this point we should check for prop-failures and/or if limits have
-    // been reached.
-    // Set the WSR.
-    // There are also the apogee and minPt checks ... but those might be better done
-    // elsewhere.
-
     B.determine_bin_windows(TCE);
+
+    // The WSR. It belongs to the sp1/sp2 question and could be answered right
+    // after prop_to_limits_in_order(), except for one thing: the edge case needs
+    // FUZZ, "does the track reach this layer" being a statement about a track
+    // that has an error on it, and the only estimate of that error is dq_track,
+    // which determine_bin_windows() has just computed. So it sits here, one line
+    // later than the comment that used to ask for it.
+    determine_wsr(b);
 
     B.find_bin_ranges(mp_job->m_event_of_hits[spi->m_layer], BL_p);
 
@@ -595,6 +796,117 @@ namespace mkfit {
   }
 
   //----------------------------------------------------------------------------
+  // Phase 2b -- the within-sensitive-region verdict.
+  //
+  // This is not a port of V1's m_XWsrResult. V1 propagates to ONE surface (the
+  // layer's propagate_to radius, or its z) and tests that single point's q
+  // against the layer's q limits. v2p2 has both bounding-surface crossings, so
+  // the question it can answer is the one that was actually wanted: layers are
+  // finite SOLIDS, not infinite shells, and what matters is whether the SEGMENT
+  // the track cuts through the shell lies in sensitive material.
+  //
+  // Two independent pieces of evidence, and they answer different halves:
+  //
+  //  - the two mini-propagator fail flags answer the RADIAL half for free. They
+  //    already classify near miss from clear miss, and the classification was
+  //    measured (10 events, inward T5 search, 135 flagged): 0 entry-only,
+  //    36 exit-only, 99 both. Entry-only is not merely rare but geometrically
+  //    impossible for a search that aims sp1 at the near surface -- missing the
+  //    near surface while reaching the far one cannot happen. BOTH failing means
+  //    the track turns around before the layer: a clear miss. EXIT-only means it
+  //    gets in and turns around inside: a near miss, so at best an edge.
+  //    propagate_to_z is closed form and cannot fail, so in the endcap this half
+  //    is empty and the q test carries everything -- which is right, since for a
+  //    disc "does the track reach it" IS the r question.
+  //
+  //  - the q extent answers the other half. m_q_min / m_q_max are the min and max
+  //    of the two crossings' q with no fuzz applied, so they are the segment.
+  //
+  // The fuzz is the track's own dq at kWsrNSigma sigma. Being generous here is
+  // the safe direction: the cost of calling a crossing Edge when it was Inside is
+  // that a genuine hole is not counted, while the cost of calling it Inside when
+  // it was Edge is a hole charged against a candidate that never crossed
+  // anything, and the second is what the hole limits act on.
+  //
+  // "Inside" deliberately requires the WHOLE segment to be inside. A track that
+  // spans the layer's entire q extent therefore reads as Edge, which is
+  // conservative rather than exact -- it did cross sensitive material. Tightening
+  // that needs the intersection of the segment with the layer rather than its
+  // containment, and there is no measurement yet saying it matters.
+  //----------------------------------------------------------------------------
+
+  void MkFinderV2p2::determine_wsr(LayerBatch &b) {
+    // m_dq_track is 3 sigma (MkBins::determine_bin_windows), so this converts to
+    // the 5-7 sigma band the edge test wants. 5 sigma is the low end of that;
+    // it has not been scanned.
+    constexpr float kWsrNSigma = 5.0f;
+    constexpr float kDqTrackToNSigma = kWsrNSigma / 3.0f;
+
+    const int N_proc = b.N_proc;
+    MkBins &B = b.B;
+    PrimTCandRep **prim_tcand_ptrs = b.ptc;
+
+    const bool is_barrel = m_rz_limits.m_is_barrel;
+    const float q_lo = is_barrel ? m_rz_limits.m_zmin : m_rz_limits.m_rin;
+    const float q_hi = is_barrel ? m_rz_limits.m_zmax : m_rz_limits.m_rout;
+    const LayerInfo &LI = m_rz_limits.layer_info_1();
+
+    for (int i = 0; i < N_proc; ++i) {
+      const bool f_entry = B.m_sp1.fail_flag[i] != 0;
+      const bool f_exit  = B.m_sp2.fail_flag[i] != 0;
+
+      WSR_Result w;
+
+      if (f_entry && f_exit) {
+        // Clear miss: the track does not reach the layer at all.
+        w = WSR_Result(WSR_Outside, false);
+      } else {
+        const float dq = kDqTrackToNSigma * B.m_dq_track[i];
+        const float qa = B.m_q_min[i], qb = B.m_q_max[i];
+
+        if (qb < q_lo - dq || qa > q_hi + dq)
+          w = WSR_Result(WSR_Outside, false);
+        else if (qa > q_lo + dq && qb < q_hi - dq)
+          w = WSR_Result(WSR_Inside, false);
+        else
+          w = WSR_Result(WSR_Edge, false);
+
+        // Near miss -- in the layer, but turning round inside it.
+        if ((f_entry || f_exit) && w.m_wsr == WSR_Inside)
+          w.m_wsr = WSR_Edge;
+
+        // Endcap discs have a hole at small r. Sitting wholly inside it is a
+        // miss with a reason; touching it is an edge, and either way m_in_gap
+        // records that the absence of a hit is explained.
+        if (!is_barrel && LI.has_r_range_hole() && w.m_wsr != WSR_Outside) {
+          const float h_lo = LI.hole_r_min(), h_hi = LI.hole_r_max();
+          if (qa > h_lo + dq && qb < h_hi - dq) {
+            w = WSR_Result(WSR_Outside, true);
+          } else if (qb > h_lo - dq && qa < h_hi + dq) {
+            w.m_wsr = WSR_Edge;
+            w.m_in_gap = true;
+          }
+        }
+      }
+
+      prim_tcand_ptrs[i]->m_wsr = w;
+
+      switch (w.m_wsr) {
+        case WSR_Inside:  ++g_v2p2_policy_counters.n_wsr_inside;  break;
+        case WSR_Edge:    ++g_v2p2_policy_counters.n_wsr_edge;    break;
+        case WSR_Outside: ++g_v2p2_policy_counters.n_wsr_outside; break;
+        default: break;
+      }
+      if (w.m_in_gap)
+        ++g_v2p2_policy_counters.n_wsr_in_gap;
+
+      dprintf("%d: WSR %d in_gap %d  (q %.3f - %.3f vs layer %.3f - %.3f, dq3 %.4f, fail %d/%d)\n",
+              i, w.m_wsr, (int) w.m_in_gap, B.m_q_min[i], B.m_q_max[i], q_lo, q_hi,
+              B.m_dq_track[i], B.m_sp1.fail_flag[i], B.m_sp2.fail_flag[i]);
+    }
+  }
+
+  //----------------------------------------------------------------------------
   // Phase 3 -- walk the bin ranges and pre-select hits.
   //----------------------------------------------------------------------------
 
@@ -629,6 +941,14 @@ namespace mkfit {
 
         using bidx_t = LayerOfHits::bin_index_t;
         using bcnt_t = LayerOfHits::bin_content_t;
+
+        // The track does not reach this layer -- scanning its bins would be pure
+        // waste, and anything it found would be a hit on a layer it never
+        // crossed. Measured over 10 events on the inward search: the flagged
+        // searches accounted for 27 % of all scanned hits and yielded zero
+        // MC-matched accepted hits.
+        if (Config::v2p2UseWsr && b.ptc[i]->m_wsr.m_wsr == WSR_Outside)
+          continue;
 
         for (bidx_t qi = BL.q1[i]; qi != BL.q2[i]; ++qi) {
           for (bidx_t pi = BL.p1[i]; pi != BL.p2[i]; pi = L.phiMaskApply(pi + 1)) {
@@ -1066,6 +1386,33 @@ namespace mkfit {
         // dprintf("pushing for %d  %f, %u %u\n", i, pqe.score, pqe.hit_orig_index, pqe.hit_index);
         ptc.m_pqueue.pop();
       }
+
+      // STEP-DISTANCE ORDERING. The pqueue drains in ddphi order, which is the
+      // REDUCTION key -- it decides which hits survive, and it is measured
+      // against MC matching through sub_rank. It is not the TRAVERSAL key. The
+      // in-layer combinatorial search walks the survivors forward along the
+      // trajectory, so the list has to be in path order, and the hits then only
+      // ever need to be visited once each: forward-only over a totally ordered
+      // list reaches every hit SUBSET exactly once, so overlaps need no
+      // "take both" special case and de-duplication is free.
+      //
+      // dalpha is a sufficient key and cheaper than Hermite3D::path_length():
+      // every hit of one rep is reached from the same origin state with the same
+      // k, so s = k |p| dalpha is monotone in dalpha. The sign factor is what
+      // makes it the PATH order rather than the turn-angle order -- an inward
+      // search accumulates negative dalpha, and a candidate woken up inside the
+      // layer has its pre-existing hit at dalpha = 0 with genuine overlap
+      // partners on either side.
+      //
+      // Sorting once per rep is enough, and that is what makes the scheme
+      // affordable: a Kalman update perturbs the trajectory by about the hit
+      // resolution, so it changes the dalphas but can only reorder pairs that
+      // were already within that of each other.
+      const float dir = m_rz_limits.is_outward() ? 1.0f : -1.0f;
+      std::sort(ptc.m_layer_hits.begin(), ptc.m_layer_hits.end(),
+                [dir](const PrimTCandRep::PQE &a, const PrimTCandRep::PQE &b) {
+                  return dir * a.mixed_state.dalpha < dir * b.mixed_state.dalpha;
+                });
     }
 
 #ifdef MKFIT_TRACE
@@ -1183,6 +1530,18 @@ namespace mkfit {
       PrimTCandRep &ptc = * prim_tcand_ptrs[i];
       TrackCand &tc = ptc.tcand();
 
+      // The track never reached this layer: leave the candidate exactly as it
+      // was. Not a hole -- recording one would charge the candidate for a layer
+      // the layer plan offered and its trajectory declined, and the plans are
+      // deliberately inclusive (the transition plans are the union over tracks).
+      // This is also the only branch that adds no HoT at all, which is what
+      // "skip the layer" has to mean.
+      if (Config::v2p2UseWsr && ptc.m_wsr.m_wsr == WSR_Outside) {
+        dprintf("Outside to tcand %d, layer skipped\n", i);
+        ++g_v2p2_policy_counters.n_layer_skipped;
+        continue;
+      }
+
 #ifdef MKFIT_TRACE
       if (ptc.bChi2 < 30.0f || (g_v2p2_force_mc && ptc.bIsMc)) {
 #else
@@ -1193,7 +1552,8 @@ namespace mkfit {
         // Add a copy of the held-back candidate before adding the hit.
         if (ptc.bChi2 > 5.0f && ! ptc.mp_ccrep->m_ccand.is_full()) {
           dprintf("ExtraMissed to tcand %d\n", i);
-          ptc.mp_ccrep->m_ccand.push_back(tc).addHitIdx(-1, m_rz_limits.layer_info_1().layer_id(), 0.0f);
+          ptc.mp_ccrep->m_ccand.push_back(tc).addHitIdx(
+              fake_hit_index(tc, ptc.m_wsr), m_rz_limits.layer_info_1().layer_id(), 0.0f);
 
 #ifdef MKFIT_TRACE
           // QQQQQ the parent extraction will be different
@@ -1225,8 +1585,25 @@ namespace mkfit {
       } else {
         // XXXX Here, we need to handle double layers correctly.
         // For now we have singles.
-        dprintf("Missed to tcand %d\n", i);
-        tc.addHitIdx(-1, m_rz_limits.layer_info_1().layer_id(), 0.0f);
+        //
+        // No hit taken. What gets recorded is now a policy rather than an
+        // unconditional -1: a real hole if the crossing was Inside and the
+        // candidate is still under maxHolesPerCand / maxConsecHoles, a stop if it
+        // is not, and kHitEdgeIdx or kHitInGapIdx if the WSR says the absence is
+        // explained. v2p2 read neither hole limit before this -- they were
+        // MkFinder.cc-only, i.e. V1/V2-only.
+        const int fake_hit_idx = fake_hit_index(tc, ptc.m_wsr);
+        dprintf("Missed to tcand %d, fake_hit_idx=%d\n", i, fake_hit_idx);
+        switch (fake_hit_idx) {
+          case Hit::kHitMissIdx:  ++g_v2p2_policy_counters.n_hole;      break;
+          case Hit::kHitEdgeIdx:  ++g_v2p2_policy_counters.n_hot_edge;  break;
+          case Hit::kHitInGapIdx: ++g_v2p2_policy_counters.n_hot_gap;   break;
+          case Hit::kHitStopIdx:  ++g_v2p2_policy_counters.n_stop_holes; break;
+          default: break;
+        }
+        if (fake_hit_idx == Hit::kHitStopIdx)
+          tc.setStopReason(TrackCand::SR_TooManyHoles);
+        tc.addHitIdx(fake_hit_idx, m_rz_limits.layer_info_1().layer_id(), 0.0f);
 
 #ifdef MKFIT_TRACE
         // QQQQQ the parent extraction will be different; also fix: step, proper state (what is it)
@@ -1237,6 +1614,369 @@ namespace mkfit {
       }
     }
 
+  }
+
+  //----------------------------------------------------------------------------
+  // THE IN-LAYER COMBINATORIAL SEARCH
+  //
+  // What it replaces: one Kalman update per pre-selected hit, all of them from
+  // the candidate's incoming state, then take the single lowest-chi2 one. That
+  // caps the search at ONE hit per layer, which is why disc efficiency tops out
+  // around 75 % per hit -- a phase-2 track leaves 1.33 reconstructed hits per
+  // disc layer, and 26-28 % of outer-tracker crossings carry three or more.
+  //
+  // What it does instead: m_layer_hits is in step order, so a path through the
+  // layer is an increasing sequence of positions in it. The expansion is
+  // breadth-first BY DEPTH -- every node at depth d is grown before any at
+  // d+1 -- which is what lets one Matriplex batch draw lanes from many nodes,
+  // many PrimTCandReps and many CCandReps at once, and which keeps
+  // parent_idx < child_idx unconditionally true so a forward sweep of the arena
+  // is always a valid topological order.
+  //
+  // Forward-only is a CANONICAL ORDERING, and that is the whole reason the hits
+  // are sorted: each SUBSET of the pre-selected hits is reached exactly once
+  // under any total order, so taking both members of an overlap needs no special
+  // case and de-duplication is free. Skipping a hit is a cursor advance, and the
+  // cursor is not stored -- it is m_hit_pos + 1.
+  //
+  // What path order buys beyond that is physical: the Kalman updates then happen
+  // in the order the track meets the hits. Updating at s = 2 and then at s = 1
+  // makes the propagation between them meaningless.
+  //----------------------------------------------------------------------------
+
+  // Depth cap. Two is enough for what exists today -- a single sub-layer, where
+  // a second hit means a module overlap. It becomes the thing to raise when the
+  // sub-layers merge and a stack can offer P + S + both overlap partners.
+  static constexpr int kMaxSecDepth = 2;
+  // Per-hit acceptance, the same cut the best-hit path applies.
+  static constexpr float kSecChi2Cut = 30.0f;
+
+  std::pair<int, int> MkFinderV2p2::harvest_sec_nodes() {
+    const int begin = (int) m_sec_arena.size();
+    for (const auto &o : m_sec_out) {
+      if ( ! (o.chi2 < kSecChi2Cut))   // also rejects NaN
+        continue;
+      SecTCandRep n;
+      n.m_ptc        = o.ptc;
+      n.m_parent_idx = o.parent_idx;
+      n.m_hit_pos    = o.hit_pos;
+      n.m_hot        = o.hot;
+      n.m_state      = o.state;
+      n.m_chi2       = o.chi2;
+
+      // Features accumulate parent -> child. The parent is always already in the
+      // arena: harvest runs once per depth, after the whole depth has flushed.
+      const LayerStepFeatures *pf =
+        (o.parent_idx >= 0) ? &m_sec_arena[o.parent_idx].m_feat : nullptr;
+      LayerStepFeatures &f = n.m_feat;
+      if (pf)
+        f = *pf;
+      else
+        fill_step_geometry(f, *o.ptc);
+      f.n_hits    = (pf ? pf->n_hits : 0) + 1;
+      f.n_overlap = f.n_hits - 1;
+      f.hole_kind = V2P2_NoHole;
+      f.chi2_sum  = (pf ? pf->chi2_sum : 0.0f) + o.chi2;
+      f.chi2_max  = std::max(pf ? pf->chi2_max : 0.0f, o.chi2);
+      {
+        const auto &L = mp_job->m_event_of_hits[o.hot.layer];
+        const float qhl = L.hit_q_half_length(o.hit_in_layer);
+        f.q_half_len_best = (pf && pf->n_hits > 0) ? std::min(pf->q_half_len_best, qhl) : qhl;
+      }
+#ifdef MKFIT_TRACE
+      n.m_tr_hitmatch_id = o.tr_hitmatch_id;
+#endif
+      o.ptc->m_has_sec_nodes = true;
+      o.ptc->mp_ccrep->m_sec_nodes.push_back((int) m_sec_arena.size());
+      m_sec_arena.push_back(n);
+    }
+    m_sec_out.clear();
+    return {begin, (int) m_sec_arena.size()};
+  }
+
+  // The parts of a layer step that do not depend on which hits were taken: where
+  // the step goes, which way, and what the candidate was when it arrived. Filled
+  // once per path root and then carried down the tree.
+  void MkFinderV2p2::fill_step_geometry(LayerStepFeatures &f, const PrimTCandRep &ptc) const {
+    const TrackCand &tc = const_cast<PrimTCandRep &>(ptc).tcand();
+    const LayerInfo &li = m_rz_limits.layer_info_1();
+    // layer_from is the layer of the candidate's LAST FOUND HIT, so the pair
+    // names the propagation that actually happens. A candidate that missed the
+    // previous layer steps across two, and keying anything on plan adjacency
+    // instead would attribute it to a step that never took place.
+    f.layer_from = (short) tc.getLastFoundHitLyr();
+    f.layer_to   = (short) li.layer_id();
+    f.is_outward = m_rz_limits.is_outward();
+    f.is_pixel   = li.is_pixel();
+    f.is_barrel  = li.is_barrel();
+    f.pt         = tc.pT();
+    f.step       = (short) tc.nTotalHits();
+    f.n_found_so_far = (short) tc.nFoundHits();
+    f.n_holes_so_far = (short) tc.nAllMinusOneHits();
+  }
+
+  void MkFinderV2p2::expand_in_layer(LayerBatch &b) {
+    const int N_proc = b.N_proc;
+    PrimTCandRep **prim_tcand_ptrs = b.ptc;
+
+    // NB: the arena is NOT rewound here. It has to live until end of layer, when
+    // the whole CombCandidate's alternatives are selected between; end_layer()
+    // rewinds it once for all of them.
+    m_sec_out.clear();
+
+    KalmanOpArgs koa;
+    koa.prop_config = & mp_job->m_trk_info.prop_config();
+    koa.mp_out = & m_sec_out;
+#ifdef MKFIT_TRACE
+    koa.mp_event = mp_event;
+#endif
+
+    auto load_module = [&](const PrimTCandRep::PQE &pqe) {
+      const auto &L = mp_job->m_event_of_hits[ pqe.layer ];
+      const Hit &hit = L.refHit( pqe.hit_orig_index );
+      koa.load_hit_module(hit, L.layer_info().module_info(hit.detIDinLayer()));
+    };
+    auto flush = [&]() {
+      if (koa.N_filled == 0)
+        return;
+      if ( ! koa.m_solve_plane)
+        koa.compute_pars();   // propPar is an INPUT on the sPerp path, an output on the solve path
+      koa.do_kalman_stuff();
+      koa.reset();
+    };
+
+    // Depth 0. The Hermite has already solved the crossing for every
+    // pre-selected hit, so this is the cheap sPerp path and is exactly what the
+    // best-hit code does -- it just keeps every outcome instead of the winner.
+    koa.m_solve_plane = false;
+    for (int i = 0; i < N_proc; ++i) {
+      PrimTCandRep &ptc = * prim_tcand_ptrs[i];
+      if (Config::v2p2UseWsr && ptc.m_wsr.m_wsr == WSR_Outside)
+        continue;
+      const int nlh = (int) ptc.m_layer_hits.size();
+      for (int lh = 0; lh < nlh; ++lh) {
+        const PrimTCandRep::PQE &pqe = ptc.m_layer_hits[lh];
+        koa.item_begin(&ptc, { (int) pqe.hit_orig_index, pqe.layer }, -1, lh, pqe.hit_index);
+        koa.load_state_err_chg(pqe.mixed_state, ptc.tcand().state());
+#ifdef MKFIT_TRACE
+        koa.set_tr_hitmatch_id(pqe.tr_hitmatch_id);
+#endif
+        load_module(pqe);
+        if (koa.item_finished())
+          flush();
+      }
+    }
+    flush();
+    const int arena_at_entry = (int) m_sec_arena.size() - 0;   // set below, after harvest
+    (void) arena_at_entry;
+    auto [f_beg, f_end] = harvest_sec_nodes();
+    const int arena_batch_begin = f_beg;
+
+    // Depths 1 and up. The starting state is now a node's UPDATED state, for
+    // which no crossing has been solved, so propagate-to-plane solves it.
+    for (int depth = 1; depth < kMaxSecDepth && f_end > f_beg; ++depth) {
+      koa.m_solve_plane = true;
+      for (int ni = f_beg; ni < f_end; ++ni) {
+        // By index, not by reference: the arena grows under us only at harvest,
+        // but the discipline is what keeps the indices the handles.
+        PrimTCandRep &ptc = * m_sec_arena[ni].m_ptc;
+        const int nlh = (int) ptc.m_layer_hits.size();
+        for (int lh = m_sec_arena[ni].m_hit_pos + 1; lh < nlh; ++lh) {
+          const PrimTCandRep::PQE &pqe = ptc.m_layer_hits[lh];
+          koa.item_begin(&ptc, { (int) pqe.hit_orig_index, pqe.layer }, ni, lh, pqe.hit_index);
+          koa.load_state_err_chg(m_sec_arena[ni].m_state);
+#ifdef MKFIT_TRACE
+          koa.set_tr_hitmatch_id(pqe.tr_hitmatch_id);
+#endif
+          load_module(pqe);
+          if (koa.item_finished())
+            flush();
+        }
+      }
+      flush();
+      std::tie(f_beg, f_end) = harvest_sec_nodes();
+      g_v2p2_policy_counters.n_sec_deep += f_end - f_beg;
+    }
+
+    // Only this batch's share -- the arena now spans the whole layer.
+    g_v2p2_policy_counters.n_sec_nodes += (long) m_sec_arena.size() - arena_batch_begin;
+  }
+
+  //----------------------------------------------------------------------------
+  // END-OF-LAYER SELECTION -- a single flat sort, and that is the design.
+  //
+  // Everything that could be a continuation of this CombCandidate competes in ONE
+  // list on ONE number:
+  //   - every in-layer path of every PrimTCandRep (the SecTCandRep arena);
+  //   - every PrimTCandRep that produced no path, entered as the HOLE it would
+  //     record -- so "take a well-fitting wrong hit" and "take a hole" are
+  //     decided against each other rather than the hole being what is left when
+  //     no hit passes. That is the third of divergences S16b measures as
+  //     preferring a wrong hit to a hole;
+  //   - every TrackCand that never became a PrimTCandRep -- already stopped, or
+  //     skipped at pull-in, or with the layer outside its reach -- entered
+  //     unchanged at its own score. Pulling those in is what gives the processing
+  //     symmetry: nothing is special-cased, it just scores what it scores.
+  //
+  // One sort works because the score is additive (see V2p2Score.h), so a node's
+  // global score is its parent's plus this step's delta, and paths from different
+  // PrimTCandReps are directly comparable. A non-additive score would need a
+  // two-level arbitration with an offset between the levels, which is the
+  // question that dissolves here rather than being answered.
+  //
+  // This runs at END OF LAYER and not per NN batch because one CombCandidate's
+  // PrimTCandReps can straddle a batch boundary.
+  //----------------------------------------------------------------------------
+
+  void MkFinderV2p2::select_and_materialise(CCandRep &ccrep) {
+    CombCandidate &ccand = ccrep.m_ccand;
+    const int cap = ccand.capacity();
+
+    m_sel.clear();
+
+    // Which TrackCands got a PrimTCandRep this layer. The rest are entered
+    // unchanged below.
+    bool has_ptc[64] = {false};
+    const int n_tc = (int) ccand.size();
+
+    for (auto &ptc : ccrep.m_primTCs) {
+      if (ptc.m_origin_tcand_index < 64)
+        has_ptc[ptc.m_origin_tcand_index] = true;
+
+      TrackCand &tc = ptc.tcand();
+
+      // EVERY PrimTCandRep offers the hole, including the ones that DID find
+      // paths. That is the whole point: S16b measures a third of divergences as
+      // a candidate preferring a well-fitting wrong hit to a hole, and two
+      // thirds as the true hit being present but the wrong one fitting better --
+      // neither of which any single-hit score can fix, because the information
+      // to decide is not there yet. Offering both and resolving at end of layer
+      // is the answer, and it is only expressible once the hole is a COMPETITOR
+      // rather than what is left when nothing passes.
+      //
+      // It also puts the cap under real pressure: without this the selection saw
+      // ~4.5 competitors against a cap of 6 and therefore almost never bound,
+      // which is measurably why the score parameters were inert.
+
+      // Reached the layer but took nothing: it competes as a hole. WSR_Outside is
+      // NOT a hole -- the track does not reach the layer, so there is nothing to
+      // have missed, and it competes unchanged.
+      if (Config::v2p2UseWsr && ptc.m_wsr.m_wsr == WSR_Outside) {
+        ++g_v2p2_policy_counters.n_layer_skipped;
+        m_sel.push_back({ptc.m_origin_tcand_index, -1, 0, false, tc.score()});
+      } else {
+        const int fake = fake_hit_index(tc, ptc.m_wsr);
+        LayerStepFeatures f;
+        fill_step_geometry(f, ptc);
+        f.hole_kind = v2p2_hole_kind(fake);
+        m_sel.push_back({ptc.m_origin_tcand_index, -1, fake, true,
+                         tc.score() + v2p2_layer_step_score(f)});
+      }
+    }
+
+    for (const int ni : ccrep.m_sec_nodes) {
+      const SecTCandRep &n = m_sec_arena[ni];
+      m_sel.push_back({n.m_ptc->m_origin_tcand_index, ni, 0, false,
+                       n.m_ptc->tcand().score() + v2p2_layer_step_score(n.m_feat)});
+    }
+
+    // Stopped or pull-in-skipped TrackCands, unchanged, at their own score.
+    for (int ic = 0; ic < n_tc; ++ic) {
+      if (ic < 64 && has_ptc[ic])
+        continue;
+      m_sel.push_back({ic, -1, 0, false, ccand[ic].score()});
+    }
+
+    if (m_sel.empty())
+      return;
+
+    // Partial sort: only the top cap matter, and cap is 6.
+    const int n_keep = std::min((int) m_sel.size(), cap);
+    std::partial_sort(m_sel.begin(), m_sel.begin() + n_keep, m_sel.end(),
+                      [](const SelEntry &a, const SelEntry &b) { return a.score > b.score; });
+
+    // Build the survivors as copies BEFORE touching the CombCandidate: several
+    // winners can descend from the same TrackCand -- that is what branching is --
+    // so the sources have to stay readable while the copies are made.
+    m_new_cands.clear();
+    for (int k = 0; k < n_keep; ++k) {
+      const SelEntry &e = m_sel[k];
+      m_new_cands.push_back(ccand[e.tcand_idx]);
+      TrackCand &nc = m_new_cands.back();
+
+      if (e.node_idx >= 0) {
+        int chain[kMaxSecDepth];
+        int n_chain = 0;
+        for (int ci = e.node_idx; ci >= 0; ci = m_sec_arena[ci].m_parent_idx)
+          chain[n_chain++] = ci;
+        for (int c = n_chain - 1; c >= 0; --c) {
+          const SecTCandRep &n = m_sec_arena[chain[c]];
+          nc.addHitIdx(n.m_hot.index, n.m_hot.layer, n.m_chi2);
+          if (c != n_chain - 1) {
+            nc.incOverlapCount();   // every hit past the first in one layer IS the overlap case
+            // ... except when it is not. A genuine overlap is two hits in two
+            // DIFFERENT modules. Two hits in the SAME module are a split cluster
+            // or two tracks' hits, and a split cluster is ONE measurement seen
+            // twice -- taking both treats one measurement as two independent
+            // ones, which over-constrains the fit. Counted here before deciding
+            // whether to forbid it.
+            const SecTCandRep &pn = m_sec_arena[chain[c + 1]];
+            const auto &Ln = mp_job->m_event_of_hits[n.m_hot.layer];
+            const auto &Lp = mp_job->m_event_of_hits[pn.m_hot.layer];
+            if (n.m_hot.layer == pn.m_hot.layer &&
+                Ln.refHit(n.m_hot.index).detIDinLayer() == Lp.refHit(pn.m_hot.index).detIDinLayer())
+              ++g_v2p2_policy_counters.n_same_module;
+            else
+              ++g_v2p2_policy_counters.n_diff_module;
+          }
+#ifdef MKFIT_TRACE
+          int pid = nc.m_trace_state_id;
+          int id = mp_event->trace_new_cand_state(pid, (*mp_steeringparams_iter)->m_layer,
+                                                  track2bivec3(nc), n.m_state);
+          if (n.m_tr_hitmatch_id >= 0) {
+            auto &ku = mp_event->tr_kalmanupdate( mp_event->tr_hitmatch(n.m_tr_hitmatch_id).kalman_id );
+            ku.accepted = true;
+            ku.state_id_out = id;
+          }
+          nc.m_trace_state_id = id;
+#endif
+        }
+        nc.setState(m_sec_arena[e.node_idx].m_state);
+        ++g_v2p2_policy_counters.n_path_taken;
+        if (n_chain > 1)
+          g_v2p2_policy_counters.n_extra_hits += n_chain - 1;
+      } else if (e.add_fake) {
+        switch (e.fake_hit) {
+          case Hit::kHitMissIdx:  ++g_v2p2_policy_counters.n_hole;       break;
+          case Hit::kHitEdgeIdx:  ++g_v2p2_policy_counters.n_hot_edge;   break;
+          case Hit::kHitInGapIdx: ++g_v2p2_policy_counters.n_hot_gap;    break;
+          case Hit::kHitStopIdx:  ++g_v2p2_policy_counters.n_stop_holes; break;
+          default: break;
+        }
+        if (e.fake_hit == Hit::kHitStopIdx)
+          nc.setStopReason(TrackCand::SR_TooManyHoles);
+        nc.addHitIdx(e.fake_hit, m_rz_limits.layer_info_1().layer_id(), 0.0f);
+#ifdef MKFIT_TRACE
+        int pid = nc.m_trace_state_id;
+        nc.m_trace_state_id = mp_event->trace_new_cand_state(
+            pid, (*mp_steeringparams_iter)->m_layer, track2bivec3(nc), nc.state());
+#endif
+      }
+
+      // score_ is the in-flight accumulator. It is overwritten at the end of the
+      // search by the official track_score_func, which is what output and
+      // cross-seed duplicate removal compare -- so the two scoring systems are
+      // separated by phase and never mixed within one comparison.
+      nc.setScore(e.score);
+    }
+
+    ccand.clear();
+    for (auto &c : m_new_cands)
+      ccand.push_back(c);
+
+    ++g_v2p2_policy_counters.n_selections;
+    g_v2p2_policy_counters.n_sel_entries += (long) m_sel.size();
+    g_v2p2_policy_counters.n_sel_kept += n_keep;
   }
 
   // Sketch of the SECONDARY sub-layer pass, left from before the decision to do

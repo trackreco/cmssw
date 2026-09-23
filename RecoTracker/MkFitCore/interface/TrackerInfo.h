@@ -119,6 +119,10 @@ namespace mkfit {
 
     bool is_in_r_hole(float r) const { return m_has_r_range_hole ? is_in_r_hole_no_check(r) : false; }
 
+    bool has_r_range_hole() const { return m_has_r_range_hole; }
+    float hole_r_min() const { return m_hole_r_min; }
+    float hole_r_max() const { return m_hole_r_max; }
+
     WSR_Result is_within_z_sensitive_region(float z, float dz) const {
       if (z > m_zmax + dz || z < m_zmin - dz)
         return WSR_Result(WSR_Outside, false);

@@ -7,6 +7,11 @@ namespace mkfit {
     bool usePropToPlane = false;
     bool usePtMultScat = false;
 
+    bool v2p2UseWsr = true;
+    bool v2p2UseHoleLimits = true;
+    bool v2p2UseStopCuts = true;
+    bool v2p2InLayerComb = false;
+
     // Multi threading configuration
 #if defined(MKFIT_STANDALONE)
     int numThreadsFinder = 1;

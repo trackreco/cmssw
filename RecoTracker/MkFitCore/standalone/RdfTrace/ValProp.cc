@@ -11,6 +11,7 @@
 #include "RecoTracker/MkFitCore/src/KalmanUtilsMPlex.h"
 #include "RecoTracker/MkFitCore/src/MkFinder.h"
 #include "RecoTracker/MkFitCore/src/MkFinderV2p2.h"
+#include "RecoTracker/MkFitCore/src/V2p2Score.h"
 #include "RecoTracker/MkFitCore/src/MkBins.h"
 
 #include "RecoTracker/MkFitCore/interface/Hit.h"
@@ -1335,6 +1336,33 @@ namespace mkfit {
   // Per-hit surface reference, using the HIT'S OWN MODULE NORMAL. This is the
   // real fix; MkBins::surface_reference_dq (val_surf_q) is the layer-cylinder
   // scaffold that proved the mechanism and over-widens tilted TBPS ~8x.
+  void val_layer_policy(bool wsr, bool hole_limits, bool stop_cuts) {
+    Config::v2p2UseWsr = wsr;
+    Config::v2p2UseHoleLimits = hole_limits;
+    Config::v2p2UseStopCuts = stop_cuts;
+    printf("val_layer_policy: wsr=%d hole_limits=%d stop_cuts=%d\n",
+           (int) wsr, (int) hole_limits, (int) stop_cuts);
+  }
+
+  void val_in_layer_comb(bool on) {
+    Config::v2p2InLayerComb = on;
+    printf("val_in_layer_comb: Config::v2p2InLayerComb = %d\n", (int) on);
+  }
+
+  // miss_fwd / miss_bkw are the head-body asymmetry: outward a trailing hole is
+  // at large radius and cheap, inward it is at small radius and is the most
+  // expensive hole there is.
+  void val_score(float hit_bonus, float chi2_weight, float miss_fwd, float miss_bkw) {
+    g_v2p2_score_fwd.hit_bonus = g_v2p2_score_bkw.hit_bonus = hit_bonus;
+    g_v2p2_score_fwd.chi2_weight = g_v2p2_score_bkw.chi2_weight = chi2_weight;
+    g_v2p2_score_fwd.miss_penalty = miss_fwd;
+    g_v2p2_score_bkw.miss_penalty = miss_bkw;
+    printf("val_score: hit_bonus=%.2f chi2_weight=%.2f miss_fwd=%.2f miss_bkw=%.2f "
+           "(hole beats a hit above chi2 = %.1f inward)\n",
+           hit_bonus, chi2_weight, miss_fwd, miss_bkw,
+           chi2_weight > 0 ? (hit_bonus + miss_bkw) / chi2_weight : 0.0f);
+  }
+
   void val_surf_q_hit(bool on) {
     g_v2p2_surface_q = on;
     printf("val_surf_q_hit: g_v2p2_surface_q = %d\n", (int) on);
@@ -1878,8 +1906,11 @@ namespace mkfit {
            "sim track","tracks","sim pixB","got","eff","sim disks","got","eff",
            "w/ pixB","any pixB*");
     printf("  (* fraction of tracks that HAVE a pixel-barrel hit and got at least one)\n");
-    printf("  CEILING = distinct layers / hits: the search adds at most ONE hit per layer,\n");
-    printf("  so no efficiency above can exceed it. Overlaps put it well below 100%%.\n");
+    printf("  CEILING = distinct layers / hits. It was a hard ceiling while the search\n");
+    printf("  added at most ONE hit per layer (the best-hit hack); with the in-layer\n");
+    printf("  combinatorial (Config::v2p2InLayerComb) it is a soft one -- a path may take\n");
+    printf("  several hits in a layer, so read these as a FRACTION OF CEILING, not against\n");
+    printf("  100%%. Overlaps are what put the ceiling well below 100%% in the first place.\n");
     const char *nm[2] = {"barrel-only", "touches disks"};
     for (int c = 0; c < 2; ++c) {
       const TEff &t = g_te[c];

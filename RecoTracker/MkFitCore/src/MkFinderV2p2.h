@@ -11,8 +11,11 @@
 
 #include "MkBins.h"
 
+#include <atomic>
 #include <functional>
 #include <list>
+#include <utility>
+#include <vector>
 
 namespace mkfit {
 
@@ -27,6 +30,40 @@ namespace mkfit {
   // tilted and flat layers alike -- see MkFinderV2p2.cc.
   extern bool  g_v2p2_surface_q;
 
+
+  // Did the per-layer policy actually fire? quality-val cannot answer that: a cut
+  // that never fires and a cut that fires on candidates which were doomed anyway
+  // both show up as "no change". Atomic because the search runs one finder per
+  // thread; summed over threads and events, printed and reset by mkFit.cc
+  // alongside the quality-val summary.
+  struct V2p2PolicyCounters {
+    std::atomic<long> n_quadrant_skip{0};  // pull-in: coarse rz check said the layer is behind us
+    std::atomic<long> n_stop_minpt{0};     // pull-in: pT below minPtCut
+    std::atomic<long> n_stop_looper{0};    // pull-in: past pi/2 - 0.2 to the radial direction
+    std::atomic<long> n_wsr_inside{0};     // crossing wholly in sensitive q
+    std::atomic<long> n_wsr_edge{0};       // within dq of a boundary, or turning inside the layer
+    std::atomic<long> n_wsr_outside{0};    // does not reach the layer
+    std::atomic<long> n_wsr_in_gap{0};     // ... because of the endcap r hole
+    std::atomic<long> n_layer_skipped{0};  // WSR_Outside and therefore no HoT added
+    std::atomic<long> n_hole{0};           // kHitMissIdx -- a real hole, counted against the limits
+    std::atomic<long> n_hot_edge{0};       // kHitEdgeIdx -- not counted
+    std::atomic<long> n_hot_gap{0};        // kHitInGapIdx -- not counted
+    std::atomic<long> n_stop_holes{0};     // kHitStopIdx -- out of hole budget
+    std::atomic<long> n_ccand_retired{0};  // every TrackCand under it stopped
+    std::atomic<long> n_sec_nodes{0};      // in-layer tree nodes built
+    std::atomic<long> n_sec_deep{0};       // ... of those, at depth 2 or more
+    std::atomic<long> n_path_taken{0};     // layers where a path was registered
+    std::atomic<long> n_extra_hits{0};     // hits taken beyond the first in one layer
+    std::atomic<long> n_sel_entries{0};    // competitors entering the end-of-layer selection
+    std::atomic<long> n_sel_kept{0};       // ... and surviving it
+    std::atomic<long> n_selections{0};     // end-of-layer selections run
+    std::atomic<long> n_same_module{0};    // extra hit from the SAME module -- not an overlap
+    std::atomic<long> n_diff_module{0};    // extra hit from another module -- a genuine overlap
+
+    void reset();
+    void print(const char *tag) const;
+  };
+  extern V2p2PolicyCounters g_v2p2_policy_counters;
 
   class FindingFoos;
   class IterationParams;
@@ -188,6 +225,7 @@ namespace mkfit {
 
     void select_hits_prepare(LayerBatch &b);
     void determine_search_windows(LayerBatch &b);
+    void determine_wsr(LayerBatch &b);
     void select_hits(LayerBatch &b);
     void preselect_hit_batch(LayerBatch &b, HitBatch &hb, const LayerOfHits &L, int N_proc_hits,
                              bool is_sec_layer);
@@ -198,9 +236,29 @@ namespace mkfit {
                                        const MkBinTrackCovExtract &TCE, int pi,
                                        const mini_propagators::StatePlex &h3_state, int h,
                                        const MPlex3V &module_norm, bool is_barrel);
+    // Candidate-stopping cuts applied at pull-in, where only the candidate's own
+    // state is needed. Returns the reason, or SR_NotStopped to keep going.
+    TrackCand::StopReason_e stop_cuts_at_pickup(const TrackCand &tc) const;
+    // Which fake HoT a candidate that took no hit in this layer gets: the hole
+    // limits, the WSR override, and the gap case, in V1's order.
+    int fake_hit_index(const TrackCand &tc, const WSR_Result &wsr) const;
+
     void prepare_kalman_workload(LayerBatch &b);
     void kalman_update(LayerBatch &b);
     void process_kalman_results(LayerBatch &b);
+
+    // The in-layer combinatorial search, replacing the two phases above when
+    // Config::v2p2InLayerComb is on. expand_in_layer() grows the SecTCandRep
+    // tree breadth-first by depth; materialise_in_layer() picks a path out of it
+    // and registers it into the CombCandidate.
+    void expand_in_layer(LayerBatch &b);
+    void select_and_materialise(CCandRep &ccrep);
+    // The direction-, layer- and candidate-dependent part of a layer step, filled
+    // once per path root and carried down the tree.
+    void fill_step_geometry(LayerStepFeatures &f, const PrimTCandRep &ptc) const;
+    // Turn the Kalman results accumulated in m_sec_out into arena nodes, keeping
+    // those that pass the chi2 cut. Returns the arena range that was appended.
+    std::pair<int, int> harvest_sec_nodes();
 
     //----------------------------------------------------------------------------
     // Job / batch-of-seeds control variables and globel references
@@ -224,6 +282,28 @@ namespace mkfit {
 
     // Per-(di)layer geometrical state
     MkRZLimits m_rz_limits;
+
+    // The in-layer combinatorial tree. ONE arena for the whole finder, reached by
+    // index, rewound (not deallocated) once the layer batch has materialised, so
+    // after a few layers it is at high water and stops allocating.
+    std::vector<SecTCandRep> m_sec_arena;
+    // Kalman outcomes of the depth currently being expanded, drained into the
+    // arena by harvest_sec_nodes().
+    std::vector<KalmanOpArgs::ItemOut> m_sec_out;
+
+    // One competitor in the end-of-layer selection. node_idx >= 0 is an in-layer
+    // path; otherwise the candidate declined the layer, and add_fake says whether
+    // that costs it a HoT (a hole) or nothing at all (the layer was out of
+    // reach, or it was already stopped).
+    struct SelEntry {
+      int   tcand_idx;
+      int   node_idx;
+      int   fake_hit;
+      bool  add_fake;
+      float score;
+    };
+    std::vector<SelEntry> m_sel;
+    std::vector<TrackCand> m_new_cands;
   };
 
 } // end namespace mkfit

@@ -6,6 +6,8 @@
 #include "RecoTracker/MkFitCore/interface/HitStructures.h"
 #include "RecoTracker/MkFitCore/interface/MkBuilder.h"
 #include "RecoTracker/MkFitCore/src/MkFitter.h"
+#include "RecoTracker/MkFitCore/src/MkFinderV2p2.h"
+#include "RecoTracker/MkFitCore/src/V2p2Score.h"
 #include "RecoTracker/MkFitCMS/interface/MkStdSeqs.h"
 #include "RecoTracker/MkFitCMS/standalone/MkStandaloneSeqs.h"
 
@@ -430,6 +432,9 @@ void test_standard() {
     printf("================================================================\n");
   }
   if (Config::quality_val) {
+    if (Config::mimiUseV2p2)
+      g_v2p2_policy_counters.print("summed over the run");
+
     printf("Sum up of quality-val:\n");
     StdSeq::Quality::s_quality_sum.quality_print();
   }
@@ -577,6 +582,18 @@ int main(int argc, const char* argv[]) {
           "'--backward-fit' (def: %s)\n"
           "  --use-p2p <0|1>          use prop-to-plane (def: %d)\n"
           "  --use-ptms <0|1>         use pT multiple scattering (def: %d)\n"
+          "  --v2p2-wsr <0|1>         MkFinderV2p2: set and act on the within-sensitive-region\n"
+          "                           verdict -- skip a layer the track does not reach, and do not\n"
+          "                           charge a hole for one it only clips (def: %d)\n"
+          "  --v2p2-hole-limits <0|1> MkFinderV2p2: apply maxHolesPerCand / maxConsecHoles (def: %d)\n"
+          "  --v2p2-stop-cuts <0|1>   MkFinderV2p2: apply minPtCut and the looper stop at pull-in (def: %d)\n"
+          "  --v2p2-in-layer-comb <0|1>  MkFinderV2p2: in-layer combinatorial search -- take a step-ordered\n"
+          "                           SEQUENCE of hits per layer instead of the single best one (def: %d)\n"
+          "  --v2p2-hit-bonus <f>     MkFinderV2p2 score: per hit taken (def: %g)\n"
+          "  --v2p2-overlap-bonus <f> MkFinderV2p2 score: per hit beyond the first in a layer (def: %g)\n"
+          "  --v2p2-chi2-weight <f>   MkFinderV2p2 score: per unit chi2 (def: %g)\n"
+          "  --v2p2-miss-penalty <f>  MkFinderV2p2 score: per real hole, both directions (def: %g)\n"
+          "  --v2p2-miss-penalty-bkw <f>  ... inward only, for the head/body asymmetry (def: %g)\n"
           "\n----------------------------------------------------------------------------------------------------------"
           "\n\n"
           "Validation options\n\n"
@@ -724,6 +741,15 @@ int main(int argc, const char* argv[]) {
           b2a(Config::includePCA),
           int(Config::usePropToPlane),
           int(Config::usePtMultScat),
+          int(Config::v2p2UseWsr),
+          int(Config::v2p2UseHoleLimits),
+          int(Config::v2p2UseStopCuts),
+          int(Config::v2p2InLayerComb),
+          g_v2p2_score_fwd.hit_bonus,
+          g_v2p2_score_fwd.overlap_bonus,
+          g_v2p2_score_fwd.chi2_weight,
+          g_v2p2_score_fwd.miss_penalty,
+          g_v2p2_score_bkw.miss_penalty,
 
           b2a(Config::quality_val),
           b2a(Config::dumpForPlots),
@@ -909,6 +935,36 @@ int main(int argc, const char* argv[]) {
     } else if (*i == "--use-ptms") {
       next_arg_or_die(mArgs, i);
       Config::usePtMultScat = (bool)atoi(i->c_str());
+    } else if (*i == "--v2p2-wsr") {
+      next_arg_or_die(mArgs, i);
+      Config::v2p2UseWsr = (bool)atoi(i->c_str());
+    } else if (*i == "--v2p2-hole-limits") {
+      next_arg_or_die(mArgs, i);
+      Config::v2p2UseHoleLimits = (bool)atoi(i->c_str());
+    } else if (*i == "--v2p2-stop-cuts") {
+      next_arg_or_die(mArgs, i);
+      Config::v2p2UseStopCuts = (bool)atoi(i->c_str());
+    } else if (*i == "--v2p2-in-layer-comb") {
+      next_arg_or_die(mArgs, i);
+      Config::v2p2InLayerComb = (bool)atoi(i->c_str());
+    } else if (*i == "--v2p2-hit-bonus") {
+      next_arg_or_die(mArgs, i);
+      g_v2p2_score_fwd.hit_bonus = g_v2p2_score_bkw.hit_bonus = atof(i->c_str());
+    } else if (*i == "--v2p2-overlap-bonus") {
+      next_arg_or_die(mArgs, i);
+      g_v2p2_score_fwd.overlap_bonus = g_v2p2_score_bkw.overlap_bonus = atof(i->c_str());
+    } else if (*i == "--v2p2-chi2-weight") {
+      next_arg_or_die(mArgs, i);
+      g_v2p2_score_fwd.chi2_weight = g_v2p2_score_bkw.chi2_weight = atof(i->c_str());
+    } else if (*i == "--v2p2-miss-penalty") {
+      next_arg_or_die(mArgs, i);
+      g_v2p2_score_fwd.miss_penalty = g_v2p2_score_bkw.miss_penalty = atof(i->c_str());
+    } else if (*i == "--v2p2-miss-penalty-bkw") {
+      // The head/body asymmetry on its own: outward, a trailing hole is at large
+      // radius and cheap; inward, it is at small radius and is the most
+      // expensive hole there is.
+      next_arg_or_die(mArgs, i);
+      g_v2p2_score_bkw.miss_penalty = atof(i->c_str());
     } else if (*i == "--quality-val") {
       Config::quality_val = true;
     } else if (*i == "--dump-for-plots") {
