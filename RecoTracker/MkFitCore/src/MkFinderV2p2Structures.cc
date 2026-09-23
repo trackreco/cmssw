@@ -109,7 +109,11 @@ namespace mkfit {
 
     kalmanOperationPlaneLocal(KFO_Calculate_Chi2 | KFO_Update_Params | KFO_Local_Cov,
                               propErr, propPar, tsChg, msErr, msPar, plNrm, plDir, plPnt,
-                              tsErr, tsPar, tsChi2, N_filled, nullptr, nullptr, false, &tsDetV);
+                              tsErr, tsPar, tsChi2, N_filled, nullptr, nullptr, false,
+                              // Only the likelihood score reads it, and asking for it puts
+                              // a double store inside Cramer's omp-simd loop. Do not pay
+                              // for it on every hit when the linear score is running.
+                              g_v2p2_score_mode == 1 ? &tsDetV : nullptr);
     kalmanCheckChargeFlip(tsPar, tsChg, N_filled);
 
     // The original -- but Chi2 only.

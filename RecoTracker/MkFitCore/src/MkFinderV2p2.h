@@ -67,6 +67,12 @@ namespace mkfit {
     std::atomic<long> n_hole_slot_reserved{0};  // beam slots given to an outranked decliner
     std::atomic<long> n_best_short_offered{0};  // stopped candidates removed from the beam
     std::atomic<long> n_best_short_taken{0};    // ... and that became the seed's best short
+    // Matriplex lane occupancy of the Kalman batches: is the expansion still
+    // vectorised, or is it running ragged tails? mean = lanes / (calls * NN).
+    std::atomic<long> n_kalman_calls{0};
+    std::atomic<long> n_kalman_lanes{0};
+    std::atomic<long> n_kalman_calls_d0{0};   // depth 0 only
+    std::atomic<long> n_kalman_lanes_d0{0};
 
     void reset();
     void print(const char *tag) const;
@@ -181,9 +187,9 @@ namespace mkfit {
     bool any_Ccreps_to_begin() const { return m_active_ccreps_pos != m_active_ccreps.end(); }
     void begin_next_Ccrep_in_layer();
 
-    bool enough_work_for_pre_select() const { return (int) m_pre_select_queue.size() >= NN; }
-    bool any_work_for_pre_select() const { return ! m_pre_select_queue.empty(); }
-    void process_pre_select();
+    bool enough_work_for_batch() const { return (int) m_cand_queue.size() >= NN; }
+    bool any_work_for_batch() const { return ! m_cand_queue.empty(); }
+    void process_layer_batch();
 
     void end_layer();
 
@@ -196,7 +202,7 @@ namespace mkfit {
 
   private:
     //----------------------------------------------------------------------------
-    // Per-pass state of process_pre_select().
+    // Per-pass state of process_layer_batch().
     //
     // TWO batch widths are in play, and keeping them apart is most of what makes
     // the layer pass readable: LayerBatch is NN CANDIDATES wide, HitBatch is NN
@@ -236,7 +242,7 @@ namespace mkfit {
 #endif
     };
 
-    void select_hits_prepare(LayerBatch &b);
+    void prop_to_layer_edges(LayerBatch &b);
     void determine_search_windows(LayerBatch &b);
     void determine_wsr(LayerBatch &b);
     void select_hits(LayerBatch &b);
@@ -292,7 +298,7 @@ namespace mkfit {
 
     // Pre-selection queue -- list of pTcs to do initial prop + Binnor + hit extraction for.
     // Elements are slots in the pTC hot-tub.
-    std::list<PrimTCandRep*> m_pre_select_queue;
+    std::list<PrimTCandRep*> m_cand_queue;
 
     // Per-(di)layer geometrical state
     MkRZLimits m_rz_limits;

@@ -185,7 +185,7 @@ struct TrCandState {
 
 // TrLayerSearch -- one hit-search window, for one candidate state, on one layer.
 //
-// Filled by MkFinderV2p2::process_pre_select(), stage 1 ("initial propagation"):
+// Filled by MkFinderV2p2::process_layer_batch(), stage 1 ("initial propagation"):
 // the mini-propagator is run to the two layer bounding surfaces, the full
 // propagation supplies the covariance, and the two together give the phi/q
 // window and the bin ranges that the stage-2 hit loop then scans.

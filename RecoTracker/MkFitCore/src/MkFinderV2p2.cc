@@ -66,6 +66,7 @@ namespace mkfit {
     n_sel_entries = 0; n_sel_kept = 0; n_selections = 0;
     n_same_module = 0; n_diff_module = 0; n_same_module_vetoed = 0;
     n_hole_slot_reserved = 0; n_best_short_offered = 0; n_best_short_taken = 0;
+    n_kalman_calls = 0; n_kalman_lanes = 0; n_kalman_calls_d0 = 0; n_kalman_lanes_d0 = 0;
   }
 
   void V2p2PolicyCounters::print(const char *tag) const {
@@ -84,7 +85,8 @@ namespace mkfit {
            "  extra hits : %ld from another module (overlap), %ld from the SAME module (%.1f%%)"
            ", %ld same-module extensions vetoed\n"
            "  hole slots : %ld reserved for an outranked decliner\n"
-           "  best-short : %ld stopped cands left the beam, %ld became the seed's best short\n",
+           "  best-short : %ld stopped cands left the beam, %ld became the seed's best short\n"
+           "  Mplex lanes: depth 0 %.2f of %d over %ld calls; deeper %.2f over %ld calls\n",
            tag,
            n_quadrant_skip.load(), n_stop_minpt.load(), n_stop_looper.load(),
            n_wsr, n_wsr_inside.load(), f * n_wsr_inside, n_wsr_edge.load(), f * n_wsr_edge,
@@ -100,7 +102,12 @@ namespace mkfit {
            (n_same_module + n_diff_module) > 0 ?
              100.0 * n_same_module / (n_same_module + n_diff_module) : 0.0,
            n_same_module_vetoed.load(), n_hole_slot_reserved.load(),
-           n_best_short_offered.load(), n_best_short_taken.load());
+           n_best_short_offered.load(), n_best_short_taken.load(),
+           n_kalman_calls_d0 > 0 ? (double) n_kalman_lanes_d0 / n_kalman_calls_d0 : 0.0, NN,
+           n_kalman_calls_d0.load(),
+           (n_kalman_calls - n_kalman_calls_d0) > 0 ?
+             (double)(n_kalman_lanes - n_kalman_lanes_d0) / (n_kalman_calls - n_kalman_calls_d0) : 0.0,
+           (long)(n_kalman_calls - n_kalman_calls_d0));
   }
 
   //------------------------------------------------------------------------------
@@ -146,7 +153,7 @@ namespace mkfit {
     // what "this clear got us from 19 to 80 ttbar events" was. process_layer()
     // now asserts the queue is empty on exit, so if that assert never fires this
     // clear is provably redundant and can go.
-    m_pre_select_queue.clear();
+    m_cand_queue.clear();
   }
 
   //------------------------------------------------------------------------------
@@ -443,7 +450,7 @@ namespace mkfit {
       // The CCandRep vector has the capacity for N_max_cands.
       {
         PrimTCandRep &ptc = ccrep.m_primTCs.emplace_back( &ccrep, ic );
-        m_pre_select_queue.push_back(&ptc);
+        m_cand_queue.push_back(&ptc);
       }
     }
     ++m_active_ccreps_pos;
@@ -458,7 +465,7 @@ namespace mkfit {
     #endif
   }
 
-  // void MkFinderV2p2::process_pre_select() -- below in the "complex stuff" section
+  // void MkFinderV2p2::process_layer_batch() -- below in the "complex stuff" section
 
   void MkFinderV2p2::end_layer() {
     // Stop tracks -- pT / apogee / missing layers.
@@ -554,12 +561,12 @@ namespace mkfit {
     // loop still needs: finalize before starting new work, so slots are freed
     // before they are asked for.
     while (any_Ccreps_to_begin()) {
-      while ( ! enough_work_for_pre_select() && any_Ccreps_to_begin()) {
+      while ( ! enough_work_for_batch() && any_Ccreps_to_begin()) {
         begin_next_Ccrep_in_layer();
       }
-      while (enough_work_for_pre_select() ||
-             ( ! any_Ccreps_to_begin() && any_work_for_pre_select())) {
-        process_pre_select();
+      while (enough_work_for_batch() ||
+             ( ! any_Ccreps_to_begin() && any_work_for_batch())) {
+        process_layer_batch();
       }
     }
 
@@ -567,7 +574,7 @@ namespace mkfit {
     // until empty once there is nothing left to pull in. release() used to clear
     // it unconditionally with a "something stays in (shouldn't)" note; assert
     // instead, so the claim is either true or fails loudly.
-    assert(m_pre_select_queue.empty() && "pre-select queue not drained by process_layer()");
+    assert(m_cand_queue.empty() && "pre-select queue not drained by process_layer()");
   }
 
   //============================================================================
@@ -575,13 +582,35 @@ namespace mkfit {
   //============================================================================
 
   //----------------------------------------------------------------------------
-  // process_pre_select()
-  // Propagate to layer edges, calculate layer-of-hits bin ranges and
-  // determine candidate hits.
-  //----------------------------------------------------------------------------
-
-  //----------------------------------------------------------------------------
-  // process_pre_select() -- the layer pass, in phases.
+  // process_layer_batch() -- one NN-wide batch of candidates, through the layer.
+  //
+  // IT WAS CALLED process_pre_select(), and by today it had stopped being that:
+  // it propagates to the layer edges, builds the windows, sets the WSR,
+  // pre-selects, then runs the Kalman work and the in-layer expansion. The name
+  // was the last trace of an earlier shape.
+  //
+  // WHICH SHAPE, and why this one. The intended pipeline was three stages kept
+  // independently full -- prop-to-edges, hit pre-selection, Kalman work -- with
+  // CCandReps retired as early as possible so that as few as possible are carried
+  // through. That was written as three goto-labelled blocks and could not work;
+  // what replaced it is a LINEARIZATION in which this function drives everything,
+  // and the in-layer expansion has now been folded into the same shape.
+  //
+  // The linearization keeps each STAGE full NN-wide on its own -- pre-selection
+  // batches (candidate, hit) pairs across candidates, the Kalman batches lanes
+  // across candidates AND across expansion nodes. Measured lane occupancy is 7.34
+  // of 8 at depth 0 and 6.20 at deeper ones. What it gives up is CROSS-stage
+  // pipelining, a candidate finishing pre-selection feeding the Kalman queue
+  // immediately, and the measurement says that costs about 4 points of occupancy.
+  //
+  // It also gives up early retirement: selection happens at end_layer(), because
+  // one CombCandidate's PrimTCandReps can straddle a batch boundary. Retiring as
+  // soon as the last batch holding one of its reps completes is still reachable
+  // -- that is the Ccs_finalize stage of the original sketch -- and is not built.
+  //
+  // The phases below are the ones that sketch already named, now made to work by
+  // giving them an explicit carrier (LayerBatch) instead of a dozen arguments
+  // each.
   //
   // One call handles up to NN PrimTCandReps together. It used to be a single
   // ~360-line function; the phases below are the ones the abandoned procedural
@@ -595,19 +624,19 @@ namespace mkfit {
   // (candidate, hit) PAIRS wide.
   //----------------------------------------------------------------------------
 
-  void MkFinderV2p2::process_pre_select() {
+  void MkFinderV2p2::process_layer_batch() {
     LayerBatch b;
 
-    select_hits_prepare(b);       // pop the queue, propagate to the layer edges
+    prop_to_layer_edges(b);       // stage 1: pop the queue, propagate to the layer edges
     determine_search_windows(b);  // covariance -> dphi/dq windows -> bin ranges
-    select_hits(b);               // walk the bins, pre-select, reduce in a pqueue
+    select_hits(b);               // stage 2: walk the bins, pre-select, reduce in a pqueue
     prepare_kalman_workload(b);   // pqueue -> m_layer_hits, step-ordered
     if (Config::v2p2InLayerComb) {
       // No materialisation here: the paths are left in the arena and everything
       // competes at end of layer, in select_and_materialise().
-      expand_in_layer(b);         // grow the SecTCandRep tree over the ordered hits
+      expand_in_layer(b);         // stage 3: grow the SecTCandRep tree over the ordered hits
     } else {
-      kalman_update(b);           // propagate to each module plane + update
+      kalman_update(b);           // stage 3: propagate to each module plane + update
       process_kalman_results(b);  // best-hit acceptance into the TrackCand
     }
   }
@@ -616,25 +645,25 @@ namespace mkfit {
   // Phase 1 -- which candidates, and where do they meet the layer.
   //----------------------------------------------------------------------------
 
-  void MkFinderV2p2::select_hits_prepare(LayerBatch &b) {
+  void MkFinderV2p2::prop_to_layer_edges(LayerBatch &b) {
     MkBins &B = b.B;
     MkBinTrackCovExtract &TCE = b.TCE;
     PrimTCandRep **prim_tcand_ptrs = b.ptc;
 
-    const int N_proc = b.N_proc = std::min(NN, (int) m_pre_select_queue.size());
+    const int N_proc = b.N_proc = std::min(NN, (int) m_cand_queue.size());
     B.m_n_proc = N_proc;   // MkBins used to be constructed with it
 
-    dprintf("MkFinderV2p2::process_pre_select work queue is %d, would process %d of them (NN=%d)\n",
-            (int) m_pre_select_queue.size(), N_proc, NN);
+    dprintf("MkFinderV2p2::process_layer_batch work queue is %d, would process %d of them (NN=%d)\n",
+            (int) m_cand_queue.size(), N_proc, NN);
 
     MPlexQF phi(0.0f);
     MPlexQI chg(0);
 
     for (int i = 0; i < N_proc; ++i) {
-      PrimTCandRep &ptc = * m_pre_select_queue.front();
+      PrimTCandRep &ptc = * m_cand_queue.front();
       prim_tcand_ptrs[i] = & ptc;
       TrackCand &tc = ptc.tcand();
-      m_pre_select_queue.pop_front();
+      m_cand_queue.pop_front();
 
       // Copy in x, y,z, invpT, theta.
       B.m_isp.copyIn_partial_track_state(i, tc.state());
@@ -1776,8 +1805,16 @@ namespace mkfit {
     auto flush = [&]() {
       if (koa.N_filled == 0)
         return;
-      if ( ! koa.m_solve_plane)
+      // Lane occupancy, split by depth: depth 0 is the batch shape the best-hit
+      // path always had, deeper ones are new and are the ones that could run
+      // ragged. Breadth-first BY DEPTH exists so they do not.
+      ++g_v2p2_policy_counters.n_kalman_calls;
+      g_v2p2_policy_counters.n_kalman_lanes += koa.N_filled;
+      if ( ! koa.m_solve_plane) {
+        ++g_v2p2_policy_counters.n_kalman_calls_d0;
+        g_v2p2_policy_counters.n_kalman_lanes_d0 += koa.N_filled;
         koa.compute_pars();   // propPar is an INPUT on the sPerp path, an output on the solve path
+      }
       koa.do_kalman_stuff();
       koa.reset();
     };
@@ -2196,7 +2233,7 @@ namespace mkfit {
   //     rz_quadrant_check();
   //   - after prop_to_limits_in_order(), where sp1/sp2 are known: the
   //     within-sensitive-region verdict. v2p2 sets NO WSR at all today -- there
-  //     is only a "Set the WSR" comment in process_pre_select() -- while V1/V2
+  //     is only a "Set the WSR" comment in process_layer_batch() -- while V1/V2
   //     carry MkFinder::m_XWsrResult and MkBuilder consumes WSR_Edge /
   //     WSR_Outside / WSR_Failed. That is also the near-miss vs clear-miss split
   //     the two mini-propagator fail flags already classify for free;
