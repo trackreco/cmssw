@@ -69,21 +69,42 @@ namespace mkfit {
     static constexpr float PHI_BIN_EXTRA_FAC = 2.75f;
     static constexpr float Q_BIN_EXTRA_FAC = 1.6f;
 
-    // Assumed phi half-extent of a hit, in radians -- the phi-side counterpart of
-    // LayerOfHits::hit_q_half_length(). Unlike that one it is NOT derived from the
-    // hit covariance: it is a single detector-wide constant, with no per-hit,
-    // per-layer or geometry dependence. Was an unnamed 0.0123f literal repeated in
-    // five places (this file, MkFinderV2p2 pre-selection, MkFinder V2 path).
+    // MISNAMED, and the name has caused trouble -- read this before using it.
+    //
+    // This is HALF A PHI BIN, chosen as such: the phi axis is
+    // axis_pow2_u1<float, bin_index_t, 16, 8> (HitStructures.h), i.e. 256 bins
+    // over 2pi, width 0.024544 rad, half of which is 0.012272. It is a BINNING
+    // granule, not a property of a hit, and an earlier commit here naming it
+    // "hit phi half extent" and calling it the phi-side counterpart of
+    // LayerOfHits::hit_q_half_length() was wrong -- hit_q_half_length IS derived
+    // per hit from the covariance, and this is not derived from anything.
+    //
+    // It has two consumers and only ONE of them is legitimately a bin quantity:
+    //
+    //   PHI_BIN_EXTRA_FAC, the binnor range (MkBins.cc) -- CORRECT unit. Read
+    //     the factor as "bins of margin": 2.75 is 1.38 bins. Measured floor is
+    //     1.00 bins, and that whole bin is paying for a missing "+1"; see
+    //     g_v2p2_phi_bin_fix in MkBins.cc.
+    //
+    //   DDPHI_PRESEL_FAC, the per-hit pre-selection cut (MkFinderV2p2, and the
+    //     V2 path in MkFinder.cc) -- WRONG quantity. A bin granule is not a
+    //     resolution. What belongs there is the hit's own phi extent from its
+    //     covariance, the counterpart to hit_q_half_length that does not exist
+    //     yet. Measured symptom: the cut can be tightened 4x for free.
+    //
+    // Was an unnamed 0.0123f literal repeated in five places.
     //
     // What the phi extent of a strip hit actually is: the module frame has xdir
     // perpendicular to the strips (i.e. essentially azimuthal), ydir along the
     // strips and zdir along the normal -- so ydir and zdir both lie in the (r,z)
     // plane. Consequently the strip *length* contributes to z and r but **nothing
     // to phi**, and the only phi extent is the across-strip pitch term. For a TOB
-    // 2S strip at r = 69 cm with 90 um pitch that is sigma_phi ~ 1.3e-4 rad, so
-    // DDPHI_PRESEL_FAC * this constant is ~190x the pitch term -- uniformly and
-    // hugely over-generous, tilted layers included. That costs scanned hits, not
-    // efficiency, so it is a tuning/cleanup item rather than a bug. See
+    // 2S strip at r = 69 cm with 90 um pitch that is sigma_phi ~ 1.3e-4 rad. So
+    // for the CUT the right value is ~200x smaller than a bin, and comparing the
+    // two is comparing a resolution with a binning granule -- which is why the
+    // scan finds 4x of slack and why a per-hit phi extent is the real fix.
+    // Measured: moving the cut costs no efficiency in either direction, so this
+    // is a speed and correctness-of-naming item, not an efficiency one. See
     // RecoTracker/CLAUDE.md for the full q/phi extraction cross-check.
     static constexpr float HIT_PHI_HALF_EXTENT = 0.0123f;
 
