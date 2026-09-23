@@ -46,6 +46,13 @@ using namespace mkfit;
 
 //==============================================================================
 
+// --max-cands-per-seed. -1 leaves whatever the geometry plugin set.
+// Applied at the END of initGeom(), because that is where Config::ItrInfo comes
+// into existence -- option parsing runs before it.
+static int g_max_cands_per_seed = -1;
+
+//==============================================================================
+
 void initGeom() {
   std::cout << "Constructing geometry '" << Config::geomPlugin << "'\n";
 
@@ -111,6 +118,21 @@ void initGeom() {
   }
 
   Config::ItrInfo.setupStandardFunctionsFromNames();
+
+  if (g_max_cands_per_seed > 0) {
+    // BOTH parameter sets, not just the forward one: the beam width a candidate
+    // actually gets is CombCandidate::capacity(), reserved from
+    // MkJob::max_max_cands() = max(params(), params_bks()), so setting the
+    // forward one alone leaves the capacity at whichever is larger and the knob
+    // does nothing at all.
+    const int ni = Config::ItrInfo.size();
+    for (int i = 0; i < ni; ++i) {
+      Config::ItrInfo[i].m_params.maxCandsPerSeed = g_max_cands_per_seed;
+      Config::ItrInfo[i].m_backward_params.maxCandsPerSeed = g_max_cands_per_seed;
+    }
+    printf("mkFit.cc/%s--max-cands-per-seed = %d (fwd and bkw) for %d iteration configs\n",
+           __func__, g_max_cands_per_seed, ni);
+  }
 
   // Test functions for ConfigJsonPatcher
   // cj.test_Direct (Config::ItrInfo[0]);
@@ -515,6 +537,8 @@ int main(int argc, const char* argv[]) {
           "  --geom           <str>   geometry plugin to use (def: %s)\n"
           "  --silent                 suppress printouts inside event loop (def: %s)\n"
           "  --best-out-of    <int>   run test num times, report best time (def: %d)\n"
+          "  --max-cands-per-seed <int>  override IterationParams::maxCandsPerSeed on every\n"
+          "                           iteration config, forward AND backward (def: from the geometry)\n"
           "  --input-file             file name for reading (def: %s)\n"
           "  --output-file            file name for writitng (def: %s)\n"
           "  --read-sim-hit-states    read per-sim-hit truth states if present in the file (def: %s)\n"
@@ -834,6 +858,9 @@ int main(int argc, const char* argv[]) {
       Config::geomPlugin = *i;
     } else if (*i == "--silent") {
       Config::silent = true;
+    } else if (*i == "--max-cands-per-seed") {
+      next_arg_or_die(mArgs, i);
+      g_max_cands_per_seed = atoi(i->c_str());
     } else if (*i == "--best-out-of") {
       next_arg_or_die(mArgs, i);
       Config::finderReportBestOutOfN = atoi(i->c_str());
