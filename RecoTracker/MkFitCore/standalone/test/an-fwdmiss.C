@@ -22,12 +22,23 @@ void an_fwdmiss(const char *fn = "val-fwd-miss.root") {
   // regions by the searched layer: pixel barrel, OT barrel, forward
   const char *rn[3] = {"pixel barrel 0-3", "OT barrel 4-15", "forward >= 16"};
   long V[3][8] = {}, tot[3] = {}, nolbl = 0, nohere[3] = {};
+  // Split on the WSR verdict the search itself acted on. With Config::v2p2UseWsr
+  // on -- the default -- a WSR_Outside candidate scans NO hits, so its row is a
+  // DECLINED search, not a failed one. Counting it makes verdict 0 look like a
+  // plan defect and verdict 1 look like a window too small; it is neither.
+  long W[3][3] = {}, wund[3] = {}, wout_hashit[3] = {}, ngap[3] = {};
   std::vector<double> D[3], PH[3], QQ[3];
   for (Long64_t i = 0; i < t->GetEntries(); ++i) {
     t->GetEntry(i);
     if (m->sim_label < 0) { ++nolbl; continue; }
     if (m->layer < 0 || m->verdict < 0 || m->verdict > 7) continue;
     const int r = m->layer < 4 ? 0 : (m->layer < 16 ? 1 : 2);
+    if (m->wsr >= 0 && m->wsr <= 2) ++W[r][m->wsr]; else ++wund[r];
+    if (m->wsr_in_gap) ++ngap[r];
+    if (m->wsr == 2) {                       // declined: it scanned nothing
+      if (m->verdict != 0) ++wout_hashit[r]; // ... and the sim track HAD a hit
+      continue;
+    }
     ++V[r][m->verdict];
     if (m->verdict == 0) { ++nohere[r]; if (m->near_d3d > -900) D[r].push_back(m->near_d3d); }
     else {
@@ -38,10 +49,33 @@ void an_fwdmiss(const char *fn = "val-fwd-miss.root") {
   }
   printf("\nWHERE THE FORWARD SEARCH LOSES THE SIM TRACK'S OWN HIT\n");
   printf("%lld layer-searches, %ld with no sim label on the seed.\n", t->GetEntries(), nolbl);
+  printf("\nWSR FIRST -- a WSR_Outside candidate is DECLINED before any hit is scanned,\n");
+  printf("so those rows are excluded from everything below.\n");
+  printf("  %-26s", "WSR of searches w/ a label");
+  for (int r = 0; r < 3; ++r) printf(" | %18s", rn[r]);
+  printf("\n");
+  const char *wnm[3] = {"inside", "edge", "OUTSIDE -- declined"};
+  for (int w = 0; w < 3; ++w) {
+    printf("  %-26s", wnm[w]);
+    for (int r = 0; r < 3; ++r) {
+      const long n = W[r][0] + W[r][1] + W[r][2];
+      printf(" | %9ld %7.2f%%", W[r][w], n ? 100.*W[r][w]/n : 0.);
+    }
+    printf("\n");
+  }
+  printf("  %-26s", "of those, sim HAD a hit");
+  for (int r = 0; r < 3; ++r)
+    printf(" | %9ld %7.2f%%", wout_hashit[r], W[r][2] ? 100.*wout_hashit[r]/W[r][2] : 0.);
+  printf("   <- WSR false miss\n");
+  printf("  %-26s", "in_gap (disc r-hole)");
+  for (int r = 0; r < 3; ++r) printf(" | %9ld %8s", ngap[r], "");
+  printf("\n  %-26s", "no WSR recorded");
+  for (int r = 0; r < 3; ++r) printf(" | %9ld %8s", wund[r], "");
+  printf("\n");
   printf("Percentages are over searches where the sim track ACTUALLY HAS a hit in the\n");
   printf("searched layer -- verdict 0 is reported separately because the layer plans are\n");
   printf("deliberately inclusive and a search on a layer the track never crosses is\n");
-  printf("expected, not a defect.\n\n");
+  printf("expected, not a defect -- and the WSR has already declined most of them.\n\n");
   printf("  %-26s", "verdict");
   for (int r = 0; r < 3; ++r) printf(" | %18s", rn[r]);
   printf("\n");

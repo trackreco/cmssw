@@ -200,6 +200,17 @@ struct TrLayerSearch {
   bool is_barrel = false;
   bool is_outward = false; // false for the inward search into the pixels
 
+  // The within-sensitive-region verdict (TrackerInfo.h WithinSensitiveRegion_e:
+  // -1 undef, 0 inside, 1 edge, 2 outside), from MkFinderV2p2::determine_wsr()
+  // on the sp1/sp2 crossings fuzzed by 5 sigma of dq_track. RECORD-ONLY here --
+  // the search itself skips a WSR_Outside candidate entirely when
+  // Config::v2p2UseWsr is on, but the record is written either way, so any
+  // analysis over layer searches MUST filter on this or it counts searches that
+  // never scanned a hit. in_gap says the absence is explained by a disc's
+  // small-r hole rather than by the track missing the layer.
+  signed char wsr = -1;
+  bool wsr_in_gap = false;
+
   // Stage 1a -- mini-propagator (PA_Exact) onto the layer bounding surfaces,
   // in propagation order: entry is crossed first, exit second. NOT sorted by
   // q or phi. dalpha is the helix angle turned, fail_flag the propagation status.

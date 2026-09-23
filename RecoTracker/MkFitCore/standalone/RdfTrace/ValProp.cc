@@ -2216,6 +2216,7 @@ namespace mkfit {
       ValSearchMiss m;
       m.event = event_idx;  m.search_id = is;  m.layer = ls.layer;
       m.is_barrel = ls.is_barrel;
+      m.wsr = ls.wsr;  m.wsr_in_gap = ls.wsr_in_gap;
       const TrCandState &cs = ev->trCandStates_[ls.state_id];
       m.step = cs.step;  m.pt = cs.state.pT();  m.eta = cs.state.momEta();
       m.n_scanned = roll[is].nsc;  m.mc_scanned = roll[is].mc_sc;

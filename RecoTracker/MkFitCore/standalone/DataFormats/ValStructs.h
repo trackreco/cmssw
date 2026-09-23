@@ -329,6 +329,13 @@ struct ValSearchMiss {
   int   sim_label = -1;
   float pt = -999.f, eta = -999.f;
 
+  // The WSR verdict the search itself acted on (TrLayerSearch::wsr): 0 inside,
+  // 1 edge, 2 outside. With Config::v2p2UseWsr on -- the default -- a
+  // WSR_Outside candidate scans NO hits at all, so its row is a record of a
+  // search that was declined, not of one that failed. FILTER ON THIS.
+  signed char wsr = -1;
+  bool  wsr_in_gap = false;
+
   int   n_sim_in_layer = 0;     // countSimHitsInLayer for the SEARCHED layer
   int   n_scanned = 0;          // hits the search actually visited
   bool  mc_scanned = false;     // any of them was the sim track's

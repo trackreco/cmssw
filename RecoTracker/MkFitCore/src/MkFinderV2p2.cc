@@ -792,6 +792,8 @@ namespace mkfit {
       ls.layer_sec  = m_rz_limits.m_is_double ? spi->m_layer_sec : -1;
       ls.is_barrel  = m_rz_limits.m_is_barrel;
       ls.is_outward = m_rz_limits.m_is_outward;
+      ls.wsr        = (signed char) prim_tcand_ptrs[i]->m_wsr.m_wsr;
+      ls.wsr_in_gap = prim_tcand_ptrs[i]->m_wsr.m_in_gap;
 
       ls.prop_entry = statep2propinfo(B.m_sp1, i);
       ls.prop_exit  = statep2propinfo(B.m_sp2, i);
