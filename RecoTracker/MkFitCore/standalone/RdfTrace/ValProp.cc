@@ -2770,6 +2770,7 @@ namespace mkfit {
       // own valid-hit count, which is what both should be read against. The
       // matched one is the safe counter: a wrong extra hit cannot raise it.
       VeSums n_found, n_match, n_sim, n_match2;   // n_match2: sum of squares, for the error on the mean
+      VeSums n_sim2, n_seedhits, n_seedhits2;     // sim content and SEED SIZE, same treatment
       VeBins dens;                 // ... of which a seed points at them
       VeBins reco, fake;           // reco-binned (axes 0,1 and region only)
       // Seed quality, per region. The search cannot find what it is not seeded
@@ -2780,6 +2781,12 @@ namespace mkfit {
       // collection its association is computed over more hits than the other's,
       // which is not a like-for-like comparison -- so it is reported, not assumed.
       long n_seed_found = 0, n_seed_missing = 0;
+      // What the hit-majority vote makes of each seed. A seed whose vote is -1
+      // is NOT counted as seeding its sim track, so these two bound how much the
+      // quoted seeding efficiency is understated: a TIE is a seed that does
+      // point at a sim track and is being dropped, while no matched hit at all
+      // is a seed with no truth to point at.
+      long n_vote_ok = 0, n_vote_tie = 0, n_vote_notruth = 0;
       long n_seed[3] = {}, n_seed_pure[3] = {}, n_seed_on_sel[3] = {};
       double sum_seed_gf[3] = {};
       // What the seeds are MADE OF, which is as close as the .bin gets to naming
@@ -2801,6 +2808,11 @@ namespace mkfit {
 
     std::vector<VeCfg> g_ve;
     std::string g_ve_ref;
+    // A SECOND reference, differenced against in its own set of histograms. The
+    // tables keep g_ve_ref; this one exists so a plot can show "against
+    // production" underneath while the tables still read against what this work
+    // replaced. Deltas are PAIRED (shared denominator, per-event numerators).
+    std::string g_ve_ref2 = "cmssw_V1";
     FILE *g_ve_log = nullptr;
 
     int ve_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
@@ -2892,6 +2904,7 @@ namespace mkfit {
 
   void val_eff_reset() { g_ve.clear(); g_ve_ref.clear(); }
   void val_eff_ref(const char *cfg) { g_ve_ref = cfg; }
+  void val_eff_ref2(const char *cfg) { g_ve_ref2 = cfg; }
 
   // tracks is the collection under test. It is candidateTracks_ for a v2p2
   // configuration and cmsswTracks_ for the production reference; everything else
@@ -2912,6 +2925,9 @@ namespace mkfit {
         seed_by_label.emplace((*seeds)[i].label(), i);
         const auto sifh = ev->simInfoForCurrentSeed(i);
         const int sl = sifh.label;
+        if (sl >= 0) ++C.n_vote_ok;
+        else if (sifh.n_match > 0) ++C.n_vote_tie;      // a tie -- Event::simInfoForTrack returns -1
+        else ++C.n_vote_notruth;
         if (sl >= 0 && sl < (int) ev->simTracks_.size()) {
           seeded_sim.insert(sl);
           ++n_seed_for_sim[sl];
@@ -2934,7 +2950,7 @@ namespace mkfit {
 
     // ---- reco side: association exactly as quality-val defines it.
     std::map<int, int> n_assoc;            // sim label -> number of reco tracks on it
-    struct VeBest { float pt = 0.0f; int n_match = -1; int n_found = 0; };
+    struct VeBest { float pt = 0.0f; int n_match = -1; int n_found = 0; int n_seedhits = 0; };
     std::map<int, VeBest> best;            // sim label -> its best-matched reco track
     // (layer, index) -> the seeds holding that hit, for the shared-hit seed
     // lookup. Built once per event; seeds are a few hits each, so it is small.
@@ -2964,7 +2980,8 @@ namespace mkfit {
         // get to vote twice on the resolution.
         auto &b = best[mc];
         if (extra.nHitsMatched() > b.n_match)
-          b = {c.pT(), extra.nHitsMatched(), c.nFoundHits()};
+          b = {c.pT(), extra.nHitsMatched(), c.nFoundHits(),
+               si >= 0 ? (*seeds)[si].nFoundHits() : 0};
       }
     }
 
@@ -3008,6 +3025,10 @@ namespace mkfit {
           ve_fill_w(C.n_match, be, bp, bh, reg, ae, pt, nm);
           ve_fill_w(C.n_match2, be, bp, bh, reg, ae, pt, nm*nm);
           ve_fill_w(C.n_sim,   be, bp, bh, reg, ae, pt, nval);
+          ve_fill_w(C.n_sim2,  be, bp, bh, reg, ae, pt, (double) nval * nval);
+          ve_fill_w(C.n_seedhits,  be, bp, bh, reg, ae, pt, bi->second.n_seedhits);
+          ve_fill_w(C.n_seedhits2, be, bp, bh, reg, ae, pt,
+                    (double) bi->second.n_seedhits * bi->second.n_seedhits);
           if (pt > 0.0f && ae < VE_ETA_CUT && pt > VE_PT_CUT)
             C.res.push_back({ev->evtID(), L, reg, (bi->second.pt - pt) / pt});
         }
@@ -3063,6 +3084,21 @@ namespace mkfit {
       }
       else snprintf(s, sizeof(s), "%s", ve_hpl_lab[b]);
       return s;
+    }
+
+    // Fill a TH1 with a mean and its ERROR ON THE MEAN from the running sums.
+    // Every curve on these plots is a measurement and carries one; drawing a
+    // reference line without errors invites it to be read as exact.
+    void ve_mean_hist(TH1D *h, int ax, const VeSums &sum, const VeSums &sum2,
+                      const VeBins &cnt, int nb) {
+      for (int b = 0; b < nb; ++b) {
+        const long n = cnt.b[ax][b];
+        if (n < 20) continue;
+        const double m = sum.b[ax][b] / n;
+        const double v = std::max(0.0, sum2.b[ax][b] / n - m * m);
+        h->SetBinContent(b + 1, m);
+        h->SetBinError(b + 1, std::sqrt(v / n));
+      }
     }
 
     // Mean track length per bin. which = 0 reco hits (seed included), 1 matched
@@ -3199,6 +3235,19 @@ namespace mkfit {
     ve_printf("  are on sim tracks OUTSIDE the selection (below 0.9 GeV, mostly), so it is\n");
     ve_printf("  not a duplicate rate; 'per sel' is, being seeds per SELECTED seeded sim\n");
     ve_printf("  track. 'pure' = seeds all of whose valid hits come from one sim track\n");
+    {
+      const long ok = ref->n_vote_ok, tie = ref->n_vote_tie, nt = ref->n_vote_notruth;
+      const long tot = ok + tie + nt;
+      if (tot)
+        ve_printf("  SEED -> SIM VOTE over %ld seeds: %ld resolved (%.2f%%), %ld TIED (%.2f%%),\n"
+                  "  %ld with no truth-matched hit (%.2f%%). A tie returns -1 from\n"
+                  "  Event::simInfoForTrack() and is NOT counted as seeding its sim track, so the\n"
+                  "  tied fraction is how much 'seed eff' above is UNDERSTATED. The seed's own\n"
+                  "  label() is no use for this: WriteMemoryFile sets it to seedSimIdx[is], the\n"
+                  "  sim index of the rec track that used the seed, and -1 for every seed that\n"
+                  "  produced none.\n",
+                  tot, ok, 100.0*ok/tot, tie, 100.0*tie/tot, nt, 100.0*nt/tot);
+    }
     ve_printf("  (Event::SimInfoFromHits::good_frac() == 1). 'hits' and 'pixel' say what the\n");
     ve_printf("  seeds are made of; the .bin carries the track algorithm and the hits, not\n");
     ve_printf("  the producer, so this bounds the seeding-algorithm question without\n");
@@ -3310,6 +3359,9 @@ namespace mkfit {
     // once several configurations are in -- they sit within a few points of each
     // other on a 0-1 axis -- and the difference is the quantity with the small
     // error bar, since the denominator is shared and only the numerator moves.
+    const VeCfg *ref2 = nullptr;
+    for (const auto &c : g_ve) if (c.name == g_ve_ref2) ref2 = &c;
+
     const std::string rootf = std::string(prefix) + ".root";
     TFile f(rootf.c_str(), "RECREATE");
     static const int kCol[8] = {kBlack, kRed + 1, kBlue + 1, kGreen + 2,
@@ -3373,6 +3425,23 @@ namespace mkfit {
           ld->AddEntry(hdd, c.name.c_str(), "lp");
           ++id;
         }
+
+        // ... and against the SECOND reference, for the panel under the plot.
+        if (ref2 && &c != ref2) {
+          TH1D *h2 = new TH1D(Form("d2_eff_ax%d_%s", ax, c.name.c_str()),
+                              Form("efficiency minus %s, paired;%s;points",
+                                   ref2->name.c_str(), ve_axname[ax]), nb, -0.5, nb - 0.5);
+          for (int b = 0; b < nb; ++b) {
+            const long d = ref2->den.b[ax][b];
+            h2->GetXaxis()->SetBinLabel(b+1, ve_binlabel(ax, b).c_str());
+            if (d < 20) continue;
+            double sum, sig;
+            ve_paired(ve_series(c.ev_num, ax, b), ve_series(ref2->ev_num, ax, b), sum, sig);
+            h2->SetBinContent(b+1, 100.0*sum/d);
+            h2->SetBinError(b+1, 100.0*sig/d);
+          }
+          h2->SetStats(0);  h2->Write();
+        }
         delete hn;  delete hd;
         ++ic;
       }
@@ -3423,35 +3492,59 @@ namespace mkfit {
         TH1D *h = new TH1D(Form("len_ax%d_%s", ax, c.name.c_str()),
                            Form("matched hits per found track vs %s;%s;matched hits",
                                 ve_axname[ax], ve_axname[ax]), nb, -0.5, nb - 0.5);
-        for (int b = 0; b < nb; ++b) {
-          const long n = c.num.b[ax][b];
+        for (int b = 0; b < nb; ++b)
           h->GetXaxis()->SetBinLabel(b+1, ve_binlabel(ax, b).c_str());
-          if (n < 20) continue;
-          const double m = c.n_match.b[ax][b] / n;
-          const double v = std::max(0.0, c.n_match2.b[ax][b] / n - m*m);
-          h->SetBinContent(b+1, m);
-          h->SetBinError(b+1, std::sqrt(v / n));
-        }
+        ve_mean_hist(h, ax, c.n_match, c.n_match2, c.num, nb);
         h->SetLineColor(kCol[ic % 8]);  h->SetMarkerColor(kCol[ic % 8]);
         h->SetMarkerStyle(20 + (ic % 8));  h->SetLineWidth(2);  h->SetStats(0);
         h->SetMinimum(0.0);
         h->Write();
         cl->cd();  h->Draw(ic == 0 ? "E1" : "E1 SAME");
         ll->AddEntry(h, c.name.c_str(), "lp");
+
+        // Delta against the second reference. NOT paired -- the per-event sums
+        // for a mean are not kept -- so the error is the two errors in
+        // quadrature, which over-states it where the populations overlap, and
+        // they overlap heavily here. Read it as an upper bound on the error.
+        if (ref2 && &c != ref2) {
+          TH1D *h2 = new TH1D(Form("d2_len_ax%d_%s", ax, c.name.c_str()),
+                              Form("matched hits minus %s;%s;hits",
+                                   ref2->name.c_str(), ve_axname[ax]), nb, -0.5, nb - 0.5);
+          TH1D *hr = new TH1D(Form("tmp_ref_ax%d_%d", ax, ic), "", nb, -0.5, nb - 0.5);
+          ve_mean_hist(hr, ax, ref2->n_match, ref2->n_match2, ref2->num, nb);
+          for (int b = 0; b < nb; ++b) {
+            h2->GetXaxis()->SetBinLabel(b+1, ve_binlabel(ax, b).c_str());
+            if (h->GetBinContent(b+1) == 0 || hr->GetBinContent(b+1) == 0) continue;
+            h2->SetBinContent(b+1, h->GetBinContent(b+1) - hr->GetBinContent(b+1));
+            h2->SetBinError(b+1, std::hypot(h->GetBinError(b+1), hr->GetBinError(b+1)));
+          }
+          h2->SetStats(0);  h2->Write();  delete hr;
+        }
         ++ic;
       }
+      // Two reference curves, both with errors on the mean: what the sim track
+      // left behind, and how much of a found track its SEED already was --
+      // matched hits EXCLUDE seed hits, so the seed size says what the search
+      // was starting from.
       TH1D *hs = new TH1D(Form("len_ax%d_simref", ax),
                           "sim track's own hits", nb, -0.5, nb - 0.5);
-      for (int b = 0; b < nb; ++b) {
-        const long n = ref->num.b[ax][b];
-        hs->GetXaxis()->SetBinLabel(b+1, ve_binlabel(ax, b).c_str());
-        if (n >= 20) hs->SetBinContent(b+1, ref->n_sim.b[ax][b] / n);
-      }
+      for (int b = 0; b < nb; ++b) hs->GetXaxis()->SetBinLabel(b+1, ve_binlabel(ax, b).c_str());
+      ve_mean_hist(hs, ax, ref->n_sim, ref->n_sim2, ref->num, nb);
       hs->SetLineColor(kGray + 2);  hs->SetLineStyle(2);  hs->SetLineWidth(2);
       hs->SetMarkerStyle(1);  hs->SetStats(0);
       hs->Write();
       cl->cd();  hs->Draw("HIST SAME");
       ll->AddEntry(hs, "sim track has", "l");
+
+      TH1D *hq = new TH1D(Form("len_ax%d_seedref", ax),
+                          "hits in the seed", nb, -0.5, nb - 0.5);
+      for (int b = 0; b < nb; ++b) hq->GetXaxis()->SetBinLabel(b+1, ve_binlabel(ax, b).c_str());
+      ve_mean_hist(hq, ax, ref->n_seedhits, ref->n_seedhits2, ref->num, nb);
+      hq->SetLineColor(kGray + 1);  hq->SetLineStyle(3);  hq->SetLineWidth(2);
+      hq->SetMarkerStyle(1);  hq->SetStats(0);
+      hq->Write();
+      cl->cd();  hq->Draw("HIST SAME");
+      ll->AddEntry(hq, "seed has", "l");
       ll->Draw();  cl->Write();
     }
     f.Close();

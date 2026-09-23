@@ -102,6 +102,7 @@ void val_qbins_report() { mkfit::val_qbins_report(); }
 
 void val_eff_reset() { mkfit::val_eff_reset(); }
 void val_eff_ref(const char *c) { mkfit::val_eff_ref(c); }
+void val_eff_ref2(const char *c) { mkfit::val_eff_ref2(c); }
 void val_eff_ev(const mkfit::Event *e, const char *c) { mkfit::val_eff_event(e, c); }
 void val_eff_report(const char *p) { mkfit::val_eff_report(p); }
 void val_eff_cmssw_ev(const mkfit::Event *e, const char *c) { mkfit::val_eff_cmssw_event(e, c); }
