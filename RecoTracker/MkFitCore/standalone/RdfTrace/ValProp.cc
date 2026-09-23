@@ -2003,13 +2003,26 @@ namespace mkfit {
 
   void val_search_event(const Event *ev, int event_idx) {
     if (ev == nullptr) return;
-    // seed index -> sim label. ProcessEventHlt() has already relabelled seeds
-    // sequentially, so TrCandMeta::global_seed indexes seedTracks_ directly.
-    std::vector<int> seed_sim(ev->seedTracks_.size(), -1);
-    std::vector<float> seed_gf(ev->seedTracks_.size(), -1.f);
-    std::vector<int> seed_nv(ev->seedTracks_.size(), -1), seed_nm(ev->seedTracks_.size(), -1);
-    for (size_t i = 0; i < ev->seedTracks_.size(); ++i) {
-      auto si = ev->simInfoForTrack(ev->seedTracks_[i]);
+    // Seed truth, keyed by TrCandMeta::seed -- the index into the seed vector the
+    // builder was given, which Event::currentSeedTracks() is.
+    //
+    // NOT by TrCandMeta::global_seed. MkBuilder.cc:425 sets that to
+    // currentSeed(cm.seed).label(), a seed's LABEL, and a label equals its index
+    // only after relabelSeedTracksSequentially() -- which ProcessEventHlt() calls
+    // and ProcessEventStd deliberately does not. On the forward driver a seed's
+    // label is its file label, i.e. the SIM index of the rec track that used it
+    // (WriteMemoryFile's seedSimIdx) and -1 for seeds that produced none, so
+    // indexing the seed array with it is silently WRONG rather than empty. This
+    // key is correct on both paths and retires the relabel dependency, the same
+    // trap val_bkfit_seed_truth() was removed for.
+    const TrackVec *cseeds = nullptr;
+    try { cseeds = &ev->currentSeedTracks(); } catch (...) { cseeds = nullptr; }
+    const size_t n_seed = cseeds ? cseeds->size() : 0;
+    std::vector<int> seed_sim(n_seed, -1);
+    std::vector<float> seed_gf(n_seed, -1.f);
+    std::vector<int> seed_nv(n_seed, -1), seed_nm(n_seed, -1);
+    for (size_t i = 0; i < n_seed; ++i) {
+      auto si = ev->simInfoForCurrentSeed((int) i);
       if (si.is_set()) {
         seed_sim[i] = si.label;
         seed_gf[i]  = (float) si.good_frac();
@@ -2077,11 +2090,11 @@ namespace mkfit {
           if (cs.meta_id >= 0 && cs.meta_id < (int) ev->trCandMetas_.size()) {
             const TrCandMeta &cm = ev->trCandMetas_[cs.meta_id];
             v.seed = cm.seed;  v.global_seed = cm.global_seed;  v.sim = cm.sim;
-            if (cm.global_seed >= 0 && cm.global_seed < (int) seed_sim.size()) {
-              v.sim_label = seed_sim[cm.global_seed];
-              v.seed_good_frac = seed_gf[cm.global_seed];
-              v.seed_n_valid   = seed_nv[cm.global_seed];
-              v.seed_n_match   = seed_nm[cm.global_seed];
+            if (cm.seed >= 0 && cm.seed < (int) seed_sim.size()) {
+              v.sim_label = seed_sim[cm.seed];
+              v.seed_good_frac = seed_gf[cm.seed];
+              v.seed_n_valid   = seed_nv[cm.seed];
+              v.seed_n_match   = seed_nm[cm.seed];
               if (v.sim_label >= 0 && hm.layer >= 0)
                 v.n_sim_hits_in_layer = ev->countSimHitsInLayer(v.sim_label, hm.layer);
             }
@@ -2211,8 +2224,8 @@ namespace mkfit {
       if (roll[is].best_c2 < 1e29f) m.best_chi2 = roll[is].best_c2;
       if (cs.meta_id >= 0 && cs.meta_id < (int) ev->trCandMetas_.size()) {
         const TrCandMeta &cm = ev->trCandMetas_[cs.meta_id];
-        if (cm.global_seed >= 0 && cm.global_seed < (int) seed_sim.size())
-          m.sim_label = seed_sim[cm.global_seed];
+        if (cm.seed >= 0 && cm.seed < (int) seed_sim.size())
+          m.sim_label = seed_sim[cm.seed];
       }
       if (m.sim_label < 0) { g_sm.push_back(m); continue; }
 
