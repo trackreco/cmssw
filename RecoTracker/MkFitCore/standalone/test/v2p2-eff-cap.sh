@@ -18,7 +18,11 @@ SAMPLE=${2:-/foo/matevz/mic-dev/ttbar-PU200-D121-C22-100ev.bin}
 OUT=${3:-eff-cap}
 T=../RecoTracker/MkFitCore/standalone/test
 
-CMD=(./mkFit --geom CMS-phase2 --seed-input cmssw --input-file "$SAMPLE"
+# --read-cmssw-tracks costs nothing when the section is absent (mkFit says so and
+# carries on), and when it is present it gives the PRODUCTION reference: whatever
+# tracking the job that wrote the ntuple ran, which for these samples is mkFit V1
+# with prop-to-plane and selectHitIndicesV2.
+CMD=(./mkFit --geom CMS-phase2 --seed-input cmssw --read-cmssw-tracks --input-file "$SAMPLE"
      --num-events "$N" --num-thr 1 --build-mimi --build-mimi-v2p2 --shell
      --shell-command 'gROOT->SetBatch(kTRUE)'
      --shell-command "gROOT->ProcessLine(\".L $T/val-prop.C\")"
@@ -40,6 +44,12 @@ for c in "${CFG[@]}"; do
     CMD+=(--shell-command "s.GoToEvent($i)"
           --shell-command 's.ProcessEventStd()'
           --shell-command "val_eff_ev(s.event(), \"$3\")")
+    # cmsswTracks_ do not depend on the configuration, so they ride along with
+    # the first pass and cost no extra finding. They do need ProcessEventStd to
+    # have run: the seed-hit exclusion reads Event::currentSeedTracks().
+    if [ "$3" = "base_c6" ]; then
+      CMD+=(--shell-command 'val_eff_cmssw_ev(s.event(), "cmssw_V1")')
+    fi
   done
 done
 CMD+=(--shell-command "val_eff_report(\"$OUT\")")
