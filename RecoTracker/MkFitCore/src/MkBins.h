@@ -59,6 +59,8 @@ namespace mkfit {
   extern float g_v2p2_dphi_trk_fac;
   extern float g_v2p2_hit_dphi_fac;
   extern float g_v2p2_bin_dphi_fac;
+  // Half-open [p1, p2) needs p2 one PAST the top bin; see MkBins.cc.
+  extern bool  g_v2p2_phi_bin_fix;
 
   struct MkBins {
     // To become members ... or go into a helper struct / config.

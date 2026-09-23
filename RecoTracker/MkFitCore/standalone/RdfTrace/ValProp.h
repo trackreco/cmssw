@@ -101,6 +101,7 @@ namespace mkfit {
   void val_search_material(bool on);
   void val_mkbins_surface_q(bool on);
   void val_extra_dq(float f);
+  void val_phi_bin_fix(bool b);
   void val_dphi(float trk_fac, float hit_fac, float bin_fac);
   void val_surf_q_hit(bool on);
   // MkFinderV2p2 in-layer combinatorial search and its score, so a scan costs one

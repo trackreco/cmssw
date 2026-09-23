@@ -1358,6 +1358,11 @@ namespace mkfit {
   // -- the cut can only reject hits the binnor already fetched, so raising
   // hit_fac above bin_fac (or trk_fac above 1 without the binnor following) is a
   // silent no-op that looks like flatness.
+  void val_phi_bin_fix(bool b) {
+    g_v2p2_phi_bin_fix = b;
+    printf("val_phi_bin_fix: g_v2p2_phi_bin_fix = %s\n", b ? "true" : "false");
+  }
+
   void val_dphi(float trk_fac, float hit_fac, float bin_fac) {
     g_v2p2_dphi_trk_fac = trk_fac;
     g_v2p2_hit_dphi_fac = hit_fac;

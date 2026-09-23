@@ -16,6 +16,21 @@ namespace mkfit {
   float g_v2p2_hit_dphi_fac = MkBins::DDPHI_PRESEL_FAC;
   float g_v2p2_bin_dphi_fac = MkBins::PHI_BIN_EXTRA_FAC;
 
+  // The phi bin range is consumed as a HALF-OPEN [p1, p2) by the scan loops
+  // (MkFinderV2p2.cc:1021, MkFinder.cc), so p2 must be one PAST the bin holding
+  // the upper edge. It is not: unlike the q side right below it, which does
+  // qBinChecked(hi) + 1, the phi side takes phiBinChecked(hi) and the top bin is
+  // never scanned. V1 has the correct idiom -- and on a wrapped axis it is NOT
+  // the q side's bare "+ 1", it is phiMaskApply(phiBin(hi) + 1):
+  //
+  //   MkFinder.cc:374   pb2v[itrack] = L.phiMaskApply(L.phiBin(phi + dphi) + 1);
+  //
+  // Measured cost of the omission: PHI_BIN_EXTRA_FAC has to carry a full extra
+  // phi bin to cover it. The bin is 2pi/256 = 0.024544 rad and
+  // HIT_PHI_HALF_EXTENT = 0.0123 is half of it, so the factor's floor sits at
+  // exactly 2.0 -- measured free at 2.00 (1.002 bins) and lossy at 1.75 (0.877).
+  bool g_v2p2_phi_bin_fix = false;
+
   namespace mp = mini_propagators;
 
   //==============================================================================
@@ -260,7 +275,9 @@ namespace mkfit {
         const float bin_dphi = g_v2p2_dphi_trk_fac * m_dphi_track[i] +
                                g_v2p2_bin_dphi_fac * HIT_PHI_HALF_EXTENT;
         bl.p1[i] = loh.phiBinChecked(m_phi_min[i] - bin_dphi);
-        bl.p2[i] = loh.phiBinChecked(m_phi_max[i] + bin_dphi);
+        bl.p2[i] = g_v2p2_phi_bin_fix
+                 ? loh.phiMaskApply(loh.phiBin(m_phi_max[i] + bin_dphi) + 1)
+                 : loh.phiBinChecked(m_phi_max[i] + bin_dphi);
 
         bl.q0[i] = loh.qBinChecked(m_q_center[i]);
         bl.q1[i] = loh.qBinChecked(m_q_min[i] - m_dq_track[i] - Q_BIN_EXTRA_FAC * 0.5f * loh.layer_info().q_bin());
