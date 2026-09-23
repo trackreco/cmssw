@@ -83,6 +83,14 @@ namespace mkfit {
     // to throw the hedge away. See MkFinderV2p2::select_and_materialise().
     extern bool v2p2ReserveHoleSlot;
 
+    // Best-short. Move a STOPPED TrackCand out of the beam and remember the best
+    // of them on the CombCandidate, the way V1's CandCloner does. Two effects:
+    // a stopped candidate stops occupying a beam slot it can never use, and a
+    // seed whose long candidates degrade still yields the best short track it
+    // ever had. Outward search only -- going inward the "tail" is the head of
+    // the track and a short track is a different animal.
+    extern bool v2p2BestShort;
+
     // Config for Bfield. Note: for now the same for CMS-phase1 and CylCowWLids.
     constexpr float Bfield = 3.8112;
     constexpr float mag_c1 = 3.8114;

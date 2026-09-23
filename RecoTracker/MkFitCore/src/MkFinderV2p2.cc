@@ -65,7 +65,7 @@ namespace mkfit {
     n_sec_nodes = 0; n_sec_deep = 0; n_path_taken = 0; n_extra_hits = 0;
     n_sel_entries = 0; n_sel_kept = 0; n_selections = 0;
     n_same_module = 0; n_diff_module = 0; n_same_module_vetoed = 0;
-    n_hole_slot_reserved = 0;
+    n_hole_slot_reserved = 0; n_best_short_offered = 0; n_best_short_taken = 0;
   }
 
   void V2p2PolicyCounters::print(const char *tag) const {
@@ -83,7 +83,8 @@ namespace mkfit {
            "  selection  : %ld of them, %ld competitors -> %ld kept (%.2f -> %.2f per seed)\n"
            "  extra hits : %ld from another module (overlap), %ld from the SAME module (%.1f%%)"
            ", %ld same-module extensions vetoed\n"
-           "  hole slots : %ld reserved for an outranked decliner\n",
+           "  hole slots : %ld reserved for an outranked decliner\n"
+           "  best-short : %ld stopped cands left the beam, %ld became the seed's best short\n",
            tag,
            n_quadrant_skip.load(), n_stop_minpt.load(), n_stop_looper.load(),
            n_wsr, n_wsr_inside.load(), f * n_wsr_inside, n_wsr_edge.load(), f * n_wsr_edge,
@@ -98,7 +99,8 @@ namespace mkfit {
            n_diff_module.load(), n_same_module.load(),
            (n_same_module + n_diff_module) > 0 ?
              100.0 * n_same_module / (n_same_module + n_diff_module) : 0.0,
-           n_same_module_vetoed.load(), n_hole_slot_reserved.load());
+           n_same_module_vetoed.load(), n_hole_slot_reserved.load(),
+           n_best_short_offered.load(), n_best_short_taken.load());
   }
 
   //------------------------------------------------------------------------------
@@ -1889,6 +1891,18 @@ namespace mkfit {
   // PrimTCandReps can straddle a batch boundary.
   //----------------------------------------------------------------------------
 
+  // Keep the best-scoring stopped candidate of this CombCandidate. The score is
+  // the in-flight accumulator, which is on one scale within a seed -- the only
+  // comparison made here.
+  void MkFinderV2p2::offer_best_short(CombCandidate &ccand, const TrackCand &tc) const {
+    ++g_v2p2_policy_counters.n_best_short_offered;
+    if (ccand.refBestShortCand().combCandidate() == nullptr ||
+        tc.score() > ccand.refBestShortCand().score()) {
+      ccand.setBestShortCand(tc);
+      ++g_v2p2_policy_counters.n_best_short_taken;
+    }
+  }
+
   void MkFinderV2p2::select_and_materialise(CCandRep &ccrep) {
     CombCandidate &ccand = ccrep.m_ccand;
     const int cap = ccand.capacity();
@@ -1942,9 +1956,33 @@ namespace mkfit {
     }
 
     // Stopped or pull-in-skipped TrackCands, unchanged, at their own score.
+    //
+    // BEST-SHORT. A stopped candidate cannot be extended again, so leaving it in
+    // the beam costs a slot a live candidate could use -- v2p2 has been doing
+    // exactly that, because end_layer() only retires a CombCandidate once ALL of
+    // its TrackCands have stopped. V1 moves it out instead and keeps the best one
+    // on the CombCandidate, which mergeCandsAndBestShortOne re-inserts at the end
+    // if it still beats the worst survivor.
+    //
+    // "Short" misleads: what is kept is the best score SO FAR, and it is worth
+    // keeping because a score can DEGRADE later, chi2 growing as a candidate
+    // diverges or is over-compressed. Physically it is a hard hadronic scatter
+    // for a pion, which about 30 % undergo to some extent, or hard bremsstrahlung
+    // for an electron -- rare only because electrons are rare, and when it
+    // happens the calorimeter recovers the energy while the track parameters at
+    // the vertex are still wanted.
+    //
+    // Outward only. Going inward the trailing end of the hit sequence is the HEAD
+    // of the track, so a truncated candidate is not a shorter track, it is one
+    // that never reached the beamline.
+    const bool best_short = Config::v2p2BestShort && m_rz_limits.is_outward();
     for (int ic = 0; ic < n_tc; ++ic) {
       if (ic < 64 && has_ptc[ic])
         continue;
+      if (best_short && ccand[ic].getLastHitIdx() == Hit::kHitStopIdx) {
+        offer_best_short(ccand, ccand[ic]);
+        continue;
+      }
       m_sel.push_back({ic, -1, 0, false, ccand[ic].score()});
     }
 
@@ -2064,9 +2102,15 @@ namespace mkfit {
       nc.setScore(e.score);
     }
 
+    // Candidates that stopped IN this layer leave the beam the same way.
     ccand.clear();
-    for (auto &c : m_new_cands)
+    for (auto &c : m_new_cands) {
+      if (best_short && c.getLastHitIdx() == Hit::kHitStopIdx) {
+        offer_best_short(ccand, c);
+        continue;
+      }
       ccand.push_back(c);
+    }
 
     ++g_v2p2_policy_counters.n_selections;
     g_v2p2_policy_counters.n_sel_entries += (long) m_sel.size();

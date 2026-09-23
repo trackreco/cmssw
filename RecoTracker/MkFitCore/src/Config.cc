@@ -12,6 +12,7 @@ namespace mkfit {
     bool v2p2UseStopCuts = true;
     bool v2p2InLayerComb = false;
     bool v2p2ReserveHoleSlot = false;
+    bool v2p2BestShort = false;
 
     // Multi threading configuration
 #if defined(MKFIT_STANDALONE)

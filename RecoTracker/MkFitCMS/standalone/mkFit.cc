@@ -592,6 +592,8 @@ int main(int argc, const char* argv[]) {
           "  --v2p2-score-mode <0|1>  MkFinderV2p2 score: 0 linear, 1 log-likelihood ratio (def: %d)\n"
           "  --v2p2-hit-eff <f>       MkFinderV2p2 score, likelihood mode: per-layer hit efficiency,\n"
           "                           the only free number in it (def: %g)\n"
+          "  --v2p2-best-short <0|1>  MkFinderV2p2: move a stopped candidate out of the beam and\n"
+          "                           keep the best of them per seed, outward only (def: %d)\n"
           "  --v2p2-reserve-hole-slot <0|1>  MkFinderV2p2: keep one beam slot for a continuation\n"
           "                           that declined the layer, even when outranked (def: %d)\n"
           "  --v2p2-max-sec-depth <n> MkFinderV2p2: most hits one in-layer path may take (def: %d)\n"
@@ -754,6 +756,7 @@ int main(int argc, const char* argv[]) {
           int(Config::v2p2InLayerComb),
           g_v2p2_score_mode,
           g_v2p2_score_fwd.hit_eff,
+          int(Config::v2p2BestShort),
           int(Config::v2p2ReserveHoleSlot),
           g_v2p2_max_sec_depth,
           g_v2p2_max_presel_hits,
@@ -965,6 +968,9 @@ int main(int argc, const char* argv[]) {
     } else if (*i == "--v2p2-hit-eff") {
       next_arg_or_die(mArgs, i);
       g_v2p2_score_fwd.hit_eff = g_v2p2_score_bkw.hit_eff = atof(i->c_str());
+    } else if (*i == "--v2p2-best-short") {
+      next_arg_or_die(mArgs, i);
+      Config::v2p2BestShort = (bool)atoi(i->c_str());
     } else if (*i == "--v2p2-reserve-hole-slot") {
       next_arg_or_die(mArgs, i);
       Config::v2p2ReserveHoleSlot = (bool)atoi(i->c_str());

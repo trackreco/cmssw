@@ -65,6 +65,8 @@ namespace mkfit {
     std::atomic<long> n_diff_module{0};    // extra hit from another module -- a genuine overlap
     std::atomic<long> n_same_module_vetoed{0};  // extensions refused for sharing a module
     std::atomic<long> n_hole_slot_reserved{0};  // beam slots given to an outranked decliner
+    std::atomic<long> n_best_short_offered{0};  // stopped candidates removed from the beam
+    std::atomic<long> n_best_short_taken{0};    // ... and that became the seed's best short
 
     void reset();
     void print(const char *tag) const;
@@ -264,6 +266,7 @@ namespace mkfit {
     // and registers it into the CombCandidate.
     void expand_in_layer(LayerBatch &b);
     void select_and_materialise(CCandRep &ccrep);
+    void offer_best_short(CombCandidate &ccand, const TrackCand &tc) const;
     // The direction-, layer- and candidate-dependent part of a layer step, filled
     // once per path root and carried down the tree.
     void fill_step_geometry(LayerStepFeatures &f, const PrimTCandRep &ptc, float log_rho) const;
