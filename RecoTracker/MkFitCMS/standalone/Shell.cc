@@ -68,6 +68,7 @@ namespace mkfit {
     m_ctx.bld = new MkBuilder(Config::silent);
 
     m_backward_fit = Config::backwardFit;
+    m_backward_search = Config::backwardSearch;
 
     m_data_file = new DataFile;
     m_ctx.ev = new Event(0, Config::TrkInfo.n_layers());
@@ -114,11 +115,12 @@ namespace mkfit {
     printf("On event %d, selected iteration index %d, algo %d - %s\n"
           "  event range = [%d, %d] of %d in file\n"
           "  debug = %s, use_dead_modules = %s\n"
-           "  clean_seeds = %s, backward_fit = %s, remove_duplicates = %s\n",
+           "  clean_seeds = %s, backward_fit = %s, backward_search = %s, remove_duplicates = %s\n",
            m_ctx.ev->evtID(), m_it_index, algos[m_it_index], TrackBase::algoint_to_cstr(algos[m_it_index]),
            m_ev_first, m_ev_last, m_evs_in_file,
            b2a(g_debug), b2a(Config::useDeadModules),
-           b2a(m_clean_seeds), b2a(m_backward_fit), b2a(m_remove_duplicates));
+           b2a(m_clean_seeds), b2a(m_backward_fit), b2a(m_backward_search),
+           b2a(m_remove_duplicates));
   }
 
   TrackerInfo* Shell::tracker_info() { return &Config::TrkInfo; }
@@ -324,19 +326,34 @@ namespace mkfit {
 
       job.switch_to_backward();
 
+      // The backward FIT and the backward SEARCH are separate decisions and this
+      // path used to conflate them: it read itconf.m_backward_search alone, so
+      // --no-backward-search (Config::backwardSearch) was silently ignored here
+      // although buildtestMPlex.cc honours it. They are now gated the same way.
+      //
+      // It matters for the phase-2 initialStep: SetupBackwardSearch() picks the
+      // search up at TB2S OTLayer4 / TEDD2 / TFPX6, chosen for LST T5 seeds that
+      // start in the outer tracker. Iteration 0 of these samples is seeded by
+      // pixel quadruplets, so a backward search from there re-searches layers the
+      // forward pass has already been through, from a seed region it did not come
+      // from. The backward FIT is wanted on its own -- it is what production's
+      // tracks have had and ours had not.
+      const bool do_backward_search = m_backward_search && itconf.m_backward_search;
+
       if (do_backward_fit) {
-        if (itconf.m_backward_search) {
+        if (do_backward_search) {
           builder.compactifyHitStorageForBestCand(itconf.m_backward_drop_seed_hits, itconf.m_backward_fit_min_hits);
         }
 
         builder.backwardFit();
 
-        if (itconf.m_backward_search) {
+        if (do_backward_search) {
           builder.beginBkwSearch();
           builder.findTracksCloneEngine(SteeringParams::IT_BkwSearch);
         }
 
-        printf("Shell::ProcessEvent post backward fit / search: %d comb-cands\n", builder.ref_eocc().size());
+        printf("Shell::ProcessEvent post backward fit (%s) / search (%s): %d comb-cands\n",
+               b2a(do_backward_fit), b2a(do_backward_search), builder.ref_eocc().size());
       }
 
       // Post backward-fit filtering.
@@ -353,7 +370,7 @@ namespace mkfit {
       printf("Shell::ProcessEvent post post-bkf-filter (%s) and nan-filter (true): %d comb-cands\n",
              b2a(do_backward_fit && itconf.m_post_bkfit_filter), builder.ref_eocc().size());
 
-      if (do_backward_fit && itconf.m_backward_search)
+      if (do_backward_fit && do_backward_search)
         builder.endBkwSearch();
 
       builder.export_best_comb_cands(out_tracks, true);
@@ -429,6 +446,7 @@ namespace mkfit {
   void Shell::SetDebug(bool b) { g_debug = b; }
   void Shell::SetCleanSeeds(bool b) { m_clean_seeds = b; }
   void Shell::SetBackwardFit(bool b) { m_backward_fit = b; }
+  void Shell::SetBackwardSearch(bool b) { m_backward_search = b; }
   void Shell::SetRemoveDuplicates(bool b) { m_remove_duplicates = b; }
   void Shell::SetUseDeadModules(bool b) { Config::useDeadModules = b; }
   void Shell::SetUseV2p2(bool b) { Config::mimiUseV2p2 = b; }

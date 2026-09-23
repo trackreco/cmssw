@@ -127,6 +127,7 @@ namespace mkfit {
     void SetDebug(bool b);
     void SetCleanSeeds(bool b);
     void SetBackwardFit(bool b);
+    void SetBackwardSearch(bool b);
     void SetRemoveDuplicates(bool b);
     void SetUseDeadModules(bool b);
     void SetUseV2p2(bool b);
@@ -260,6 +261,10 @@ namespace mkfit {
     int m_it_index = 0;
     bool m_clean_seeds = true;
     bool m_backward_fit = true;
+    // Gates the backward SEARCH only; the backward FIT is m_backward_fit above.
+    // Initialised from Config::backwardSearch (--no-backward-search), which this
+    // path used to ignore -- see ProcessEvent().
+    bool m_backward_search = true;
     bool m_remove_duplicates = true;
 
     using map_t = std::map<int, Track *>;

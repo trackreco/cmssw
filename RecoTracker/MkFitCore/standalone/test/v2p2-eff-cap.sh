@@ -14,14 +14,20 @@ cd /foo/matevz/mic-dev/current/src/standalone
 unset DISPLAY
 export LD_LIBRARY_PATH=.
 N=${1:-30}
-SAMPLE=${2:-/foo/matevz/mic-dev/ttbar-PU200-D121-C22-100ev.bin}
+SAMPLE=${2:-/foo/matevz/mic-dev/ttbar-PU200-D121-C22-100ev-rt.bin}
 OUT=${3:-eff-cap}
 T=../RecoTracker/MkFitCore/standalone/test
 
-# --read-cmssw-tracks costs nothing when the section is absent (mkFit says so and
-# carries on), and when it is present it gives the PRODUCTION reference: whatever
-# tracking the job that wrote the ntuple ran, which for these samples is mkFit V1
-# with prop-to-plane and selectHitIndicesV2.
+# --read-cmssw-tracks gives the PRODUCTION reference: whatever tracking the job
+# that wrote the ntuple ran, which for these samples is mkFit V1 with
+# prop-to-plane and selectHitIndicesV2.
+#
+# IT REQUIRES THE '-rt' SAMPLE, hence the default above. An earlier comment here
+# claimed the flag costs nothing when the section is absent; it does not --
+# DataFile::openRead() prints "Reading of CmsswTracks requested but data not
+# available on file." and calls exit(1) (Event.cc:1320). The plain
+# ttbar-PU200-D121-C22-100ev.bin carries Seeds + BeamSpot + SimHitStates and no
+# CmsswTracks, so it aborts before the first event.
 CMD=(./mkFit --geom CMS-phase2 --seed-input cmssw --read-cmssw-tracks --input-file "$SAMPLE"
      --num-events "$N" --num-thr 1 --build-mimi --build-mimi-v2p2 --shell
      --shell-command 'gROOT->SetBatch(kTRUE)'
