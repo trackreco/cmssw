@@ -32,50 +32,6 @@ namespace mkfit {
 
   //==============================================================================
 
-  void MkBins::prop_to_limits(const LayerInfo &li) {
-    // Positions 1 and 2 should really be by "propagation order", 1 is the closest/
-    // This should also work for backward propagation so not exactly trivial.
-    // Also, do not really need propagation to center. Well, to be checked, and
-    // to figure out error scaling factors / correction functions.
-    m_is_barrel = li.is_barrel();
-    if (m_is_barrel) {
-      m_isp.propagate_to_r(mp::PA_Exact, li.rin(), m_sp1, true, m_n_proc);
-      m_isp.propagate_to_r(mp::PA_Exact, li.rout(), m_sp2, true, m_n_proc);
-    } else {
-      m_isp.propagate_to_z(mp::PA_Exact, li.zmin(), m_sp1, true, m_n_proc);
-      m_isp.propagate_to_z(mp::PA_Exact, li.zmax(), m_sp2, true, m_n_proc);
-    }
-  }
-
-  void MkBins::prop_to_limits(const MkRZLimits &ls) {
-    // Implementation for MkFinderV2p2.
-    // m_isp is at the previous hit.
-
-    // Need inward/outward hint. Also, could move m_isp to the first stop / edge.
-    // Also, propagate to outer from the inward, not from the initial, now that
-    // is not in the center o the layer (though this might need to be fixed, esp if we
-    // apply the material there -- as we really should, at least in sub-det transitions where
-    // majority of services are).
-    // But then we need to calc dq_track, dphi_track before.
-
-    m_is_barrel = ls.m_is_barrel;
-    if (m_is_barrel) {
-      m_isp.propagate_to_r(mp::PA_Exact, ls.m_rin, m_sp1, true, m_n_proc);
-      m_isp = m_sp1;
-      m_isp.propagate_to_r(mp::PA_Exact, 0.5f * (ls.m_rin + ls.m_rout), m_sp2, true, m_n_proc);
-      m_isp = m_sp2;
-      // m_isp is now at the layer center ... for checks etc ... can skip it later.
-      m_isp.propagate_to_r(mp::PA_Exact, ls.m_rout, m_sp2, true, m_n_proc);
-    } else {
-      m_isp.propagate_to_z(mp::PA_Exact, ls.m_zmin, m_sp1, true, m_n_proc);
-      m_isp = m_sp1;
-      m_isp.propagate_to_z(mp::PA_Exact, 0.5f * (ls.m_zmin + ls.m_zmax), m_sp2, true, m_n_proc);
-      m_isp = m_sp2;
-      // m_isp is now at the layer center ... for checks etc ... can skip it later.
-      m_isp.propagate_to_z(mp::PA_Exact, ls.m_zmax, m_sp2, true, m_n_proc);
-    }
-  }
-
   void MkBins::prop_to_limits_in_order(const MkRZLimits &ls) {
     // The second implementation for MkFinderV2p2.
     // m_isp is at the previous hit.
@@ -134,7 +90,7 @@ namespace mkfit {
           m_phi_delta[ii] = Const::TwoPI - m_phi_delta[ii];
           m_phi_center[ii] = Const::PI - m_phi_center[ii];
         }
-        m_phi_delta *= 0.5f;
+        m_phi_delta[ii] *= 0.5f;
         // printf("phi_c: %f  p1: %f  p2: %f   m_phi_min: %f  m_phi_max: %f   dphi: %f\n",
         //       m_phi_center[ii], xp1[ii], xp2[ii], m_phi_min[ii], m_phi_max[ii], m_phi_delta[ii]);
       }
@@ -302,31 +258,6 @@ namespace mkfit {
         int qe = (int)qr.end   + Window::q_extra_bins;
         bl.q1[i] = (unsigned short)(qb < 0 ? 0 : qb);
         bl.q2[i] = (unsigned short)(qe > nq ? nq : qe);
-      }
-    }
-  }
-
-  // V2's bin ranges exactly as upstream CMSSW computes them, so that production V2
-  // does not move when the v2p2 window changes. Two properties are deliberately
-  // PRESERVED rather than fixed, because fixing them changes production behaviour
-  // and belongs in its own validated change:
-  //   - the upper phi edge carries no "+1", so with the half-open [p1, p2) scan
-  //     the bin holding it is never scanned; PHI_BIN_EXTRA_FAC = 2.75 half-bins
-  //     is wide enough to hide that (measured: free at one bin of margin);
-  //   - the margins are keyed on the bin width, not on V2's own cut.
-  // V2's cut is dq_track + DDQ_PRESEL_FAC * hit_q_half_length and
-  // dphi_track + DDPHI_PRESEL_FAC * HIT_PHI_HALF_EXTENT (MkFinder.cc).
-  void MkBins::find_bin_ranges_v2(const LayerOfHits &loh, MkBinLimits &bl) {
-    for (int i = 0; i < NN; ++i) {
-      if (i < m_n_proc) {
-        const float dphi = m_dphi_track[i] + PHI_BIN_EXTRA_FAC * HIT_PHI_HALF_EXTENT;
-        bl.p1[i] = loh.phiBinChecked(m_phi_min[i] - dphi);
-        bl.p2[i] = loh.phiBinChecked(m_phi_max[i] + dphi);
-
-        const float dq = m_dq_track[i] + Q_BIN_EXTRA_FAC * 0.5f * loh.layer_info().q_bin();
-        bl.q0[i] = loh.qBinChecked(m_q_center[i]);
-        bl.q1[i] = loh.qBinChecked(m_q_min[i] - dq);
-        bl.q2[i] = loh.qBinChecked(m_q_max[i] + dq) + 1;
       }
     }
   }

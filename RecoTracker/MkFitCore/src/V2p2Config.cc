@@ -5,15 +5,13 @@
 #define MKFIT_V2P2_CONFIG_DEFINE
 #include "RecoTracker/MkFitCore/src/V2p2Config.h"
 
-#include "RecoTracker/MkFitCore/src/MkBins.h"
-
 #if defined(MKFIT_STANDALONE)
 
 namespace mkfit::Config::V2p2 {
 
   void set_extra_dq(float f) {
     Window::dq_trk_fac = f;
-    Window::dq_hit_fac = f * MkBins::DDQ_PRESEL_FAC;
+    Window::dq_hit_fac = f * 1.2f;  // the old EXTRA_DQ ratio
   }
 
 }  // namespace mkfit::Config::V2p2

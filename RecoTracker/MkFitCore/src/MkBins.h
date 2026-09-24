@@ -52,29 +52,6 @@ namespace mkfit {
   //============================================================================
 
   struct MkBins {
-    // V2 (MkFinder::selectHitIndicesV2) constants, as in upstream CMSSW. The
-    // v2p2 window is configured in V2p2Config.h.
-    static constexpr float DDPHI_PRESEL_FAC = 2.0f;
-    static constexpr float DDQ_PRESEL_FAC = 1.2f;
-    // V2's fetch margins, as in upstream CMSSW; see find_bin_ranges_v2().
-    static constexpr float PHI_BIN_EXTRA_FAC = 2.75f;
-    static constexpr float Q_BIN_EXTRA_FAC = 1.6f;
-
-    // MISNAMED -- this is HALF A PHI BIN, a binning granule and not a property
-    // of any hit. The phi axis is axis_pow2_u1<float, bin_index_t, 16, 8>
-    // (HitStructures.h): 256 bins over 2pi, width 0.024544 rad, half of which is
-    // 0.012272. The per-hit phi extent derived from the covariance is
-    // LayerOfHits::hit_phi_half_extent(); for a TB2S strip it is ~4e-5 rad,
-    // about 300x smaller than this.
-    //
-    // Remaining consumers: V2 -- its cut in MkFinder.cc and its upstream fetch
-    // in find_bin_ranges_v2(). Config::V2p2::Window::dphi_flat_rad defaults to
-    // twice this value. The name is kept for V2.
-    static constexpr float HIT_PHI_HALF_EXTENT = 0.0123f;
-
-    // V2 pqueue cap. v2p2 uses Config::V2p2::InLayer::max_presel_hits.
-    static constexpr int NEW_MAX_HIT = 6;  // 4 - 6 give about the same # of tracks in quality-val
-
     mini_propagators::InitialStatePlex m_isp;
     mini_propagators::StatePlex m_sp1, m_sp2;
 
@@ -103,19 +80,13 @@ namespace mkfit {
       m_isp(par, chg), m_n_proc(n_proc)//zz , m_is_barrel(is_barrel)
     {}
 
-    void prop_to_limits(const LayerInfo &li);
-    void prop_to_limits(const MkRZLimits &ls);
-
     void prop_to_limits_in_order(const MkRZLimits &ls);
 
     void determine_bin_windows(const MkBinTrackCovExtract &cov_ex);
     void surface_reference_dq(const MkBinTrackCovExtract &cov_ex);
 
-    // MkFinderV2p2: fetch derived from the v2p2 cut, Config::V2p2::Window.
+    // Fetch derived from the v2p2 cut, Config::V2p2::Window.
     void find_bin_ranges(const LayerOfHits &loh, MkBinLimits &bl);
-    // MkFinder::selectHitIndicesV2: the fetch V2 has in upstream CMSSW, kept
-    // verbatim so production V2 is unchanged by the v2p2 window work.
-    void find_bin_ranges_v2(const LayerOfHits &loh, MkBinLimits &bl);
 
   };
 
