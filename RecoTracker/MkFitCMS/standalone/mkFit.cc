@@ -541,10 +541,17 @@ int main(int argc, const char* argv[]) {
           "                           iteration config, forward AND backward (def: from the geometry)\n"
           "  --v2p2-extra-dq <float>  MkFinderV2p2 pre-selection: LEGACY compound knob, sets both dq\n"
           "                           factors in the old ratio (dq_trk_fac def: %.2f)\n"
+          "  --v2p2-dq-trk <float>    MkFinderV2p2 pre-selection: factor on the dq TRACK term,\n"
+          "                           itself 3 sigma (def: %.2f)\n"
+          "  --v2p2-dq-hit <float>    MkFinderV2p2 pre-selection: factor on hit_q_half_length, the\n"
+          "                           q CONTAINMENT term; geometric floor 1.0 (def: %.2f)\n"
+          "  --v2p2-phi-per-hit <float>  MkFinderV2p2 pre-selection: replace the flat phi tolerance\n"
+          "                           by this factor times the hit's own phi extent; 0 keeps the\n"
+          "                           flat constant (def: %.2f, %s)\n"
           "  --v2p2-dphi-trk <float>  MkFinderV2p2 pre-selection: factor on the dphi TRACK term,\n"
           "                           applied in the cut AND in the binnor range (def: %.2f)\n"
           "  --v2p2-hit-dphi <float>  MkFinderV2p2 pre-selection: the flat per-hit phi tolerance in\n"
-          "                           RADIANS; the fetch range follows it (def: %.5f)\n"
+          "                           RADIANS, used only with --v2p2-phi-per-hit 0 (def: %.5f)\n"
           "  --v2p2-phi-extra-bins <n>  MkFinderV2p2: fetch margin beyond the cut, in whole phi\n"
           "                           bins (def: %d)\n"
           "  --input-file             file name for reading (def: %s)\n"
@@ -743,6 +750,10 @@ int main(int argc, const char* argv[]) {
           b2a(Config::silent),
           Config::finderReportBestOutOfN,
           mkfit::g_v2p2_dq_trk_fac,
+          mkfit::g_v2p2_dq_trk_fac,
+          mkfit::g_v2p2_dq_hit_fac,
+          mkfit::g_v2p2_dphi_hit_fac,
+          mkfit::g_v2p2_phi_per_hit ? "on" : "off",
           mkfit::g_v2p2_dphi_trk_fac,
           mkfit::g_v2p2_hit_dphi_rad,
           mkfit::g_v2p2_phi_extra_bins,
@@ -873,6 +884,18 @@ int main(int argc, const char* argv[]) {
     } else if (*i == "--v2p2-extra-dq") {
       next_arg_or_die(mArgs, i);
       mkfit::set_extra_dq((float) atof(i->c_str()));
+    } else if (*i == "--v2p2-dq-trk") {
+      next_arg_or_die(mArgs, i);
+      mkfit::g_v2p2_dq_trk_fac = (float) atof(i->c_str());
+    } else if (*i == "--v2p2-dq-hit") {
+      next_arg_or_die(mArgs, i);
+      mkfit::g_v2p2_dq_hit_fac = (float) atof(i->c_str());
+    } else if (*i == "--v2p2-phi-per-hit") {
+      next_arg_or_die(mArgs, i);
+      const float f = (float) atof(i->c_str());
+      mkfit::g_v2p2_phi_per_hit = f > 0.0f;
+      if (f > 0.0f)
+        mkfit::g_v2p2_dphi_hit_fac = f;
     } else if (*i == "--v2p2-dphi-trk") {
       next_arg_or_die(mArgs, i);
       mkfit::g_v2p2_dphi_trk_fac = (float) atof(i->c_str());
