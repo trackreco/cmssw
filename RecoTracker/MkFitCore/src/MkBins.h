@@ -61,14 +61,10 @@ namespace mkfit {
   extern float g_v2p2_dphi_trk_fac;   // factor on dphi_track, cut AND fetch
   extern float g_v2p2_hit_dphi_rad;   // the cut tolerance itself, radians
   extern int   g_v2p2_phi_extra_bins; // fetch safety margin, whole bins
-  // Transitional: reinstate the old hand-rolled range, for A/B only.
-  extern bool  g_v2p2_phi_legacy_range;
-  extern float g_v2p2_q_bin_extra_fac;  // LEGACY q fetch margin, in half-q_bins
   // The split dq cut; the q fetch is DERIVED from these, as phi's is from its own.
   extern float g_v2p2_dq_trk_fac;     // multiplies dq_track (itself 3 sigma)
   extern float g_v2p2_dq_hit_fac;     // multiplies hit_q_half_length; floor 1.0
   extern int   g_v2p2_q_extra_bins;   // fetch margin beyond the cut, whole q bins
-  extern bool  g_v2p2_q_legacy_range; // transitional: old fetch, for A/B only
   // PER-HIT phi extent from the covariance, instead of the flat half-bin
   // constant. When on, g_v2p2_dphi_hit_fac multiplies it and has the same
   // geometric meaning as g_v2p2_dq_hit_fac: a FLOOR OF 1.0 contains the hit's
@@ -78,13 +74,27 @@ namespace mkfit {
 
   struct MkBins {
     // To become members ... or go into a helper struct / config.
-    // Per-hit phi tolerance of the pre-selection cut, in RADIANS, flat and
-    // detector-wide. Equals one phi bin at N = 8 by accident of history, not by
+    // THE dphi CUT. The hit term is the hit's own phi extent, derived from its
+    // covariance (LayerOfHits::hit_phi_half_extent(), the phi counterpart of
+    // hit_q_half_length()), times DPHI_HIT_FAC:
+    //
+    //   ddphi < DPHI_TRK_FAC * dphi_track + DPHI_HIT_FAC * hit_phi_half_extent
+    //
+    // The per-hit extent is ~4e-5 rad in TB2S, so the cut is carried by the
+    // track term, and DPHI_TRK_FAC = 2 is what makes that work: 1.0 loses 41
+    // found tracks forward and 582 fully recovered chopped pT5 tracks inward,
+    // 1.75 is the lowest free value forward, and 2.0 is free in both directions
+    // and reproduces the flat constant to the unit inward. Above |eta| 0.8 the 2
+    // also compensates a phi covariance measured 2.2-3.4x short (the material
+    // model in the transition and forward region); at central eta, where the
+    // covariance is within 1.25 of right, it is containment.
+    static constexpr bool  PHI_PER_HIT  = true;
+    static constexpr float DPHI_TRK_FAC = 2.0f;
+    static constexpr float DPHI_HIT_FAC = 3.0f;
+
+    // Flat phi tolerance, in RADIANS, used only with the per-hit extent
+    // switched off. Equals one phi bin at N = 8 by accident of history, not by
     // design -- see the note on HIT_PHI_HALF_EXTENT below.
-    // TODO: this wants to be PER HIT, from the hit covariance -- the phi
-    // counterpart of LayerOfHits::hit_q_half_length(), which does not exist.
-    // Measured: it can be tightened 4x for free, which is what using a binning
-    // granule as a resolution looks like.
     static constexpr float PHI_PRESEL_TOLERANCE = 2.0f * 0.0123f;
 
     // Safety margin the BINNOR adds beyond what the cut can accept, in WHOLE
@@ -111,71 +121,30 @@ namespace mkfit {
     //               to contain. (In the old compound units that floor was the
     //               opaque 1/1.2 = 0.833.)
     //
-    // Defaults reproduce EXTRA_DQ = 1.5, the value measured on 2026-09-23.
+    // DQ_TRK_FAC is EXTRA_DQ = 1.5 in the old units. DQ_HIT_FAC sits 20 % above
+    // its floor: taking it from 1.8 (the old ratio) to 1.2 is worth 3-6 % of
+    // build time and is a physics null both ways -- forward -3 found tracks and
+    // -15 fakes, inward +55 recovered chopped hits.
     static constexpr float DQ_TRK_FAC = 1.5f;
-    static constexpr float DQ_HIT_FAC = 1.8f;   // 1.5 * the old DDQ_PRESEL_FAC
+    static constexpr float DQ_HIT_FAC = 1.2f;
 
     // Fetch margin beyond what the cut accepts, in WHOLE q bins on the index.
     static constexpr int Q_EXTRA_BINS = 1;
 
     static constexpr float DDPHI_PRESEL_FAC = 2.0f;
     static constexpr float DDQ_PRESEL_FAC = 1.2f;
-    static constexpr float PHI_BIN_EXTRA_FAC = 2.75f;
-    static constexpr float Q_BIN_EXTRA_FAC = 1.6f;
 
-    // MISNAMED, and the name has caused trouble -- read this before using it.
+    // MISNAMED -- this is HALF A PHI BIN, a binning granule and not a property
+    // of any hit. The phi axis is axis_pow2_u1<float, bin_index_t, 16, 8>
+    // (HitStructures.h): 256 bins over 2pi, width 0.024544 rad, half of which is
+    // 0.012272. The per-hit phi extent derived from the covariance is
+    // LayerOfHits::hit_phi_half_extent(); for a TB2S strip it is ~4e-5 rad,
+    // about 300x smaller than this.
     //
-    // This is HALF A PHI BIN, chosen as such: the phi axis is
-    // axis_pow2_u1<float, bin_index_t, 16, 8> (HitStructures.h), i.e. 256 bins
-    // over 2pi, width 0.024544 rad, half of which is 0.012272. It is a BINNING
-    // granule, not a property of a hit, and an earlier commit here naming it
-    // "hit phi half extent" and calling it the phi-side counterpart of
-    // LayerOfHits::hit_q_half_length() was wrong -- hit_q_half_length IS derived
-    // per hit from the covariance, and this is not derived from anything.
-    //
-    // It has two consumers and only ONE of them is legitimately a bin quantity:
-    //
-    //   PHI_BIN_EXTRA_FAC, the binnor range (MkBins.cc) -- CORRECT unit. Read
-    //     the factor as "bins of margin": 2.75 is 1.38 bins. Measured floor is
-    //     1.00 bins, and that whole bin is paying for a missing "+1"; see
-    //     g_v2p2_phi_bin_fix in MkBins.cc.
-    //
-    //   DDPHI_PRESEL_FAC, the per-hit pre-selection cut (MkFinderV2p2, and the
-    //     V2 path in MkFinder.cc) -- WRONG quantity. A bin granule is not a
-    //     resolution. What belongs there is the hit's own phi extent from its
-    //     covariance, the counterpart to hit_q_half_length that does not exist
-    //     yet. Measured symptom: the cut can be tightened 4x for free.
-    //
-    // Was an unnamed 0.0123f literal repeated in five places.
-    //
-    // What the phi extent of a strip hit actually is: the module frame has xdir
-    // perpendicular to the strips (i.e. essentially azimuthal), ydir along the
-    // strips and zdir along the normal -- so ydir and zdir both lie in the (r,z)
-    // plane. Consequently the strip *length* contributes to z and r but **nothing
-    // to phi**, and the only phi extent is the across-strip pitch term. For a TOB
-    // 2S strip at r = 69 cm with 90 um pitch that is sigma_phi ~ 1.3e-4 rad. So
-    // for the CUT the right value is ~200x smaller than a bin, and comparing the
-    // two is comparing a resolution with a binning granule -- which is why the
-    // scan finds 4x of slack and why a per-hit phi extent is the real fix.
-    // Measured: moving the cut costs no efficiency in either direction, so this
-    // is a speed and correctness-of-naming item, not an efficiency one. See
-    // RecoTracker/CLAUDE.md for the full q/phi extraction cross-check.
+    // Remaining consumers: PHI_PRESEL_TOLERANCE above, used by MkFinderV2p2 only
+    // with the per-hit extent switched off, and the V2 path in MkFinder.cc, which
+    // has no per-hit extent. The name is kept because MkFinder.cc uses it.
     static constexpr float HIT_PHI_HALF_EXTENT = 0.0123f;
-
-    // Runtime overrides for the three dphi factors, so the phi side can be
-    // scanned the way EXTRA_DQ was. Defaults reproduce the constants above
-    // exactly. Deliberately THREE knobs and not one: the dq scan showed that a
-    // single factor over both terms of a cut cannot be interpreted, because
-    // which term binds is a property of the layer.
-    //
-    //   g_v2p2_dphi_trk_fac  multiplies m_dphi_track, in the CUT and the BINNOR
-    //   g_v2p2_hit_dphi_fac  replaces DDPHI_PRESEL_FAC, in the CUT
-    //   g_v2p2_bin_dphi_fac  replaces PHI_BIN_EXTRA_FAC, in the BINNOR
-    //
-    // The binnor pair is not optional bookkeeping: the cut can only reject hits
-    // the binnor already fetched, so raising hit_dphi_fac above bin_dphi_fac, or
-    // dphi_trk_fac above 1 without the binnor following, is a silent NO-OP and
-    // the resulting flatness is an artefact of the fetch, not physics.
 
     static constexpr int NEW_MAX_HIT = 6;  // 4 - 6 give about the same # of tracks in quality-val
 

@@ -14,7 +14,8 @@
 # measured on the chopped-pT5 INWARD search in the best-hit era, i.e. a different
 # direction, a different sample and a different algorithm.
 #
-# Paired: same events, same seeds, one val_extra_dq() call apart.
+# Paired: same events, same seeds, one val_extra_dq() call apart. The phi window
+# is pinned to the flat constant it was recorded with, since the default moved.
 #
 #   usage:  v2p2-eff-dq.sh [n_events] [sample] [out_prefix]
 set -e
@@ -30,6 +31,8 @@ CMD=(./mkFit --geom CMS-phase2 --seed-input cmssw --read-cmssw-tracks --input-fi
      --num-events "$N" --num-thr 1 --build-mimi --build-mimi-v2p2 --shell
      --shell-command 'gROOT->SetBatch(kTRUE)'
      --shell-command "gROOT->ProcessLine(\".L $T/val-prop.C\")"
+     --shell-command 'val_phi_per_hit(false, 1.0)'
+     --shell-command 'val_dphi(1.0, 0.0246, 1)'
      --shell-command 'val_eff_reset()'
      --shell-command "val_eff_ref(\"dq${DQREF:-3.0}\")")
 

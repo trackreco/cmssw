@@ -1408,22 +1408,12 @@ namespace mkfit {
     }
   }
 
-  void val_q_legacy_range(bool b) {
-    g_v2p2_q_legacy_range = b;
-    printf("val_q_legacy_range: %s\n", b ? "true (OLD, fetch keyed on bin width)" : "false (derived from cut)");
-  }
-
-  // The dphi side of the same cut. THREE factors, not one: the dq scan showed a
-  // single factor over both terms of a cut cannot be interpreted, since which
-  // term binds is a property of the layer. And the binnor factor is not optional
-  // -- the cut can only reject hits the binnor already fetched, so raising
-  // hit_fac above bin_fac (or trk_fac above 1 without the binnor following) is a
-  // silent no-op that looks like flatness.
   // Phi pre-selection. The fetch range is DERIVED from the cut, so there is no
   // way to ask for a cut wider than the fetch -- the failure mode that made the
   // first version of this scan flatline for a non-physics reason.
   //   trk_fac    factor on dphi_track, applied to cut AND fetch
-  //   hit_rad    the flat per-hit tolerance, RADIANS (one phi bin = 0.024544)
+  //   hit_rad    the flat per-hit tolerance, RADIANS (one phi bin = 0.024544);
+  //              used only with the per-hit extent off, see val_phi_per_hit()
   //   extra_bins fetch safety margin beyond the cut, in WHOLE bins
   void val_dphi(float trk_fac, float hit_rad, int extra_bins) {
     g_v2p2_dphi_trk_fac   = trk_fac;
@@ -1431,17 +1421,6 @@ namespace mkfit {
     g_v2p2_phi_extra_bins = extra_bins;
     printf("val_dphi: trk_fac = %.3f  hit_rad = %.5f rad (%.3f bins)  extra_bins = %d\n",
            trk_fac, hit_rad, hit_rad / (2.0f * float(M_PI) / 256.0f), extra_bins);
-  }
-
-  void val_q_fetch(float fac) {
-    g_v2p2_q_bin_extra_fac = fac;
-    printf("val_q_fetch: Q_BIN_EXTRA_FAC = %.2f  (margin = %.2f * half-q_bin)\n", fac, fac);
-  }
-
-  // Transitional A/B against the old hand-rolled range (no "+1").
-  void val_phi_legacy_range(bool b) {
-    g_v2p2_phi_legacy_range = b;
-    printf("val_phi_legacy_range: %s\n", b ? "true (OLD, drops the top bin)" : "false (axis helper)");
   }
 
   // Per-hit surface reference, using the HIT'S OWN MODULE NORMAL. This is the

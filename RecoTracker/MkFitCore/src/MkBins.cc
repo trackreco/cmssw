@@ -17,35 +17,24 @@ namespace mkfit {
   // derived from the cut rather than tuned against it. That is what makes the
   // old failure mode -- a cut wider than the fetch, silently accepting nothing
   // extra -- impossible to express.
-  float g_v2p2_dphi_trk_fac   = 1.0f;
+  float g_v2p2_dphi_trk_fac   = MkBins::DPHI_TRK_FAC;
   float g_v2p2_hit_dphi_rad   = MkBins::PHI_PRESEL_TOLERANCE;
   int   g_v2p2_phi_extra_bins = MkBins::PHI_EXTRA_BINS;
 
-  // Transitional, for A/B against the old behaviour only. The old range was
-  // hand-rolled as a pair of phiBinChecked() calls with NO "+1", and the scan
-  // loops consume [p1, p2) half-open, so the bin holding the upper edge was
-  // never scanned -- on every range, not occasionally. PHI_BIN_EXTRA_FAC was
-  // carrying a whole spare bin to cover that: measured free at 1.00 bins of
-  // margin and lossy at 0.88. Delete this once the A/B is recorded.
-  bool  g_v2p2_phi_legacy_range = false;
-
-  // Q fetch margin, in units of half a q_bin -- i.e. Q_BIN_EXTRA_FAC, runtime.
-  // Exists to test whether the q side has the decoupling the phi side had: the
-  // CUT accepts EXTRA_DQ * DDQ_PRESEL_FAC * hit_q_half_length, which in TB2S at
-  // EXTRA_DQ = 3 is 9.05 cm, against a fetch margin of 1.6 * 0.5 * 6.0 = 4.8.
-  // If that is live, half the cut's reach was never fetched.
-  float g_v2p2_q_bin_extra_fac = MkBins::Q_BIN_EXTRA_FAC;
+  // The range used to be hand-rolled as a pair of phiBinChecked() calls with NO
+  // "+1", and the scan loops consume [p1, p2) half-open, so the bin holding the
+  // upper edge was never scanned -- on every range. A PHI_BIN_EXTRA_FAC of 2.75
+  // half-bins was carrying a whole spare bin to hide it. The axis helper behind
+  // LayerOfHits::phiRangeBins() has the correct form.
 
   float g_v2p2_dq_trk_fac   = MkBins::DQ_TRK_FAC;
   float g_v2p2_dq_hit_fac   = MkBins::DQ_HIT_FAC;
   int   g_v2p2_q_extra_bins = MkBins::Q_EXTRA_BINS;
-  bool  g_v2p2_q_legacy_range = false;
 
-  // Off by default: switching the phi cut from the flat half-bin constant to the
-  // hit's own covariance-derived extent is a ~380x tightening in TB2S, so it is
-  // measured before it is believed.
-  bool  g_v2p2_phi_per_hit  = false;
-  float g_v2p2_dphi_hit_fac = 1.0f;
+  // The hit's own covariance-derived phi extent, not the flat half-bin
+  // constant; see MkBins::PHI_PER_HIT for the measurement behind the defaults.
+  bool  g_v2p2_phi_per_hit  = MkBins::PHI_PER_HIT;
+  float g_v2p2_dphi_hit_fac = MkBins::DPHI_HIT_FAC;
 
   // Largest representable phi half-width: a hair under pi, since at pi the two
   // endpoints coincide and the arc degenerates to a point.
@@ -308,39 +297,23 @@ namespace mkfit {
                                  : g_v2p2_hit_dphi_rad;
         const float cut_dphi = std::min(g_v2p2_dphi_trk_fac * m_dphi_track[i] + phi_hit_term,
                                         kMaxHalfPhiWindow);
-        if (g_v2p2_phi_legacy_range) {
-          const float old_dphi = g_v2p2_dphi_trk_fac * m_dphi_track[i] +
-                                 PHI_BIN_EXTRA_FAC * HIT_PHI_HALF_EXTENT;
-          bl.p1[i] = loh.phiBinChecked(m_phi_min[i] - old_dphi);
-          bl.p2[i] = loh.phiBinChecked(m_phi_max[i] + old_dphi);
-        } else {
-          auto pr = loh.phiRangeBins(m_phi_min[i] - cut_dphi, m_phi_max[i] + cut_dphi);
-          bl.p1[i] = loh.phiMaskApply(pr.begin - g_v2p2_phi_extra_bins);
-          bl.p2[i] = loh.phiMaskApply(pr.end   + g_v2p2_phi_extra_bins);
-        }
+        auto pr = loh.phiRangeBins(m_phi_min[i] - cut_dphi, m_phi_max[i] + cut_dphi);
+        bl.p1[i] = loh.phiMaskApply(pr.begin - g_v2p2_phi_extra_bins);
+        bl.p2[i] = loh.phiMaskApply(pr.end   + g_v2p2_phi_extra_bins);
 
+        // Fetch exactly what the q cut can accept, using the layer's WORST-CASE
+        // hit extent since the per-hit one is not known until the hit is in
+        // hand, then extend by whole bins on the INDEX. The q axis is bounded,
+        // so the extension CLAMPS where the phi one wraps.
         bl.q0[i] = loh.qBinChecked(m_q_center[i]);
-        if (g_v2p2_q_legacy_range) {
-          // Old: margin keyed on the BIN WIDTH, unrelated to what the cut
-          // accepts. In TB2S that fetched 4.8 cm against a cut reaching 9.05 at
-          // EXTRA_DQ = 3 -- half the cut's reach was never pulled.
-          const float q_margin = m_dq_track[i] + g_v2p2_q_bin_extra_fac * 0.5f * loh.layer_info().q_bin();
-          bl.q1[i] = loh.qBinChecked(m_q_min[i] - q_margin);
-          bl.q2[i] = loh.qBinChecked(m_q_max[i] + q_margin) + 1;
-        } else {
-          // Fetch exactly what the cut can accept, using the layer's WORST-CASE
-          // hit extent since the per-hit one is not known until the hit is in
-          // hand, then extend by whole bins on the INDEX. The q axis is bounded,
-          // so the extension CLAMPS where the phi one wraps.
-          const float cut_dq = g_v2p2_dq_trk_fac * m_dq_track[i] +
-                               g_v2p2_dq_hit_fac * loh.max_hit_q_half_length();
-          auto qr = loh.qRangeBins(m_q_min[i] - cut_dq, m_q_max[i] + cut_dq);
-          const int nq = (int)loh.qNBins();
-          int qb = (int)qr.begin - g_v2p2_q_extra_bins;
-          int qe = (int)qr.end   + g_v2p2_q_extra_bins;
-          bl.q1[i] = (unsigned short)(qb < 0 ? 0 : qb);
-          bl.q2[i] = (unsigned short)(qe > nq ? nq : qe);
-        }
+        const float cut_dq = g_v2p2_dq_trk_fac * m_dq_track[i] +
+                             g_v2p2_dq_hit_fac * loh.max_hit_q_half_length();
+        auto qr = loh.qRangeBins(m_q_min[i] - cut_dq, m_q_max[i] + cut_dq);
+        const int nq = (int)loh.qNBins();
+        int qb = (int)qr.begin - g_v2p2_q_extra_bins;
+        int qe = (int)qr.end   + g_v2p2_q_extra_bins;
+        bl.q1[i] = (unsigned short)(qb < 0 ? 0 : qb);
+        bl.q2[i] = (unsigned short)(qe > nq ? nq : qe);
       }
     }
   }

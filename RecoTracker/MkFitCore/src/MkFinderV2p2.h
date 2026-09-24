@@ -25,8 +25,9 @@ namespace mkfit {
   //                      chi2 < 30 acceptance cut.
   extern bool g_v2p2_force_mc;
   // The OLD compound dq knob, kept as a setter so recorded scans reproduce: it
-  // writes g_v2p2_dq_trk_fac and g_v2p2_dq_hit_fac in the old ratio. Prefer the
-  // two factors directly -- see MkBins.h.
+  // writes g_v2p2_dq_trk_fac and g_v2p2_dq_hit_fac in the old 1 : 1.2 ratio. That
+  // ratio is NOT the default any more (1.5 : 1.2), so no argument reproduces the
+  // defaults. Prefer the two factors directly -- see MkBins.h.
   void set_extra_dq(float f);
   // Reference the pre-selection q error to the HIT'S OWN MODULE PLANE. Exact for
   // tilted and flat layers alike -- see MkFinderV2p2.cc.

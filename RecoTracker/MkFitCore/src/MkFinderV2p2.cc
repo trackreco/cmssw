@@ -66,7 +66,8 @@ namespace mkfit {
   // g_v2p2_dq_hit_fac; see MkBins.h for why one compound factor could not be
   // interpreted. set_extra_dq() below preserves the OLD compound knob so the
   // recorded scans (--v2p2-extra-dq, val_extra_dq, test/v2p2-*-dq.sh) stay
-  // reproducible: it writes the two factors in the old 1 : DDQ_PRESEL_FAC ratio.
+  // reproducible: it writes the two factors in the old 1 : DDQ_PRESEL_FAC ratio,
+  // which the current defaults (DQ_TRK_FAC 1.5, DQ_HIT_FAC 1.2) do not follow.
   void set_extra_dq(float f) {
     g_v2p2_dq_trk_fac = f;
     g_v2p2_dq_hit_fac = f * MkBins::DDQ_PRESEL_FAC;
