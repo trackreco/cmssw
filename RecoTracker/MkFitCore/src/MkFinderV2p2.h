@@ -24,8 +24,12 @@ namespace mkfit {
   // Did the per-layer policy actually fire? quality-val cannot answer that: a cut
   // that never fires and a cut that fires on candidates which were doomed anyway
   // both show up as "no change". Atomic because the search runs one finder per
-  // thread; summed over threads and events, printed and reset by mkFit.cc
-  // alongside the quality-val summary.
+  // thread; summed over threads and events, and printed by mkFit.cc with the
+  // quality-val summary.
+  //
+  // Standalone only. The finder increments them through V2P2_COUNT() and
+  // V2P2_COUNT_ADD(), which expand to nothing in the CMSSW build.
+#if defined(MKFIT_STANDALONE)
   struct V2p2PolicyCounters {
     std::atomic<long> n_quadrant_skip{0};  // pull-in: coarse rz check said the layer is behind us
     std::atomic<long> n_stop_minpt{0};     // pull-in: pT below minPtCut
@@ -64,6 +68,13 @@ namespace mkfit {
     void print(const char *tag) const;
   };
   extern V2p2PolicyCounters g_v2p2_policy_counters;
+
+#define V2P2_COUNT(field) (++g_v2p2_policy_counters.field)
+#define V2P2_COUNT_ADD(field, n) (g_v2p2_policy_counters.field += (n))
+#else
+#define V2P2_COUNT(field) ((void)0)
+#define V2P2_COUNT_ADD(field, n) ((void)0)
+#endif
 
   class FindingFoos;
   class IterationParams;

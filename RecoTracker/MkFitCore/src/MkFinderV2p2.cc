@@ -23,12 +23,8 @@ namespace mkfit {
 
   using namespace Config::V2p2;
 
-  // Per-layer policy counters. These say whether a mechanism FIRED, which is a
-  // different question from whether it changed the physics -- a cut that costs
-  // nothing because it never fires and a cut that costs nothing because it fires
-  // and the candidate was doomed anyway look identical in quality-val. Summed
-  // over threads and events; mkFit.cc prints and resets them with the quality-val
-  // summary.
+#if defined(MKFIT_STANDALONE)
+  // Per-layer policy counters, see MkFinderV2p2.h.
   V2p2PolicyCounters g_v2p2_policy_counters;
 
   void V2p2PolicyCounters::reset() {
@@ -84,6 +80,7 @@ namespace mkfit {
              (double)(n_kalman_lanes - n_kalman_lanes_d0) / (n_kalman_calls - n_kalman_calls_d0) : 0.0,
            (long)(n_kalman_calls - n_kalman_calls_d0));
   }
+#endif
 
   //------------------------------------------------------------------------------
   // Setup variables for full processing of a batch of CombCanditates
@@ -210,7 +207,7 @@ namespace mkfit {
         // below landed on a temporary and the list element kept -1. Harmless
         // while those three MKFIT_STANDALONE fields are write-only, silently
         // wrong the moment they are wired into the trace.
-        auto &ccrep = m_active_ccreps.emplace_back(ccand);
+        [[maybe_unused]] auto &ccrep = m_active_ccreps.emplace_back(ccand);
         dprintf("MkFinderV2p2::awaken_candidates dummy printout N_TrackCands=%d\n",
                (int) ccand.size());
         ++count;
@@ -402,8 +399,10 @@ namespace mkfit {
         if (sr != TrackCand::SR_NotStopped) {
           tcand.setStopReason(sr);
           tcand.addHitIdx(Hit::kHitStopIdx, m_rz_limits.layer_info_1().layer_id(), 0.0f);
-          ++(sr == TrackCand::SR_MinPt ? g_v2p2_policy_counters.n_stop_minpt
-                                       : g_v2p2_policy_counters.n_stop_looper);
+          if (sr == TrackCand::SR_MinPt)
+            V2P2_COUNT(n_stop_minpt);
+          else
+            V2P2_COUNT(n_stop_looper);
           continue;
         }
       }
@@ -418,7 +417,7 @@ namespace mkfit {
       // with a much coarser test.
 
       if ( ! m_rz_limits.rz_quadrant_check(tcand.z(), tcand.pz())) {
-        ++g_v2p2_policy_counters.n_quadrant_skip;
+        V2P2_COUNT(n_quadrant_skip);
         continue;
       }
 
@@ -478,7 +477,7 @@ namespace mkfit {
         }
         if (is_finished) {
           cc.setState(CombCandidate::Finished);
-          ++g_v2p2_policy_counters.n_ccand_retired;
+          V2P2_COUNT(n_ccand_retired);
         }
       }
       if (is_finished) {
@@ -916,13 +915,13 @@ namespace mkfit {
       prim_tcand_ptrs[i]->m_wsr = w;
 
       switch (w.m_wsr) {
-        case WSR_Inside:  ++g_v2p2_policy_counters.n_wsr_inside;  break;
-        case WSR_Edge:    ++g_v2p2_policy_counters.n_wsr_edge;    break;
-        case WSR_Outside: ++g_v2p2_policy_counters.n_wsr_outside; break;
+        case WSR_Inside:  V2P2_COUNT(n_wsr_inside);  break;
+        case WSR_Edge:    V2P2_COUNT(n_wsr_edge);    break;
+        case WSR_Outside: V2P2_COUNT(n_wsr_outside); break;
         default: break;
       }
       if (w.m_in_gap)
-        ++g_v2p2_policy_counters.n_wsr_in_gap;
+        V2P2_COUNT(n_wsr_in_gap);
 
       dprintf("%d: WSR %d in_gap %d  (q %.3f - %.3f vs layer %.3f - %.3f, dq3 %.4f, fail %d/%d)\n",
               i, w.m_wsr, (int) w.m_in_gap, B.m_q_min[i], B.m_q_max[i], q_lo, q_hi,
@@ -1621,7 +1620,7 @@ namespace mkfit {
       // "skip the layer" has to mean.
       if (Policy::use_wsr && ptc.m_wsr.m_wsr == WSR_Outside) {
         dprintf("Outside to tcand %d, layer skipped\n", i);
-        ++g_v2p2_policy_counters.n_layer_skipped;
+        V2P2_COUNT(n_layer_skipped);
         continue;
       }
 
@@ -1678,10 +1677,10 @@ namespace mkfit {
         const int fake_hit_idx = fake_hit_index(tc, ptc.m_wsr);
         dprintf("Missed to tcand %d, fake_hit_idx=%d\n", i, fake_hit_idx);
         switch (fake_hit_idx) {
-          case Hit::kHitMissIdx:  ++g_v2p2_policy_counters.n_hole;      break;
-          case Hit::kHitEdgeIdx:  ++g_v2p2_policy_counters.n_hot_edge;  break;
-          case Hit::kHitInGapIdx: ++g_v2p2_policy_counters.n_hot_gap;   break;
-          case Hit::kHitStopIdx:  ++g_v2p2_policy_counters.n_stop_holes; break;
+          case Hit::kHitMissIdx:  V2P2_COUNT(n_hole);      break;
+          case Hit::kHitEdgeIdx:  V2P2_COUNT(n_hot_edge);  break;
+          case Hit::kHitInGapIdx: V2P2_COUNT(n_hot_gap);   break;
+          case Hit::kHitStopIdx:  V2P2_COUNT(n_stop_holes); break;
           default: break;
         }
         if (fake_hit_idx == Hit::kHitStopIdx)
@@ -1834,11 +1833,11 @@ namespace mkfit {
       // Lane occupancy, split by depth: depth 0 is the batch shape the best-hit
       // path always had, deeper ones are new and are the ones that could run
       // ragged. Breadth-first BY DEPTH exists so they do not.
-      ++g_v2p2_policy_counters.n_kalman_calls;
-      g_v2p2_policy_counters.n_kalman_lanes += koa.N_filled;
+      V2P2_COUNT(n_kalman_calls);
+      V2P2_COUNT_ADD(n_kalman_lanes, koa.N_filled);
       if ( ! koa.m_solve_plane) {
-        ++g_v2p2_policy_counters.n_kalman_calls_d0;
-        g_v2p2_policy_counters.n_kalman_lanes_d0 += koa.N_filled;
+        V2P2_COUNT(n_kalman_calls_d0);
+        V2P2_COUNT_ADD(n_kalman_lanes_d0, koa.N_filled);
         koa.compute_pars();   // propPar is an INPUT on the sPerp path, an output on the solve path
       }
       koa.do_kalman_stuff();
@@ -1870,7 +1869,7 @@ namespace mkfit {
     const int arena_at_entry = (int) m_sec_arena.size() - 0;   // set below, after harvest
     (void) arena_at_entry;
     auto [f_beg, f_end] = harvest_sec_nodes(b);
-    const int arena_batch_begin = f_beg;
+    [[maybe_unused]] const int arena_batch_begin = f_beg;
 
     // Depths 1 and up. The starting state is now a node's UPDATED state, for
     // which no crossing has been solved, so propagate-to-plane solves it.
@@ -1905,7 +1904,7 @@ namespace mkfit {
                           La.refHit(pqe.hit_orig_index).detIDinLayer();
           }
           if (same_module) {
-            ++g_v2p2_policy_counters.n_same_module_vetoed;
+            V2P2_COUNT(n_same_module_vetoed);
             continue;
           }
 
@@ -1921,11 +1920,11 @@ namespace mkfit {
       }
       flush();
       std::tie(f_beg, f_end) = harvest_sec_nodes(b);
-      g_v2p2_policy_counters.n_sec_deep += f_end - f_beg;
+      V2P2_COUNT_ADD(n_sec_deep, f_end - f_beg);
     }
 
     // Only this batch's share -- the arena now spans the whole layer.
-    g_v2p2_policy_counters.n_sec_nodes += (long) m_sec_arena.size() - arena_batch_begin;
+    V2P2_COUNT_ADD(n_sec_nodes, (long) m_sec_arena.size() - arena_batch_begin);
   }
 
   //----------------------------------------------------------------------------
@@ -1958,11 +1957,11 @@ namespace mkfit {
   // the in-flight accumulator, which is on one scale within a seed -- the only
   // comparison made here.
   void MkFinderV2p2::offer_best_short(CombCandidate &ccand, const TrackCand &tc) const {
-    ++g_v2p2_policy_counters.n_best_short_offered;
+    V2P2_COUNT(n_best_short_offered);
     if (ccand.refBestShortCand().combCandidate() == nullptr ||
         tc.score() > ccand.refBestShortCand().score()) {
       ccand.setBestShortCand(tc);
-      ++g_v2p2_policy_counters.n_best_short_taken;
+      V2P2_COUNT(n_best_short_taken);
     }
   }
 
@@ -2000,7 +1999,7 @@ namespace mkfit {
       // NOT a hole -- the track does not reach the layer, so there is nothing to
       // have missed, and it competes unchanged.
       if (Policy::use_wsr && ptc.m_wsr.m_wsr == WSR_Outside) {
-        ++g_v2p2_policy_counters.n_layer_skipped;
+        V2P2_COUNT(n_layer_skipped);
         m_sel.push_back({ptc.m_origin_tcand_index, -1, 0, false, tc.score()});
       } else {
         const int fake = fake_hit_index(tc, ptc.m_wsr);
@@ -2085,7 +2084,7 @@ namespace mkfit {
             best_decliner = k;
         if (best_decliner >= 0) {
           std::swap(m_sel[n_keep - 1], m_sel[best_decliner]);
-          ++g_v2p2_policy_counters.n_hole_slot_reserved;
+          V2P2_COUNT(n_hole_slot_reserved);
         }
       }
     }
@@ -2115,14 +2114,16 @@ namespace mkfit {
             // twice -- taking both treats one measurement as two independent
             // ones, which over-constrains the fit. Counted here before deciding
             // whether to forbid it.
+#if defined(MKFIT_STANDALONE)
             const SecTCandRep &pn = m_sec_arena[chain[c + 1]];
             const auto &Ln = mp_job->m_event_of_hits[n.m_hot.layer];
             const auto &Lp = mp_job->m_event_of_hits[pn.m_hot.layer];
             if (n.m_hot.layer == pn.m_hot.layer &&
                 Ln.refHit(n.m_hot.index).detIDinLayer() == Lp.refHit(pn.m_hot.index).detIDinLayer())
-              ++g_v2p2_policy_counters.n_same_module;
+              V2P2_COUNT(n_same_module);
             else
-              ++g_v2p2_policy_counters.n_diff_module;
+              V2P2_COUNT(n_diff_module);
+#endif
           }
 #ifdef MKFIT_TRACE
           int pid = nc.m_trace_state_id;
@@ -2137,15 +2138,15 @@ namespace mkfit {
 #endif
         }
         nc.setState(m_sec_arena[e.node_idx].m_state);
-        ++g_v2p2_policy_counters.n_path_taken;
+        V2P2_COUNT(n_path_taken);
         if (n_chain > 1)
-          g_v2p2_policy_counters.n_extra_hits += n_chain - 1;
+          V2P2_COUNT_ADD(n_extra_hits, n_chain - 1);
       } else if (e.add_fake) {
         switch (e.fake_hit) {
-          case Hit::kHitMissIdx:  ++g_v2p2_policy_counters.n_hole;       break;
-          case Hit::kHitEdgeIdx:  ++g_v2p2_policy_counters.n_hot_edge;   break;
-          case Hit::kHitInGapIdx: ++g_v2p2_policy_counters.n_hot_gap;    break;
-          case Hit::kHitStopIdx:  ++g_v2p2_policy_counters.n_stop_holes; break;
+          case Hit::kHitMissIdx:  V2P2_COUNT(n_hole);       break;
+          case Hit::kHitEdgeIdx:  V2P2_COUNT(n_hot_edge);   break;
+          case Hit::kHitInGapIdx: V2P2_COUNT(n_hot_gap);    break;
+          case Hit::kHitStopIdx:  V2P2_COUNT(n_stop_holes); break;
           default: break;
         }
         if (e.fake_hit == Hit::kHitStopIdx)
@@ -2175,9 +2176,9 @@ namespace mkfit {
       ccand.push_back(c);
     }
 
-    ++g_v2p2_policy_counters.n_selections;
-    g_v2p2_policy_counters.n_sel_entries += (long) m_sel.size();
-    g_v2p2_policy_counters.n_sel_kept += n_keep;
+    V2P2_COUNT(n_selections);
+    V2P2_COUNT_ADD(n_sel_entries, (long) m_sel.size());
+    V2P2_COUNT_ADD(n_sel_kept, n_keep);
   }
 
   // Sketch of the SECONDARY sub-layer pass, left from before the decision to do
