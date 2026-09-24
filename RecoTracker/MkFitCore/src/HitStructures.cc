@@ -8,6 +8,33 @@
 
 namespace mkfit {
 
+
+  // Half-extent of a hit in PHI, radians, from its own covariance -- the phi
+  // counterpart of the q_half_length just above, and with the same hl_fac
+  // convention (3 sigma for pixels, sqrt(3) for the uniform spread along a
+  // strip).
+  //
+  // phi = atan2(y, x), so dphi/dx = -y/r^2 and dphi/dy = x/r^2 and
+  //
+  //     sigma_phi^2 = (y^2 exx - 2 xy exy + x^2 eyy) / r^4
+  //
+  // which is the exact form of "dx / r", dx being the error ACROSS the strips:
+  // the module's xdir is essentially azimuthal, so this is that projection done
+  // by the covariance rather than assumed. Unlike q it needs NO barrel/endcap
+  // branch -- phi is purely transverse either way.
+  //
+  // Scale, TB2S at r = 69 cm with 90 um pitch: sigma_x = 90/sqrt(12) = 26 um,
+  // sigma_phi = 3.8e-5, times sqrt(3) = 6.5e-5 rad -- against the flat constant's
+  // 0.0246, i.e. ~380x. (The ~190x on record omitted the /sqrt(12).)
+  static inline float hit_phi_half_extent_of(const Hit &h, float hl_fac) {
+    const float x = h.x(), y = h.y();
+    const float r2 = x * x + y * y;
+    if (r2 <= 0.0f)
+      return 0.0f;
+    const float var_phi = (y * y * h.exx() - 2.0f * x * y * h.exy() + x * x * h.eyy()) / (r2 * r2);
+    return hl_fac * std::sqrt(var_phi > 0.0f ? var_phi : 0.0f);
+  }
+
   void LayerOfHits::Initializator::setup(float qmin, float qmax, float dq) {
     assert(qmax > qmin);
     float extent = qmax - qmin;
@@ -112,8 +139,10 @@ namespace mkfit {
           half_length = hl_fac * std::sqrt(h.exx() + h.eyy());
           qbar = h.z();
         }
-        m_max_q_half_length = std::max(m_max_q_half_length, half_length);
-        hinfos.emplace_back(HitInfo({phi, q, half_length, qbar}));
+        const float phi_half = hit_phi_half_extent_of(h, hl_fac);
+        m_max_q_half_length   = std::max(m_max_q_half_length, half_length);
+        m_max_phi_half_extent = std::max(m_max_phi_half_extent, phi_half);
+        hinfos.emplace_back(HitInfo({phi, q, half_length, qbar, phi_half}));
       }
     }
 
@@ -208,8 +237,10 @@ namespace mkfit {
         half_length = hl_fac * std::sqrt(h.exx() + h.eyy());
         qbar = h.z();
       }
-      m_max_q_half_length = std::max(m_max_q_half_length, half_length);
-      m_hit_infos.emplace_back(HitInfo({phi, q, half_length, qbar}));
+      const float phi_half = hit_phi_half_extent_of(h, hl_fac);
+      m_max_q_half_length   = std::max(m_max_q_half_length, half_length);
+      m_max_phi_half_extent = std::max(m_max_phi_half_extent, phi_half);
+      m_hit_infos.emplace_back(HitInfo({phi, q, half_length, qbar, phi_half}));
     }
   }
 

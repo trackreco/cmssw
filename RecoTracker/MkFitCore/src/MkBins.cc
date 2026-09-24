@@ -41,6 +41,12 @@ namespace mkfit {
   int   g_v2p2_q_extra_bins = MkBins::Q_EXTRA_BINS;
   bool  g_v2p2_q_legacy_range = false;
 
+  // Off by default: switching the phi cut from the flat half-bin constant to the
+  // hit's own covariance-derived extent is a ~380x tightening in TB2S, so it is
+  // measured before it is believed.
+  bool  g_v2p2_phi_per_hit  = false;
+  float g_v2p2_dphi_hit_fac = 1.0f;
+
   // Largest representable phi half-width: a hair under pi, since at pi the two
   // endpoints coincide and the arc degenerates to a point.
   static constexpr float kMaxHalfPhiWindow = 3.14f;
@@ -294,7 +300,13 @@ namespace mkfit {
         // wraps to an arbitrary SMALL one, silently. This is what the old
         // commented-out "clamp crazy sizes ... only happens when prop-fail flag
         // is set" was reaching for -- it is a precondition, not a workaround.
-        const float cut_dphi = std::min(g_v2p2_dphi_trk_fac * m_dphi_track[i] + g_v2p2_hit_dphi_rad,
+        // Per hit the cut uses that hit's own phi extent; the FETCH cannot know
+        // it yet, so it uses the layer's worst case -- the same asymmetry the q
+        // side has, and why LayerOfHits carries both maxima.
+        const float phi_hit_term = g_v2p2_phi_per_hit
+                                 ? g_v2p2_dphi_hit_fac * loh.max_hit_phi_half_extent()
+                                 : g_v2p2_hit_dphi_rad;
+        const float cut_dphi = std::min(g_v2p2_dphi_trk_fac * m_dphi_track[i] + phi_hit_term,
                                         kMaxHalfPhiWindow);
         if (g_v2p2_phi_legacy_range) {
           const float old_dphi = g_v2p2_dphi_trk_fac * m_dphi_track[i] +

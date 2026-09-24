@@ -1336,7 +1336,8 @@ namespace mkfit {
         bool dqdphi_presel = ddq < g_v2p2_dq_trk_fac * dq_trk +
                                    g_v2p2_dq_hit_fac * L.hit_q_half_length(hit_idcs[h]) &&
                              ddphi < g_v2p2_dphi_trk_fac * B.m_dphi_track[prim_idcs[h]] +
-                                     g_v2p2_hit_dphi_rad;
+                                     (g_v2p2_phi_per_hit ? g_v2p2_dphi_hit_fac * L.hit_phi_half_extent(hit_idcs[h])
+                                                       : g_v2p2_hit_dphi_rad);
 
         // To be moved down, only for hits that pass pre-selection, needed here for printout.
         // Could be vectorized if we repack binnor stuff.
@@ -1350,7 +1351,8 @@ namespace mkfit {
         bool dq_presel = ddq < g_v2p2_dq_trk_fac * dq_trk +
                                g_v2p2_dq_hit_fac * L.hit_q_half_length(hit_idcs[h]);
         bool dphi_presel = ddphi < g_v2p2_dphi_trk_fac * B.m_dphi_track[prim_idcs[h]] +
-                                   g_v2p2_hit_dphi_rad;
+                                   (g_v2p2_phi_per_hit ? g_v2p2_dphi_hit_fac * L.hit_phi_half_extent(hit_idcs[h])
+                                                       : g_v2p2_hit_dphi_rad);
         dprintf("     SelHit %6.3f %6.3f %6.4f %7.5f   %6.4f   %s [dq = %d, dphi = %d]\n",
                 L.hit_q(hit_idcs[h]), L.hit_phi(hit_idcs[h]),
                 ddq, ddphi, h_plex.dalpha[h], dqdphi_presel ? "PASS" : "REJECT", dq_presel, dphi_presel);

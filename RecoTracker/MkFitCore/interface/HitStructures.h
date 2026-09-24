@@ -101,6 +101,7 @@ namespace mkfit {
     // is per hit: to fetch everything the cut can accept, the fetch has to use
     // the layer's worst case. Computed once at fill.
     float max_hit_q_half_length() const { return m_max_q_half_length; }
+    float max_hit_phi_half_extent() const { return m_max_phi_half_extent; }
 
     binnor_t::C_pair phiQBinContent(bin_index_t pi, bin_index_t qi) const { return m_binnor.get_content(pi, qi); }
 
@@ -111,11 +112,17 @@ namespace mkfit {
       float q;
       float q_half_length;
       float qbar;
+      // The PHI counterpart of q_half_length, and until 2026-09-23 it did not
+      // exist -- the phi cut used a flat detector-wide constant that was really
+      // half a phi bin, ~380x this in TB2S. Derived from the hit covariance the
+      // same way q_half_length is, and with the same hl_fac convention.
+      float phi_half_extent;
     };
     const HitInfo& hit_info(unsigned int i) const { return m_hit_infos[i]; }
     float hit_phi(unsigned int i) const { return m_hit_infos[i].phi; }
     float hit_q(unsigned int i) const { return m_hit_infos[i].q; }
     float hit_q_half_length(unsigned int i) const { return m_hit_infos[i].q_half_length; }
+    float hit_phi_half_extent(unsigned int i) const { return m_hit_infos[i].phi_half_extent; }
     float hit_qbar(unsigned int i) const { return m_hit_infos[i].qbar; }
 
     // Use this to map original indices to sorted internal ones. m_ext_idcs needs to be initialized.
@@ -158,7 +165,8 @@ namespace mkfit {
     int subdet() const { return m_layer_info->subdet(); }
 
   private:
-    float m_max_q_half_length = 0.0f;  // see max_hit_q_half_length()
+    float m_max_q_half_length = 0.0f;    // see max_hit_q_half_length()
+    float m_max_phi_half_extent = 0.0f;  // see max_hit_phi_half_extent()
 
     axis_phi_t m_ax_phi;
     axis_eta_t m_ax_eta;

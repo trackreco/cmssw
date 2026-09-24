@@ -30,6 +30,8 @@
 
 namespace mkfit {
 
+  class EventOfHits;
+
   class Event;
 
 
@@ -103,6 +105,8 @@ namespace mkfit {
   void val_extra_dq(float f);
   void val_dq(float trk_fac, float hit_fac, int extra_bins);
   void val_q_legacy_range(bool b);
+  void val_phi_per_hit(bool on, float fac);
+  void val_hit_extents(const EventOfHits *eoh, int lay_beg, int lay_end);
   void val_dphi(float trk_fac, float hit_rad, int extra_bins);
   void val_phi_legacy_range(bool b);
   void val_q_fetch(float fac);

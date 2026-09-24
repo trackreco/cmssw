@@ -69,6 +69,12 @@ namespace mkfit {
   extern float g_v2p2_dq_hit_fac;     // multiplies hit_q_half_length; floor 1.0
   extern int   g_v2p2_q_extra_bins;   // fetch margin beyond the cut, whole q bins
   extern bool  g_v2p2_q_legacy_range; // transitional: old fetch, for A/B only
+  // PER-HIT phi extent from the covariance, instead of the flat half-bin
+  // constant. When on, g_v2p2_dphi_hit_fac multiplies it and has the same
+  // geometric meaning as g_v2p2_dq_hit_fac: a FLOOR OF 1.0 contains the hit's
+  // own extent. When off, g_v2p2_hit_dphi_rad is used as a flat tolerance.
+  extern bool  g_v2p2_phi_per_hit;
+  extern float g_v2p2_dphi_hit_fac;
 
   struct MkBins {
     // To become members ... or go into a helper struct / config.

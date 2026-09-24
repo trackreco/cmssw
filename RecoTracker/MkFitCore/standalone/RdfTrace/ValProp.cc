@@ -1368,6 +1368,46 @@ namespace mkfit {
            hit_fac < 1.0f ? "  *** BELOW THE GEOMETRIC FLOOR OF 1.0 ***" : "", extra_bins);
   }
 
+  // Phi cut from the hit's OWN covariance instead of the flat half-bin constant.
+  // fac means what val_dq's hit_fac means: 1.0 exactly contains the hit's extent.
+  // Expect a large tightening -- ~380x in TB2S -- so scan it, do not assume it.
+  void val_phi_per_hit(bool on, float fac) {
+    g_v2p2_phi_per_hit  = on;
+    g_v2p2_dphi_hit_fac = fac;
+    printf("val_phi_per_hit: %s  fac = %.2f%s\n", on ? "ON (per-hit covariance)" : "off (flat)",
+           fac, (on && fac < 1.0f) ? "  *** BELOW THE CONTAINMENT FLOOR ***" : "");
+  }
+
+  // Per-layer extents, to check the phi derivation against geometry BEFORE
+  // trusting it. phi*r is the across-strip half-extent in cm, which should come
+  // out near hl_fac * pitch / sqrt(12) -- i.e. ~26 um * sqrt(3) for a 90 um
+  // strip. If that column is not of that order the covariance projection is
+  // wrong, whatever the track counts say.
+  void val_hit_extents(const EventOfHits *eoh, int lay_beg, int lay_end) {
+    printf("%5s %9s %10s %10s %11s %11s %11s\n",
+           "layer", "n_hits", "q_hl_med", "q_hl_max", "phi_med", "phi_max", "phi*r_med[cm]");
+    for (int l = lay_beg; l <= lay_end; ++l) {
+      if (l >= eoh->nLayers()) break;
+      const LayerOfHits &L = (*eoh)[l];
+      const int n = L.nHits();
+      if (n == 0) continue;
+      std::vector<float> q, ph, pr;
+      q.reserve(n); ph.reserve(n); pr.reserve(n);
+      for (int i = 0; i < n; ++i) {
+        q.push_back(L.hit_q_half_length(i));
+        ph.push_back(L.hit_phi_half_extent(i));
+        const Hit &h = L.refHit(i);
+        pr.push_back(L.hit_phi_half_extent(i) * std::hypot(h.x(), h.y()));
+      }
+      auto med = [](std::vector<float> &v) {
+        std::nth_element(v.begin(), v.begin() + v.size() / 2, v.end());
+        return v[v.size() / 2]; };
+      printf("%5d %9d %10.5f %10.5f %11.3e %11.3e %11.5f\n",
+             l, n, med(q), L.max_hit_q_half_length(), med(ph),
+             L.max_hit_phi_half_extent(), med(pr));
+    }
+  }
+
   void val_q_legacy_range(bool b) {
     g_v2p2_q_legacy_range = b;
     printf("val_q_legacy_range: %s\n", b ? "true (OLD, fetch keyed on bin width)" : "false (derived from cut)");
