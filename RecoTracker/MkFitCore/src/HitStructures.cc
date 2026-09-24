@@ -4,6 +4,7 @@
 #include "Matriplex/Memory.h"
 
 #include "Debug.h"
+#include <algorithm>
 
 namespace mkfit {
 
@@ -111,6 +112,7 @@ namespace mkfit {
           half_length = hl_fac * std::sqrt(h.exx() + h.eyy());
           qbar = h.z();
         }
+        m_max_q_half_length = std::max(m_max_q_half_length, half_length);
         hinfos.emplace_back(HitInfo({phi, q, half_length, qbar}));
       }
     }
@@ -206,6 +208,7 @@ namespace mkfit {
         half_length = hl_fac * std::sqrt(h.exx() + h.eyy());
         qbar = h.z();
       }
+      m_max_q_half_length = std::max(m_max_q_half_length, half_length);
       m_hit_infos.emplace_back(HitInfo({phi, q, half_length, qbar}));
     }
   }

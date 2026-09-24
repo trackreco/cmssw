@@ -29,6 +29,18 @@ namespace mkfit {
   // margin and lossy at 0.88. Delete this once the A/B is recorded.
   bool  g_v2p2_phi_legacy_range = false;
 
+  // Q fetch margin, in units of half a q_bin -- i.e. Q_BIN_EXTRA_FAC, runtime.
+  // Exists to test whether the q side has the decoupling the phi side had: the
+  // CUT accepts EXTRA_DQ * DDQ_PRESEL_FAC * hit_q_half_length, which in TB2S at
+  // EXTRA_DQ = 3 is 9.05 cm, against a fetch margin of 1.6 * 0.5 * 6.0 = 4.8.
+  // If that is live, half the cut's reach was never fetched.
+  float g_v2p2_q_bin_extra_fac = MkBins::Q_BIN_EXTRA_FAC;
+
+  float g_v2p2_dq_trk_fac   = MkBins::DQ_TRK_FAC;
+  float g_v2p2_dq_hit_fac   = MkBins::DQ_HIT_FAC;
+  int   g_v2p2_q_extra_bins = MkBins::Q_EXTRA_BINS;
+  bool  g_v2p2_q_legacy_range = false;
+
   // Largest representable phi half-width: a hair under pi, since at pi the two
   // endpoints coincide and the arc degenerates to a point.
   static constexpr float kMaxHalfPhiWindow = 3.14f;
@@ -296,8 +308,27 @@ namespace mkfit {
         }
 
         bl.q0[i] = loh.qBinChecked(m_q_center[i]);
-        bl.q1[i] = loh.qBinChecked(m_q_min[i] - m_dq_track[i] - Q_BIN_EXTRA_FAC * 0.5f * loh.layer_info().q_bin());
-        bl.q2[i] = loh.qBinChecked(m_q_max[i] + m_dq_track[i] + Q_BIN_EXTRA_FAC * 0.5f * loh.layer_info().q_bin()) + 1;
+        if (g_v2p2_q_legacy_range) {
+          // Old: margin keyed on the BIN WIDTH, unrelated to what the cut
+          // accepts. In TB2S that fetched 4.8 cm against a cut reaching 9.05 at
+          // EXTRA_DQ = 3 -- half the cut's reach was never pulled.
+          const float q_margin = m_dq_track[i] + g_v2p2_q_bin_extra_fac * 0.5f * loh.layer_info().q_bin();
+          bl.q1[i] = loh.qBinChecked(m_q_min[i] - q_margin);
+          bl.q2[i] = loh.qBinChecked(m_q_max[i] + q_margin) + 1;
+        } else {
+          // Fetch exactly what the cut can accept, using the layer's WORST-CASE
+          // hit extent since the per-hit one is not known until the hit is in
+          // hand, then extend by whole bins on the INDEX. The q axis is bounded,
+          // so the extension CLAMPS where the phi one wraps.
+          const float cut_dq = g_v2p2_dq_trk_fac * m_dq_track[i] +
+                               g_v2p2_dq_hit_fac * loh.max_hit_q_half_length();
+          auto qr = loh.qRangeBins(m_q_min[i] - cut_dq, m_q_max[i] + cut_dq);
+          const int nq = (int)loh.qNBins();
+          int qb = (int)qr.begin - g_v2p2_q_extra_bins;
+          int qe = (int)qr.end   + g_v2p2_q_extra_bins;
+          bl.q1[i] = (unsigned short)(qb < 0 ? 0 : qb);
+          bl.q2[i] = (unsigned short)(qe > nq ? nq : qe);
+        }
       }
     }
   }

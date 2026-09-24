@@ -62,14 +62,15 @@ namespace mkfit {
   int g_v2p2_max_sec_depth = 4;
 
   bool g_v2p2_force_mc = false;
-  // 1.5, maintainer's call 2026-09-23. Measured against 3.0 over 30 events of
-  // the D121 PU200 sample, paired: +34 found tracks at 2.6 sigma with 11 fewer
-  // fakes, AND 10.7 % less inner build time. The old 3.0 was compensating a
-  // window covariance up to 9x too small before the surface reference went in;
-  // the recorded verdict "EXTRA_DQ = 3 is a necessity" is retracted in CLAUDE.md.
-  // Floor is 0.833 and it is GEOMETRIC: below 1/DDQ_PRESEL_FAC the window stops
-  // reaching a strip's own half-extent. See --v2p2-extra-dq to scan it.
-  float g_v2p2_extra_dq = 1.5f;
+  // The dq cut now lives in MkBins as two factors, g_v2p2_dq_trk_fac and
+  // g_v2p2_dq_hit_fac; see MkBins.h for why one compound factor could not be
+  // interpreted. set_extra_dq() below preserves the OLD compound knob so the
+  // recorded scans (--v2p2-extra-dq, val_extra_dq, test/v2p2-*-dq.sh) stay
+  // reproducible: it writes the two factors in the old 1 : DDQ_PRESEL_FAC ratio.
+  void set_extra_dq(float f) {
+    g_v2p2_dq_trk_fac = f;
+    g_v2p2_dq_hit_fac = f * MkBins::DDQ_PRESEL_FAC;
+  }
   bool  g_v2p2_surface_q = true;
 
 
@@ -1332,8 +1333,8 @@ namespace mkfit {
                                   h3_state, h, module_norm, m_rz_limits.m_is_barrel)
           : B.m_dq_track[prim_idcs[h]];
 
-        const float EXTRA_DQ = g_v2p2_extra_dq;
-        bool dqdphi_presel = ddq < EXTRA_DQ * dq_trk + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]) &&
+        bool dqdphi_presel = ddq < g_v2p2_dq_trk_fac * dq_trk +
+                                   g_v2p2_dq_hit_fac * L.hit_q_half_length(hit_idcs[h]) &&
                              ddphi < g_v2p2_dphi_trk_fac * B.m_dphi_track[prim_idcs[h]] +
                                      g_v2p2_hit_dphi_rad;
 
@@ -1346,7 +1347,8 @@ namespace mkfit {
 
 #ifdef DEBUG
         // clang-format off
-        bool dq_presel = ddq < EXTRA_DQ * dq_trk + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]);
+        bool dq_presel = ddq < g_v2p2_dq_trk_fac * dq_trk +
+                               g_v2p2_dq_hit_fac * L.hit_q_half_length(hit_idcs[h]);
         bool dphi_presel = ddphi < g_v2p2_dphi_trk_fac * B.m_dphi_track[prim_idcs[h]] +
                                    g_v2p2_hit_dphi_rad;
         dprintf("     SelHit %6.3f %6.3f %6.4f %7.5f   %6.4f   %s [dq = %d, dphi = %d]\n",
@@ -1354,7 +1356,7 @@ namespace mkfit {
                 ddq, ddphi, h_plex.dalpha[h], dqdphi_presel ? "PASS" : "REJECT", dq_presel, dphi_presel);
         dprintf("       ddq=%.3f, dq_track=%.4f, hit_q_half_len=%.4f, dq_expr=%.4f\n",
                 ddq, B.m_dq_track[prim_idcs[h]], L.hit_q_half_length(hit_idcs[h]),
-                EXTRA_DQ * dq_trk + EXTRA_DQ * MkBins::DDQ_PRESEL_FAC * L.hit_q_half_length(hit_idcs[h]))
+                g_v2p2_dq_trk_fac * dq_trk + g_v2p2_dq_hit_fac * L.hit_q_half_length(hit_idcs[h]))
 
         dprintf("      H3 d0=%.4f d1=%.4f -> d2=%e t2=%e -> d3=%e t3=%e ... dalpha=%6.4f\n",
                d0[h], d1[h], d2[h], t2[h], d3[h], h3dop.m_T[h],

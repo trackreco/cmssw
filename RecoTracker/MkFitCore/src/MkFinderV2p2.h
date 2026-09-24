@@ -24,8 +24,10 @@ namespace mkfit {
   //   g_v2p2_force_mc -- make the MC-matched hit win its layer and bypass the
   //                      chi2 < 30 acceptance cut.
   extern bool g_v2p2_force_mc;
-  // Pre-selection dq allowance, MkFinderV2p2.cc. Runtime so it can be scanned.
-  extern float g_v2p2_extra_dq;
+  // The OLD compound dq knob, kept as a setter so recorded scans reproduce: it
+  // writes g_v2p2_dq_trk_fac and g_v2p2_dq_hit_fac in the old ratio. Prefer the
+  // two factors directly -- see MkBins.h.
+  void set_extra_dq(float f);
   // Reference the pre-selection q error to the HIT'S OWN MODULE PLANE. Exact for
   // tilted and flat layers alike -- see MkFinderV2p2.cc.
   extern bool  g_v2p2_surface_q;

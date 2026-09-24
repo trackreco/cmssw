@@ -63,6 +63,12 @@ namespace mkfit {
   extern int   g_v2p2_phi_extra_bins; // fetch safety margin, whole bins
   // Transitional: reinstate the old hand-rolled range, for A/B only.
   extern bool  g_v2p2_phi_legacy_range;
+  extern float g_v2p2_q_bin_extra_fac;  // LEGACY q fetch margin, in half-q_bins
+  // The split dq cut; the q fetch is DERIVED from these, as phi's is from its own.
+  extern float g_v2p2_dq_trk_fac;     // multiplies dq_track (itself 3 sigma)
+  extern float g_v2p2_dq_hit_fac;     // multiplies hit_q_half_length; floor 1.0
+  extern int   g_v2p2_q_extra_bins;   // fetch margin beyond the cut, whole q bins
+  extern bool  g_v2p2_q_legacy_range; // transitional: old fetch, for A/B only
 
   struct MkBins {
     // To become members ... or go into a helper struct / config.
@@ -81,6 +87,30 @@ namespace mkfit {
     // crossing at the hit's own module plane, which can fall slightly outside
     // the [phi_min, phi_max] span the range is built from.
     static constexpr int PHI_EXTRA_BINS = 1;
+
+    // THE dq CUT, SPLIT. It used to be one factor (EXTRA_DQ) over both terms:
+    //
+    //   ddq < EXTRA_DQ * dq_trk + EXTRA_DQ * DDQ_PRESEL_FAC * hit_q_half_length
+    //
+    // which cannot be interpreted, because WHICH TERM BINDS IS A PROPERTY OF THE
+    // LAYER: the containment term spans a factor 335 across the detector (0.009
+    // cm in the pixel barrel to 3.015 in TB2S at unit factor) while the track
+    // term does not. Strips are containment-dominated, pixels are
+    // covariance-dominated, and one number cannot sit in the right place for
+    // both. Split, each in its own honest unit:
+    //
+    //   DQ_TRK_FAC  multiplies dq_track, which is itself 3 sigma
+    //   DQ_HIT_FAC  multiplies the hit's own half-extent -- FLOOR IS EXACTLY 1.0,
+    //               below which the window stops reaching the strip it is trying
+    //               to contain. (In the old compound units that floor was the
+    //               opaque 1/1.2 = 0.833.)
+    //
+    // Defaults reproduce EXTRA_DQ = 1.5, the value measured on 2026-09-23.
+    static constexpr float DQ_TRK_FAC = 1.5f;
+    static constexpr float DQ_HIT_FAC = 1.8f;   // 1.5 * the old DDQ_PRESEL_FAC
+
+    // Fetch margin beyond what the cut accepts, in WHOLE q bins on the index.
+    static constexpr int Q_EXTRA_BINS = 1;
 
     static constexpr float DDPHI_PRESEL_FAC = 2.0f;
     static constexpr float DDQ_PRESEL_FAC = 1.2f;

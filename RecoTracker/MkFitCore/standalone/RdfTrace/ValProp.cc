@@ -1347,9 +1347,30 @@ namespace mkfit {
   // for a window that was up to 9x too small at |eta| > 2; with the surface
   // reference on, that compensation should no longer be needed. Scannable so
   // the question costs one build.
+  // The legacy compound knob: sets BOTH dq factors in the old ratio. Kept so the
+  // recorded scans reproduce; prefer val_dq() below, which is interpretable.
   void val_extra_dq(float f) {
-    g_v2p2_extra_dq = f;
-    printf("val_extra_dq: g_v2p2_extra_dq = %.3f\n", f);
+    set_extra_dq(f);
+    printf("val_extra_dq (legacy compound): dq_trk_fac = %.3f  dq_hit_fac = %.3f\n",
+           g_v2p2_dq_trk_fac, g_v2p2_dq_hit_fac);
+  }
+
+  // The dq cut, split.  trk_fac multiplies dq_track (itself 3 sigma); hit_fac
+  // multiplies the hit's own half-extent and has a FLOOR OF EXACTLY 1.0, below
+  // which the window stops reaching the strip it is containing. extra_bins is
+  // the fetch margin beyond the cut, in whole q bins.
+  void val_dq(float trk_fac, float hit_fac, int extra_bins) {
+    g_v2p2_dq_trk_fac   = trk_fac;
+    g_v2p2_dq_hit_fac   = hit_fac;
+    g_v2p2_q_extra_bins = extra_bins;
+    printf("val_dq: trk_fac = %.3f  hit_fac = %.3f%s  extra_bins = %d\n",
+           trk_fac, hit_fac,
+           hit_fac < 1.0f ? "  *** BELOW THE GEOMETRIC FLOOR OF 1.0 ***" : "", extra_bins);
+  }
+
+  void val_q_legacy_range(bool b) {
+    g_v2p2_q_legacy_range = b;
+    printf("val_q_legacy_range: %s\n", b ? "true (OLD, fetch keyed on bin width)" : "false (derived from cut)");
   }
 
   // The dphi side of the same cut. THREE factors, not one: the dq scan showed a
@@ -1370,6 +1391,11 @@ namespace mkfit {
     g_v2p2_phi_extra_bins = extra_bins;
     printf("val_dphi: trk_fac = %.3f  hit_rad = %.5f rad (%.3f bins)  extra_bins = %d\n",
            trk_fac, hit_rad, hit_rad / (2.0f * float(M_PI) / 256.0f), extra_bins);
+  }
+
+  void val_q_fetch(float fac) {
+    g_v2p2_q_bin_extra_fac = fac;
+    printf("val_q_fetch: Q_BIN_EXTRA_FAC = %.2f  (margin = %.2f * half-q_bin)\n", fac, fac);
   }
 
   // Transitional A/B against the old hand-rolled range (no "+1").

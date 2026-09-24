@@ -539,8 +539,8 @@ int main(int argc, const char* argv[]) {
           "  --best-out-of    <int>   run test num times, report best time (def: %d)\n"
           "  --max-cands-per-seed <int>  override IterationParams::maxCandsPerSeed on every\n"
           "                           iteration config, forward AND backward (def: from the geometry)\n"
-          "  --v2p2-extra-dq <float>  MkFinderV2p2 pre-selection: the factor on BOTH terms of the\n"
-          "                           dq cut -- the covariance term and the hit-extent term (def: %.2f)\n"
+          "  --v2p2-extra-dq <float>  MkFinderV2p2 pre-selection: LEGACY compound knob, sets both dq\n"
+          "                           factors in the old ratio (dq_trk_fac def: %.2f)\n"
           "  --v2p2-dphi-trk <float>  MkFinderV2p2 pre-selection: factor on the dphi TRACK term,\n"
           "                           applied in the cut AND in the binnor range (def: %.2f)\n"
           "  --v2p2-hit-dphi <float>  MkFinderV2p2 pre-selection: the flat per-hit phi tolerance in\n"
@@ -742,7 +742,7 @@ int main(int argc, const char* argv[]) {
           Config::geomPlugin.c_str(),
           b2a(Config::silent),
           Config::finderReportBestOutOfN,
-          mkfit::g_v2p2_extra_dq,
+          mkfit::g_v2p2_dq_trk_fac,
           mkfit::g_v2p2_dphi_trk_fac,
           mkfit::g_v2p2_hit_dphi_rad,
           mkfit::g_v2p2_phi_extra_bins,
@@ -872,7 +872,7 @@ int main(int argc, const char* argv[]) {
       Config::silent = true;
     } else if (*i == "--v2p2-extra-dq") {
       next_arg_or_die(mArgs, i);
-      mkfit::g_v2p2_extra_dq = (float) atof(i->c_str());
+      mkfit::set_extra_dq((float) atof(i->c_str()));
     } else if (*i == "--v2p2-dphi-trk") {
       next_arg_or_die(mArgs, i);
       mkfit::g_v2p2_dphi_trk_fac = (float) atof(i->c_str());

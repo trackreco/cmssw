@@ -89,6 +89,19 @@ namespace mkfit {
       return m_ax_phi.from_R_minmax_to_N_bins(lo, hi);
     }
 
+    // q is a BOUNDED axis, so its helper clamps where the phi one wraps, and an
+    // integer bin extension must clamp too -- see MkBins.cc.
+    axis_eta_t::I_pair qRangeBins(float lo, float hi) const {
+      return m_ax_eta.from_R_minmax_to_N_bins(lo, hi);
+    }
+    unsigned int qNBins() const { return m_ax_eta.size_of_N(); }
+
+    // Largest hit_q_half_length in this layer, over the hits actually loaded.
+    // The FETCH needs it because it runs before any hit is known, while the CUT
+    // is per hit: to fetch everything the cut can accept, the fetch has to use
+    // the layer's worst case. Computed once at fill.
+    float max_hit_q_half_length() const { return m_max_q_half_length; }
+
     binnor_t::C_pair phiQBinContent(bin_index_t pi, bin_index_t qi) const { return m_binnor.get_content(pi, qi); }
 
     bool isBinDead(bin_index_t pi, bin_index_t qi) const { return m_dead_bins[qi * m_ax_phi.size_of_N() + pi]; }
@@ -145,6 +158,8 @@ namespace mkfit {
     int subdet() const { return m_layer_info->subdet(); }
 
   private:
+    float m_max_q_half_length = 0.0f;  // see max_hit_q_half_length()
+
     axis_phi_t m_ax_phi;
     axis_eta_t m_ax_eta;
     binnor_t m_binnor;
