@@ -330,7 +330,7 @@ struct ValSearchMiss {
   float pt = -999.f, eta = -999.f;
 
   // The WSR verdict the search itself acted on (TrLayerSearch::wsr): 0 inside,
-  // 1 edge, 2 outside. With Config::v2p2UseWsr on -- the default -- a
+  // 1 edge, 2 outside. With Config::V2p2::Policy::use_wsr on -- the default -- a
   // WSR_Outside candidate scans NO hits at all, so its row is a record of a
   // search that was declined, not of one that failed. FILTER ON THIS.
   signed char wsr = -1;

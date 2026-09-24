@@ -7,18 +7,9 @@ namespace mkfit {
     bool usePropToPlane = false;
     bool usePtMultScat = false;
 
-    bool v2p2UseWsr = true;
-    bool v2p2UseHoleLimits = true;
-    bool v2p2UseStopCuts = true;
-    // ON by default since 2026-09-23: the in-layer combinatorial search is the
-    // production configuration, paired with maxCandsPerSeed = 3 in the CMS-phase2
-    // geometry plugin. Measured on 30 events of ttbar-PU200-D121-C22 against the
-    // best-hit path: +391 found sim tracks (63.33 % against 62.01 % of the MTV
-    // denominator) and +1.9 to +3.0 truth-matched hits per found track, largest
-    // in the endcap. Turn it off with --v2p2-in-layer-comb 0.
-    bool v2p2InLayerComb = true;
-    bool v2p2ReserveHoleSlot = false;
-    bool v2p2BestShort = false;
+#if defined(MKFIT_STANDALONE)
+    float bkfitErrScale = 100.0f;
+#endif
 
     // Multi threading configuration
 #if defined(MKFIT_STANDALONE)

@@ -113,7 +113,7 @@ namespace mkfit {
                               // Only the likelihood score reads it, and asking for it puts
                               // a double store inside Cramer's omp-simd loop. Do not pay
                               // for it on every hit when the linear score is running.
-                              g_v2p2_score_mode == 1 ? &tsDetV : nullptr);
+                              Config::V2p2::Score::mode == 1 ? &tsDetV : nullptr);
     kalmanCheckChargeFlip(tsPar, tsChg, N_filled);
 
     // The original -- but Chi2 only.
@@ -136,7 +136,7 @@ namespace mkfit {
       // Keyed selection: normally the chi2 itself. With forcing, an MC-matched
       // hit is shifted below every non-matched one but still ordered against
       // other MC-matched hits by its own chi2, so "the best chi2 one" wins.
-      const float key = (g_v2p2_force_mc && is_mc) ? (tsChi2[i] - 1.0e6f) : tsChi2[i];
+      const float key = (Config::V2p2::Diag::force_mc && is_mc) ? (tsChi2[i] - 1.0e6f) : tsChi2[i];
       if (key < ptcp[i]->bKey) {
         ptcp[i]->bKey = key;
         ptcp[i]->bIsMc = is_mc;

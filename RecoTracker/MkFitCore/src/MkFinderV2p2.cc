@@ -21,6 +21,8 @@
 
 namespace mkfit {
 
+  using namespace Config::V2p2;
+
   // Per-layer policy counters. These say whether a mechanism FIRED, which is a
   // different question from whether it changed the physics -- a cut that costs
   // nothing because it never fires and a cut that costs nothing because it fires
@@ -28,52 +30,6 @@ namespace mkfit {
   // over threads and events; mkFit.cc prints and resets them with the quality-val
   // summary.
   V2p2PolicyCounters g_v2p2_policy_counters;
-
-  // Starting point: the two directions carry the SAME numbers, and the hit bonus
-  // and miss penalty are phase2:LstIntoPix's 30 and 8. That is on purpose -- the
-  // first A/B then measures the SELECTION alone, with the arithmetic unchanged.
-  // The head/body asymmetry these exist to express (outward, trailing holes are
-  // at large radius and cheap; inward, they are at small radius and are the most
-  // expensive holes there are) is the next knob, and it now has somewhere to be
-  // turned.
-  V2p2ScoreParams g_v2p2_score_fwd;
-  V2p2ScoreParams g_v2p2_score_bkw;
-  int g_v2p2_score_mode = 0;
-
-  bool  g_v2p2_score_use_rho = true;
-  float g_v2p2_score_rho_const = 0.0f;
-  bool  g_v2p2_score_use_detv = true;
-  float g_v2p2_score_detv_const = 0.0f;
-
-  bool   g_v2p2_score_accum = false;
-  long   g_v2p2_score_n_hits = 0;
-  double g_v2p2_score_sum_log_rho = 0.0;
-  double g_v2p2_score_sum_log_detv = 0.0;
-
-  // Reduction cap, PER SUB-LAYER. Was MkBins::NEW_MAX_HIT, a compile-time 6 for
-  // the whole detector. It sits UPSTREAM of the in-layer combinatorial search, so
-  // it bounds what that search can ever see, and one number cannot be right
-  // everywhere: overlap availability runs from 2-3 % of pixel-barrel crossings to
-  // 50-56 % of TFPX. Runtime so the question costs one build; per layer is where
-  // it should end up.
-  int g_v2p2_max_presel_hits = MkBins::NEW_MAX_HIT;
-
-  // Most hits one in-layer path may take. See kMaxSecDepthMax below.
-  int g_v2p2_max_sec_depth = 4;
-
-  bool g_v2p2_force_mc = false;
-  // The dq cut now lives in MkBins as two factors, g_v2p2_dq_trk_fac and
-  // g_v2p2_dq_hit_fac; see MkBins.h for why one compound factor could not be
-  // interpreted. set_extra_dq() below preserves the OLD compound knob so the
-  // recorded scans (--v2p2-extra-dq, val_extra_dq, test/v2p2-*-dq.sh) stay
-  // reproducible: it writes the two factors in the old 1 : DDQ_PRESEL_FAC ratio,
-  // which the current defaults (DQ_TRK_FAC 1.5, DQ_HIT_FAC 1.2) do not follow.
-  void set_extra_dq(float f) {
-    g_v2p2_dq_trk_fac = f;
-    g_v2p2_dq_hit_fac = f * MkBins::DDQ_PRESEL_FAC;
-  }
-  bool  g_v2p2_surface_q = true;
-
 
   void V2p2PolicyCounters::reset() {
     n_quadrant_skip = 0; n_stop_minpt = 0; n_stop_looper = 0;
@@ -245,7 +201,7 @@ namespace mkfit {
         // common to every candidate of this seed and so cancels in the per-seed
         // selection; the cross-seed comparison is done at the end, on the
         // official score.
-        if (Config::v2p2InLayerComb)
+        if (InLayer::comb)
           for (int ic = 0; ic < (int) ccand.size(); ++ic)
             ccand[ic].setScore(0.0f);
         // NB: auto& -- std::list::emplace_back returns a *reference*. With a plain
@@ -289,12 +245,12 @@ namespace mkfit {
   // is a track-level stopping condition, not a per-step guard.
   //
   // The band test is on |posPhi - momPhi| with both wrapped to (-pi, pi], so an
-  // angle past the limit appears either as dphi > kMaxAngPosMom or, when the pair
-  // straddles the +-pi branch cut, as dphi < TwoPI - kMaxAngPosMom. The upper
-  // bound is the wrap image of the lower and is DERIVED from it here rather than
-  // written as a second literal -- V1 carried a hardcoded 4.512f, which is
-  // pi + kMaxAngPosMom and lets the 78.5-101.5 deg band escape whenever the pair
-  // straddles. As written the test is exactly equivalent to
+  // angle past the limit A = Policy::looper_max_angle appears either as
+  // dphi > A or, when the pair straddles the +-pi branch cut, as
+  // dphi < TwoPI - A. The upper bound is the wrap image of the lower and is
+  // DERIVED from it here rather than written as a second literal -- V1 carried a
+  // hardcoded 4.512f, which is pi + A and lets the 78.5-101.5 deg band escape
+  // whenever the pair straddles. As written the test is exactly equivalent to
   // cos(momPhi - posPhi) < sin(0.2).
   //
   // Both stops RECORD their reason on the TrackCand: "stopped" alone loses the
@@ -313,10 +269,11 @@ namespace mkfit {
 
     // Forward search only: going inward the track is leaving the turning region,
     // so a large angle there is not evidence that it is about to curl up.
-    if (spi.type() == SteeringParams::IT_FwdSearch && tc.pT() < 1.2f && tc.posRsq() > 625.0f) {
-      constexpr float kMaxAngPosMom = Const::PIOver2 - 0.2f;
+    if (spi.type() == SteeringParams::IT_FwdSearch && tc.pT() < Policy::looper_max_pt &&
+        tc.posRsq() > Policy::looper_min_r * Policy::looper_min_r) {
+      const float max_ang = Policy::looper_max_angle;
       const float dphi = std::abs(tc.posPhi() - tc.momPhi());
-      if (dphi > kMaxAngPosMom && dphi < Const::TwoPI - kMaxAngPosMom)
+      if (dphi > max_ang && dphi < Const::TwoPI - max_ang)
         return TrackCand::SR_Looper;
     }
 
@@ -339,12 +296,12 @@ namespace mkfit {
 
     int fake_hit_idx = Hit::kHitMissIdx;
 
-    if (Config::v2p2UseHoleLimits &&
+    if (Policy::use_hole_limits &&
         (tc.nAllMinusOneHits() >= iter_params.maxHolesPerCand ||
          tc.nTailMinusOneHits() >= iter_params.maxConsecHoles))
       fake_hit_idx = Hit::kHitStopIdx;
 
-    if (Config::v2p2UseWsr) {
+    if (Policy::use_wsr) {
       if (wsr.m_wsr == WSR_Edge)
         fake_hit_idx = Hit::kHitEdgeIdx;
       else if (wsr.m_in_gap)
@@ -440,7 +397,7 @@ namespace mkfit {
       // alongside the rz_quadrant_check below, and not at end of layer. V1/V2
       // take them in MkBuilder::find_tracks_unroll_candidates(); v2p2 took
       // neither, so it ran with no minPtCut and no looper stop at all.
-      if (Config::v2p2UseStopCuts) {
+      if (Policy::use_stop_cuts) {
         const TrackCand::StopReason_e sr = stop_cuts_at_pickup(tcand);
         if (sr != TrackCand::SR_NotStopped) {
           tcand.setStopReason(sr);
@@ -496,7 +453,7 @@ namespace mkfit {
     auto ai = m_active_ccreps.begin();
     while (ai != m_active_ccreps.end()) {
 
-      if (Config::v2p2InLayerComb)
+      if (InLayer::comb)
         select_and_materialise(*ai);
 
       // QQQQ should attempt to reuse the PrimTCandReps
@@ -510,7 +467,7 @@ namespace mkfit {
       // budget. Until the stopping cuts existed nothing could ever stop, so this
       // was hardcoded false and m_n_finished stayed 0 for the whole event.
       bool is_finished = false;
-      if (Config::v2p2UseStopCuts || Config::v2p2UseHoleLimits) {
+      if (Policy::use_stop_cuts || Policy::use_hole_limits) {
         CombCandidate &cc = ai->m_ccand;
         is_finished = true;
         for (int ic = 0; ic < (int) cc.size(); ++ic) {
@@ -650,7 +607,7 @@ namespace mkfit {
     determine_search_windows(b);  // covariance -> dphi/dq windows -> bin ranges
     select_hits(b);               // stage 2: walk the bins, pre-select, reduce in a pqueue
     prepare_kalman_workload(b);   // pqueue -> m_layer_hits, step-ordered
-    if (Config::v2p2InLayerComb) {
+    if (InLayer::comb) {
       // No materialisation here: the paths are left in the arena and everything
       // competes at end of layer, in select_and_materialise().
       expand_in_layer(b);         // stage 3: grow the SecTCandRep tree over the ordered hits
@@ -890,7 +847,7 @@ namespace mkfit {
   //  - the q extent answers the other half. m_q_min / m_q_max are the min and max
   //    of the two crossings' q with no fuzz applied, so they are the segment.
   //
-  // The fuzz is the track's own dq at kWsrNSigma sigma. Being generous here is
+  // The fuzz is the track's own dq at Policy::wsr_n_sigma. Being generous here is
   // the safe direction: the cost of calling a crossing Edge when it was Inside is
   // that a genuine hole is not counted, while the cost of calling it Inside when
   // it was Edge is a hole charged against a candidate that never crossed
@@ -907,8 +864,7 @@ namespace mkfit {
     // m_dq_track is 3 sigma (MkBins::determine_bin_windows), so this converts to
     // the 5-7 sigma band the edge test wants. 5 sigma is the low end of that;
     // it has not been scanned.
-    constexpr float kWsrNSigma = 5.0f;
-    constexpr float kDqTrackToNSigma = kWsrNSigma / 3.0f;
+    const float dq_to_n_sigma = Policy::wsr_n_sigma / 3.0f;
 
     const int N_proc = b.N_proc;
     MkBins &B = b.B;
@@ -929,7 +885,7 @@ namespace mkfit {
         // Clear miss: the track does not reach the layer at all.
         w = WSR_Result(WSR_Outside, false);
       } else {
-        const float dq = kDqTrackToNSigma * B.m_dq_track[i];
+        const float dq = dq_to_n_sigma * B.m_dq_track[i];
         const float qa = B.m_q_min[i], qb = B.m_q_max[i];
 
         if (qb < q_lo - dq || qa > q_hi + dq)
@@ -1023,14 +979,14 @@ namespace mkfit {
         // crossed. Measured over 10 events on the inward search: the flagged
         // searches accounted for 27 % of all scanned hits and yielded zero
         // MC-matched accepted hits.
-        if (Config::v2p2UseWsr && b.ptc[i]->m_wsr.m_wsr == WSR_Outside)
+        if (Policy::use_wsr && b.ptc[i]->m_wsr.m_wsr == WSR_Outside)
           continue;
 
         // Line pre-cut, per candidate: the straight line m_sp1 -> m_sp2 in
         // (qbar, q) and (qbar, phi), and the hit-independent tolerance terms.
-        // See MkBins::PRECUT_DQ_SLACK.
+        // See Config::V2p2::PreCut.
         const bool barrel = m_rz_limits.m_is_barrel;
-        bool pc_on = g_v2p2_precut_q || g_v2p2_precut_phi;
+        bool pc_on = PreCut::q || PreCut::phi;
         float pc_qb1 = 0, pc_q1 = 0, pc_gq = 0, pc_phi1 = 0, pc_gphi = 0, pc_tol_q = 0, pc_tol_phi = 0;
         if (pc_on) {
           const float x1 = B.m_sp1.x[i], y1 = B.m_sp1.y[i], z1 = B.m_sp1.z[i];
@@ -1045,8 +1001,8 @@ namespace mkfit {
             pc_gq = std::clamp(((barrel ? z2 : r2) - pc_q1) / dqb, -20.0f, 20.0f);
             pc_phi1 = vdt::fast_atan2f(y1, x1);
             pc_gphi = std::clamp(squashPhiGeneral(vdt::fast_atan2f(y2, x2) - pc_phi1) / dqb, -20.0f, 20.0f);
-            pc_tol_q = MkBins::PRECUT_DQ_SLACK * g_v2p2_dq_trk_fac * B.m_dq_track[i] * (1.0f + pc_gq * pc_gq);
-            pc_tol_phi = MkBins::PRECUT_DPHI_SLACK * g_v2p2_dphi_trk_fac * B.m_dphi_track[i];
+            pc_tol_q = PreCut::dq_slack * Window::dq_trk_fac * B.m_dq_track[i] * (1.0f + pc_gq * pc_gq);
+            pc_tol_phi = PreCut::dphi_slack * Window::dphi_trk_fac * B.m_dphi_track[i];
           }
         }
 
@@ -1084,16 +1040,16 @@ namespace mkfit {
 
               if (pc_on) {
                 const float dqb_h = L.hit_qbar(hi) - pc_qb1;
-                const float qbar_term = barrel ? MkBins::PRECUT_QBAR_FAC * L.hit_qbar_half_extent(hi) : 0.0f;
+                const float qbar_term = barrel ? PreCut::qbar_fac * L.hit_qbar_half_extent(hi) : 0.0f;
                 bool reject = false;
-                if (g_v2p2_precut_q) {
+                if (PreCut::q) {
                   const float dev = std::abs(L.hit_q(hi) - (pc_q1 + dqb_h * pc_gq));
-                  reject = dev > pc_tol_q + g_v2p2_dq_hit_fac * L.hit_q_half_length(hi) + std::abs(pc_gq) * qbar_term;
+                  reject = dev > pc_tol_q + Window::dq_hit_fac * L.hit_q_half_length(hi) + std::abs(pc_gq) * qbar_term;
                 }
-                if (!reject && g_v2p2_precut_phi) {
+                if (!reject && PreCut::phi) {
                   const float dev = std::abs(squashPhiGeneral(L.hit_phi(hi) - (pc_phi1 + dqb_h * pc_gphi)));
-                  const float hit_term = g_v2p2_phi_per_hit ? g_v2p2_dphi_hit_fac * L.hit_phi_half_extent(hi)
-                                                            : g_v2p2_hit_dphi_rad;
+                  const float hit_term = Window::phi_per_hit ? Window::dphi_hit_fac * L.hit_phi_half_extent(hi)
+                                                            : Window::dphi_flat_rad;
                   reject = dev > pc_tol_phi + hit_term + std::abs(pc_gphi) * qbar_term;
                 }
                 if (reject) {
@@ -1375,16 +1331,16 @@ namespace mkfit {
         // this per hit rather than in MkBins.
         // Reference the q error to THIS MODULE'S plane -- see
         // surface_referenced_dq() above for the derivation.
-        const float dq_trk = g_v2p2_surface_q
+        const float dq_trk = Window::surface_q
           ? surface_referenced_dq(B.m_dq_track[prim_idcs[h]], TCE, prim_idcs[h],
                                   h3_state, h, module_norm, m_rz_limits.m_is_barrel)
           : B.m_dq_track[prim_idcs[h]];
 
-        bool dqdphi_presel = ddq < g_v2p2_dq_trk_fac * dq_trk +
-                                   g_v2p2_dq_hit_fac * L.hit_q_half_length(hit_idcs[h]) &&
-                             ddphi < g_v2p2_dphi_trk_fac * B.m_dphi_track[prim_idcs[h]] +
-                                     (g_v2p2_phi_per_hit ? g_v2p2_dphi_hit_fac * L.hit_phi_half_extent(hit_idcs[h])
-                                                       : g_v2p2_hit_dphi_rad);
+        bool dqdphi_presel = ddq < Window::dq_trk_fac * dq_trk +
+                                   Window::dq_hit_fac * L.hit_q_half_length(hit_idcs[h]) &&
+                             ddphi < Window::dphi_trk_fac * B.m_dphi_track[prim_idcs[h]] +
+                                     (Window::phi_per_hit ? Window::dphi_hit_fac * L.hit_phi_half_extent(hit_idcs[h])
+                                                       : Window::dphi_flat_rad);
 
         // To be moved down, only for hits that pass pre-selection, needed here for printout.
         // Could be vectorized if we repack binnor stuff.
@@ -1395,17 +1351,17 @@ namespace mkfit {
 
 #ifdef DEBUG
         // clang-format off
-        bool dq_presel = ddq < g_v2p2_dq_trk_fac * dq_trk +
-                               g_v2p2_dq_hit_fac * L.hit_q_half_length(hit_idcs[h]);
-        bool dphi_presel = ddphi < g_v2p2_dphi_trk_fac * B.m_dphi_track[prim_idcs[h]] +
-                                   (g_v2p2_phi_per_hit ? g_v2p2_dphi_hit_fac * L.hit_phi_half_extent(hit_idcs[h])
-                                                       : g_v2p2_hit_dphi_rad);
+        bool dq_presel = ddq < Window::dq_trk_fac * dq_trk +
+                               Window::dq_hit_fac * L.hit_q_half_length(hit_idcs[h]);
+        bool dphi_presel = ddphi < Window::dphi_trk_fac * B.m_dphi_track[prim_idcs[h]] +
+                                   (Window::phi_per_hit ? Window::dphi_hit_fac * L.hit_phi_half_extent(hit_idcs[h])
+                                                       : Window::dphi_flat_rad);
         dprintf("     SelHit %6.3f %6.3f %6.4f %7.5f   %6.4f   %s [dq = %d, dphi = %d]\n",
                 L.hit_q(hit_idcs[h]), L.hit_phi(hit_idcs[h]),
                 ddq, ddphi, h_plex.dalpha[h], dqdphi_presel ? "PASS" : "REJECT", dq_presel, dphi_presel);
         dprintf("       ddq=%.3f, dq_track=%.4f, hit_q_half_len=%.4f, dq_expr=%.4f\n",
                 ddq, B.m_dq_track[prim_idcs[h]], L.hit_q_half_length(hit_idcs[h]),
-                g_v2p2_dq_trk_fac * dq_trk + g_v2p2_dq_hit_fac * L.hit_q_half_length(hit_idcs[h]))
+                Window::dq_trk_fac * dq_trk + Window::dq_hit_fac * L.hit_q_half_length(hit_idcs[h]))
 
         dprintf("      H3 d0=%.4f d1=%.4f -> d2=%e t2=%e -> d3=%e t3=%e ... dalpha=%6.4f\n",
                d0[h], d1[h], d2[h], t2[h], d3[h], h3dop.m_T[h],
@@ -1468,7 +1424,7 @@ namespace mkfit {
 #endif
         };
 
-        if (ptc.m_pqueue_size[sl] < g_v2p2_max_presel_hits) {
+        if (ptc.m_pqueue_size[sl] < InLayer::max_presel_hits) {
           do_pqueue_push();
           ++ptc.m_pqueue_size[sl];
         } else if (ddphi < pq.top().score) {
@@ -1493,7 +1449,7 @@ namespace mkfit {
     // The open questions this block used to list are answered: the hits of both
     // sub-layers go into one list ordered by step distance (2 and 3), which is
     // also the plan the in-layer combinatorial search walks (8). What remains
-    // from it is the per-layer reduction budget (9) -- g_v2p2_max_presel_hits is
+    // from it is the per-layer reduction budget (9) -- InLayer::max_presel_hits is
     // one number for the whole detector, while overlap availability varies from
     // 2-3 % of pixel-barrel crossings to 50-56 % of TFPX.
 
@@ -1650,7 +1606,7 @@ namespace mkfit {
     // no hole limits either (maxHolesPerCand / maxConsecHoles are read only in
     // MkFinder.cc). They do not all belong here: see the note at the bottom of
     // this file for where each one goes. When porting the looper cut, copy the
-    // TwoPI - kMaxAngPosMom expression rather than writing a second literal, and
+    // TwoPI - max angle expression rather than writing a second literal, and
     // have the stop RECORD why (loopers are wanted later for the phase-2 timing
     // detectors and HGCal).
     for (int i = 0; i < N_proc; ++i) {
@@ -1663,16 +1619,16 @@ namespace mkfit {
       // deliberately inclusive (the transition plans are the union over tracks).
       // This is also the only branch that adds no HoT at all, which is what
       // "skip the layer" has to mean.
-      if (Config::v2p2UseWsr && ptc.m_wsr.m_wsr == WSR_Outside) {
+      if (Policy::use_wsr && ptc.m_wsr.m_wsr == WSR_Outside) {
         dprintf("Outside to tcand %d, layer skipped\n", i);
         ++g_v2p2_policy_counters.n_layer_skipped;
         continue;
       }
 
 #ifdef MKFIT_TRACE
-      if (ptc.bChi2 < 30.0f || (g_v2p2_force_mc && ptc.bIsMc)) {
+      if (ptc.bChi2 < Policy::hit_chi2_cut || (Diag::force_mc && ptc.bIsMc)) {
 #else
-      if (ptc.bChi2 < 30.0f) {
+      if (ptc.bChi2 < Policy::hit_chi2_cut) {
 #endif
         // XXXX Extra missed layer -- to check stuff / maxgrowth / scores etc
         // This is somewhat impure :)
@@ -1777,15 +1733,13 @@ namespace mkfit {
   // the neighbouring module is a stack too, so an overlap arrives as a PAIR and a
   // crossing can present four hits. Measured: 26-28 % of outer-tracker crossings
   // carry three or more, and the 4-hit bin is three times the 3-hit bin.
-  // kMaxSecDepthMax only sizes the chain array; g_v2p2_max_sec_depth is the cap.
-  static constexpr int kMaxSecDepthMax = 8;
-  // Per-hit acceptance, the same cut the best-hit path applies.
-  static constexpr float kSecChi2Cut = 30.0f;
+  // InLayer::max_sec_depth_limit only sizes the chain array; InLayer::max_sec_depth
+  // is the cap.
 
   std::pair<int, int> MkFinderV2p2::harvest_sec_nodes(const LayerBatch &b) {
     const int begin = (int) m_sec_arena.size();
     for (const auto &o : m_sec_out) {
-      if ( ! (o.chi2 < kSecChi2Cut))   // also rejects NaN
+      if ( ! (o.chi2 < Policy::hit_chi2_cut))   // also rejects NaN
         continue;
       SecTCandRep n;
       n.m_ptc        = o.ptc;
@@ -1897,7 +1851,7 @@ namespace mkfit {
     koa.m_solve_plane = false;
     for (int i = 0; i < N_proc; ++i) {
       PrimTCandRep &ptc = * prim_tcand_ptrs[i];
-      if (Config::v2p2UseWsr && ptc.m_wsr.m_wsr == WSR_Outside)
+      if (Policy::use_wsr && ptc.m_wsr.m_wsr == WSR_Outside)
         continue;
       const int nlh = (int) ptc.m_layer_hits.size();
       for (int lh = 0; lh < nlh; ++lh) {
@@ -1920,7 +1874,7 @@ namespace mkfit {
 
     // Depths 1 and up. The starting state is now a node's UPDATED state, for
     // which no crossing has been solved, so propagate-to-plane solves it.
-    for (int depth = 1; depth < g_v2p2_max_sec_depth && f_end > f_beg; ++depth) {
+    for (int depth = 1; depth < InLayer::max_sec_depth && f_end > f_beg; ++depth) {
       koa.m_solve_plane = true;
       for (int ni = f_beg; ni < f_end; ++ni) {
         // By index, not by reference: the arena grows under us only at harvest,
@@ -1940,7 +1894,7 @@ namespace mkfit {
           //
           // No truth is needed for the test -- the module id is on the hit -- and
           // the walk is cheap because it only ever looks back along one path,
-          // which is at most g_v2p2_max_sec_depth long.
+          // which is at most InLayer::max_sec_depth long.
           bool same_module = false;
           for (int ci = ni; ci >= 0 && !same_module; ci = m_sec_arena[ci].m_parent_idx) {
             const SecTCandRep &an = m_sec_arena[ci];
@@ -2045,7 +1999,7 @@ namespace mkfit {
       // Reached the layer but took nothing: it competes as a hole. WSR_Outside is
       // NOT a hole -- the track does not reach the layer, so there is nothing to
       // have missed, and it competes unchanged.
-      if (Config::v2p2UseWsr && ptc.m_wsr.m_wsr == WSR_Outside) {
+      if (Policy::use_wsr && ptc.m_wsr.m_wsr == WSR_Outside) {
         ++g_v2p2_policy_counters.n_layer_skipped;
         m_sel.push_back({ptc.m_origin_tcand_index, -1, 0, false, tc.score()});
       } else {
@@ -2084,7 +2038,7 @@ namespace mkfit {
     // Outward only. Going inward the trailing end of the hit sequence is the HEAD
     // of the track, so a truncated candidate is not a shorter track, it is one
     // that never reached the beamline.
-    const bool best_short = Config::v2p2BestShort && m_rz_limits.is_outward();
+    const bool best_short = InLayer::best_short && m_rz_limits.is_outward();
     for (int ic = 0; ic < n_tc; ++ic) {
       if (ic < 64 && has_ptc[ic])
         continue;
@@ -2119,7 +2073,7 @@ namespace mkfit {
     // This is a BEAM POLICY, not a score. The score ranks hypotheses given that
     // the error model is right; this hedges against its being wrong, which no
     // single scalar can express because the two are different questions.
-    if (Config::v2p2ReserveHoleSlot && n_keep > 1) {
+    if (InLayer::reserve_hole_slot && n_keep > 1) {
       bool kept_a_decliner = false;
       for (int k = 0; k < n_keep && !kept_a_decliner; ++k)
         kept_a_decliner = (m_sel[k].node_idx < 0);
@@ -2146,7 +2100,7 @@ namespace mkfit {
       TrackCand &nc = m_new_cands.back();
 
       if (e.node_idx >= 0) {
-        int chain[kMaxSecDepthMax];
+        int chain[InLayer::max_sec_depth_limit];
         int n_chain = 0;
         for (int ci = e.node_idx; ci >= 0; ci = m_sec_arena[ci].m_parent_idx)
           chain[n_chain++] = ci;

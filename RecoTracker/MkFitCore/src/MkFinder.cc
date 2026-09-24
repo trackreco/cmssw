@@ -35,9 +35,6 @@
 
 namespace mkfit {
 
-  float g_bkfit_err_scale = 100.0f;
-
-
   void MkFinder::setup(const PropagationConfig &pc,
                        const IterationConfig &ic,
                        const IterationParams &ip,
@@ -1900,7 +1897,7 @@ namespace mkfit {
     mtp.pack(m_Err[iC], m_Par[iC]);
 
     if (scale_errors)
-      m_Err[iC].scale(g_bkfit_err_scale);
+      m_Err[iC].scale(Config::bkfitErrScale);
   }
 
   void MkFinder::bkFitInputTracks(EventOfCombCandidates &eocss, int beg, int end, bool scale_errors) {
@@ -1932,7 +1929,7 @@ namespace mkfit {
     mtp.pack(m_Err[iC], m_Par[iC]);
 
     if (scale_errors)
-      m_Err[iC].scale(g_bkfit_err_scale);
+      m_Err[iC].scale(Config::bkfitErrScale);
   }
 
   //------------------------------------------------------------------------------
@@ -2404,7 +2401,7 @@ namespace mkfit {
         if (cc->m_trace_meta_id == -1)
           cc->m_trace_meta_id = m_event->trace_new_cand_meta(m_event->evtID(), cc->seed_origin_index());
         // The root state is the INPUT state, i.e. AFTER bkFitInputTracks has
-        // inflated the covariance by g_bkfit_err_scale (100, so 10x in sigma).
+        // inflated the covariance by Config::bkfitErrScale (100, so 10x in sigma).
         // Do not compare it against a search state without allowing for that.
         TrackState ts;
         m_Par[iC].copyOut(i, ts.parArray_nc());

@@ -2,6 +2,7 @@
 #define RecoTracker_MkFitCore_src_MkBins_h
 
 #include "RecoTracker/MkFitCore/src/MiniPropagators.h"
+#include "RecoTracker/MkFitCore/src/V2p2Config.h"
 
 namespace mkfit {
 
@@ -9,17 +10,12 @@ namespace mkfit {
   class LayerOfHits;
   struct MkRZLimits;
 
-  // Reference the window covariance to the LAYER SURFACE instead of to the fixed
-  // path length errPropFromPathL_impl() transports it to. See MkBins.cc.
-  // Runtime switch so the A/B needs one build.
-  extern bool g_mkbins_surface_q;
-
   struct MkBinTrackCovExtract {
     MPlexQF m_cov_0_0 = { 0.0f };
     MPlexQF m_cov_0_1 = { 0.0f };
     MPlexQF m_cov_1_1 = { 0.0f };
     MPlexQF m_cov_2_2 = { 0.0f };
-    // Needed only for the surface referencing above -- the position block of the
+    // Needed only for surface_reference_dq() -- the position block of the
     // covariance is what the projection acts on, and these two complete it.
     MPlexQF m_cov_0_2 = { 0.0f };
     MPlexQF m_cov_1_2 = { 0.0f };
@@ -55,112 +51,9 @@ namespace mkfit {
 
   //============================================================================
 
-  // Runtime overrides for the phi pre-selection; see MkBins.cc. There is no
-  // separate binnor factor any more: the fetch range is DERIVED from the cut,
-  // which is what makes "the cut is wider than the fetch" impossible to express.
-  extern float g_v2p2_dphi_trk_fac;   // factor on dphi_track, cut AND fetch
-  extern float g_v2p2_hit_dphi_rad;   // the cut tolerance itself, radians
-  extern int   g_v2p2_phi_extra_bins; // fetch safety margin, whole bins
-  // The split dq cut; the q fetch is DERIVED from these, as phi's is from its own.
-  extern float g_v2p2_dq_trk_fac;     // multiplies dq_track (itself 3 sigma)
-  extern float g_v2p2_dq_hit_fac;     // multiplies hit_q_half_length; floor 1.0
-  extern int   g_v2p2_q_extra_bins;   // fetch margin beyond the cut, whole q bins
-  // PER-HIT phi extent from the covariance, instead of the flat half-bin
-  // constant. When on, g_v2p2_dphi_hit_fac multiplies it and has the same
-  // geometric meaning as g_v2p2_dq_hit_fac: a FLOOR OF 1.0 contains the hit's
-  // own extent. When off, g_v2p2_hit_dphi_rad is used as a flat tolerance.
-  extern bool  g_v2p2_phi_per_hit;
-  extern float g_v2p2_dphi_hit_fac;
-  // Line pre-cuts in MkFinderV2p2::select_hits(), q and phi separately.
-  extern bool  g_v2p2_precut_q;
-  extern bool  g_v2p2_precut_phi;
-
   struct MkBins {
-    // To become members ... or go into a helper struct / config.
-    // THE dphi CUT. The hit term is the hit's own phi extent, derived from its
-    // covariance (LayerOfHits::hit_phi_half_extent(), the phi counterpart of
-    // hit_q_half_length()), times DPHI_HIT_FAC:
-    //
-    //   ddphi < DPHI_TRK_FAC * dphi_track + DPHI_HIT_FAC * hit_phi_half_extent
-    //
-    // The per-hit extent is ~4e-5 rad in TB2S, so the cut is carried by the
-    // track term, and DPHI_TRK_FAC = 2 is what makes that work: 1.0 loses 41
-    // found tracks forward and 582 fully recovered chopped pT5 tracks inward,
-    // 1.75 is the lowest free value forward, and 2.0 is free in both directions
-    // and reproduces the flat constant to the unit inward. Above |eta| 0.8 the 2
-    // also compensates a phi covariance measured 2.2-3.4x short (the material
-    // model in the transition and forward region); at central eta, where the
-    // covariance is within 1.25 of right, it is containment.
-    static constexpr bool  PHI_PER_HIT  = true;
-    static constexpr float DPHI_TRK_FAC = 2.0f;
-    static constexpr float DPHI_HIT_FAC = 3.0f;
-
-    // Flat phi tolerance, in RADIANS, used only with the per-hit extent
-    // switched off. Equals one phi bin at N = 8 by accident of history, not by
-    // design -- see the note on HIT_PHI_HALF_EXTENT below.
-    static constexpr float PHI_PRESEL_TOLERANCE = 2.0f * 0.0123f;
-
-    // Safety margin the BINNOR adds beyond what the cut can accept, in WHOLE
-    // BINS added to the bin INDEX -- so it carries no float-to-bin rounding of
-    // its own. It was meant for the per-hit reference phi, the Hermite's
-    // crossing at the hit's own module plane, falling slightly outside the
-    // [phi_min, phi_max] span the range is built from. Measured at the current
-    // window: 0 is free forward (-1 found track) and inward (+1 chopped hit),
-    // and one spare bin costs 20 % of build time, since every fetched hit
-    // costs a plane solve per candidate.
-    static constexpr int PHI_EXTRA_BINS = 0;
-
-    // THE dq CUT, SPLIT. It used to be one factor (EXTRA_DQ) over both terms:
-    //
-    //   ddq < EXTRA_DQ * dq_trk + EXTRA_DQ * DDQ_PRESEL_FAC * hit_q_half_length
-    //
-    // which cannot be interpreted, because WHICH TERM BINDS IS A PROPERTY OF THE
-    // LAYER: the containment term spans a factor 335 across the detector (0.009
-    // cm in the pixel barrel to 3.015 in TB2S at unit factor) while the track
-    // term does not. Strips are containment-dominated, pixels are
-    // covariance-dominated, and one number cannot sit in the right place for
-    // both. Split, each in its own honest unit:
-    //
-    //   DQ_TRK_FAC  multiplies dq_track, which is itself 3 sigma
-    //   DQ_HIT_FAC  multiplies the hit's own half-extent -- FLOOR IS EXACTLY 1.0,
-    //               below which the window stops reaching the strip it is trying
-    //               to contain. (In the old compound units that floor was the
-    //               opaque 1/1.2 = 0.833.)
-    //
-    // DQ_TRK_FAC is EXTRA_DQ = 1.5 in the old units. DQ_HIT_FAC sits 20 % above
-    // its floor: taking it from 1.8 (the old ratio) to 1.2 is worth 3-6 % of
-    // build time and is a physics null both ways -- forward -3 found tracks and
-    // -15 fakes, inward +55 recovered chopped hits.
-    static constexpr float DQ_TRK_FAC = 1.5f;
-    static constexpr float DQ_HIT_FAC = 1.2f;
-
-    // Fetch margin beyond what the cut accepts, in WHOLE q bins on the index.
-    // NOT removable yet, although it costs 22 % of build time: the per-hit q cut
-    // uses the SURFACE-REFERENCED dq (MkFinderV2p2::surface_referenced_dq,
-    // growing ~cosh^2(eta), ~14x at |eta| 2 in the pixel barrel) while the fetch
-    // uses the raw m_dq_track. At 0 the cut is wider than the fetch at high eta
-    // and the inward search loses 1373 of 43358 fully recovered chopped pT5
-    // tracks, all in pixel-barrel hits of disc-touching tracks. Forward is free.
-    // The fix is a surface-referenced FETCH, after which this can go to 0.
-    static constexpr int Q_EXTRA_BINS = 1;
-
-    // LINE PRE-CUT (MkFinderV2p2::select_hits). Before the plane solve, the
-    // track between its two layer crossings m_sp1 and m_sp2 is taken as a
-    // straight line in (qbar, q) and (qbar, phi), evaluated at the hit's own
-    // qbar, and the hit is dropped if it is outside a tolerance that is looser
-    // than the real dq / dphi cut. Tolerances, with g the line's slope:
-    //   q:   PRECUT_DQ_SLACK * dq_trk_fac * dq_track * (1 + g^2)
-    //        + dq_hit_fac * hit_q_half_length + PRECUT_QBAR_FAC * |g| * hit_qbar_half_extent
-    //   phi: PRECUT_DPHI_SLACK * dphi_trk_fac * dphi_track + the real cut's hit term
-    //        + PRECUT_QBAR_FAC * |g_phi| * hit_qbar_half_extent
-    // (1 + g^2) references dq_track to the layer surface, as the real cut does
-    // per hit. The qbar terms cover a tilted strip, whose centroid r is uncertain
-    // along the strip; they are applied in the barrel only. See
-    // doc/MkFinderV2p2-DesignNotes.md, "Line pre-cut".
-    static constexpr float PRECUT_DQ_SLACK = 2.0f;
-    static constexpr float PRECUT_DPHI_SLACK = 1.5f;
-    static constexpr float PRECUT_QBAR_FAC = 1.2f;
-
+    // V2 (MkFinder::selectHitIndicesV2) constants, as in upstream CMSSW. The
+    // v2p2 window is configured in V2p2Config.h.
     static constexpr float DDPHI_PRESEL_FAC = 2.0f;
     static constexpr float DDQ_PRESEL_FAC = 1.2f;
     // V2's fetch margins, as in upstream CMSSW; see find_bin_ranges_v2().
@@ -174,11 +67,12 @@ namespace mkfit {
     // LayerOfHits::hit_phi_half_extent(); for a TB2S strip it is ~4e-5 rad,
     // about 300x smaller than this.
     //
-    // Remaining consumers: PHI_PRESEL_TOLERANCE above, used by MkFinderV2p2 only
-    // with the per-hit extent switched off, and V2 -- its cut in MkFinder.cc and
-    // its upstream fetch in find_bin_ranges_v2(). The name is kept for V2.
+    // Remaining consumers: V2 -- its cut in MkFinder.cc and its upstream fetch
+    // in find_bin_ranges_v2(). Config::V2p2::Window::dphi_flat_rad defaults to
+    // twice this value. The name is kept for V2.
     static constexpr float HIT_PHI_HALF_EXTENT = 0.0123f;
 
+    // V2 pqueue cap. v2p2 uses Config::V2p2::InLayer::max_presel_hits.
     static constexpr int NEW_MAX_HIT = 6;  // 4 - 6 give about the same # of tracks in quality-val
 
     mini_propagators::InitialStatePlex m_isp;
@@ -217,7 +111,7 @@ namespace mkfit {
     void determine_bin_windows(const MkBinTrackCovExtract &cov_ex);
     void surface_reference_dq(const MkBinTrackCovExtract &cov_ex);
 
-    // MkFinderV2p2: fetch derived from the v2p2 cut (the g_v2p2_* globals).
+    // MkFinderV2p2: fetch derived from the v2p2 cut, Config::V2p2::Window.
     void find_bin_ranges(const LayerOfHits &loh, MkBinLimits &bl);
     // MkFinder::selectHitIndicesV2: the fetch V2 has in upstream CMSSW, kept
     // verbatim so production V2 is unchanged by the v2p2 window work.

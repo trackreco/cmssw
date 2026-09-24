@@ -2,6 +2,7 @@
 #define RecoTracker_MkFitCore_src_V2p2Score_h
 
 #include "RecoTracker/MkFitCore/interface/Hit.h"
+#include "RecoTracker/MkFitCore/src/V2p2Config.h"
 
 #include <cmath>
 
@@ -138,63 +139,8 @@ namespace mkfit {
     short n_holes_so_far = 0;
   };
 
-  // Coefficients. One set per direction, which is the minimum that expresses the
-  // head/body asymmetry above; per-layer and per-transition modifiers belong here
-  // too and are deliberately not invented yet -- there is no measurement behind
-  // them, and inventing them before the features are recorded is exactly the
-  // hand-tuning this struct exists to replace.
-  // 0 = the linear form below, kept as the A/B reference. 1 = the log-likelihood
-  // ratio. See v2p2_layer_step_score().
-  extern int g_v2p2_score_mode;
-
-  //--------------------------------------------------------------------------
-  // TERM ABLATION, for finding out what each term of the likelihood does.
-  //
-  // THE POINT, and it is an algebraic one: rho and eps enter the score
-  // IDENTICALLY -- look at v2p2_layer_step_loglh(), both multiply n_hits. So
-  // replacing log_rho by a constant is EXACTLY a global shift of eps, and the
-  // only thing it can remove is rho's VARIATION across layers, eta and events.
-  // Set the constant to the measured mean and the ablation is variation-only,
-  // with the average hit-versus-hole balance untouched -- which is the one
-  // comparison that can attribute a regional effect to rho rather than to eps.
-  //
-  // Comparing the likelihood against the LINEAR score cannot do that: the two
-  // differ in eps, in the chi2 weight (0.5 against 1.0) and in ln(det V) as
-  // well, so a regional difference between them names no single term.
-  extern bool  g_v2p2_score_use_rho;
-  extern float g_v2p2_score_rho_const;    // ln(hits/cm^2), used when use_rho is false
-  extern bool  g_v2p2_score_use_detv;
-  extern float g_v2p2_score_detv_const;   // ln(det V) per hit, used when use_detv is false
-
-  // Running means, so those constants are measured and not guessed. Off by
-  // default; the accumulation is not thread safe, so switch it on only in a
-  // serialised (trace) build, which is what MkFitTbb.h gives under TBB_DEBUG.
-  extern bool   g_v2p2_score_accum;
-  extern long   g_v2p2_score_n_hits;
-  extern double g_v2p2_score_sum_log_rho;    // weighted by n_hits
-  extern double g_v2p2_score_sum_log_detv;
-
-  struct V2p2ScoreParams {
-    float hit_bonus = 30.0f;      // per hit taken
-    float overlap_bonus = 0.0f;   // per hit beyond the first in a layer
-    float chi2_weight = 1.0f;     // per unit of chi2
-    float miss_penalty = 8.0f;    // a real hole
-    float edge_penalty = 0.0f;    // crossing the boundary -- absence is explained
-    float gap_penalty = 0.0f;     // inactive module -- absence is explained
-    float stop_penalty = 8.0f;    // out of hole budget
-
-    // Likelihood mode. Per-layer hit efficiency; the only free number in it, and
-    // a measurable one rather than a tuned one.
-    float hit_eff = 0.99f;
-  };
-
-  // Outward: trailing holes sit at large radius where a track legitimately runs
-  // out of detector. Inward: they sit at small radius, where the track has to
-  // have come from. Same numbers to start with, so the first A/B measures the
-  // SELECTION and not a simultaneous change of the penalty -- the asymmetry is
-  // the next knob to turn, and it now has somewhere to be turned.
-  extern V2p2ScoreParams g_v2p2_score_fwd;
-  extern V2p2ScoreParams g_v2p2_score_bkw;
+  // The coefficients, the score mode and the term-ablation switches are in
+  // V2p2Config.h, Config::V2p2::Score.
 
   // THE LOG-LIKELIHOOD RATIO, against "this layer produced no hit" as the
   // reference, which is why the hole scores exactly zero and needs no penalty of
@@ -220,23 +166,27 @@ namespace mkfit {
     if (f.n_hits == 0)
       return 0.0f;   // the reference hypothesis, whatever kind of hole it was
     const float c_eps = std::log(p.hit_eff / (1.0f - p.hit_eff)) - 1.8378771f;  // ln(2pi)
-    if (g_v2p2_score_accum) {
-      g_v2p2_score_n_hits += f.n_hits;
-      g_v2p2_score_sum_log_rho += (double) f.n_hits * f.log_rho;
-      g_v2p2_score_sum_log_detv += f.log_det_v_sum;
+#if defined(MKFIT_STANDALONE)
+    namespace ss = Config::V2p2::ScoreStats;
+    if (ss::accum) {
+      ss::n_hits += f.n_hits;
+      ss::sum_log_rho += (double) f.n_hits * f.log_rho;
+      ss::sum_log_detv += f.log_det_v_sum;
     }
+#endif
+    namespace sc = Config::V2p2::Score;
     // log_rho is per layer STEP, so it multiplies n_hits; log_det_v_sum is
     // already a sum over the hits taken, so its replacement must be scaled.
-    const float lrho = g_v2p2_score_use_rho ? f.log_rho : g_v2p2_score_rho_const;
-    const float ldetv = g_v2p2_score_use_detv ? f.log_det_v_sum
-                                              : f.n_hits * g_v2p2_score_detv_const;
+    const float lrho = sc::use_rho ? f.log_rho : sc::rho_const;
+    const float ldetv = sc::use_detv ? f.log_det_v_sum : f.n_hits * sc::detv_const;
     return f.n_hits * (c_eps - lrho) - 0.5f * (f.chi2_sum + ldetv);
   }
 
   inline float v2p2_layer_step_score(const LayerStepFeatures &f) {
-    const V2p2ScoreParams &p = f.is_outward ? g_v2p2_score_fwd : g_v2p2_score_bkw;
+    namespace sc = Config::V2p2::Score;
+    const V2p2ScoreParams &p = f.is_outward ? sc::fwd : sc::bkw;
 
-    if (g_v2p2_score_mode == 1)
+    if (sc::mode == 1)
       return v2p2_layer_step_loglh(f, p);
 
     float s = p.hit_bonus * f.n_hits + p.overlap_bonus * f.n_overlap - p.chi2_weight * f.chi2_sum;

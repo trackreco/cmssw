@@ -8,8 +8,8 @@ its size and what was counted.
 ## Line pre-cut
 
 **Code:** `MkFinderV2p2::select_hits()`, the per-candidate `pc_*` block and the
-per-hit test before the prefetch. Constants `MkBins::PRECUT_*`, switches
-`g_v2p2_precut_q` and `g_v2p2_precut_phi`, per-hit input
+per-hit test before the prefetch. Switches and slack factors in
+`Config::V2p2::PreCut` (`V2p2Config.h`), per-hit input
 `LayerOfHits::hit_qbar_half_extent()`.
 
 **What it does.** Every hit fetched from the binnor used to go straight into the
@@ -26,8 +26,8 @@ looser than the real cut.
 
 **Tolerances**, with g the slope of the line:
 
-- q: `PRECUT_DQ_SLACK * dq_trk_fac * dq_track * (1 + g^2) + dq_hit_fac * hit_q_half_length + PRECUT_QBAR_FAC * |g| * hit_qbar_half_extent`
-- phi: `PRECUT_DPHI_SLACK * dphi_trk_fac * dphi_track + hit term of the real cut + PRECUT_QBAR_FAC * |g_phi| * hit_qbar_half_extent`
+- q: `dq_slack * dq_trk_fac * dq_track * (1 + g^2) + dq_hit_fac * hit_q_half_length + qbar_fac * |g| * hit_qbar_half_extent`
+- phi: `dphi_slack * dphi_trk_fac * dphi_track + hit term of the real cut + qbar_fac * |g_phi| * hit_qbar_half_extent`
 
 The tolerances are written in terms of the real cut's own factors, so the
 pre-cut stays looser when those factors change.

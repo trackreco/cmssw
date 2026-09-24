@@ -10,34 +10,19 @@
 
 namespace mkfit {
 
-  bool g_mkbins_surface_q = false;
+  using namespace Config::V2p2;
 
   // Phi pre-selection, cut and fetch. ONE tolerance, not two factors: the
   // binnor must fetch everything the cut can accept, so the fetch range is
   // derived from the cut rather than tuned against it. That is what makes the
   // old failure mode -- a cut wider than the fetch, silently accepting nothing
   // extra -- impossible to express.
-  float g_v2p2_dphi_trk_fac   = MkBins::DPHI_TRK_FAC;
-  float g_v2p2_hit_dphi_rad   = MkBins::PHI_PRESEL_TOLERANCE;
-  int   g_v2p2_phi_extra_bins = MkBins::PHI_EXTRA_BINS;
-
+  //
   // The range used to be hand-rolled as a pair of phiBinChecked() calls with NO
   // "+1", and the scan loops consume [p1, p2) half-open, so the bin holding the
   // upper edge was never scanned -- on every range. A PHI_BIN_EXTRA_FAC of 2.75
   // half-bins was carrying a whole spare bin to hide it. The axis helper behind
   // LayerOfHits::phiRangeBins() has the correct form.
-
-  float g_v2p2_dq_trk_fac   = MkBins::DQ_TRK_FAC;
-  float g_v2p2_dq_hit_fac   = MkBins::DQ_HIT_FAC;
-  int   g_v2p2_q_extra_bins = MkBins::Q_EXTRA_BINS;
-
-  // The hit's own covariance-derived phi extent, not the flat half-bin
-  // constant; see MkBins::PHI_PER_HIT for the measurement behind the defaults.
-  bool  g_v2p2_phi_per_hit  = MkBins::PHI_PER_HIT;
-  float g_v2p2_dphi_hit_fac = MkBins::DPHI_HIT_FAC;
-
-  bool  g_v2p2_precut_q   = true;
-  bool  g_v2p2_precut_phi = true;
 
   // Largest representable phi half-width: a hair under pi, since at pi the two
   // endpoints coincide and the arc degenerates to a point.
@@ -197,7 +182,7 @@ namespace mkfit {
       m_dq_track = 3.0f * (r2inv_c * cov_ex.calc_err_xy(m_isp.x, m_isp.y).abs()).sqrt();
     }
 
-    if (g_mkbins_surface_q)
+    if (Diag::mkbins_surface_q)
       surface_reference_dq(cov_ex);
   }
 
@@ -295,26 +280,26 @@ namespace mkfit {
         // Per hit the cut uses that hit's own phi extent; the FETCH cannot know
         // it yet, so it uses the layer's worst case -- the same asymmetry the q
         // side has, and why LayerOfHits carries both maxima.
-        const float phi_hit_term = g_v2p2_phi_per_hit
-                                 ? g_v2p2_dphi_hit_fac * loh.max_hit_phi_half_extent()
-                                 : g_v2p2_hit_dphi_rad;
-        const float cut_dphi = std::min(g_v2p2_dphi_trk_fac * m_dphi_track[i] + phi_hit_term,
+        const float phi_hit_term = Window::phi_per_hit
+                                 ? Window::dphi_hit_fac * loh.max_hit_phi_half_extent()
+                                 : Window::dphi_flat_rad;
+        const float cut_dphi = std::min(Window::dphi_trk_fac * m_dphi_track[i] + phi_hit_term,
                                         kMaxHalfPhiWindow);
         auto pr = loh.phiRangeBins(m_phi_min[i] - cut_dphi, m_phi_max[i] + cut_dphi);
-        bl.p1[i] = loh.phiMaskApply(pr.begin - g_v2p2_phi_extra_bins);
-        bl.p2[i] = loh.phiMaskApply(pr.end   + g_v2p2_phi_extra_bins);
+        bl.p1[i] = loh.phiMaskApply(pr.begin - Window::phi_extra_bins);
+        bl.p2[i] = loh.phiMaskApply(pr.end   + Window::phi_extra_bins);
 
         // Fetch exactly what the q cut can accept, using the layer's WORST-CASE
         // hit extent since the per-hit one is not known until the hit is in
         // hand, then extend by whole bins on the INDEX. The q axis is bounded,
         // so the extension CLAMPS where the phi one wraps.
         bl.q0[i] = loh.qBinChecked(m_q_center[i]);
-        const float cut_dq = g_v2p2_dq_trk_fac * m_dq_track[i] +
-                             g_v2p2_dq_hit_fac * loh.max_hit_q_half_length();
+        const float cut_dq = Window::dq_trk_fac * m_dq_track[i] +
+                             Window::dq_hit_fac * loh.max_hit_q_half_length();
         auto qr = loh.qRangeBins(m_q_min[i] - cut_dq, m_q_max[i] + cut_dq);
         const int nq = (int)loh.qNBins();
-        int qb = (int)qr.begin - g_v2p2_q_extra_bins;
-        int qe = (int)qr.end   + g_v2p2_q_extra_bins;
+        int qb = (int)qr.begin - Window::q_extra_bins;
+        int qe = (int)qr.end   + Window::q_extra_bins;
         bl.q1[i] = (unsigned short)(qb < 0 ? 0 : qb);
         bl.q2[i] = (unsigned short)(qe > nq ? nq : qe);
       }

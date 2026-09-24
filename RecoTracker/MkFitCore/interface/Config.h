@@ -57,39 +57,16 @@ namespace mkfit {
     extern bool usePropToPlane;
     extern bool usePtMultScat;
 
-    // MkFinderV2p2 per-layer candidate policy. These exist so the three pieces
-    // can be A/B'd from a single build; the intended behaviour is all three on,
-    // which is the default. Turning one off recovers what v2p2 did before
-    // 2026-09-22: no within-sensitive-region verdict at all, so a layer the
-    // track never crosses was recorded as a hole; no hole limits, so
-    // maxHolesPerCand / maxConsecHoles were read only by V1/V2; and no
-    // candidate-stopping cuts, so neither minPtCut nor the looper stop ever
-    // fired. Set from mkFit.cc with --v2p2-wsr / --v2p2-hole-limits /
-    // --v2p2-stop-cuts; see RecoTracker/SESSIONS.md S4.
-    extern bool v2p2UseWsr;
-    extern bool v2p2UseHoleLimits;
-    extern bool v2p2UseStopCuts;
+    // MkFinderV2p2 switches and parameters are in src/V2p2Config.h.
 
-    // MkFinderV2p2 in-layer combinatorial search: walk the pre-selected hits
-    // forward along the trajectory and take a SEQUENCE of them, rather than the
-    // single best-chi2 hit. Off recovers the best-hit hack. See SESSIONS.md S8.
-    extern bool v2p2InLayerComb;
-
-    // Keep one beam slot for a continuation that DECLINED the layer, even when
-    // it is outranked. A hole is the only move that does not shrink the
-    // covariance, so it is the only branch that stays open to the possibility
-    // that an earlier hit was wrong -- and the score is computed with an error
-    // model known to be 1.4-2x short, so the ranking it produces is not a reason
-    // to throw the hedge away. See MkFinderV2p2::select_and_materialise().
-    extern bool v2p2ReserveHoleSlot;
-
-    // Best-short. Move a STOPPED TrackCand out of the beam and remember the best
-    // of them on the CombCandidate, the way V1's CandCloner does. Two effects:
-    // a stopped candidate stops occupying a beam slot it can never use, and a
-    // seed whose long candidates degrade still yields the best short track it
-    // ever had. Outward search only -- going inward the "tail" is the head of
-    // the track and a short track is a different animal.
-    extern bool v2p2BestShort;
+    // Variance scale applied to the seed covariance by both
+    // MkFinder::bkFitInputTracks() overloads -- 100, i.e. 10x in sigma.
+    // Settable in the standalone build so it can be scanned in one process.
+#if defined(MKFIT_STANDALONE)
+    extern float bkfitErrScale;
+#else
+    constexpr float bkfitErrScale = 100.0f;
+#endif
 
     // Config for Bfield. Note: for now the same for CMS-phase1 and CylCowWLids.
     constexpr float Bfield = 3.8112;

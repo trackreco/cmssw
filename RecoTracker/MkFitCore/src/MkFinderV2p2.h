@@ -19,24 +19,7 @@
 
 namespace mkfit {
 
-  // Diagnostic oracles, both default OFF and both meaningful only in a
-  // MKFIT_TRACE build. See PrimTCandRep::bKey.
-  //   g_v2p2_force_mc -- make the MC-matched hit win its layer and bypass the
-  //                      chi2 < 30 acceptance cut.
-  extern bool g_v2p2_force_mc;
-  // The OLD compound dq knob, kept as a setter so recorded scans reproduce: it
-  // writes g_v2p2_dq_trk_fac and g_v2p2_dq_hit_fac in the old 1 : 1.2 ratio. That
-  // ratio is NOT the default any more (1.5 : 1.2), so no argument reproduces the
-  // defaults. Prefer the two factors directly -- see MkBins.h.
-  void set_extra_dq(float f);
-  // Reference the pre-selection q error to the HIT'S OWN MODULE PLANE. Exact for
-  // tilted and flat layers alike -- see MkFinderV2p2.cc.
-  extern bool  g_v2p2_surface_q;
-  // Per-sub-layer hit reduction cap; see MkFinderV2p2.cc.
-  extern int   g_v2p2_max_presel_hits;
-  // Most hits one in-layer path may take; see MkFinderV2p2.cc.
-  extern int   g_v2p2_max_sec_depth;
-
+  // Switches and parameters are in V2p2Config.h, namespace Config::V2p2.
 
   // Did the per-layer policy actually fire? quality-val cannot answer that: a cut
   // that never fires and a cut that fires on candidates which were doomed anyway
@@ -270,7 +253,7 @@ namespace mkfit {
     void process_kalman_results(LayerBatch &b);
 
     // The in-layer combinatorial search, replacing the two phases above when
-    // Config::v2p2InLayerComb is on. expand_in_layer() grows the SecTCandRep
+    // Config::V2p2::InLayer::comb is on. expand_in_layer() grows the SecTCandRep
     // tree breadth-first by depth; materialise_in_layer() picks a path out of it
     // and registers it into the CombCandidate.
     void expand_in_layer(LayerBatch &b);

@@ -48,6 +48,7 @@
 #include <vector>
 
 namespace mkfit {
+  namespace V2p2 = Config::V2p2;
 
   // Lite trace: keep only pixel-barrel hits and skip the exact double-precision
   // helix-plane solve. That solve plus the sheer volume (~142k records/event) is
@@ -1309,8 +1310,8 @@ namespace mkfit {
   // Separates "the true hit was never available" from "ranking / pruning threw
   // it away". Never a production path.
   void val_force_mc(bool on) {
-    g_v2p2_force_mc = on;
-    printf("val_force_mc: g_v2p2_force_mc = %d\n", (int) on);
+    V2p2::Diag::force_mc = on;
+    printf("val_force_mc: V2p2::Diag::force_mc = %d\n", (int) on);
   }
 
   // Both parameter sets, not just the forward one: the beam width a candidate
@@ -1339,8 +1340,8 @@ namespace mkfit {
   // MkBins::surface_reference_dq(). Affects the WINDOW AND THE dq CUT ONLY --
   // the Kalman update already carries the term, via jacCurv2Loc's cosz.
   void val_mkbins_surface_q(bool on) {
-    g_mkbins_surface_q = on;
-    printf("val_mkbins_surface_q: g_mkbins_surface_q = %d\n", (int) on);
+    V2p2::Diag::mkbins_surface_q = on;
+    printf("val_mkbins_surface_q: V2p2::Diag::mkbins_surface_q = %d\n", (int) on);
   }
 
   // The dq pre-selection allowance (MkFinderV2p2.cc). It was 3.0 to compensate
@@ -1350,9 +1351,9 @@ namespace mkfit {
   // The legacy compound knob: sets BOTH dq factors in the old ratio. Kept so the
   // recorded scans reproduce; prefer val_dq() below, which is interpretable.
   void val_extra_dq(float f) {
-    set_extra_dq(f);
+    V2p2::set_extra_dq(f);
     printf("val_extra_dq (legacy compound): dq_trk_fac = %.3f  dq_hit_fac = %.3f\n",
-           g_v2p2_dq_trk_fac, g_v2p2_dq_hit_fac);
+           V2p2::Window::dq_trk_fac, V2p2::Window::dq_hit_fac);
   }
 
   // The dq cut, split.  trk_fac multiplies dq_track (itself 3 sigma); hit_fac
@@ -1360,9 +1361,9 @@ namespace mkfit {
   // which the window stops reaching the strip it is containing. extra_bins is
   // the fetch margin beyond the cut, in whole q bins.
   void val_dq(float trk_fac, float hit_fac, int extra_bins) {
-    g_v2p2_dq_trk_fac   = trk_fac;
-    g_v2p2_dq_hit_fac   = hit_fac;
-    g_v2p2_q_extra_bins = extra_bins;
+    V2p2::Window::dq_trk_fac   = trk_fac;
+    V2p2::Window::dq_hit_fac   = hit_fac;
+    V2p2::Window::q_extra_bins = extra_bins;
     printf("val_dq: trk_fac = %.3f  hit_fac = %.3f%s  extra_bins = %d\n",
            trk_fac, hit_fac,
            hit_fac < 1.0f ? "  *** BELOW THE GEOMETRIC FLOOR OF 1.0 ***" : "", extra_bins);
@@ -1372,8 +1373,8 @@ namespace mkfit {
   // fac means what val_dq's hit_fac means: 1.0 exactly contains the hit's extent.
   // Expect a large tightening -- ~380x in TB2S -- so scan it, do not assume it.
   void val_phi_per_hit(bool on, float fac) {
-    g_v2p2_phi_per_hit  = on;
-    g_v2p2_dphi_hit_fac = fac;
+    V2p2::Window::phi_per_hit  = on;
+    V2p2::Window::dphi_hit_fac = fac;
     printf("val_phi_per_hit: %s  fac = %.2f%s\n", on ? "ON (per-hit covariance)" : "off (flat)",
            fac, (on && fac < 1.0f) ? "  *** BELOW THE CONTAINMENT FLOOR ***" : "");
   }
@@ -1416,15 +1417,15 @@ namespace mkfit {
   //              used only with the per-hit extent off, see val_phi_per_hit()
   //   extra_bins fetch safety margin beyond the cut, in WHOLE bins
   void val_precut(bool q, bool phi) {
-    g_v2p2_precut_q = q;
-    g_v2p2_precut_phi = phi;
+    V2p2::PreCut::q = q;
+    V2p2::PreCut::phi = phi;
     printf("val_precut: q %s, phi %s\n", q ? "on" : "off", phi ? "on" : "off");
   }
 
   void val_dphi(float trk_fac, float hit_rad, int extra_bins) {
-    g_v2p2_dphi_trk_fac   = trk_fac;
-    g_v2p2_hit_dphi_rad   = hit_rad;
-    g_v2p2_phi_extra_bins = extra_bins;
+    V2p2::Window::dphi_trk_fac   = trk_fac;
+    V2p2::Window::dphi_flat_rad  = hit_rad;
+    V2p2::Window::phi_extra_bins = extra_bins;
     printf("val_dphi: trk_fac = %.3f  hit_rad = %.5f rad (%.3f bins)  extra_bins = %d\n",
            trk_fac, hit_rad, hit_rad / (2.0f * float(M_PI) / 256.0f), extra_bins);
   }
@@ -1433,9 +1434,9 @@ namespace mkfit {
   // real fix; MkBins::surface_reference_dq (val_surf_q) is the layer-cylinder
   // scaffold that proved the mechanism and over-widens tilted TBPS ~8x.
   void val_layer_policy(bool wsr, bool hole_limits, bool stop_cuts) {
-    Config::v2p2UseWsr = wsr;
-    Config::v2p2UseHoleLimits = hole_limits;
-    Config::v2p2UseStopCuts = stop_cuts;
+    V2p2::Policy::use_wsr = wsr;
+    V2p2::Policy::use_hole_limits = hole_limits;
+    V2p2::Policy::use_stop_cuts = stop_cuts;
     printf("val_layer_policy: wsr=%d hole_limits=%d stop_cuts=%d\n",
            (int) wsr, (int) hole_limits, (int) stop_cuts);
   }
@@ -1444,8 +1445,8 @@ namespace mkfit {
   // not a score: declining is the only move that does not shrink the covariance,
   // so it is the only branch left open to an earlier hit having been wrong.
   void val_reserve_hole_slot(bool on) {
-    Config::v2p2ReserveHoleSlot = on;
-    printf("val_reserve_hole_slot: Config::v2p2ReserveHoleSlot = %d\n", (int) on);
+    V2p2::InLayer::reserve_hole_slot = on;
+    printf("val_reserve_hole_slot: V2p2::InLayer::reserve_hole_slot = %d\n", (int) on);
   }
 
   // Ablate one term of the log-likelihood at fixed eps. Passing the term's own
@@ -1453,8 +1454,8 @@ namespace mkfit {
   // in V2p2Score.h for why that is the only comparison that can attribute a
   // regional effect to rho rather than to eps.
   void val_score_terms(bool use_rho, float rho_const, bool use_detv, float detv_const) {
-    g_v2p2_score_use_rho = use_rho;      g_v2p2_score_rho_const = rho_const;
-    g_v2p2_score_use_detv = use_detv;    g_v2p2_score_detv_const = detv_const;
+    V2p2::Score::use_rho = use_rho;      V2p2::Score::rho_const = rho_const;
+    V2p2::Score::use_detv = use_detv;    V2p2::Score::detv_const = detv_const;
     printf("val_score_terms: rho %s (const %.4f), det V %s (const %.4f)\n",
            use_rho ? "PER STEP" : "FLAT", rho_const,
            use_detv ? "PER HIT" : "FLAT", detv_const);
@@ -1465,40 +1466,40 @@ namespace mkfit {
   // in-event loops, which is where this is meant to run.
   void val_score_term_stats(bool on) {
     if (on) {
-      g_v2p2_score_n_hits = 0;
-      g_v2p2_score_sum_log_rho = g_v2p2_score_sum_log_detv = 0.0;
-      g_v2p2_score_accum = true;
+      V2p2::ScoreStats::n_hits = 0;
+      V2p2::ScoreStats::sum_log_rho = V2p2::ScoreStats::sum_log_detv = 0.0;
+      V2p2::ScoreStats::accum = true;
       printf("val_score_term_stats: accumulating.\n");
       return;
     }
-    g_v2p2_score_accum = false;
-    const long n = g_v2p2_score_n_hits;
+    V2p2::ScoreStats::accum = false;
+    const long n = V2p2::ScoreStats::n_hits;
     printf("val_score_term_stats: %ld hits scored; mean ln(rho) = %.4f, "
            "mean ln(det V) = %.4f\n", n,
-           n ? g_v2p2_score_sum_log_rho / n : 0.0,
-           n ? g_v2p2_score_sum_log_detv / n : 0.0);
+           n ? V2p2::ScoreStats::sum_log_rho / n : 0.0,
+           n ? V2p2::ScoreStats::sum_log_detv / n : 0.0);
   }
 
   void val_score_mode(int mode, float hit_eff) {
-    g_v2p2_score_mode = mode;
-    g_v2p2_score_fwd.hit_eff = g_v2p2_score_bkw.hit_eff = hit_eff;
-    printf("val_score_mode: g_v2p2_score_mode = %d (0 linear, 1 loglh), hit_eff = %g\n",
+    V2p2::Score::mode = mode;
+    V2p2::Score::fwd.hit_eff = V2p2::Score::bkw.hit_eff = hit_eff;
+    printf("val_score_mode: V2p2::Score::mode = %d (0 linear, 1 loglh), hit_eff = %g\n",
            mode, hit_eff);
   }
 
   void val_in_layer_comb(bool on) {
-    Config::v2p2InLayerComb = on;
-    printf("val_in_layer_comb: Config::v2p2InLayerComb = %d\n", (int) on);
+    V2p2::InLayer::comb = on;
+    printf("val_in_layer_comb: V2p2::InLayer::comb = %d\n", (int) on);
   }
 
   // miss_fwd / miss_bkw are the head-body asymmetry: outward a trailing hole is
   // at large radius and cheap, inward it is at small radius and is the most
   // expensive hole there is.
   void val_score(float hit_bonus, float chi2_weight, float miss_fwd, float miss_bkw) {
-    g_v2p2_score_fwd.hit_bonus = g_v2p2_score_bkw.hit_bonus = hit_bonus;
-    g_v2p2_score_fwd.chi2_weight = g_v2p2_score_bkw.chi2_weight = chi2_weight;
-    g_v2p2_score_fwd.miss_penalty = miss_fwd;
-    g_v2p2_score_bkw.miss_penalty = miss_bkw;
+    V2p2::Score::fwd.hit_bonus = V2p2::Score::bkw.hit_bonus = hit_bonus;
+    V2p2::Score::fwd.chi2_weight = V2p2::Score::bkw.chi2_weight = chi2_weight;
+    V2p2::Score::fwd.miss_penalty = miss_fwd;
+    V2p2::Score::bkw.miss_penalty = miss_bkw;
     printf("val_score: hit_bonus=%.2f chi2_weight=%.2f miss_fwd=%.2f miss_bkw=%.2f "
            "(hole beats a hit above chi2 = %.1f inward)\n",
            hit_bonus, chi2_weight, miss_fwd, miss_bkw,
@@ -1506,8 +1507,8 @@ namespace mkfit {
   }
 
   void val_surf_q_hit(bool on) {
-    g_v2p2_surface_q = on;
-    printf("val_surf_q_hit: g_v2p2_surface_q = %d\n", (int) on);
+    V2p2::Window::surface_q = on;
+    printf("val_surf_q_hit: V2p2::Window::surface_q = %d\n", (int) on);
   }
 
   // ==========================================================================
@@ -2018,7 +2019,7 @@ namespace mkfit {
     printf("  (* fraction of tracks that HAVE a pixel-barrel hit and got at least one)\n");
     printf("  CEILING = distinct layers / hits. It was a hard ceiling while the search\n");
     printf("  added at most ONE hit per layer (the best-hit hack); with the in-layer\n");
-    printf("  combinatorial (Config::v2p2InLayerComb) it is a soft one -- a path may take\n");
+    printf("  combinatorial (V2p2::InLayer::comb) it is a soft one -- a path may take\n");
     printf("  several hits in a layer, so read these as a FRACTION OF CEILING, not against\n");
     printf("  100%%. Overlaps are what put the ceiling well below 100%% in the first place.\n");
     const char *nm[2] = {"barrel-only", "touches disks"};
@@ -2498,7 +2499,7 @@ namespace mkfit {
 
 
   void val_bkfit_err_scale(float s) {
-    g_bkfit_err_scale = s;
+    Config::bkfitErrScale = s;
     printf("val_bkfit_err_scale: %g  (variance scale on the input covariance; %g in sigma)\n",
            s, std::sqrt(s));
   }

@@ -8,6 +8,7 @@
 #include "RecoTracker/MkFitCore/src/MkFitter.h"
 #include "RecoTracker/MkFitCore/src/MkFinderV2p2.h"
 #include "RecoTracker/MkFitCore/src/V2p2Score.h"
+#include "RecoTracker/MkFitCore/src/V2p2Config.h"
 #include "RecoTracker/MkFitCMS/interface/MkStdSeqs.h"
 #include "RecoTracker/MkFitCMS/standalone/MkStandaloneSeqs.h"
 
@@ -43,6 +44,7 @@
 #include <memory>
 
 using namespace mkfit;
+namespace V2p2 = mkfit::Config::V2p2;
 
 //==============================================================================
 
@@ -753,17 +755,17 @@ int main(int argc, const char* argv[]) {
           Config::geomPlugin.c_str(),
           b2a(Config::silent),
           Config::finderReportBestOutOfN,
-          mkfit::g_v2p2_dq_trk_fac,
-          mkfit::g_v2p2_dq_trk_fac,
-          mkfit::g_v2p2_dq_hit_fac,
-          mkfit::g_v2p2_dphi_hit_fac,
-          mkfit::g_v2p2_phi_per_hit ? "on" : "off",
-          mkfit::g_v2p2_dphi_trk_fac,
-          mkfit::g_v2p2_hit_dphi_rad,
-          (int) mkfit::g_v2p2_precut_q,
-          (int) mkfit::g_v2p2_precut_phi,
-          mkfit::g_v2p2_q_extra_bins,
-          mkfit::g_v2p2_phi_extra_bins,
+          V2p2::Window::dq_trk_fac,
+          V2p2::Window::dq_trk_fac,
+          V2p2::Window::dq_hit_fac,
+          V2p2::Window::dphi_hit_fac,
+          V2p2::Window::phi_per_hit ? "on" : "off",
+          V2p2::Window::dphi_trk_fac,
+          V2p2::Window::dphi_flat_rad,
+          (int) V2p2::PreCut::q,
+          (int) V2p2::PreCut::phi,
+          V2p2::Window::q_extra_bins,
+          V2p2::Window::phi_extra_bins,
           g_input_file.c_str(),
           g_output_file.c_str(),
           b2a(Config::readSimHitStates),
@@ -804,21 +806,21 @@ int main(int argc, const char* argv[]) {
           b2a(Config::includePCA),
           int(Config::usePropToPlane),
           int(Config::usePtMultScat),
-          int(Config::v2p2UseWsr),
-          int(Config::v2p2UseHoleLimits),
-          int(Config::v2p2UseStopCuts),
-          int(Config::v2p2InLayerComb),
-          g_v2p2_score_mode,
-          g_v2p2_score_fwd.hit_eff,
-          int(Config::v2p2BestShort),
-          int(Config::v2p2ReserveHoleSlot),
-          g_v2p2_max_sec_depth,
-          g_v2p2_max_presel_hits,
-          g_v2p2_score_fwd.hit_bonus,
-          g_v2p2_score_fwd.overlap_bonus,
-          g_v2p2_score_fwd.chi2_weight,
-          g_v2p2_score_fwd.miss_penalty,
-          g_v2p2_score_bkw.miss_penalty,
+          int(V2p2::Policy::use_wsr),
+          int(V2p2::Policy::use_hole_limits),
+          int(V2p2::Policy::use_stop_cuts),
+          int(V2p2::InLayer::comb),
+          V2p2::Score::mode,
+          V2p2::Score::fwd.hit_eff,
+          int(V2p2::InLayer::best_short),
+          int(V2p2::InLayer::reserve_hole_slot),
+          V2p2::InLayer::max_sec_depth,
+          V2p2::InLayer::max_presel_hits,
+          V2p2::Score::fwd.hit_bonus,
+          V2p2::Score::fwd.overlap_bonus,
+          V2p2::Score::fwd.chi2_weight,
+          V2p2::Score::fwd.miss_penalty,
+          V2p2::Score::bkw.miss_penalty,
 
           b2a(Config::quality_val),
           b2a(Config::dumpForPlots),
@@ -890,37 +892,37 @@ int main(int argc, const char* argv[]) {
       Config::silent = true;
     } else if (*i == "--v2p2-extra-dq") {
       next_arg_or_die(mArgs, i);
-      mkfit::set_extra_dq((float) atof(i->c_str()));
+      V2p2::set_extra_dq((float) atof(i->c_str()));
     } else if (*i == "--v2p2-dq-trk") {
       next_arg_or_die(mArgs, i);
-      mkfit::g_v2p2_dq_trk_fac = (float) atof(i->c_str());
+      V2p2::Window::dq_trk_fac = (float) atof(i->c_str());
     } else if (*i == "--v2p2-dq-hit") {
       next_arg_or_die(mArgs, i);
-      mkfit::g_v2p2_dq_hit_fac = (float) atof(i->c_str());
+      V2p2::Window::dq_hit_fac = (float) atof(i->c_str());
     } else if (*i == "--v2p2-phi-per-hit") {
       next_arg_or_die(mArgs, i);
       const float f = (float) atof(i->c_str());
-      mkfit::g_v2p2_phi_per_hit = f > 0.0f;
+      V2p2::Window::phi_per_hit = f > 0.0f;
       if (f > 0.0f)
-        mkfit::g_v2p2_dphi_hit_fac = f;
+        V2p2::Window::dphi_hit_fac = f;
     } else if (*i == "--v2p2-dphi-trk") {
       next_arg_or_die(mArgs, i);
-      mkfit::g_v2p2_dphi_trk_fac = (float) atof(i->c_str());
+      V2p2::Window::dphi_trk_fac = (float) atof(i->c_str());
     } else if (*i == "--v2p2-hit-dphi") {
       next_arg_or_die(mArgs, i);
-      mkfit::g_v2p2_hit_dphi_rad = (float) atof(i->c_str());
+      V2p2::Window::dphi_flat_rad = (float) atof(i->c_str());
     } else if (*i == "--v2p2-precut-q") {
       next_arg_or_die(mArgs, i);
-      mkfit::g_v2p2_precut_q = atoi(i->c_str()) != 0;
+      V2p2::PreCut::q = atoi(i->c_str()) != 0;
     } else if (*i == "--v2p2-precut-phi") {
       next_arg_or_die(mArgs, i);
-      mkfit::g_v2p2_precut_phi = atoi(i->c_str()) != 0;
+      V2p2::PreCut::phi = atoi(i->c_str()) != 0;
     } else if (*i == "--v2p2-q-extra-bins") {
       next_arg_or_die(mArgs, i);
-      mkfit::g_v2p2_q_extra_bins = atoi(i->c_str());
+      V2p2::Window::q_extra_bins = atoi(i->c_str());
     } else if (*i == "--v2p2-phi-extra-bins") {
       next_arg_or_die(mArgs, i);
-      mkfit::g_v2p2_phi_extra_bins = atoi(i->c_str());
+      V2p2::Window::phi_extra_bins = atoi(i->c_str());
     } else if (*i == "--max-cands-per-seed") {
       next_arg_or_die(mArgs, i);
       g_max_cands_per_seed = atoi(i->c_str());
@@ -1042,52 +1044,52 @@ int main(int argc, const char* argv[]) {
       Config::usePtMultScat = (bool)atoi(i->c_str());
     } else if (*i == "--v2p2-wsr") {
       next_arg_or_die(mArgs, i);
-      Config::v2p2UseWsr = (bool)atoi(i->c_str());
+      V2p2::Policy::use_wsr = (bool)atoi(i->c_str());
     } else if (*i == "--v2p2-hole-limits") {
       next_arg_or_die(mArgs, i);
-      Config::v2p2UseHoleLimits = (bool)atoi(i->c_str());
+      V2p2::Policy::use_hole_limits = (bool)atoi(i->c_str());
     } else if (*i == "--v2p2-stop-cuts") {
       next_arg_or_die(mArgs, i);
-      Config::v2p2UseStopCuts = (bool)atoi(i->c_str());
+      V2p2::Policy::use_stop_cuts = (bool)atoi(i->c_str());
     } else if (*i == "--v2p2-in-layer-comb") {
       next_arg_or_die(mArgs, i);
-      Config::v2p2InLayerComb = (bool)atoi(i->c_str());
+      V2p2::InLayer::comb = (bool)atoi(i->c_str());
     } else if (*i == "--v2p2-score-mode") {
       next_arg_or_die(mArgs, i);
-      g_v2p2_score_mode = atoi(i->c_str());
+      V2p2::Score::mode = atoi(i->c_str());
     } else if (*i == "--v2p2-hit-eff") {
       next_arg_or_die(mArgs, i);
-      g_v2p2_score_fwd.hit_eff = g_v2p2_score_bkw.hit_eff = atof(i->c_str());
+      V2p2::Score::fwd.hit_eff = V2p2::Score::bkw.hit_eff = atof(i->c_str());
     } else if (*i == "--v2p2-best-short") {
       next_arg_or_die(mArgs, i);
-      Config::v2p2BestShort = (bool)atoi(i->c_str());
+      V2p2::InLayer::best_short = (bool)atoi(i->c_str());
     } else if (*i == "--v2p2-reserve-hole-slot") {
       next_arg_or_die(mArgs, i);
-      Config::v2p2ReserveHoleSlot = (bool)atoi(i->c_str());
+      V2p2::InLayer::reserve_hole_slot = (bool)atoi(i->c_str());
     } else if (*i == "--v2p2-max-sec-depth") {
       next_arg_or_die(mArgs, i);
-      g_v2p2_max_sec_depth = atoi(i->c_str());
+      V2p2::InLayer::max_sec_depth = atoi(i->c_str());
     } else if (*i == "--v2p2-max-presel-hits") {
       next_arg_or_die(mArgs, i);
-      g_v2p2_max_presel_hits = atoi(i->c_str());
+      V2p2::InLayer::max_presel_hits = atoi(i->c_str());
     } else if (*i == "--v2p2-hit-bonus") {
       next_arg_or_die(mArgs, i);
-      g_v2p2_score_fwd.hit_bonus = g_v2p2_score_bkw.hit_bonus = atof(i->c_str());
+      V2p2::Score::fwd.hit_bonus = V2p2::Score::bkw.hit_bonus = atof(i->c_str());
     } else if (*i == "--v2p2-overlap-bonus") {
       next_arg_or_die(mArgs, i);
-      g_v2p2_score_fwd.overlap_bonus = g_v2p2_score_bkw.overlap_bonus = atof(i->c_str());
+      V2p2::Score::fwd.overlap_bonus = V2p2::Score::bkw.overlap_bonus = atof(i->c_str());
     } else if (*i == "--v2p2-chi2-weight") {
       next_arg_or_die(mArgs, i);
-      g_v2p2_score_fwd.chi2_weight = g_v2p2_score_bkw.chi2_weight = atof(i->c_str());
+      V2p2::Score::fwd.chi2_weight = V2p2::Score::bkw.chi2_weight = atof(i->c_str());
     } else if (*i == "--v2p2-miss-penalty") {
       next_arg_or_die(mArgs, i);
-      g_v2p2_score_fwd.miss_penalty = g_v2p2_score_bkw.miss_penalty = atof(i->c_str());
+      V2p2::Score::fwd.miss_penalty = V2p2::Score::bkw.miss_penalty = atof(i->c_str());
     } else if (*i == "--v2p2-miss-penalty-bkw") {
       // The head/body asymmetry on its own: outward, a trailing hole is at large
       // radius and cheap; inward, it is at small radius and is the most
       // expensive hole there is.
       next_arg_or_die(mArgs, i);
-      g_v2p2_score_bkw.miss_penalty = atof(i->c_str());
+      V2p2::Score::bkw.miss_penalty = atof(i->c_str());
     } else if (*i == "--quality-val") {
       Config::quality_val = true;
     } else if (*i == "--dump-for-plots") {

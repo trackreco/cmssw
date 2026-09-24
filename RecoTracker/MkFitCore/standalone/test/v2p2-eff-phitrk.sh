@@ -1,7 +1,7 @@
 #!/bin/bash
 # Per-hit phi extent: how much TRACK window does it need? Forward search.
 #
-# With g_v2p2_phi_per_hit on, the phi cut is
+# With Config::V2p2::Window::phi_per_hit on, the phi cut is
 #
 #   ddphi < trk_fac * dphi_track + hit_fac * hit_phi_half_extent
 #

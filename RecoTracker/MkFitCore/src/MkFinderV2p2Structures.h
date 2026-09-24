@@ -169,7 +169,7 @@ namespace mkfit {
       float bChi2 = 999.999f;
 #ifdef MKFIT_TRACE
       int b_tr_hitmatch_id = -1;
-      // Truth-forcing diagnostic (g_v2p2_force_mc). The best-hit choice is made
+      // Truth-forcing diagnostic (Config::V2p2::Diag::force_mc). The best-hit choice is made
       // on bKey, which is normally just bChi2; with forcing on, an MC-matched
       // hit gets a key below any non-matched one so it always wins its layer,
       // while bChi2 keeps the REAL chi2 so nothing downstream is falsified.

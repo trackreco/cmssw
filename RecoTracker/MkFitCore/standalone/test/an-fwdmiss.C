@@ -22,7 +22,7 @@ void an_fwdmiss(const char *fn = "val-fwd-miss.root") {
   // regions by the searched layer: pixel barrel, OT barrel, forward
   const char *rn[3] = {"pixel barrel 0-3", "OT barrel 4-15", "forward >= 16"};
   long V[3][8] = {}, tot[3] = {}, nolbl = 0, nohere[3] = {};
-  // Split on the WSR verdict the search itself acted on. With Config::v2p2UseWsr
+  // Split on the WSR verdict the search itself acted on. With Config::V2p2::Policy::use_wsr
   // on -- the default -- a WSR_Outside candidate scans NO hits, so its row is a
   // DECLINED search, not a failed one. Counting it makes verdict 0 look like a
   // plan defect and verdict 1 look like a window too small; it is neither.

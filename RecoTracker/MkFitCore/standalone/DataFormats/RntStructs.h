@@ -204,7 +204,7 @@ struct TrLayerSearch {
   // -1 undef, 0 inside, 1 edge, 2 outside), from MkFinderV2p2::determine_wsr()
   // on the sp1/sp2 crossings fuzzed by 5 sigma of dq_track. RECORD-ONLY here --
   // the search itself skips a WSR_Outside candidate entirely when
-  // Config::v2p2UseWsr is on, but the record is written either way, so any
+  // Config::V2p2::Policy::use_wsr is on, but the record is written either way, so any
   // analysis over layer searches MUST filter on this or it counts searches that
   // never scanned a hit. in_gap says the absence is explained by a disc's
   // small-r hole rather than by the track missing the layer.
