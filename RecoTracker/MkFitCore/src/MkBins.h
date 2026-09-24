@@ -133,6 +133,9 @@ namespace mkfit {
 
     static constexpr float DDPHI_PRESEL_FAC = 2.0f;
     static constexpr float DDQ_PRESEL_FAC = 1.2f;
+    // V2's fetch margins, as in upstream CMSSW; see find_bin_ranges_v2().
+    static constexpr float PHI_BIN_EXTRA_FAC = 2.75f;
+    static constexpr float Q_BIN_EXTRA_FAC = 1.6f;
 
     // MISNAMED -- this is HALF A PHI BIN, a binning granule and not a property
     // of any hit. The phi axis is axis_pow2_u1<float, bin_index_t, 16, 8>
@@ -142,8 +145,8 @@ namespace mkfit {
     // about 300x smaller than this.
     //
     // Remaining consumers: PHI_PRESEL_TOLERANCE above, used by MkFinderV2p2 only
-    // with the per-hit extent switched off, and the V2 path in MkFinder.cc, which
-    // has no per-hit extent. The name is kept because MkFinder.cc uses it.
+    // with the per-hit extent switched off, and V2 -- its cut in MkFinder.cc and
+    // its upstream fetch in find_bin_ranges_v2(). The name is kept for V2.
     static constexpr float HIT_PHI_HALF_EXTENT = 0.0123f;
 
     static constexpr int NEW_MAX_HIT = 6;  // 4 - 6 give about the same # of tracks in quality-val
@@ -184,7 +187,11 @@ namespace mkfit {
     void determine_bin_windows(const MkBinTrackCovExtract &cov_ex);
     void surface_reference_dq(const MkBinTrackCovExtract &cov_ex);
 
+    // MkFinderV2p2: fetch derived from the v2p2 cut (the g_v2p2_* globals).
     void find_bin_ranges(const LayerOfHits &loh, MkBinLimits &bl);
+    // MkFinder::selectHitIndicesV2: the fetch V2 has in upstream CMSSW, kept
+    // verbatim so production V2 is unchanged by the v2p2 window work.
+    void find_bin_ranges_v2(const LayerOfHits &loh, MkBinLimits &bl);
 
   };
 

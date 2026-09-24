@@ -21,8 +21,9 @@ N=${1:-50}
 SAMPLE=${2:-/foo/matevz/mic-dev/trackingNtuple_HLT_2026_March.bin}
 T=../RecoTracker/MkFitCore/standalone/test
 
-# label:per_hit_fac:trk_fac[:dq_hit_fac] -- per_hit_fac 0 means the flat 0.0246 rad
-# constant; dq_hit_fac defaults to 1.8, with dq_trk_fac fixed at its default 1.5
+# label:per_hit_fac:trk_fac[:dq_hit_fac[:q_extra_bins[:phi_extra_bins]]] --
+# per_hit_fac 0 means the flat 0.0246 rad constant; dq_hit_fac defaults to 1.8,
+# with dq_trk_fac fixed at 1.5; both fetch margins default to one whole bin
 CFGS=${CFGS:-"flat:0:1.0 ph3_trk1.0:3:1.0 ph3_trk1.5:3:1.5 ph3_trk2.0:3:2.0 ph3_trk3.0:3:3.0"}
 
 CMD=(./mkFit --geom CMS-phase2 --seed-input cmssw --input-file "$SAMPLE"
@@ -35,14 +36,14 @@ CMD=(./mkFit --geom CMS-phase2 --seed-input cmssw --input-file "$SAMPLE"
      --shell-command 'val_score_mode(0, 0.99)')
 
 for cfg in $CFGS; do
-  IFS=: read -r lab ph trk dqh <<< "$cfg"
-  CMD+=(--shell-command "val_dq(1.5, ${dqh:-1.8}, 1)")
+  IFS=: read -r lab ph trk dqh qeb peb <<< "$cfg"
+  CMD+=(--shell-command "val_dq(1.5, ${dqh:-1.8}, ${qeb:-1})")
   if [ "$ph" = "0" ]; then
     CMD+=(--shell-command 'val_phi_per_hit(false, 1.0)')
   else
     CMD+=(--shell-command "val_phi_per_hit(true, $ph)")
   fi
-  CMD+=(--shell-command "val_dphi($trk, 0.0246, 1)"
+  CMD+=(--shell-command "val_dphi($trk, 0.0246, ${peb:-1})"
         --shell-command 'val_te_reset()')
   for ((i=1;i<=N;i++)); do
     CMD+=(--shell-command "s.GoToEvent($i)"

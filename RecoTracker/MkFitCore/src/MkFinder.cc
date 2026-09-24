@@ -810,7 +810,7 @@ namespace mkfit {
     B.determine_bin_windows(TCE);
 
     MkBinLimits BL;
-    B.find_bin_ranges(L, BL);
+    B.find_bin_ranges_v2(L, BL);
 
     for (int i = 0; i < NN; ++i) {
       if (i < N_proc) {

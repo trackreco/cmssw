@@ -318,4 +318,29 @@ namespace mkfit {
     }
   }
 
+  // V2's bin ranges exactly as upstream CMSSW computes them, so that production V2
+  // does not move when the v2p2 window changes. Two properties are deliberately
+  // PRESERVED rather than fixed, because fixing them changes production behaviour
+  // and belongs in its own validated change:
+  //   - the upper phi edge carries no "+1", so with the half-open [p1, p2) scan
+  //     the bin holding it is never scanned; PHI_BIN_EXTRA_FAC = 2.75 half-bins
+  //     is wide enough to hide that (measured: free at one bin of margin);
+  //   - the margins are keyed on the bin width, not on V2's own cut.
+  // V2's cut is dq_track + DDQ_PRESEL_FAC * hit_q_half_length and
+  // dphi_track + DDPHI_PRESEL_FAC * HIT_PHI_HALF_EXTENT (MkFinder.cc).
+  void MkBins::find_bin_ranges_v2(const LayerOfHits &loh, MkBinLimits &bl) {
+    for (int i = 0; i < NN; ++i) {
+      if (i < m_n_proc) {
+        const float dphi = m_dphi_track[i] + PHI_BIN_EXTRA_FAC * HIT_PHI_HALF_EXTENT;
+        bl.p1[i] = loh.phiBinChecked(m_phi_min[i] - dphi);
+        bl.p2[i] = loh.phiBinChecked(m_phi_max[i] + dphi);
+
+        const float dq = m_dq_track[i] + Q_BIN_EXTRA_FAC * 0.5f * loh.layer_info().q_bin();
+        bl.q0[i] = loh.qBinChecked(m_q_center[i]);
+        bl.q1[i] = loh.qBinChecked(m_q_min[i] - dq);
+        bl.q2[i] = loh.qBinChecked(m_q_max[i] + dq) + 1;
+      }
+    }
+  }
+
 }  // namespace mkfit
