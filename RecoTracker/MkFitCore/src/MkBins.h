@@ -99,10 +99,13 @@ namespace mkfit {
 
     // Safety margin the BINNOR adds beyond what the cut can accept, in WHOLE
     // BINS added to the bin INDEX -- so it carries no float-to-bin rounding of
-    // its own. It exists because the per-hit reference phi is the Hermite's
-    // crossing at the hit's own module plane, which can fall slightly outside
-    // the [phi_min, phi_max] span the range is built from.
-    static constexpr int PHI_EXTRA_BINS = 1;
+    // its own. It was meant for the per-hit reference phi, the Hermite's
+    // crossing at the hit's own module plane, falling slightly outside the
+    // [phi_min, phi_max] span the range is built from. Measured at the current
+    // window: 0 is free forward (-1 found track) and inward (+1 chopped hit),
+    // and one spare bin costs 20 % of build time, since every fetched hit
+    // costs a plane solve per candidate.
+    static constexpr int PHI_EXTRA_BINS = 0;
 
     // THE dq CUT, SPLIT. It used to be one factor (EXTRA_DQ) over both terms:
     //
@@ -129,6 +132,13 @@ namespace mkfit {
     static constexpr float DQ_HIT_FAC = 1.2f;
 
     // Fetch margin beyond what the cut accepts, in WHOLE q bins on the index.
+    // NOT removable yet, although it costs 22 % of build time: the per-hit q cut
+    // uses the SURFACE-REFERENCED dq (MkFinderV2p2::surface_referenced_dq,
+    // growing ~cosh^2(eta), ~14x at |eta| 2 in the pixel barrel) while the fetch
+    // uses the raw m_dq_track. At 0 the cut is wider than the fetch at high eta
+    // and the inward search loses 1373 of 43358 fully recovered chopped pT5
+    // tracks, all in pixel-barrel hits of disc-touching tracks. Forward is free.
+    // The fix is a surface-referenced FETCH, after which this can go to 0.
     static constexpr int Q_EXTRA_BINS = 1;
 
     static constexpr float DDPHI_PRESEL_FAC = 2.0f;
