@@ -39,8 +39,8 @@ void val_max_cands(int n) { mkfit::val_max_cands(n); }
 void val_sr_mat(bool on) { mkfit::val_search_material(on); }
 void val_surf_q(bool on) { mkfit::val_mkbins_surface_q(on); }
 void val_extra_dq(float f) { mkfit::val_extra_dq(f); }
-void val_phi_bin_fix(bool b) { mkfit::val_phi_bin_fix(b); }
-void val_dphi(float trk_fac, float hit_fac, float bin_fac) { mkfit::val_dphi(trk_fac, hit_fac, bin_fac); }
+void val_dphi(float trk_fac, float hit_rad, int extra_bins) { mkfit::val_dphi(trk_fac, hit_rad, extra_bins); }
+void val_phi_legacy_range(bool b) { mkfit::val_phi_legacy_range(b); }
 void val_surf_q_hit(bool on) { mkfit::val_surf_q_hit(on); }
 void val_in_layer_comb(bool on) { mkfit::val_in_layer_comb(on); }
 void val_layer_policy(bool w, bool h, bool s) { mkfit::val_layer_policy(w, h, s); }

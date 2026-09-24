@@ -55,15 +55,33 @@ namespace mkfit {
 
   //============================================================================
 
-  // See the block on the three dphi factors inside MkBins, below.
-  extern float g_v2p2_dphi_trk_fac;
-  extern float g_v2p2_hit_dphi_fac;
-  extern float g_v2p2_bin_dphi_fac;
-  // Half-open [p1, p2) needs p2 one PAST the top bin; see MkBins.cc.
-  extern bool  g_v2p2_phi_bin_fix;
+  // Runtime overrides for the phi pre-selection; see MkBins.cc. There is no
+  // separate binnor factor any more: the fetch range is DERIVED from the cut,
+  // which is what makes "the cut is wider than the fetch" impossible to express.
+  extern float g_v2p2_dphi_trk_fac;   // factor on dphi_track, cut AND fetch
+  extern float g_v2p2_hit_dphi_rad;   // the cut tolerance itself, radians
+  extern int   g_v2p2_phi_extra_bins; // fetch safety margin, whole bins
+  // Transitional: reinstate the old hand-rolled range, for A/B only.
+  extern bool  g_v2p2_phi_legacy_range;
 
   struct MkBins {
     // To become members ... or go into a helper struct / config.
+    // Per-hit phi tolerance of the pre-selection cut, in RADIANS, flat and
+    // detector-wide. Equals one phi bin at N = 8 by accident of history, not by
+    // design -- see the note on HIT_PHI_HALF_EXTENT below.
+    // TODO: this wants to be PER HIT, from the hit covariance -- the phi
+    // counterpart of LayerOfHits::hit_q_half_length(), which does not exist.
+    // Measured: it can be tightened 4x for free, which is what using a binning
+    // granule as a resolution looks like.
+    static constexpr float PHI_PRESEL_TOLERANCE = 2.0f * 0.0123f;
+
+    // Safety margin the BINNOR adds beyond what the cut can accept, in WHOLE
+    // BINS added to the bin INDEX -- so it carries no float-to-bin rounding of
+    // its own. It exists because the per-hit reference phi is the Hermite's
+    // crossing at the hit's own module plane, which can fall slightly outside
+    // the [phi_min, phi_max] span the range is built from.
+    static constexpr int PHI_EXTRA_BINS = 1;
+
     static constexpr float DDPHI_PRESEL_FAC = 2.0f;
     static constexpr float DDQ_PRESEL_FAC = 1.2f;
     static constexpr float PHI_BIN_EXTRA_FAC = 2.75f;

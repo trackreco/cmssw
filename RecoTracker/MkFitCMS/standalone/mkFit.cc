@@ -543,11 +543,10 @@ int main(int argc, const char* argv[]) {
           "                           dq cut -- the covariance term and the hit-extent term (def: %.2f)\n"
           "  --v2p2-dphi-trk <float>  MkFinderV2p2 pre-selection: factor on the dphi TRACK term,\n"
           "                           applied in the cut AND in the binnor range (def: %.2f)\n"
-          "  --v2p2-hit-dphi <float>  MkFinderV2p2 pre-selection: factor on HIT_PHI_HALF_EXTENT in\n"
-          "                           the cut; a no-op above --v2p2-bin-dphi (def: %.2f)\n"
-          "  --v2p2-bin-dphi <float>  MkFinderV2p2: factor on HIT_PHI_HALF_EXTENT in the BINNOR phi\n"
-          "                           range -- raise it with --v2p2-hit-dphi or the cut cannot see\n"
-          "                           hits it would accept (def: %.2f)\n"
+          "  --v2p2-hit-dphi <float>  MkFinderV2p2 pre-selection: the flat per-hit phi tolerance in\n"
+          "                           RADIANS; the fetch range follows it (def: %.5f)\n"
+          "  --v2p2-phi-extra-bins <n>  MkFinderV2p2: fetch margin beyond the cut, in whole phi\n"
+          "                           bins (def: %d)\n"
           "  --input-file             file name for reading (def: %s)\n"
           "  --output-file            file name for writitng (def: %s)\n"
           "  --read-sim-hit-states    read per-sim-hit truth states if present in the file (def: %s)\n"
@@ -745,8 +744,8 @@ int main(int argc, const char* argv[]) {
           Config::finderReportBestOutOfN,
           mkfit::g_v2p2_extra_dq,
           mkfit::g_v2p2_dphi_trk_fac,
-          mkfit::g_v2p2_hit_dphi_fac,
-          mkfit::g_v2p2_bin_dphi_fac,
+          mkfit::g_v2p2_hit_dphi_rad,
+          mkfit::g_v2p2_phi_extra_bins,
           g_input_file.c_str(),
           g_output_file.c_str(),
           b2a(Config::readSimHitStates),
@@ -879,10 +878,10 @@ int main(int argc, const char* argv[]) {
       mkfit::g_v2p2_dphi_trk_fac = (float) atof(i->c_str());
     } else if (*i == "--v2p2-hit-dphi") {
       next_arg_or_die(mArgs, i);
-      mkfit::g_v2p2_hit_dphi_fac = (float) atof(i->c_str());
-    } else if (*i == "--v2p2-bin-dphi") {
+      mkfit::g_v2p2_hit_dphi_rad = (float) atof(i->c_str());
+    } else if (*i == "--v2p2-phi-extra-bins") {
       next_arg_or_die(mArgs, i);
-      mkfit::g_v2p2_bin_dphi_fac = (float) atof(i->c_str());
+      mkfit::g_v2p2_phi_extra_bins = atoi(i->c_str());
     } else if (*i == "--max-cands-per-seed") {
       next_arg_or_die(mArgs, i);
       g_max_cands_per_seed = atoi(i->c_str());

@@ -80,6 +80,15 @@ namespace mkfit {
 
     bin_index_t phiMaskApply(bin_index_t in) const { return in & m_ax_phi.c_N_mask; }
 
+    // The axis's own half-open range, [begin, end), covering [lo, hi] INCLUSIVE:
+    // it carries the "+1" with the mask applied AFTER the add, which is the only
+    // correct form on a wrapped axis. Prefer this to hand-rolling phiBinChecked
+    // pairs -- a hand-rolled version in MkBins dropped its top bin on every range
+    // it was ever given. See binnor_test.cxx.
+    axis_phi_t::I_pair phiRangeBins(float lo, float hi) const {
+      return m_ax_phi.from_R_minmax_to_N_bins(lo, hi);
+    }
+
     binnor_t::C_pair phiQBinContent(bin_index_t pi, bin_index_t qi) const { return m_binnor.get_content(pi, qi); }
 
     bool isBinDead(bin_index_t pi, bin_index_t qi) const { return m_dead_bins[qi * m_ax_phi.size_of_N() + pi]; }

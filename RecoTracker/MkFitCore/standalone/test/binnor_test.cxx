@@ -183,8 +183,60 @@ static void t_callsite_idioms() {
   }
   check(bad_v1 == 0,     "V1 idiom covers",              std::to_string(bad_v1) + " misses");
   check(bad_helper == 0, "axis helper covers",           std::to_string(bad_helper) + " misses");
-  check_known(bad_mkbins == 0, "MkBins idiom (no +1) covers",
-              "drops the top bin on " + std::to_string(bad_mkbins) + " of 20000 ranges");
+  check_known(bad_mkbins == 0, "legacy MkBins idiom (no +1) covers",
+              "drops the top bin on " + std::to_string(bad_mkbins) + " of 20000 ranges"
+              " -- REPLACED, kept as the regression it was");
+}
+
+// 3b. The CURRENT MkBins form: the axis helper over [span +- cut tolerance],
+//     then widened by whole BINS on the index. The contract it must satisfy is
+//     stronger than plain coverage of the span -- it must fetch every hit the
+//     per-hit cut could ACCEPT, i.e. anything within `tol` of any point of the
+//     span. That is the invariant that makes "cut wider than fetch" impossible.
+static void t_current_fetch_contract() {
+  section("current MkBins fetch: covers everything the cut can accept");
+  phi_axis_t ax(-M_PI, M_PI);
+  const float bin_w = 2.0f * float(M_PI) / kPhiBins;
+  std::mt19937 rng(31337);
+  std::uniform_real_distribution<float> uphi(-M_PI, M_PI);
+  std::uniform_real_distribution<float> uspan(0.0f, 0.30f);
+  std::uniform_real_distribution<float> utol(0.0f, 0.05f);
+
+  for (int extra_bins : {0, 1, 2}) {
+    int bad = 0;
+    for (int i = 0; i < 20000; ++i) {
+      float c = uphi(rng), half = uspan(rng), tol = utol(rng);
+      float lo = c - half, hi = c + half;
+
+      auto pr = ax.from_R_minmax_to_N_bins(lo - tol, hi + tol);
+      unsigned short b = (unsigned short)((pr.begin - extra_bins) & ax.c_N_mask);
+      unsigned short e = (unsigned short)((pr.end   + extra_bins) & ax.c_N_mask);
+
+      // every phi the cut could accept: within tol of some point of [lo, hi]
+      for (int k = 0; k <= 64; ++k) {
+        float x = (lo - tol) + ((hi + tol) - (lo - tol)) * k / 64.0f;
+        unsigned short t = ax.from_R_to_N_bin_safe(x);
+        if (!range_holds<unsigned short>(b, e, t, kPhiBins, true)) { ++bad; break; }
+      }
+    }
+    check(bad == 0, "fetch covers the cut, extra_bins = " + std::to_string(extra_bins),
+          std::to_string(bad) + " of 20000");
+  }
+
+  // And the extender really is in bin units: n extra bins must widen the range
+  // by exactly 2n bins, with no rounding slop.
+  int bad_width = 0;
+  for (int i = 0; i < 5000; ++i) {
+    float c = uphi(rng), half = uspan(rng);
+    auto pr = ax.from_R_minmax_to_N_bins(c - half, c + half);
+    unsigned base = range_size<unsigned short>(pr.begin, pr.end, kPhiBins, true);
+    if (base == 0 || base + 4 > kPhiBins) continue;
+    unsigned short b = (unsigned short)((pr.begin - 2) & ax.c_N_mask);
+    unsigned short e = (unsigned short)((pr.end   + 2) & ax.c_N_mask);
+    if (range_size<unsigned short>(b, e, kPhiBins, true) != base + 4) ++bad_width;
+  }
+  check(bad_width == 0, "bin extender widens by exactly 2n bins",
+        std::to_string(bad_width) + " off");
 }
 
 // 4. Degenerate and full-circle ranges -- the two ends of the b == e ambiguity.
@@ -334,6 +386,7 @@ int main() {
   t_periodic_helper_covers();
   t_bounded_helper_covers();
   t_callsite_idioms();
+  t_current_fetch_contract();
   t_degenerate_and_full_circle();
   t_binnor_query_roundtrip();
   t_radix_sort();

@@ -1358,18 +1358,24 @@ namespace mkfit {
   // -- the cut can only reject hits the binnor already fetched, so raising
   // hit_fac above bin_fac (or trk_fac above 1 without the binnor following) is a
   // silent no-op that looks like flatness.
-  void val_phi_bin_fix(bool b) {
-    g_v2p2_phi_bin_fix = b;
-    printf("val_phi_bin_fix: g_v2p2_phi_bin_fix = %s\n", b ? "true" : "false");
+  // Phi pre-selection. The fetch range is DERIVED from the cut, so there is no
+  // way to ask for a cut wider than the fetch -- the failure mode that made the
+  // first version of this scan flatline for a non-physics reason.
+  //   trk_fac    factor on dphi_track, applied to cut AND fetch
+  //   hit_rad    the flat per-hit tolerance, RADIANS (one phi bin = 0.024544)
+  //   extra_bins fetch safety margin beyond the cut, in WHOLE bins
+  void val_dphi(float trk_fac, float hit_rad, int extra_bins) {
+    g_v2p2_dphi_trk_fac   = trk_fac;
+    g_v2p2_hit_dphi_rad   = hit_rad;
+    g_v2p2_phi_extra_bins = extra_bins;
+    printf("val_dphi: trk_fac = %.3f  hit_rad = %.5f rad (%.3f bins)  extra_bins = %d\n",
+           trk_fac, hit_rad, hit_rad / (2.0f * float(M_PI) / 256.0f), extra_bins);
   }
 
-  void val_dphi(float trk_fac, float hit_fac, float bin_fac) {
-    g_v2p2_dphi_trk_fac = trk_fac;
-    g_v2p2_hit_dphi_fac = hit_fac;
-    g_v2p2_bin_dphi_fac = bin_fac;
-    printf("val_dphi: trk_fac = %.3f  hit_fac = %.3f  bin_fac = %.3f%s\n",
-           trk_fac, hit_fac, bin_fac,
-           hit_fac > bin_fac ? "   *** hit_fac > bin_fac: the extra width is a NO-OP ***" : "");
+  // Transitional A/B against the old hand-rolled range (no "+1").
+  void val_phi_legacy_range(bool b) {
+    g_v2p2_phi_legacy_range = b;
+    printf("val_phi_legacy_range: %s\n", b ? "true (OLD, drops the top bin)" : "false (axis helper)");
   }
 
   // Per-hit surface reference, using the HIT'S OWN MODULE NORMAL. This is the
