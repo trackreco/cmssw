@@ -199,18 +199,9 @@ namespace mkfit {
 
   private:
     //----------------------------------------------------------------------------
-    // Per-pass state of process_layer_batch().
-    //
-    // TWO batch widths are in play, and keeping them apart is most of what makes
-    // the layer pass readable: LayerBatch is NN CANDIDATES wide, HitBatch is NN
-    // (candidate, hit) PAIRS wide. Everything in LayerBatch is per candidate and
-    // indexed by the same i; everything in HitBatch is per scanned hit and
-    // indexed by h, with prim_idcs[h] naming the candidate it belongs to.
-    //
-    // This is also the carrier the earlier procedural split was missing. The
-    // abandoned sketch at the bottom of MkFinderV2p2.cc names exactly these
-    // phases and is annotated "can't quite work" -- without an explicit batch
-    // object each phase needed a dozen arguments, so it stayed a monolith.
+    // Per-pass state of process_layer_batch(). LayerBatch is NN candidates wide
+    // and indexed by i; HitBatch is NN (candidate, hit) pairs wide and indexed by
+    // h, with prim_idcs[h] naming the candidate.
     struct LayerBatch {
       int N_proc = 0;
       PrimTCandRep *ptc[NN];             // the candidates in this pass
@@ -218,9 +209,8 @@ namespace mkfit {
       MkBinTrackCovExtract TCE;          // position block of the window covariance
       MkBinLimits BL_p, BL_s;            // binnor ranges, primary / secondary layer
       mini_propagators::Hermite3D H;     // cubic through sp1, sp2 -- the trajectory model
-      // Local hit density per candidate, ln(hits / cm^2), for the likelihood
-      // score. Counted over the bins actually walked, so it is independent of the
-      // pre-selection cut and cannot be circular.
+      // Local hit density per candidate, ln(hits / cm^2), over the bins walked;
+      // for the likelihood score.
       int   n_scanned[NN] = {0};
       float log_rho[NN] = {0.0f};
 #ifdef MKFIT_TRACE
@@ -245,9 +235,7 @@ namespace mkfit {
     void select_hits(LayerBatch &b);
     void preselect_hit_batch(LayerBatch &b, HitBatch &hb, const LayerOfHits &L, int N_proc_hits,
                              bool is_sec_layer);
-    // Re-reference the pre-selection q error from a fixed path length onto the
-    // hit's own module plane. Static: a pure function of the state, the module
-    // normal and the covariance. See MkFinderV2p2.cc for the derivation.
+    // The track's q error referenced to the hit's module plane. See MkFinderV2p2.cc.
     static float surface_referenced_dq(float dq_track_fallback,
                                        const MkBinTrackCovExtract &TCE, int pi,
                                        const mini_propagators::StatePlex &h3_state, int h,
@@ -265,8 +253,8 @@ namespace mkfit {
 
     // The in-layer combinatorial search, replacing the two phases above when
     // Config::V2p2::InLayer::comb is on. expand_in_layer() grows the SecTCandRep
-    // tree breadth-first by depth; materialise_in_layer() picks a path out of it
-    // and registers it into the CombCandidate.
+    // tree breadth-first by depth; select_and_materialise() runs the end-of-layer
+    // selection and registers the survivors into the CombCandidate.
     void expand_in_layer(LayerBatch &b);
     void select_and_materialise(CCandRep &ccrep);
     void offer_best_short(CombCandidate &ccand, const TrackCand &tc) const;
@@ -300,9 +288,8 @@ namespace mkfit {
     // Per-(di)layer geometrical state
     MkRZLimits m_rz_limits;
 
-    // The in-layer combinatorial tree. ONE arena for the whole finder, reached by
-    // index, rewound (not deallocated) once the layer batch has materialised, so
-    // after a few layers it is at high water and stops allocating.
+    // The in-layer combinatorial tree: one arena per finder, reached by index,
+    // cleared with capacity kept at end of layer.
     std::vector<SecTCandRep> m_sec_arena;
     // Kalman outcomes of the depth currently being expanded, drained into the
     // arena by harvest_sec_nodes().

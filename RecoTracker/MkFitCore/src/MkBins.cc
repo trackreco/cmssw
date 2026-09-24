@@ -12,19 +12,7 @@ namespace mkfit {
 
   using namespace Config::V2p2;
 
-  // Phi pre-selection, cut and fetch. ONE tolerance, not two factors: the
-  // binnor must fetch everything the cut can accept, so the fetch range is
-  // derived from the cut rather than tuned against it. That is what makes the
-  // old failure mode -- a cut wider than the fetch, silently accepting nothing
-  // extra -- impossible to express.
-  //
-  // The range used to be hand-rolled as a pair of phiBinChecked() calls with NO
-  // "+1", and the scan loops consume [p1, p2) half-open, so the bin holding the
-  // upper edge was never scanned -- on every range. A PHI_BIN_EXTRA_FAC of 2.75
-  // half-bins was carrying a whole spare bin to hide it. The axis helper behind
-  // LayerOfHits::phiRangeBins() has the correct form.
-
-  // Largest representable phi half-width: a hair under pi, since at pi the two
+  // Largest phi half-width a range can have: just under pi, since at pi the two
   // endpoints coincide and the arc degenerates to a point.
   static constexpr float kMaxHalfPhiWindow = 3.14f;
 
@@ -100,18 +88,9 @@ namespace mkfit {
     MPlexQF r2_c = m_isp.x * m_isp.x + m_isp.y * m_isp.y;
     MPlexQF r2inv_c = 1.0f / r2_c;
 
-    // sigma_phi = J sigma_xy J^T with J = grad phi = (-y, x)/r^2, so |J| = 1/r and
-    // sigma_phi is LARGEST at the smallest radius the track crosses inside the layer.
-    // One window has to cover the whole layer, so evaluate J there -- the conservative
-    // end -- rather than at whichever end the propagation happened to stop at.
-    //
-    // This also fixes an inconsistency: cov_ex is the covariance at m_sp2, while m_isp
-    // is left at m_sp1 by prop_to_limits_in_order(), so J and sigma were being taken at
-    // different points. |J| = 1/r makes that a direct scale error, and rout/rin is 1.34
-    // at pixel layer 0, 1.27 at the inner TOB double layer.
-    //
-    // Note it is a no-op for an OUTWARD search, where m_sp1 is already at rin; it only
-    // widens INWARD searches, which is where the window was too tight.
+    // sigma_phi = J sigma_xy J^T with J = (-y, x)/r^2, so |J| = 1/r. J is taken at
+    // the layer crossing with the smaller radius, where sigma_phi is largest. See
+    // doc/MkFinderV2p2-DesignNotes.md, "Search window".
     MPlexQF jx, jy, r2inv_j;
     {
       const MPlexQF r2_1 = m_sp1.x * m_sp1.x + m_sp1.y * m_sp1.y;
@@ -143,40 +122,16 @@ namespace mkfit {
   }
 
   //----------------------------------------------------------------------------
-  // Reference the q variance to the LAYER SURFACE.
-  //
-  // errPropFromPathL_impl() takes no plane -- it transports the curvilinear
-  // jacobian to a fixed PATH LENGTH s -- and MkBinTrackCovExtract then reads
-  // err(2,2) verbatim as the q variance. So the window covariance describes the
-  // spread of where the track is AFTER A GIVEN DISTANCE, not the spread of where
-  // it crosses the layer. The Kalman update does carry this term, in
-  // jacCurv2Loc's cosz block (KalmanUtilsMPlex.cc); the window never has.
-  //
-  // The correction is a pure linear map on the POSITION block: slide each sample
-  // along the momentum until it meets the surface,
-  //
-  //     dx_s = (I - p^ n^T / (n^.p^)) dx
-  //
-  // with n the surface normal (radial for a barrel cylinder, z for an endcap
-  // disc). For a radial barrel track it amplifies sigma_q by exactly 1/sin^2(t)
-  // -- unity at eta = 0, 8.3x at |eta| = 2 -- and leaves sigma_phi untouched,
-  // since the whole correction lies in the (r,z) plane.
-  //
-  // Everything is evaluated at m_sp2, which is where pea propagated to and hence
-  // where cov_ex lives. (The dphi jacobian above deliberately uses the smaller
-  // radius instead; that is a conservative choice for a 1/r scale factor, not a
-  // consistency requirement.)
-  //
-  // The two limits recover the old code exactly: g -> 0 (normal incidence on a
-  // barrel) gives Var = C22, and 1/g -> 0 (normal incidence on a disc) gives the
-  // old radial projection.
+  // surface_reference_dq() -- dq_track referenced to the layer surface (radial
+  // normal in the barrel, z in the endcap), evaluated at m_sp2 where cov_ex
+  // lives. Off by default (Diag::mkbins_surface_q); the per-hit version with the
+  // module normal is MkFinderV2p2::surface_referenced_dq(). See
+  // doc/MkFinderV2p2-DesignNotes.md, "Search window".
   //----------------------------------------------------------------------------
 
   void MkBins::surface_reference_dq(const MkBinTrackCovExtract &cov_ex) {
-    // Amplification clamp. g = cot(theta) for a radial barrel track, so 20 is
-    // |eta| ~ 3.7 -- beyond the tracker, i.e. it only ever catches degenerate
-    // lanes (grazing incidence, failed propagation) and never a real operating
-    // point.
+    // Clamp on the amplification. g = cot(theta) for a radial barrel track, so 20
+    // is |eta| ~ 3.7, beyond the tracker.
     constexpr float kMaxSlope = 20.0f;
 
     for (int i = 0; i < m_n_proc; ++i) {
@@ -221,21 +176,10 @@ namespace mkfit {
   void MkBins::find_bin_ranges(const LayerOfHits &loh, MkBinLimits &bl) {
     for (int i = 0; i < NN; ++i) {
       if (i < m_n_proc) {
-        // Clamp crazy sizes. This actually only happens when prop-fail flag is set.
-        // const float dphi_clamp = 0.1;
-        // if (dphi_min[i] > 0.0f || dphi_min[i] < -dphi_clamp) dphi_min[i] = -dphi_clamp;
-        // if (dphi_max[i] < 0.0f || dphi_max[i] > dphi_clampf) dphi_max[i] = dphi_clamp;
-        // Fetch exactly what the cut can accept, then extend by whole BINS.
-        // Keeping the extender in bin units is the point: it is added to the bin
-        // INDEX, so it introduces no float-to-bin rounding of its own.
-        // PRECONDITION of the range helper, and it is ours to enforce. A range
-        // on a circle is an arc; a half-width at or above pi is not an arc and
-        // wraps to an arbitrary SMALL one, silently. This is what the old
-        // commented-out "clamp crazy sizes ... only happens when prop-fail flag
-        // is set" was reaching for -- it is a precondition, not a workaround.
-        // Per hit the cut uses that hit's own phi extent; the FETCH cannot know
-        // it yet, so it uses the layer's worst case -- the same asymmetry the q
-        // side has, and why LayerOfHits carries both maxima.
+        // Fetch what the cut can accept, using the layer's largest hit extent since
+        // the hit is not known yet, then extend by whole bins on the bin index.
+        // The half-width is clamped below pi: a larger one wraps to a small arc.
+        // See doc/MkFinderV2p2-DesignNotes.md, "Search window".
         const float phi_hit_term = Window::phi_per_hit
                                  ? Window::dphi_hit_fac * loh.max_hit_phi_half_extent()
                                  : Window::dphi_flat_rad;
@@ -245,10 +189,7 @@ namespace mkfit {
         bl.p1[i] = loh.phiMaskApply(pr.begin - Window::phi_extra_bins);
         bl.p2[i] = loh.phiMaskApply(pr.end   + Window::phi_extra_bins);
 
-        // Fetch exactly what the q cut can accept, using the layer's WORST-CASE
-        // hit extent since the per-hit one is not known until the hit is in
-        // hand, then extend by whole bins on the INDEX. The q axis is bounded,
-        // so the extension CLAMPS where the phi one wraps.
+        // Same for q. The q axis is bounded, so the extension clamps.
         bl.q0[i] = loh.qBinChecked(m_q_center[i]);
         const float cut_dq = Window::dq_trk_fac * m_dq_track[i] +
                              Window::dq_hit_fac * loh.max_hit_q_half_length();

@@ -75,9 +75,8 @@ namespace mkfit {
       m_n_proc(n_proc)
     {}
 
-    //zzz MkBins(const MPlexLV &par, const MPlexQI &chg, bool is_barrel, int n_proc = NN) :
     MkBins(const MPlexLV &par, const MPlexQI &chg, int n_proc) :
-      m_isp(par, chg), m_n_proc(n_proc)//zz , m_is_barrel(is_barrel)
+      m_isp(par, chg), m_n_proc(n_proc)
     {}
 
     void prop_to_limits_in_order(const MkRZLimits &ls);

@@ -9,23 +9,9 @@
 namespace mkfit {
 
 
-  // Half-extent of a hit in PHI, radians, from its own covariance -- the phi
-  // counterpart of the q_half_length just above, and with the same hl_fac
-  // convention (3 sigma for pixels, sqrt(3) for the uniform spread along a
-  // strip).
-  //
-  // phi = atan2(y, x), so dphi/dx = -y/r^2 and dphi/dy = x/r^2 and
-  //
+  // Half-extent of a hit in phi [rad], from its covariance:
   //     sigma_phi^2 = (y^2 exx - 2 xy exy + x^2 eyy) / r^4
-  //
-  // which is the exact form of "dx / r", dx being the error ACROSS the strips:
-  // the module's xdir is essentially azimuthal, so this is that projection done
-  // by the covariance rather than assumed. Unlike q it needs NO barrel/endcap
-  // branch -- phi is purely transverse either way.
-  //
-  // Scale, TB2S at r = 69 cm with 90 um pitch: sigma_x = 90/sqrt(12) = 26 um,
-  // sigma_phi = 3.8e-5, times sqrt(3) = 6.5e-5 rad -- against the flat constant's
-  // 0.0246, i.e. ~380x. (The ~190x on record omitted the /sqrt(12).)
+  // See doc/MkFinderV2p2-DesignNotes.md, "Hit extents".
   static inline float hit_phi_half_extent_of(const Hit &h, float hl_fac) {
     const float x = h.x(), y = h.y();
     const float r2 = x * x + y * y;
@@ -212,33 +198,9 @@ namespace mkfit {
     m_binnor.register_entry_safe(phi, q);
 
     if (Config::usePhiQArrays) {
-      // Factor to get from hit sigma to half-length in q direction.
-      //
-      // Why sqrt(3) for strips: for a segment of half-length L along unit vector u
-      // with the crossing point uniform along it, the covariance is (L^2/3) u u^T.
-      // So ezz = L^2 u_z^2 / 3 and sqrt(3 * ezz) = L * |u_z| -- exactly the strip's
-      // projection onto global z. The module tilt is therefore ALREADY folded in
-      // here, via the covariance; this is why the measured TBPS half-lengths come
-      // out 0.36 / 0.44 / 0.59 cm against a nominal 1.2 (|zdir_z| = 0.87 / 0.82 /
-      // 0.69, i.e. tilt ~60 deg at the inner pair), and why TOB 2S -- flat -- comes
-      // out 2.5125 against a nominal 2.5. Both are correct, not discrepancies.
-      //
-      // Module frame convention: xdir is perpendicular to the strips (essentially
-      // azimuthal), ydir runs along them, zdir is the normal -- so ydir and zdir
-      // both lie in the (r,z) plane. Hence strip length feeds z and r but NOT phi,
-      // and the across-strip pitch feeds phi only. The barrel (phi, q=z) window
-      // axes are therefore well aligned with the module frame in both directions.
-      //
-      // Endcap caveat: exx + eyy below is the TRACE of the transverse block, which
-      // is rotation-invariant and equals sigma_r^2 + r^2 sigma_phi^2 -- i.e. the
-      // radial variance PLUS the azimuthal one, where the barrel branch uses the
-      // single element ezz (a true marginal). The strict analogue would be
-      // err = (x^2 exx + 2 xy exy + y^2 eyy) / r^2. Harmless for radial 2S strips
-      // (sigma_r^2 = L^2/3 ~ 2.08 cm^2 swamps p^2/12 ~ 7e-6), but for an endcap
-      // PIXEL sigma_x ~ sigma_y, so sqrt(exx+eyy) = sigma*sqrt(2) and with
-      // hl_fac = 3 this yields 4.24 sigma where 3 sigma was intended -- a sqrt(2)
-      // over-estimate. The measured endcap-pixel dq/sigma_tot of 0.89-1.25,
-      // dipping below 1, is exactly that signature. See RecoTracker/CLAUDE.md.
+      // Factor to get from hit sigma to half-length in q direction: 3 sigma for
+      // pixels, sqrt(3) sigma (the half-length of a uniform segment) for strips.
+      // See doc/MkFinderV2p2-DesignNotes.md, "Hit extents".
       const float hl_fac = is_pixel() ? 3.0f : std::sqrt(3.0f);
       float half_length, qbar;
       if (m_is_barrel) {

@@ -80,26 +80,21 @@ namespace mkfit {
 
     bin_index_t phiMaskApply(bin_index_t in) const { return in & m_ax_phi.c_N_mask; }
 
-    // The axis's own half-open range, [begin, end), covering [lo, hi] INCLUSIVE:
-    // it carries the "+1" with the mask applied AFTER the add, which is the only
-    // correct form on a wrapped axis. Prefer this to hand-rolling phiBinChecked
-    // pairs -- a hand-rolled version in MkBins dropped its top bin on every range
-    // it was ever given. See binnor_test.cxx.
+    // The axis's own half-open range [begin, end) covering [lo, hi] inclusive, with
+    // the mask applied after the "+1". Prefer this to a pair of phiBinChecked()
+    // calls, which misses the bin holding hi.
     axis_phi_t::I_pair phiRangeBins(float lo, float hi) const {
       return m_ax_phi.from_R_minmax_to_N_bins(lo, hi);
     }
 
-    // q is a BOUNDED axis, so its helper clamps where the phi one wraps, and an
-    // integer bin extension must clamp too -- see MkBins.cc.
+    // q is a bounded axis: its helper clamps where the phi one wraps.
     axis_eta_t::I_pair qRangeBins(float lo, float hi) const {
       return m_ax_eta.from_R_minmax_to_N_bins(lo, hi);
     }
     unsigned int qNBins() const { return m_ax_eta.size_of_N(); }
 
-    // Largest hit_q_half_length in this layer, over the hits actually loaded.
-    // The FETCH needs it because it runs before any hit is known, while the CUT
-    // is per hit: to fetch everything the cut can accept, the fetch has to use
-    // the layer's worst case. Computed once at fill.
+    // Largest hit extents in this layer, computed at fill. The v2p2 fetch uses
+    // them, since it runs before any hit is known.
     float max_hit_q_half_length() const { return m_max_q_half_length; }
     float max_hit_phi_half_extent() const { return m_max_phi_half_extent; }
 
@@ -112,14 +107,11 @@ namespace mkfit {
       float q;
       float q_half_length;
       float qbar;
-      // The PHI counterpart of q_half_length, and until 2026-09-23 it did not
-      // exist -- the phi cut used a flat detector-wide constant that was really
-      // half a phi bin, ~380x this in TB2S. Derived from the hit covariance the
-      // same way q_half_length is, and with the same hl_fac convention.
+      // Half-extent in phi, from the hit covariance, same hl_fac convention as
+      // q_half_length.
       float phi_half_extent;
       // Half-extent in qbar, from the hit covariance: hl_fac * sigma_r in the
-      // barrel, 0 in the endcap. A tilted strip's centroid r is uncertain along
-      // the strip; the line pre-cut in MkFinderV2p2::select_hits() needs it.
+      // barrel, 0 in the endcap. Used by the line pre-cut.
       float qbar_half_extent;
     };
     const HitInfo& hit_info(unsigned int i) const { return m_hit_infos[i]; }

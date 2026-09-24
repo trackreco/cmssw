@@ -22,42 +22,20 @@ namespace mkfit {
     //----------------------------------------------------------------------------
 
     // One node of the in-layer combinatorial tree: a candidate that has taken a
-    // particular SEQUENCE of hits within this layer, with the Kalman updates
-    // applied along the way.
-    //
-    // It is a PERSISTENT TREE with parent links only -- walked child to parent,
-    // appended to within a layer, discarded whole at the end of it. There is no
-    // way forward because nothing needs one: what the node exists for is the way
-    // BACK, so a surviving leaf can register its hits and chi2s into the
-    // CombCandidate. Storage is one plain std::vector<SecTCandRep> per
-    // MkFinderV2p2, nodes reached by INDEX; the index is the handle, so the
-    // vector may grow freely, and end-of-layer is a size rewind that keeps
-    // capacity. There is deliberately no free list: a node with live children
-    // cannot be released, and recycling its slot would silently overwrite the
-    // parent state of an undecided path.
-    //
-    // ONE arena per finder, not one per CCandRep: a Matriplex batch draws lanes
-    // from several PrimTCandReps and several CCandReps, so a single base must
-    // reach all of them. (MkFinder carries const HoTNode *m_HoTNodeArr[NN], NN
-    // separate bases chased scalar-ly, precisely because m_hots is
-    // per-CombCandidate.)
-    //
-    // Note the lifetime asymmetry against CombCandidate::m_hots, which is why
-    // this is a separate arena and not an extension of HoTNode: a HoTNode is
-    // 12 B and lives for the whole event, a SecTCandRep is ~140 B -- a
-    // TrackState alone is 112 -- and lives for one layer.
+    // particular sequence of hits within this layer, with the Kalman updates
+    // applied. Nodes live in MkFinderV2p2::m_sec_arena, are reached by index and
+    // link only to their parent. See doc/MkFinderV2p2-DesignNotes.md,
+    // "In-layer combinatorial search".
     struct SecTCandRep {
       PrimTCandRep *m_ptc;      // the candidate this path extends
       int   m_parent_idx;       // arena index of the predecessor; -1 = the PrimTCandRep itself
-      int   m_hit_pos;          // position in m_ptc->m_layer_hits of THIS hit.
-                                // The traversal cursor is m_hit_pos + 1 and is therefore
-                                // not stored: it is search state, derivable from the hit.
+      int   m_hit_pos;          // position of this hit in m_ptc->m_layer_hits; the next
+                                // hit a child may take is at m_hit_pos + 1
       HitOnTrack m_hot;
       TrackState m_state;       // AFTER the update at m_hot
       float m_chi2;             // of this hit alone
-      // The whole path through this layer, accumulated parent -> child. This is
-      // what the score is a function of, and it is one step's worth however many
-      // hits the path took: a two-hit path is ONE layer step, not two.
+      // The whole path through this layer, accumulated parent -> child: one layer
+      // step however many hits the path took.
       LayerStepFeatures m_feat;
 #ifdef MKFIT_TRACE
       int m_tr_hitmatch_id = -1;
@@ -89,47 +67,17 @@ namespace mkfit {
         // We want the worst / highest score (dphi) at the top -- so we can replace it.
         bool operator<(const PQE& o) const { return score < o.score; }
       };
-      // ONE BOUNDED PQUEUE PER SUB-LAYER, indexed [0] primary, [1] secondary.
-      // Not one shared queue: the reduction cap is meant to be a per-SENSOR
-      // budget, so a shower in one sensor cannot starve the other of its share.
-      // The two drain into a single step-ordered m_layer_hits afterwards, which
-      // is where the merge belongs -- the reduction is per sensor, the traversal
-      // is per layer.
+      // One bounded pqueue per sub-layer, [0] primary and [1] secondary, so each
+      // sensor has its own reduction budget. See doc/MkFinderV2p2-DesignNotes.md,
+      // "Reduction and hit ordering".
       // Need to sub-class it to be able to call reserve on the vec
       std::priority_queue<PQE, std::vector<PQE>> m_pqueue[2];
       int m_pqueue_size[2] = {0, 0};
 
-      // ONE merged, step-ordered list per rep, filled from BOTH sub-layers and
-      // sorted once by dir * dalpha. That is the decision of 2026-09-21: the
-      // in-layer search walks the hits forward along the trajectory, and whether
-      // a hit came from the P sensor or the S sensor is a fill-side detail, not
-      // an ordering one.
-      //
-      // Why step distance and not "the P hit first". An earlier design argued
-      // precision-first: P (macro-pixel, 1.5 mm) measures q about 16x better than
-      // S (strip, 24 mm), so anchor the pair on P. RETRACTED -- the 16x is what
-      // the P UPDATE gains, not what the S WINDOW gains. The S window's q term is
-      // EXTRA_DQ * DDQ_PRESEL_FAC * q_half_length = 2.89 cm in TBPS against a
-      // track term of 0.1-0.3 cm, so shrinking the track term 16x moves it by a
-      // few percent. And the FINE sensor is the one more often MISSING (B-only
-      // 4.1 % of TBPS crossings, about twice A-only), so a P-anchored
-      // pre-selection either loses those crossings or needs a branch.
-      //
-      // Per-hit precision still belongs in the score, as a WEIGHT, and needs no
-      // new array and no stereo bit: LayerOfHits::HitInfo::q_half_length already
-      // is it (TBPS 0.042 against 0.803, TB2S 2.5125 for both, where a stereo bit
-      // would say nothing).
-      //
-      // The sub-layers are nested and radially INTERLEAVED, which is why the
-      // order has to be measured rather than assumed: L4 spans r(22.14, 28.73)
-      // and L5 r(22.39, 28.54), offset 2.5 mm in a 6.5 cm shell because TBPS is
-      // tilted, and which sits at larger r flips module by module -- so a track's
-      // L5 hit can sit at SHORTER path length than its L4 hit.
+      // Survivors of both queues, in path order (sorted by dir * dalpha).
       std::vector<PQE> m_layer_hits;
 
-      // Did this candidate produce any in-layer path? Set by expand_in_layer();
-      // read at end of layer, where a candidate with none is the one that
-      // DECLINED the layer and competes as a hole.
+      // Did this candidate produce any in-layer path? Set by expand_in_layer().
       bool m_has_sec_nodes = false;
 
       PrimTCandRep(CCandRep *ccr, int orig_idx) {
@@ -137,23 +85,12 @@ namespace mkfit {
         m_origin_tcand_index = orig_idx;
       }
 
-      // Within-sensitive-region verdict for THIS candidate on THIS layer, set by
-      // MkFinderV2p2::determine_wsr() once sp1/sp2 and dq_track are known. It is
-      // per candidate, not per layer: two candidates crossing the same layer can
-      // differ, one passing through the middle and one clipping the z end.
-      //
-      //   WSR_Inside  -- the whole crossing is comfortably inside sensitive q,
-      //                  so a missing hit is a genuine hole;
-      //   WSR_Edge    -- the crossing is within dq of a boundary, or the track
-      //                  turns around inside the layer, so a missing hit is not
-      //                  evidence of anything;
-      //   WSR_Outside -- the track does not reach the layer. The layer is then
-      //                  SKIPPED: no hits scanned and no HoT of any kind added,
-      //                  which is the point -- the layer plans are deliberately
-      //                  inclusive (the transition plans list BPix + FPix + TOB +
-      //                  TEC, i.e. the union over tracks), so 67.6 % of layer
-      //                  searches are on layers the track never crosses and every
-      //                  one of them used to record a hole.
+      // Within-sensitive-region verdict for this candidate on this layer, set by
+      // MkFinderV2p2::determine_wsr():
+      //   WSR_Inside  -- the crossing is inside sensitive q; a missing hit is a hole;
+      //   WSR_Edge    -- the crossing is near a boundary, or the track turns round
+      //                  inside the layer; a missing hit is not counted;
+      //   WSR_Outside -- the track does not reach the layer, which is skipped.
       WSR_Result m_wsr;
 
       CombCandidate& ccand();
@@ -169,13 +106,9 @@ namespace mkfit {
       float bChi2 = 999.999f;
 #ifdef MKFIT_TRACE
       int b_tr_hitmatch_id = -1;
-      // Truth-forcing diagnostic (Config::V2p2::Diag::force_mc). The best-hit choice is made
-      // on bKey, which is normally just bChi2; with forcing on, an MC-matched
-      // hit gets a key below any non-matched one so it always wins its layer,
-      // while bChi2 keeps the REAL chi2 so nothing downstream is falsified.
-      // bIsMc then lets the acceptance cut be bypassed for it. This exists to
-      // separate "the true hit was never available" from "the ranking or the
-      // pruning threw it away" -- it is an oracle, never a production path.
+      // Diag::force_mc: the best-hit choice is made on bKey, normally bChi2. With
+      // forcing on, an MC-matched hit gets a key below every other hit and bIsMc
+      // lets it bypass the chi2 cut; bChi2 keeps the real chi2.
       float bKey = 999.999f;
       bool  bIsMc = false;
 #endif
@@ -188,17 +121,8 @@ namespace mkfit {
 
       std::vector<PrimTCandRep> m_primTCs; // for now, could live in the shared arena
 
-      // Arena indices of every in-layer path belonging to this CombCandidate,
-      // across all of its PrimTCandReps. The selection at end of layer is a
-      // single flat sort over these plus one entry per TrackCand that declined
-      // the layer or was already stopped -- that flat sort is the whole reason
-      // the score is additive, and the reason these are collected per CCandRep
-      // rather than per PrimTCandRep.
-      //
-      // It has to be per CCandRep and resolved at END OF LAYER, not per NN batch:
-      // begin_next_Ccrep_in_layer() pushes all of a CombCandidate's TrackCands
-      // into the pre-select queue at once, and the queue is drained NN at a time,
-      // so one CombCandidate's alternatives can straddle a batch boundary.
+      // Arena indices of every in-layer path of this CombCandidate, across all its
+      // PrimTCandReps, for the end-of-layer selection.
       std::vector<int> m_sec_nodes;
 
       // We could also keep track of the TrackCands that do not enter layer
@@ -315,10 +239,8 @@ namespace mkfit {
       const Event *mp_event = nullptr;
 #endif
 
-      // One result per lane, appended when mp_out is set. The best-hit path needs
-      // only the winner and keeps it in PrimTCandRep::b*; the expansion needs
-      // every outcome, because a hit that loses on chi2 at depth 1 may still be
-      // the right second hit of a two-hit path.
+      // One result per lane, appended when mp_out is set: the in-layer search keeps
+      // every outcome, the best-hit path only the winner (PrimTCandRep::b*).
       struct ItemOut {
         PrimTCandRep *ptc;
         int   parent_idx;
@@ -334,15 +256,9 @@ namespace mkfit {
       };
       std::vector<ItemOut> *mp_out = nullptr;
 
-      // Let propagate-to-plane SOLVE for the crossing (sPerp == nullptr) instead
-      // of being handed one. Depth 0 of the expansion starts from the
-      // PrimTCandRep's own state, for which the Hermite has already produced the
-      // crossing, so it uses the cheap path. Past the first update the Hermite's
-      // two endpoints no longer describe the trajectory, so the solve is used --
-      // it is the cheaper thing to WRITE; the one-point Hermite
-      // (Hermite3D::calculate_coeffs(sp, inv_k, dalpha), which exists and is
-      // still uncalled) is the cheaper thing to RUN and is the intended
-      // replacement.
+      // Let propagate-to-plane solve for the crossing (sPerp == nullptr) instead of
+      // being handed the path length. Set for depth >= 1 of the in-layer search,
+      // where the Hermite crossings no longer apply.
       bool m_solve_plane = false;
 
       void reset() { N_filled = 0; }
