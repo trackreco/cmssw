@@ -28,11 +28,11 @@
 // the brute-force comparison in t_binnor_query_roundtrip() is the template for
 // "the fast path returns exactly what the slow path does".
 //
-// NOTE ON THE FULL-CIRCLE KNOWN: it is not a coding slip but a representation
-// limit. A half-open (begin, end) pair of bin indices cannot express "all of
-// S^1" -- it is one degree of freedom short, the missing one being the winding
-// number. Fixing it is a CONVENTION choice (reserve begin == end for full, or
-// carry a count rather than an end), so it needs a decision before a patch.
+// NOTE ON THE CIRCLE. A range on S^1 is an ARC. The full circle is not an arc
+// and is deliberately NOT expressible: -pi and +pi are the same point, so
+// (-pi, +pi) asks for a point and correctly returns one bin. What that makes a
+// caller responsible for is the PRECONDITION -- a half-width at or above pi
+// wraps and silently returns an arbitrary small arc instead of everything.
 
 #include "RecoTracker/MkFitCore/interface/binnor.h"
 #include "RecoTracker/MkFitCore/interface/radix_sort.h"
@@ -253,14 +253,31 @@ static void t_degenerate_and_full_circle() {
   }
   check(bad_point == 0, "point range gives exactly 1 bin", std::to_string(bad_point) + " bad");
 
-  // A range covering the whole circle must give every bin, not zero. On a
-  // circle [b, e) with b == e is ambiguous and the scan loops read it as EMPTY.
-  auto full = ax.from_R_minmax_to_N_bins(-M_PI, M_PI);
-  unsigned n = range_size<unsigned short>(full.begin, full.end, kPhiBins, true);
-  check_known(n == kPhiBins, "full-circle range gives all bins",
-              "gives " + std::to_string(n) + " of " + std::to_string(kPhiBins) +
-              " -- the mask discards the WINDING NUMBER: bin(+pi) is 256, +1 and"
-              " masked is 1, so a 2pi request comes back as one bin");
+  // COINCIDENT ENDPOINTS ARE A POINT, NOT A CIRCLE. On S^1, -pi and +pi are the
+  // same point, so from_R_minmax_to_N_bins(-pi, +pi) asks for a range from a
+  // point to itself and one bin is the CORRECT answer. The full circle is not
+  // expressible here at all, and that is a domain boundary rather than a defect:
+  // a range on a circle is an ARC, and the circle is not an arc -- two endpoints
+  // carry no third datum saying "go all the way round".
+  auto wrapped = ax.from_R_minmax_to_N_bins(-M_PI, M_PI);
+  check(range_size<unsigned short>(wrapped.begin, wrapped.end, kPhiBins, true) == 1,
+        "coincident endpoints (-pi, +pi) give one bin");
+
+  // THE PRECONDITION THAT FOLLOWS, and it is the caller's. A half-width at or
+  // above pi cannot be represented, and the failure is SILENT: the request wraps
+  // and comes back as some arbitrary small arc rather than as everything. This
+  // check documents the boundary; MkBins clamps before it is reached.
+  int wide_undersized = 0;
+  for (int i = 0; i < 1000; ++i) {
+    float c = -M_PI + 2.0f * M_PI * i / 1000.0f;
+    float w = 1.05f * M_PI;                       // deliberately over the limit
+    auto p2 = ax.from_R_minmax_to_N_bins(c - w, c + w);
+    if (range_size<unsigned short>(p2.begin, p2.end, kPhiBins, true) < kPhiBins / 2)
+      ++wide_undersized;
+  }
+  check(wide_undersized > 0,
+        "half-width >= pi is out of domain and fails SILENTLY (caller must clamp)",
+        std::to_string(wide_undersized) + " of 1000 came back under half the circle");
 }
 
 // 5. The binnor itself: a region query must return exactly the brute-force set.

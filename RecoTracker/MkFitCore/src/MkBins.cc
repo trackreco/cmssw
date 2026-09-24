@@ -29,6 +29,10 @@ namespace mkfit {
   // margin and lossy at 0.88. Delete this once the A/B is recorded.
   bool  g_v2p2_phi_legacy_range = false;
 
+  // Largest representable phi half-width: a hair under pi, since at pi the two
+  // endpoints coincide and the arc degenerates to a point.
+  static constexpr float kMaxHalfPhiWindow = 3.14f;
+
   namespace mp = mini_propagators;
 
   //==============================================================================
@@ -273,7 +277,13 @@ namespace mkfit {
         // Fetch exactly what the cut can accept, then extend by whole BINS.
         // Keeping the extender in bin units is the point: it is added to the bin
         // INDEX, so it introduces no float-to-bin rounding of its own.
-        const float cut_dphi = g_v2p2_dphi_trk_fac * m_dphi_track[i] + g_v2p2_hit_dphi_rad;
+        // PRECONDITION of the range helper, and it is ours to enforce. A range
+        // on a circle is an arc; a half-width at or above pi is not an arc and
+        // wraps to an arbitrary SMALL one, silently. This is what the old
+        // commented-out "clamp crazy sizes ... only happens when prop-fail flag
+        // is set" was reaching for -- it is a precondition, not a workaround.
+        const float cut_dphi = std::min(g_v2p2_dphi_trk_fac * m_dphi_track[i] + g_v2p2_hit_dphi_rad,
+                                        kMaxHalfPhiWindow);
         if (g_v2p2_phi_legacy_range) {
           const float old_dphi = g_v2p2_dphi_trk_fac * m_dphi_track[i] +
                                  PHI_BIN_EXTRA_FAC * HIT_PHI_HALF_EXTENT;
