@@ -62,7 +62,14 @@ namespace mkfit {
   int g_v2p2_max_sec_depth = 4;
 
   bool g_v2p2_force_mc = false;
-  float g_v2p2_extra_dq = 3.0f;
+  // 1.5, maintainer's call 2026-09-23. Measured against 3.0 over 30 events of
+  // the D121 PU200 sample, paired: +34 found tracks at 2.6 sigma with 11 fewer
+  // fakes, AND 10.7 % less inner build time. The old 3.0 was compensating a
+  // window covariance up to 9x too small before the surface reference went in;
+  // the recorded verdict "EXTRA_DQ = 3 is a necessity" is retracted in CLAUDE.md.
+  // Floor is 0.833 and it is GEOMETRIC: below 1/DDQ_PRESEL_FAC the window stops
+  // reaching a strip's own half-extent. See --v2p2-extra-dq to scan it.
+  float g_v2p2_extra_dq = 1.5f;
   bool  g_v2p2_surface_q = true;
 
 
