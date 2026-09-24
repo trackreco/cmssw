@@ -64,6 +64,17 @@ void an_phipull(const char *fn = "phipull.root") {
   t->SetBranchAddress("h.hit_q_half_len", &hit_q_half_len);
   t->SetBranchAddress("h.theta", &theta);
 
+  // ETA BINS, matching the recorded surface-q control rows so the two can be
+  // compared directly: that entry reports sigma_phi ratios 1.05 / 1.17 / 1.51 /
+  // 1.83 over |eta| 0-0.8 / 0.8-1.6 / 1.6-2.0 / >2.0, i.e. a phi covariance that
+  // narrows with eta, roughly as 1 + 0.17 eta^2. A REGIONAL split aliases this,
+  // because the forward regions are where high eta lives -- so bin in eta first
+  // and only then ask whether any region is anomalous on top of it.
+  const double eta_edge[] = {0.0, 0.8, 1.6, 2.0, 99.0};
+  const char  *eta_name[] = {"|eta| 0-0.8", "0.8-1.6", "1.6-2.0", "> 2.0"};
+  const int NE = 4;
+  std::vector<float> eres[NE], esig[NE], ehsig[NE];
+
   const Grp grps[] = {{"PixB 0-3", 0, 3},   {"TBPS-P 4,6,8", 4, 9},
                       {"TBPS-S 5,7,9", 4, 9}, {"TB2S 10-15", 10, 15},
                       {"fwd pix 16-27", 16, 27}, {"TEDD 28-37", 28, 37}};
@@ -79,6 +90,14 @@ void an_phipull(const char *fn = "phipull.root") {
     // GEOMETRIC CLAMP: a "matched" hit further in q than the hit's own extent
     // allows by a wide margin is a label coincidence, not a measurement.
     if (hit_q_half_len > 0.f && std::fabs(dq_s) > 10.f * hit_q_half_len) { ++n_clamped; continue; }
+    if (theta > -900.f && theta > 0.f && theta < M_PI) {
+      const double et = std::fabs(-std::log(std::tan(0.5 * (double)theta)));
+      for (int e = 0; e < NE; ++e)
+        if (et >= eta_edge[e] && et < eta_edge[e + 1]) {
+          eres[e].push_back(dphi_s); esig[e].push_back(sigma_phi_trk);
+          ehsig[e].push_back(hit_phi_sigma); break;
+        }
+    }
     for (int g = 0; g < NG; ++g) {
       if (layer < grps[g].l0 || layer > grps[g].l1) continue;
       if (g == 1 && (layer % 2) != 0) continue;   // TBPS-P: even
@@ -103,6 +122,23 @@ void an_phipull(const char *fn = "phipull.root") {
            grps[g].name, res[g].size(), 1e6 * p50, 1e6 * core, st,
            core / st, tot2 > 0 ? st * st / tot2 : 0.f);
   }
+  printf("\n--- BINNED IN |eta|, the axis the regional split aliases ---\n");
+  printf("%-16s %8s %11s %11s %11s %8s %9s\n",
+         "eta bin", "n", "bias[urad]", "core[urad]", "sig_trk", "RATIO", "trk_frac");
+  for (int e = 0; e < NE; ++e) {
+    if (eres[e].size() < 50) continue;
+    std::vector<float> a = eres[e];
+    const float p16 = quant(a, 0.16), p50 = quant(a, 0.50), p84 = quant(a, 0.84);
+    const float core = 0.5f * (p84 - p16);
+    std::vector<float> b = esig[e];  const float st = quant(b, 0.50);
+    std::vector<float> c = ehsig[e]; const float sh = quant(c, 0.50);
+    const float tot2 = st * st + sh * sh;
+    printf("%-16s %8zu %11.2f %11.2f %11.2e %8.2f %9.3f\n",
+           eta_name[e], eres[e].size(), 1e6 * p50, 1e6 * core, st,
+           core / st, tot2 > 0 ? st * st / tot2 : 0.f);
+  }
+  printf("  recorded for comparison (surface-q control): 1.05 / 1.17 / 1.51 / 1.83\n");
+
   printf("\nRATIO is the measured core over the QUOTED 1-sigma track error.\n"
          "  ~1 -> the covariance is right; the 2x that recovers the per-hit cut is\n"
          "        containment, so take the 13 %% and widen to ~6 sigma.\n"
