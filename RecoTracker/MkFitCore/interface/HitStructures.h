@@ -117,6 +117,10 @@ namespace mkfit {
       // half a phi bin, ~380x this in TB2S. Derived from the hit covariance the
       // same way q_half_length is, and with the same hl_fac convention.
       float phi_half_extent;
+      // Half-extent in qbar, from the hit covariance: hl_fac * sigma_r in the
+      // barrel, 0 in the endcap. A tilted strip's centroid r is uncertain along
+      // the strip; the line pre-cut in MkFinderV2p2::select_hits() needs it.
+      float qbar_half_extent;
     };
     const HitInfo& hit_info(unsigned int i) const { return m_hit_infos[i]; }
     float hit_phi(unsigned int i) const { return m_hit_infos[i].phi; }
@@ -124,6 +128,7 @@ namespace mkfit {
     float hit_q_half_length(unsigned int i) const { return m_hit_infos[i].q_half_length; }
     float hit_phi_half_extent(unsigned int i) const { return m_hit_infos[i].phi_half_extent; }
     float hit_qbar(unsigned int i) const { return m_hit_infos[i].qbar; }
+    float hit_qbar_half_extent(unsigned int i) const { return m_hit_infos[i].qbar_half_extent; }
 
     // Use this to map original indices to sorted internal ones. m_ext_idcs needs to be initialized.
     unsigned int getHitIndexFromOriginal(unsigned int i) const { return m_ext_idcs[i - m_min_ext_idx]; }

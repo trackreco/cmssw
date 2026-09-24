@@ -21,9 +21,10 @@ N=${1:-50}
 SAMPLE=${2:-/foo/matevz/mic-dev/trackingNtuple_HLT_2026_March.bin}
 T=../RecoTracker/MkFitCore/standalone/test
 
-# label:per_hit_fac:trk_fac[:dq_hit_fac[:q_extra_bins[:phi_extra_bins]]] --
-# per_hit_fac 0 means the flat 0.0246 rad constant; dq_hit_fac defaults to 1.8,
-# with dq_trk_fac fixed at 1.5; both fetch margins default to one whole bin
+# label:per_hit_fac:trk_fac[:dq_hit_fac[:q_extra_bins[:phi_extra_bins[:precut]]]]
+# -- per_hit_fac 0 means the flat 0.0246 rad constant; dq_hit_fac defaults to
+# 1.8, with dq_trk_fac fixed at 1.5; both fetch margins default to one whole
+# bin; precut is qphi (default, as in production), q, phi or 0 for the line pre-cuts
 CFGS=${CFGS:-"flat:0:1.0 ph3_trk1.0:3:1.0 ph3_trk1.5:3:1.5 ph3_trk2.0:3:2.0 ph3_trk3.0:3:3.0"}
 
 CMD=(./mkFit --geom CMS-phase2 --seed-input cmssw --input-file "$SAMPLE"
@@ -36,7 +37,9 @@ CMD=(./mkFit --geom CMS-phase2 --seed-input cmssw --input-file "$SAMPLE"
      --shell-command 'val_score_mode(0, 0.99)')
 
 for cfg in $CFGS; do
-  IFS=: read -r lab ph trk dqh qeb peb <<< "$cfg"
+  IFS=: read -r lab ph trk dqh qeb peb pc <<< "$cfg"
+  case "${pc:-qphi}" in q) pcq=1 pcp=0 ;; phi) pcq=0 pcp=1 ;; qphi) pcq=1 pcp=1 ;; *) pcq=0 pcp=0 ;; esac
+  CMD+=(--shell-command "val_precut($pcq, $pcp)")
   CMD+=(--shell-command "val_dq(1.5, ${dqh:-1.8}, ${qeb:-1})")
   if [ "$ph" = "0" ]; then
     CMD+=(--shell-command 'val_phi_per_hit(false, 1.0)')

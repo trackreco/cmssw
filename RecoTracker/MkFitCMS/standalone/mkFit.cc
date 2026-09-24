@@ -552,6 +552,8 @@ int main(int argc, const char* argv[]) {
           "                           applied in the cut AND in the binnor range (def: %.2f)\n"
           "  --v2p2-hit-dphi <float>  MkFinderV2p2 pre-selection: the flat per-hit phi tolerance in\n"
           "                           RADIANS, used only with --v2p2-phi-per-hit 0 (def: %.5f)\n"
+          "  --v2p2-precut-q <0|1>    MkFinderV2p2: line pre-cut in q before the plane solve (def: %d)\n"
+          "  --v2p2-precut-phi <0|1>  MkFinderV2p2: line pre-cut in phi before the plane solve (def: %d)\n"
           "  --v2p2-q-extra-bins <n>  MkFinderV2p2: fetch margin beyond the cut, in whole q\n"
           "                           bins (def: %d)\n"
           "  --v2p2-phi-extra-bins <n>  MkFinderV2p2: fetch margin beyond the cut, in whole phi\n"
@@ -758,6 +760,8 @@ int main(int argc, const char* argv[]) {
           mkfit::g_v2p2_phi_per_hit ? "on" : "off",
           mkfit::g_v2p2_dphi_trk_fac,
           mkfit::g_v2p2_hit_dphi_rad,
+          (int) mkfit::g_v2p2_precut_q,
+          (int) mkfit::g_v2p2_precut_phi,
           mkfit::g_v2p2_q_extra_bins,
           mkfit::g_v2p2_phi_extra_bins,
           g_input_file.c_str(),
@@ -905,6 +909,12 @@ int main(int argc, const char* argv[]) {
     } else if (*i == "--v2p2-hit-dphi") {
       next_arg_or_die(mArgs, i);
       mkfit::g_v2p2_hit_dphi_rad = (float) atof(i->c_str());
+    } else if (*i == "--v2p2-precut-q") {
+      next_arg_or_die(mArgs, i);
+      mkfit::g_v2p2_precut_q = atoi(i->c_str()) != 0;
+    } else if (*i == "--v2p2-precut-phi") {
+      next_arg_or_die(mArgs, i);
+      mkfit::g_v2p2_precut_phi = atoi(i->c_str()) != 0;
     } else if (*i == "--v2p2-q-extra-bins") {
       next_arg_or_die(mArgs, i);
       mkfit::g_v2p2_q_extra_bins = atoi(i->c_str());

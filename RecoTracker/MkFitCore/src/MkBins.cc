@@ -36,6 +36,9 @@ namespace mkfit {
   bool  g_v2p2_phi_per_hit  = MkBins::PHI_PER_HIT;
   float g_v2p2_dphi_hit_fac = MkBins::DPHI_HIT_FAC;
 
+  bool  g_v2p2_precut_q   = true;
+  bool  g_v2p2_precut_phi = true;
+
   // Largest representable phi half-width: a hair under pi, since at pi the two
   // endpoints coincide and the arc degenerates to a point.
   static constexpr float kMaxHalfPhiWindow = 3.14f;

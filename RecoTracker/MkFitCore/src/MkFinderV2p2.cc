@@ -1026,6 +1026,30 @@ namespace mkfit {
         if (Config::v2p2UseWsr && b.ptc[i]->m_wsr.m_wsr == WSR_Outside)
           continue;
 
+        // Line pre-cut, per candidate: the straight line m_sp1 -> m_sp2 in
+        // (qbar, q) and (qbar, phi), and the hit-independent tolerance terms.
+        // See MkBins::PRECUT_DQ_SLACK.
+        const bool barrel = m_rz_limits.m_is_barrel;
+        bool pc_on = g_v2p2_precut_q || g_v2p2_precut_phi;
+        float pc_qb1 = 0, pc_q1 = 0, pc_gq = 0, pc_phi1 = 0, pc_gphi = 0, pc_tol_q = 0, pc_tol_phi = 0;
+        if (pc_on) {
+          const float x1 = B.m_sp1.x[i], y1 = B.m_sp1.y[i], z1 = B.m_sp1.z[i];
+          const float x2 = B.m_sp2.x[i], y2 = B.m_sp2.y[i], z2 = B.m_sp2.z[i];
+          const float r1 = std::hypot(x1, y1), r2 = std::hypot(x2, y2);
+          pc_qb1 = barrel ? r1 : z1;
+          pc_q1 = barrel ? z1 : r1;
+          const float dqb = (barrel ? r2 : z2) - pc_qb1;
+          if (std::abs(dqb) < 1e-4f) {
+            pc_on = false;  // no span to interpolate along
+          } else {
+            pc_gq = std::clamp(((barrel ? z2 : r2) - pc_q1) / dqb, -20.0f, 20.0f);
+            pc_phi1 = vdt::fast_atan2f(y1, x1);
+            pc_gphi = std::clamp(squashPhiGeneral(vdt::fast_atan2f(y2, x2) - pc_phi1) / dqb, -20.0f, 20.0f);
+            pc_tol_q = MkBins::PRECUT_DQ_SLACK * g_v2p2_dq_trk_fac * B.m_dq_track[i] * (1.0f + pc_gq * pc_gq);
+            pc_tol_phi = MkBins::PRECUT_DPHI_SLACK * g_v2p2_dphi_trk_fac * B.m_dphi_track[i];
+          }
+        }
+
         for (bidx_t qi = BL.q1[i]; qi != BL.q2[i]; ++qi) {
           for (bidx_t pi = BL.p1[i]; pi != BL.p2[i]; pi = L.phiMaskApply(pi + 1)) {
 
@@ -1056,6 +1080,28 @@ namespace mkfit {
                 ++mp_event->tr_layersearch(tr_layersearch_ids[i]).n_hits_masked;
 #endif
                 continue;
+              }
+
+              if (pc_on) {
+                const float dqb_h = L.hit_qbar(hi) - pc_qb1;
+                const float qbar_term = barrel ? MkBins::PRECUT_QBAR_FAC * L.hit_qbar_half_extent(hi) : 0.0f;
+                bool reject = false;
+                if (g_v2p2_precut_q) {
+                  const float dev = std::abs(L.hit_q(hi) - (pc_q1 + dqb_h * pc_gq));
+                  reject = dev > pc_tol_q + g_v2p2_dq_hit_fac * L.hit_q_half_length(hi) + std::abs(pc_gq) * qbar_term;
+                }
+                if (!reject && g_v2p2_precut_phi) {
+                  const float dev = std::abs(squashPhiGeneral(L.hit_phi(hi) - (pc_phi1 + dqb_h * pc_gphi)));
+                  const float hit_term = g_v2p2_phi_per_hit ? g_v2p2_dphi_hit_fac * L.hit_phi_half_extent(hi)
+                                                            : g_v2p2_hit_dphi_rad;
+                  reject = dev > pc_tol_phi + hit_term + std::abs(pc_gphi) * qbar_term;
+                }
+                if (reject) {
+#ifdef MKFIT_TRACE
+                  ++mp_event->tr_layersearch(tr_layersearch_ids[i]).n_hits_precut;
+#endif
+                  continue;
+                }
               }
 
               // Try preloading Hits for the next step ... probably not really relevant.

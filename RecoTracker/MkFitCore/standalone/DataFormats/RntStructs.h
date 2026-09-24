@@ -244,6 +244,7 @@ struct TrLayerSearch {
   // MkBins::NEW_MAX_HIT and equals the number of TrHitMatch with passed_pqueue.
   int n_hits_scanned = 0;  // hits visited inside the bin ranges
   int n_hits_masked = 0;   // of those, rejected by the iteration hit mask
+  int n_hits_precut = 0;   // of the rest, rejected by the line pre-cut
   int n_hits_presel = 0;   // of those, passed the dq/dphi pre-selection
   int n_hits_pqueue = 0;   // of those, survived the priority queue -> Kalman
 

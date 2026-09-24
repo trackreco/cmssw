@@ -1415,6 +1415,12 @@ namespace mkfit {
   //   hit_rad    the flat per-hit tolerance, RADIANS (one phi bin = 0.024544);
   //              used only with the per-hit extent off, see val_phi_per_hit()
   //   extra_bins fetch safety margin beyond the cut, in WHOLE bins
+  void val_precut(bool q, bool phi) {
+    g_v2p2_precut_q = q;
+    g_v2p2_precut_phi = phi;
+    printf("val_precut: q %s, phi %s\n", q ? "on" : "off", phi ? "on" : "off");
+  }
+
   void val_dphi(float trk_fac, float hit_rad, int extra_bins) {
     g_v2p2_dphi_trk_fac   = trk_fac;
     g_v2p2_hit_dphi_rad   = hit_rad;
@@ -2741,6 +2747,167 @@ namespace mkfit {
              R.presel > 0 ? R.scanned / R.presel : -1.0);
     }
     printf("over-scan = (q range pulled from the binnor) / (q window the cut uses)\n\n");
+  }
+
+
+  //==========================================================================
+  // val_qprecut: would a cheap q pre-cut, from HitInfo alone, pay?
+  //
+  // Idea: interpolate the track along the straight line between its two layer
+  // crossings (TrLayerSearch::prop_entry / prop_exit, i.e. MkBins::m_sp1/m_sp2)
+  // to the hit's own qbar (r in the barrel, z in the endcap), and reject the
+  // pair if the hit's q is too far from the line, BEFORE the Hermite plane solve
+  // and the real dq/dphi cut. For each tolerance variant this counts, per
+  // region, the scanned pairs it would reject (the benefit) and the pairs it
+  // would reject although the real cut PASSES them (false rejects, which must be
+  // zero for the pre-cut to be safe -- stricter than any truth criterion).
+  //
+  // Tolerance: a * dq_track * (1 + g^2) + 1.2 * hl_q + c * |g| * hl_qbar, with
+  // g the line's slope dq/dqbar (1 + g^2 = 1/sin^2 theta, the surface
+  // reference), hl_q the hit's q half-length and hl_qbar its half-extent in qbar
+  // (hl_fac * sigma_r in the barrel, which is what a TILTED strip carries).
+  //==========================================================================
+
+  namespace {
+    struct QpcVariant { const char *name; float a; bool surf; float c; };
+    const QpcVariant g_qpc_var[] = {
+      {"a1.5 surf, no qbar term", 1.5f, true, 0.0f},
+      {"a1.5 surf + qbar term",   1.5f, true, 1.2f},
+      {"a3   surf + qbar term",   3.0f, true, 1.2f},
+      {"a5   surf + qbar term",   5.0f, true, 1.2f},
+      {"a3   NO surf + qbar",     3.0f, false, 1.2f},
+    };
+    constexpr int kQpcNV = sizeof(g_qpc_var) / sizeof(g_qpc_var[0]);
+    const char *g_qpc_reg[] = {"pix barrel 0-3", "TBPS 4-9", "TB2S 10-15", "fwd pix", "TEDD"};
+    constexpr int kQpcNR = 5;
+    // Phi pre-cut on the same line: b * dphi_track + 3 * hit_phi_half_extent
+    // + c * |dphi/dqbar| * hl_qbar, the last term for the same tilt reason.
+    struct PpcVariant { const char *name; float b; float c; };
+    const PpcVariant g_ppc_var[] = {
+      {"phi b2 + qbar term", 2.0f, 1.2f},
+      {"phi b3 + qbar term", 3.0f, 1.2f},
+      {"phi b3, no qbar term", 3.0f, 0.0f},
+    };
+    constexpr int kPpcNV = sizeof(g_ppc_var) / sizeof(g_ppc_var[0]);
+    struct QpcTally { long pairs = 0, real_pass = 0, degenerate = 0; long rej[kQpcNV] = {}, false_rej[kQpcNV] = {};
+                      long prej[kPpcNV] = {}, pfalse[kPpcNV] = {}, both_rej = 0, both_false = 0; };
+    QpcTally g_qpc[kQpcNR];
+
+    int qpc_region(int l) {
+      if (l <= 3) return 0;
+      if (l <= 9) return 1;
+      if (l <= 15) return 2;
+      if ((l >= 16 && l <= 27) || (l >= 38 && l <= 49)) return 3;
+      return 4;
+    }
+  }
+
+  void val_qprecut_reset() { for (auto &t : g_qpc) t = QpcTally(); }
+
+  void val_qprecut_event(const Event *ev) {
+    for (const TrHitMatch &hm : ev->trHitMatches_) {
+      if (hm.search_id < 0 || hm.layer < 0 || hm.hit < 0) continue;
+      const TrLayerSearch &ls = ev->trLayerSearches_[hm.search_id];
+      const Hit &hit = ev->layerHits_[hm.layer][hm.hit];
+      QpcTally &T = g_qpc[qpc_region(hm.layer)];
+      ++T.pairs;
+      if (hm.passed_preselect) ++T.real_pass;
+
+      const auto &p1 = ls.prop_entry.pos, &p2 = ls.prop_exit.pos;
+      const bool barrel = Config::TrkInfo[hm.layer].is_barrel();
+      const float hl_fac = Config::TrkInfo[hm.layer].is_pixel() ? 3.0f : std::sqrt(3.0f);
+      float qb1, qb2, q1, q2, qb_hit, q_hit, sig_qbar;
+      if (barrel) {
+        qb1 = std::hypot(p1.fX, p1.fY);  qb2 = std::hypot(p2.fX, p2.fY);
+        q1 = p1.fZ;  q2 = p2.fZ;
+        qb_hit = hit.r();  q_hit = hit.z();
+        const float x = hit.x(), y = hit.y(), r2 = x * x + y * y;
+        const float vr = r2 > 0 ? (x * x * hit.exx() + 2 * x * y * hit.exy() + y * y * hit.eyy()) / r2 : 0.0f;
+        sig_qbar = std::sqrt(std::max(vr, 0.0f));
+      } else {
+        qb1 = p1.fZ;  qb2 = p2.fZ;
+        q1 = std::hypot(p1.fX, p1.fY);  q2 = std::hypot(p2.fX, p2.fY);
+        qb_hit = hit.z();  q_hit = hit.r();
+        sig_qbar = std::sqrt(std::max(hit.ezz(), 0.0f));
+      }
+      const float dqb = qb2 - qb1;
+      if (std::abs(dqb) < 1e-4f) { ++T.degenerate; continue; }   // cannot interpolate: pass
+      const float g = std::clamp((q2 - q1) / dqb, -20.0f, 20.0f);
+      const float q_line = q1 + (qb_hit - qb1) * g;
+      const float dev = std::abs(q_hit - q_line);
+      const float hl_q = hm.hit_q_half_len, hl_qbar = hl_fac * sig_qbar;
+      bool q_rej_a3 = false;
+      for (int v = 0; v < kQpcNV; ++v) {
+        const QpcVariant &V = g_qpc_var[v];
+        const float tol = V.a * ls.dq_track * (V.surf ? 1.0f + g * g : 1.0f) + 1.2f * hl_q + V.c * std::abs(g) * hl_qbar;
+        if (dev > tol) {
+          ++T.rej[v];
+          if (hm.passed_preselect) ++T.false_rej[v];
+          if (v == 2) q_rej_a3 = true;
+        }
+      }
+
+      // phi on the same line
+      auto wrap = [](float d) { while (d > float(M_PI)) d -= 2 * float(M_PI); while (d < -float(M_PI)) d += 2 * float(M_PI); return d; };
+      const float ph1 = std::atan2(p1.fY, p1.fX), ph2 = std::atan2(p2.fY, p2.fX);
+      const float gphi = std::clamp(wrap(ph2 - ph1) / dqb, -20.0f, 20.0f);
+      const float phi_line = ph1 + (qb_hit - qb1) * gphi;
+      const float dphi = std::abs(wrap(hit.phi() - phi_line));
+      const float x = hit.x(), y = hit.y(), r2 = x * x + y * y;
+      const float vphi = r2 > 0 ? (y * y * hit.exx() - 2 * x * y * hit.exy() + x * x * hit.eyy()) / (r2 * r2) : 0.0f;
+      const float hl_phi = hl_fac * std::sqrt(std::max(vphi, 0.0f));
+      bool p_rej_b3 = false;
+      for (int v = 0; v < kPpcNV; ++v) {
+        const PpcVariant &V = g_ppc_var[v];
+        const float tol = V.b * ls.dphi_track + 3.0f * hl_phi + V.c * std::abs(gphi) * hl_qbar;
+        if (dphi > tol) {
+          ++T.prej[v];
+          if (hm.passed_preselect) ++T.pfalse[v];
+          if (v == 1) p_rej_b3 = true;
+        }
+      }
+      if (q_rej_a3 || p_rej_b3) {
+        ++T.both_rej;
+        if (hm.passed_preselect) ++T.both_false;
+      }
+    }
+  }
+
+  void val_qprecut_report(const char *tag) {
+    printf("\n=== val_qprecut [%s]: line pre-cut from HitInfo, before the plane solve ===\n", tag);
+    for (int r = 0; r < kQpcNR; ++r) {
+      const QpcTally &T = g_qpc[r];
+      if (T.pairs == 0) continue;
+      printf("%-15s pairs %10ld  real cut passes %5.1f %%  degenerate %ld\n", g_qpc_reg[r], T.pairs,
+             100.0 * T.real_pass / T.pairs, T.degenerate);
+      for (int v = 0; v < kQpcNV; ++v)
+        printf("   %-26s rejects %5.1f %% of pairs   false rejects %8ld (%.3f %% of real passes)\n",
+               g_qpc_var[v].name, 100.0 * T.rej[v] / T.pairs, T.false_rej[v],
+               T.real_pass ? 100.0 * T.false_rej[v] / T.real_pass : 0.0);
+      for (int v = 0; v < kPpcNV; ++v)
+        printf("   %-26s rejects %5.1f %% of pairs   false rejects %8ld (%.3f %% of real passes)\n",
+               g_ppc_var[v].name, 100.0 * T.prej[v] / T.pairs, T.pfalse[v],
+               T.real_pass ? 100.0 * T.pfalse[v] / T.real_pass : 0.0);
+      printf("   %-26s rejects %5.1f %% of pairs   false rejects %8ld (%.3f %% of real passes)\n",
+             "q a3 OR phi b3", 100.0 * T.both_rej / T.pairs, T.both_false,
+             T.real_pass ? 100.0 * T.both_false / T.real_pass : 0.0);
+    }
+    long P = 0, RP = 0, R[kQpcNV] = {}, F[kQpcNV] = {}, PR[kPpcNV] = {}, PF[kPpcNV] = {}, BR = 0, BF = 0;
+    for (auto &T : g_qpc) {
+      P += T.pairs; RP += T.real_pass; BR += T.both_rej; BF += T.both_false;
+      for (int v = 0; v < kQpcNV; ++v) { R[v] += T.rej[v]; F[v] += T.false_rej[v]; }
+      for (int v = 0; v < kPpcNV; ++v) { PR[v] += T.prej[v]; PF[v] += T.pfalse[v]; }
+    }
+    printf("%-15s pairs %10ld  real cut passes %5.1f %%\n", "ALL", P, P ? 100.0 * RP / P : 0.0);
+    for (int v = 0; v < kQpcNV; ++v)
+      printf("   %-26s rejects %5.1f %% of pairs   false rejects %8ld (%.3f %% of real passes)\n",
+             g_qpc_var[v].name, P ? 100.0 * R[v] / P : 0.0, F[v], RP ? 100.0 * F[v] / RP : 0.0);
+    for (int v = 0; v < kPpcNV; ++v)
+      printf("   %-26s rejects %5.1f %% of pairs   false rejects %8ld (%.3f %% of real passes)\n",
+             g_ppc_var[v].name, P ? 100.0 * PR[v] / P : 0.0, PF[v], RP ? 100.0 * PF[v] / RP : 0.0);
+    printf("   %-26s rejects %5.1f %% of pairs   false rejects %8ld (%.3f %% of real passes)\n",
+           "q a3 OR phi b3", P ? 100.0 * BR / P : 0.0, BF, RP ? 100.0 * BF / RP : 0.0);
+    printf("false reject = the pre-cut drops a pair the real dq/dphi cut accepts.\n\n");
   }
 
 }  // namespace mkfit

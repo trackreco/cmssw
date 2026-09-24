@@ -71,6 +71,9 @@ namespace mkfit {
   // own extent. When off, g_v2p2_hit_dphi_rad is used as a flat tolerance.
   extern bool  g_v2p2_phi_per_hit;
   extern float g_v2p2_dphi_hit_fac;
+  // Line pre-cuts in MkFinderV2p2::select_hits(), q and phi separately.
+  extern bool  g_v2p2_precut_q;
+  extern bool  g_v2p2_precut_phi;
 
   struct MkBins {
     // To become members ... or go into a helper struct / config.
@@ -140,6 +143,23 @@ namespace mkfit {
     // tracks, all in pixel-barrel hits of disc-touching tracks. Forward is free.
     // The fix is a surface-referenced FETCH, after which this can go to 0.
     static constexpr int Q_EXTRA_BINS = 1;
+
+    // LINE PRE-CUT (MkFinderV2p2::select_hits). Before the plane solve, the
+    // track between its two layer crossings m_sp1 and m_sp2 is taken as a
+    // straight line in (qbar, q) and (qbar, phi), evaluated at the hit's own
+    // qbar, and the hit is dropped if it is outside a tolerance that is looser
+    // than the real dq / dphi cut. Tolerances, with g the line's slope:
+    //   q:   PRECUT_DQ_SLACK * dq_trk_fac * dq_track * (1 + g^2)
+    //        + dq_hit_fac * hit_q_half_length + PRECUT_QBAR_FAC * |g| * hit_qbar_half_extent
+    //   phi: PRECUT_DPHI_SLACK * dphi_trk_fac * dphi_track + the real cut's hit term
+    //        + PRECUT_QBAR_FAC * |g_phi| * hit_qbar_half_extent
+    // (1 + g^2) references dq_track to the layer surface, as the real cut does
+    // per hit. The qbar terms cover a tilted strip, whose centroid r is uncertain
+    // along the strip; they are applied in the barrel only. See
+    // doc/MkFinderV2p2-DesignNotes.md, "Line pre-cut".
+    static constexpr float PRECUT_DQ_SLACK = 2.0f;
+    static constexpr float PRECUT_DPHI_SLACK = 1.5f;
+    static constexpr float PRECUT_QBAR_FAC = 1.2f;
 
     static constexpr float DDPHI_PRESEL_FAC = 2.0f;
     static constexpr float DDQ_PRESEL_FAC = 1.2f;

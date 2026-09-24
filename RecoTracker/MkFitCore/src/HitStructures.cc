@@ -35,6 +35,16 @@ namespace mkfit {
     return hl_fac * std::sqrt(var_phi > 0.0f ? var_phi : 0.0f);
   }
 
+  // hl_fac * sigma_r, the hit's radial half-extent; barrel only.
+  static inline float hit_r_half_extent_of(const Hit &h, float hl_fac) {
+    const float x = h.x(), y = h.y();
+    const float r2 = x * x + y * y;
+    if (r2 <= 0.0f)
+      return 0.0f;
+    const float var_r = (x * x * h.exx() + 2.0f * x * y * h.exy() + y * y * h.eyy()) / r2;
+    return hl_fac * std::sqrt(var_r > 0.0f ? var_r : 0.0f);
+  }
+
   void LayerOfHits::Initializator::setup(float qmin, float qmax, float dq) {
     assert(qmax > qmin);
     float extent = qmax - qmin;
@@ -142,7 +152,8 @@ namespace mkfit {
         const float phi_half = hit_phi_half_extent_of(h, hl_fac);
         m_max_q_half_length   = std::max(m_max_q_half_length, half_length);
         m_max_phi_half_extent = std::max(m_max_phi_half_extent, phi_half);
-        hinfos.emplace_back(HitInfo({phi, q, half_length, qbar, phi_half}));
+        const float qbar_half = m_is_barrel ? hit_r_half_extent_of(h, hl_fac) : 0.0f;
+        hinfos.emplace_back(HitInfo({phi, q, half_length, qbar, phi_half, qbar_half}));
       }
     }
 
@@ -240,7 +251,8 @@ namespace mkfit {
       const float phi_half = hit_phi_half_extent_of(h, hl_fac);
       m_max_q_half_length   = std::max(m_max_q_half_length, half_length);
       m_max_phi_half_extent = std::max(m_max_phi_half_extent, phi_half);
-      m_hit_infos.emplace_back(HitInfo({phi, q, half_length, qbar, phi_half}));
+      const float qbar_half = m_is_barrel ? hit_r_half_extent_of(h, hl_fac) : 0.0f;
+      m_hit_infos.emplace_back(HitInfo({phi, q, half_length, qbar, phi_half, qbar_half}));
     }
   }
 

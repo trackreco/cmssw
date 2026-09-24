@@ -28,9 +28,10 @@ SAMPLE=${2:-/foo/matevz/mic-dev/ttbar-PU200-D121-C22-100ev-rt.bin}
 OUT=${3:-eff-phitrk}
 T=../RecoTracker/MkFitCore/standalone/test
 
-# label:per_hit_fac:trk_fac[:dq_hit_fac[:q_extra_bins[:phi_extra_bins]]] --
-# per_hit_fac 0 means the flat 0.0246 rad constant; dq_hit_fac defaults to 1.8,
-# with dq_trk_fac fixed at 1.5; both fetch margins default to one whole bin
+# label:per_hit_fac:trk_fac[:dq_hit_fac[:q_extra_bins[:phi_extra_bins[:precut]]]]
+# -- per_hit_fac 0 means the flat 0.0246 rad constant; dq_hit_fac defaults to
+# 1.8, with dq_trk_fac fixed at 1.5; both fetch margins default to one whole
+# bin; precut is qphi (default, as in production), q, phi or 0 for the line pre-cuts
 CFGS=${CFGS:-"flat:0:1.0 ph3_trk1.0:3:1.0 ph3_trk1.25:3:1.25 ph3_trk1.5:3:1.5 ph3_trk1.75:3:1.75 ph3_trk2.0:3:2.0"}
 
 CMD=(./mkFit --geom CMS-phase2 --seed-input cmssw --read-cmssw-tracks --input-file "$SAMPLE"
@@ -41,7 +42,9 @@ CMD=(./mkFit --geom CMS-phase2 --seed-input cmssw --read-cmssw-tracks --input-fi
      --shell-command 'val_eff_ref("flat")')
 
 for cfg in $CFGS; do
-  IFS=: read -r lab ph trk dqh qeb peb <<< "$cfg"
+  IFS=: read -r lab ph trk dqh qeb peb pc <<< "$cfg"
+  case "${pc:-qphi}" in q) pcq=1 pcp=0 ;; phi) pcq=0 pcp=1 ;; qphi) pcq=1 pcp=1 ;; *) pcq=0 pcp=0 ;; esac
+  CMD+=(--shell-command "val_precut($pcq, $pcp)")
   CMD+=(--shell-command "val_dq(1.5, ${dqh:-1.8}, ${qeb:-1})")
   if [ "$ph" = "0" ]; then
     CMD+=(--shell-command 'val_phi_per_hit(false, 1.0)')
