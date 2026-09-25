@@ -10,30 +10,16 @@ namespace mkfit {
   class LayerOfHits;
   struct MkRZLimits;
 
+  // Position block of the track covariance at MkBins::m_sp2, filled by
+  // MkBins::transport_position_cov().
   struct MkBinTrackCovExtract {
     MPlexQF m_cov_0_0 = { 0.0f };
     MPlexQF m_cov_0_1 = { 0.0f };
     MPlexQF m_cov_1_1 = { 0.0f };
     MPlexQF m_cov_2_2 = { 0.0f };
-    // Needed only for surface_reference_dq() -- the position block of the
-    // covariance is what the projection acts on, and these two complete it.
+    // Read by the surface references of dq, which act on the whole position block.
     MPlexQF m_cov_0_2 = { 0.0f };
     MPlexQF m_cov_1_2 = { 0.0f };
-
-    MkBinTrackCovExtract() = default;
-
-    MkBinTrackCovExtract(const MPlexLS &err) {
-      init_from_track_errors(err);
-    }
-
-    void init_from_track_errors(const MPlexLS &err) {
-      m_cov_0_0 = err.ReduceFixedIJ(0, 0);
-      m_cov_0_1 = err.ReduceFixedIJ(0, 1);
-      m_cov_1_1 = err.ReduceFixedIJ(1, 1);
-      m_cov_2_2 = err.ReduceFixedIJ(2, 2);
-      m_cov_0_2 = err.ReduceFixedIJ(0, 2);
-      m_cov_1_2 = err.ReduceFixedIJ(1, 2);
-    }
 
     MPlexQF calc_err_xy(const MPlexQF &x, const MPlexQF &y) const {
       return x * x * m_cov_0_0 + y * y * m_cov_1_1 + 2.0f * x * y * m_cov_0_1;
@@ -58,7 +44,7 @@ namespace mkfit {
     MPlexQF m_phi_min, m_phi_max, m_phi_center, m_phi_delta;
     MPlexQF m_q_min, m_q_max, m_q_center;
 
-    MPlexQF m_dphi_track, m_dq_track;  // 3 sigma track errors at initial state
+    MPlexQF m_dphi_track, m_dq_track;  // 3 sigma track errors, from the covariance at m_sp2
 
     // debug & ntuple dump -- to be local in functions or ifdef MKFIT_STANDALONE
     // MPlexQF phi_c, dphi;
@@ -80,6 +66,9 @@ namespace mkfit {
     {}
 
     void prop_to_limits_in_order(const MkRZLimits &ls);
+
+    // Covariance position block at m_sp2 from the previous-hit state (par0, err0).
+    void transport_position_cov(const MPlexLV &par0, const MPlexLS &err0, MkBinTrackCovExtract &tce) const;
 
     void determine_bin_windows(const MkBinTrackCovExtract &cov_ex);
     void surface_reference_dq(const MkBinTrackCovExtract &cov_ex);

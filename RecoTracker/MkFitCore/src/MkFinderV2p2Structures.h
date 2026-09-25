@@ -178,40 +178,6 @@ namespace mkfit {
     };
 
     //----------------------------------------------------------------------------
-    // PropErrsArgs
-
-    struct PropErrsArgs : public BaseArgs {
-
-      void reset() { N_filled = 0; }
-
-      void item_begin() {}
-      bool item_finished() { return ++N_filled == NN; }
-
-      void load_state_err_chg(const TrackBase &tb) {
-        // tsXyz initialized manually, already in plex form
-        tsPar.copyIn(N_filled, tb.posArray()); // propToPlane needs initial parameters, too
-        tsErr.copyIn(N_filled, tb.errArray());
-        tsChg[N_filled] = tb.charge();
-      }
-
-      void compute_pars() {
-        // Parameters are stored in StatePlex -- so we can vectorize translation to pt, phi, theta.
-        // Some stuff could be passed over as it won't change before update: pt, theta, k_inv
-        // They are passed in output-parameters as propagation also needs input pars.
-        propPar.aij(0, 0) = tsXyz.x;
-        propPar.aij(1, 0) = tsXyz.y;
-        propPar.aij(2, 0) = tsXyz.z;
-        propPar.aij(3, 0) = tsXyz.inv_pt;
-        propPar.aij(4, 0) = Matriplex::fast_atan2(tsXyz.py, tsXyz.px);
-        propPar.aij(5, 0) = tsXyz.theta;
-
-        sPerp = tsXyz.dalpha / ( tsXyz.inv_pt * tsXyz.inv_k);
-      }
-
-      void do_propagation_stuff();
-    };
-
-    //----------------------------------------------------------------------------
     // KalmanOpArgs
 
     struct KalmanOpArgs : public BaseArgs {

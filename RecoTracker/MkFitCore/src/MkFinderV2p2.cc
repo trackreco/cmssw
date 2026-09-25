@@ -467,7 +467,6 @@ namespace mkfit {
 
   void MkFinderV2p2::prop_to_layer_edges(LayerBatch &b) {
     MkBins &B = b.B;
-    MkBinTrackCovExtract &TCE = b.TCE;
     PrimTCandRep **prim_tcand_ptrs = b.ptc;
 
     const int N_proc = b.N_proc = std::min(NN, (int) m_cand_queue.size());
@@ -487,11 +486,6 @@ namespace mkfit {
 
       // Copy in x, y,z, invpT, theta.
       B.m_isp.copyIn_partial_track_state(i, tc.state());
-      // Extract track covariance at previous layer (for printouts only)
-      TCE.m_cov_0_0[i] = tc.errors().At(0, 0);
-      TCE.m_cov_0_1[i] = tc.errors().At(0, 1);
-      TCE.m_cov_1_1[i] = tc.errors().At(1, 1);
-      TCE.m_cov_2_2[i] = tc.errors().At(2, 2);
       phi[i] = tc.momPhi();
       chg[i] = tc.charge();
     }
@@ -503,9 +497,10 @@ namespace mkfit {
   }
 
   //----------------------------------------------------------------------------
-  // Phase 2 -- the search windows. pea propagates the track covariance to m_sp2
-  // (only its position block is used); from it come dphi_track and dq_track, the
-  // WSR verdict, the binnor ranges and the Hermite cubic. See
+  // Phase 2 -- the search windows. The position block of the track covariance is
+  // transported to m_sp2 (MkBins::transport_position_cov()); from it come
+  // dphi_track and dq_track, the WSR verdict, the binnor ranges and the Hermite
+  // cubic. See
   // doc/MkFinderV2p2-DesignNotes.md, "Search window".
   //----------------------------------------------------------------------------
 
@@ -522,33 +517,19 @@ namespace mkfit {
     int *tr_layersearch_ids = b.tr_layersearch_ids;
 #endif
 
-    PropErrsArgs pea;
-    pea.prop_config = & mp_job->m_trk_info.prop_config();
-    pea.tsXyz = mini_propagators::InitialStatePlex(B.m_sp2, B.m_isp);
-
+    // Covariance position block at m_sp2, transported from the previous hit.
+    MPlexLV par0;
+    MPlexLS err0;
     for (int i = 0; i < N_proc; ++i) {
-      TrackCand &tc = prim_tcand_ptrs[i]->tcand();
-      pea.item_begin();
-      pea.load_state_err_chg(tc);
-      pea.item_finished();
+      const TrackCand &tc = prim_tcand_ptrs[i]->tcand();
+      par0.copyIn(i, tc.posArray());
+      err0.copyIn(i, tc.errArray());
     }
-    pea.compute_pars();
-    pea.do_propagation_stuff();
-
-    for (int i = 0; i < N_proc; ++i) {
-      dprintf("%d: TCE %.4g %.4g %.4g %.4g  --   %.4g %.4g %.4g %.4g PROP\n", i,
-        TCE.m_cov_0_0[i], TCE.m_cov_0_1[i], TCE.m_cov_1_1[i], TCE.m_cov_2_2[i],
-        pea.propErr.At(i,0,0), pea.propErr.At(i,0,1), pea.propErr.At(i,1,1), pea.propErr.At(i,2,2));
+    for (int i = N_proc; i < NN; ++i) {
+      par0.copyIn(i, par0, 0);
+      err0.copyIn(i, err0, 0);
     }
-
-    TCE.init_from_track_errors( pea.propErr );
-
-    // The final points are in B.m_sp2 ... sp.dalpha should be correct
-    // Do full propagation + material.
-
-    // Argh, do we really really need to do this?
-    // Can't we just take the closest hit(s) regardless of preselection?
-    // But we have no good measure of what good preselection would be.
+    B.transport_position_cov(par0, err0, TCE);
 
     B.determine_bin_windows(TCE);
 
@@ -891,7 +872,7 @@ namespace mkfit {
 
   //----------------------------------------------------------------------------
   // surface_referenced_dq() -- the track's q error referenced to the hit's
-  // module plane rather than to the fixed path length pea propagated to:
+  // module plane rather than to the fixed path length it was transported to:
   //     v = e_q - ((e_q.p^)/(n^.p^)) n^ ,   sigma_q^2 = v^T C v
   // with n^ the module normal. Returns 3 sigma_q, the convention of
   // MkBins::m_dq_track, which is also the fallback. See

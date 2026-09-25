@@ -16,13 +16,6 @@
 
 namespace mkfit {
 
-  void PropErrsArgs::do_propagation_stuff() {
-    MPlexHV dummy {0.0f};
-    propagateHelixToPlaneMPlex(tsErr, tsPar, tsChg, dummy, dummy, &sPerp,
-                               propErr, propPar, outFailFlag,
-                               N_filled, prop_config->finding_inter_layer_pflags, nullptr);
-  }
-
   void KalmanOpArgs::do_kalman_stuff() {
     // bool debug = true;
 

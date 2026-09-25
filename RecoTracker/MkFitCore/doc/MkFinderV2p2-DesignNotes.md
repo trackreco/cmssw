@@ -211,8 +211,59 @@ ddphi < dphi_trk_fac * dphi_track + dphi_hit_fac * hit_phi_half_extent
 ```
 
 `dq_track` and `dphi_track` are 3 sigma of the track's position error, from the
-covariance `pea` propagates to `m_sp2`. `dq_trk` is `dq_track` referenced to the
-hit's module surface. Each residual is taken at the hit's own module plane.
+position block of the covariance at `m_sp2` (see "Track covariance at the
+layer" below). `dq_trk` is `dq_track` referenced to the hit's module surface.
+Each residual is taken at the hit's own module plane.
+
+### Track covariance at the layer
+
+`MkBins::transport_position_cov()` transports the position block of the
+covariance from the previous hit to `m_sp2`, at the fixed path length the
+mini-propagator reached it with. Only the position block is needed. At fixed
+path length s the position is x = x0 + f(ipt, phi, theta; s), so
+
+```
+C_pos(s) = J C0 J^T,   J = [ P_in | dx/d(ipt, phi, theta) ]   (3 x 6)
+```
+
+with the derivatives in closed form from quantities the mini-propagator already
+holds. With the helix in the turning angle a, k = 1/inv_k and p in GeV,
+
+```
+x = x0 + k (px sin a - py (1 - cos a)),  y = y0 + k (py sin a + px (1 - cos a)),
+z = z0 + s cos(theta),                   a = s sin(theta) ipt inv_k
+```
+
+so, with (dx, dy) the displacement and p_end the transverse momentum at `m_sp2`,
+
+```
+d(x,y)/dphi   = (-dy, dx)
+d(x,y)/dipt   = (-(dx, dy) + a k p_end) / ipt = k (px f1 - py f2, py f1 + px f2) / ipt
+d(x,y)/dtheta = a k p_end cot(theta),     dz/dtheta = -a k / ipt
+f1 = a cos a - sin a,   f2 = a sin a - (1 - cos a)
+```
+
+with p at the previous hit in the second form of the ipt column. As in
+`errPropFromPathL_impl()` the result is curvilinear at both ends: `P_in`
+projects the starting position onto the plane normal to the momentum there,
+and the result is projected onto the plane normal to the momentum at `m_sp2`.
+The dq surface reference below depends on that. The first form of the ipt
+column is a difference of two O(s) terms that nearly cancel for a stiff track:
+it lost 25 % in sigma_y at pT 137 GeV. The second form is used, with f1 and f2
+from their series below |a| = 0.25, where they are O(a^3) and O(a^2).
+
+No material enters. Material added during a step changes only the angular
+terms, so none of it reaches the position block within that step.
+
+This replaced a full `propagateHelixToPlaneMPlex` call, of which only the same
+six elements were read. Against that call with uniform B, over 200508 lanes,
+the sigmas agree to 7e-5 and the correlations to 1.6e-4 at the worst lane.
+Against it with the parametric field at the starting point they differ by
+0.4 % at p99. The transport uses the same uniform B as `m_sp1`, `m_sp2` and the
+Hermite cubic. On 20 events of `ttbar-PU200-D121-C22-100ev.bin` the quality-val
+track counts were identical in the default and two varied configurations. The
+block costs 0.23 s against 0.68 s over those 20 events in a trace build, about
+5 % of the build time.
 
 **Two factors per coordinate.** Which term binds is a property of the layer.
 The median `hit_q_half_length` (H50) is 0.0075 cm in the pixel barrel, 0.042 cm
@@ -228,8 +279,8 @@ moving.
   I50 gives +55 recovered hits and -2 fully recovered tracks.
 - `dq_trk_fac` is 1.5, in units of `dq_track`.
 
-**dq surface reference.** `pea` transports the covariance to a fixed path length
-(`errPropFromPathL_impl` takes no plane). The resulting q error describes where
+**dq surface reference.** The covariance is transported to a fixed path length,
+not to a plane. The resulting q error describes where
 the track is after travelling a distance s, not where it crosses the module. The
 two differ by the ds degree of freedom. Sliding each point along the momentum
 until it meets the surface is a linear map on the position block,

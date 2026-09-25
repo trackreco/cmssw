@@ -1302,10 +1302,8 @@ namespace mkfit {
     }
   }
 
-  // Toggle material on the SEARCH's inter-layer propagation. Unlike pea -- whose
-  // application is a measured no-op because it passes a zero plane normal, so
-  // invCos = p/0 is masked to 0 and the radL < 1e-13 bailout fires -- the Kalman
-  // step passes the real module plane, so this one is live.
+  // Toggle material on the SEARCH's inter-layer propagation, the Kalman step to
+  // the hit's module plane.
   // Oracle: force the MC-matched hit to win its layer and bypass the chi2 cut.
   // Separates "the true hit was never available" from "ranking / pruning threw
   // it away". Never a production path.

@@ -21,24 +21,10 @@ namespace mkfit {
   //==============================================================================
 
   void MkBins::prop_to_limits_in_order(const MkRZLimits &ls) {
-    // The second implementation for MkFinderV2p2.
-    // m_isp is at the previous hit.
-    // Propagate to final edge of the layer limits.
-    // To be post-processed by finding inner point via hermite.
-    // Also, full error propagation needs to be done for track_dphi / dq.
-    // Compare the difference.
-    //
-    // There is some worry sp1 and sp2 are used later on so as to expect one to be larger.
-    // It shouldn't matter for bin edges, there we min/max stuff.
-    // It might impact ordering of hits, but if we get hermite from start to end,
-    // oh ... well, yes, we need to be careful if we want them in order.
-    // Cross check how t parameter behaves, ie, if it goes from 0 to 1 when
-    // ds is negative and getting more negative with distance.
-    // It matters for hermite, which point is "first".
-    // Also, we don't really need sp1 ... the initial point is fine.
-    // Only the "time" will be extended
-    // So ... which do we keep, how do we name them?
-
+    // m_isp is at the previous hit. m_sp1 is the crossing of the near bounding
+    // surface of the layer, m_sp2 of the far one; m_isp is re-initialised at
+    // m_sp1 on the way. dalpha accumulates, so both are measured from the
+    // previous hit, which transport_position_cov() relies on.
     m_is_barrel = ls.m_is_barrel;
     if (m_is_barrel) {
       float r;
@@ -58,6 +44,100 @@ namespace mkfit {
       m_isp.propagate_to_z(mp::PA_Exact, z2, m_sp2, true, m_n_proc);
     }
   }
+
+  //----------------------------------------------------------------------------
+  // transport_position_cov() -- position block of the covariance at m_sp2,
+  // J C0 J^T with J = [P_in | dx/d(ipt, phi, theta)] at fixed path length,
+  // curvilinear at both ends. See doc/MkFinderV2p2-DesignNotes.md, "Track
+  // covariance at the layer".
+  //----------------------------------------------------------------------------
+
+  void MkBins::transport_position_cov(const MPlexLV &par0, const MPlexLS &err0, MkBinTrackCovExtract &tce) const {
+    // All NN lanes; the caller fills unused ones with a valid state.
+    using MPF = MPlexQF;
+
+    const MPF ipt = par0.ReduceFixedIJ(3, 0);
+    const MPF iptinv = 1.0f / ipt;
+    MPF sp, cp, st, ct;
+    Matriplex::fast_sincos(par0.ReduceFixedIJ(4, 0), sp, cp);
+    Matriplex::fast_sincos(par0.ReduceFixedIJ(5, 0), st, ct);
+    const MPF cot = ct / st;
+
+    const MPF &a = m_sp2.dalpha;
+    const MPF k = 1.0f / m_isp.inv_k;
+    const MPF dx = m_sp2.x - par0.ReduceFixedIJ(0, 0);
+    const MPF dy = m_sp2.y - par0.ReduceFixedIJ(1, 0);
+    const MPF ak = a * k;
+
+    // f1 = a cos a - sin a, f2 = a sin a - (1 - cos a), by series below |a| = 0.25.
+    const MPF a2 = a * a;
+    MPF f1 = a * a2 * (-1.0f / 3.0f + a2 * (1.0f / 30.0f - a2 * (1.0f / 840.0f)));
+    MPF f2 = a2 * (0.5f - a2 * (1.0f / 8.0f - a2 * (1.0f / 144.0f)));
+    for (int i = 0; i < m_n_proc; ++i) {
+      if (std::abs(a[i]) >= 0.25f) {
+        const float sa = std::sin(a[i]), ca = std::cos(a[i]);
+        f1[i] = a[i] * ca - sa;
+        f2[i] = a[i] * sa - (1.0f - ca);
+      }
+    }
+    const MPF kpx = k * cp * iptinv * iptinv;
+    const MPF kpy = k * sp * iptinv * iptinv;
+
+    // J = [P_in | D], 3 x 6, over (x, y, z, ipt, phi, theta). P_in = 1 - n0 n0^T.
+    const MPF n0[3] = {cp * st, sp * st, ct};
+    MPF J[3][6];
+    for (int r = 0; r < 3; ++r)
+      for (int c = 0; c < 3; ++c)
+        J[r][c] = (r == c ? 1.0f : 0.0f) - n0[r] * n0[c];
+    J[0][3] = kpx * f1 - kpy * f2;
+    J[0][4] = -dy;
+    J[0][5] = ak * m_sp2.px * cot;
+    J[1][3] = kpy * f1 + kpx * f2;
+    J[1][4] = dx;
+    J[1][5] = ak * m_sp2.py * cot;
+    J[2][3] = 0.0f;
+    J[2][4] = 0.0f;
+    J[2][5] = -ak * iptinv;
+
+    // M = J C0, then C = M J^T.
+    MPF E[6][6];
+    for (int m = 0; m < 6; ++m)
+      for (int c = m; c < 6; ++c)
+        E[m][c] = E[c][m] = err0.ReduceFixedIJ(m, c);
+    MPF M[3][6];
+    for (int r = 0; r < 3; ++r)
+      for (int c = 0; c < 6; ++c) {
+        M[r][c] = J[r][0] * E[0][c];
+        for (int m = 1; m < 6; ++m)
+          M[r][c] += J[r][m] * E[m][c];
+      }
+    MPF C[3][3];
+    for (int r = 0; r < 3; ++r)
+      for (int c = r; c < 3; ++c) {
+        C[r][c] = M[r][0] * J[c][0];
+        for (int m = 1; m < 6; ++m)
+          C[r][c] += M[r][m] * J[c][m];
+        C[c][r] = C[r][c];
+      }
+
+    // Project onto the plane normal to the momentum at m_sp2: P C P.
+    const MPF pinv = 1.0f / Matriplex::sqrt(m_sp2.px * m_sp2.px + m_sp2.py * m_sp2.py + m_sp2.pz * m_sp2.pz);
+    const MPF n1[3] = {m_sp2.px * pinv, m_sp2.py * pinv, m_sp2.pz * pinv};
+    MPF Cn[3];
+    for (int r = 0; r < 3; ++r)
+      Cn[r] = C[r][0] * n1[0] + C[r][1] * n1[1] + C[r][2] * n1[2];
+    const MPF nCn = n1[0] * Cn[0] + n1[1] * Cn[1] + n1[2] * Cn[2];
+    auto pcp = [&](int r, int c) { return C[r][c] - n1[r] * Cn[c] - Cn[r] * n1[c] + n1[r] * n1[c] * nCn; };
+
+    tce.m_cov_0_0 = pcp(0, 0);
+    tce.m_cov_0_1 = pcp(0, 1);
+    tce.m_cov_1_1 = pcp(1, 1);
+    tce.m_cov_2_2 = pcp(2, 2);
+    tce.m_cov_0_2 = pcp(0, 2);
+    tce.m_cov_1_2 = pcp(1, 2);
+  }
+
+  //----------------------------------------------------------------------------
 
   void MkBins::determine_bin_windows(const MkBinTrackCovExtract &cov_ex) {
     // Below made members for debugging
