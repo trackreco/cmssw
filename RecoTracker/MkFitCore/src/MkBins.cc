@@ -197,10 +197,13 @@ namespace mkfit {
       m_dq_track = 3.0f * (r2inv_c * cov_ex.calc_err_xy(m_isp.x, m_isp.y).abs()).sqrt();
     }
 
+#if defined(MKFIT_STANDALONE)
     if (Diag::mkbins_surface_q)
       surface_reference_dq(cov_ex);
+#endif
   }
 
+#if defined(MKFIT_STANDALONE)
   //----------------------------------------------------------------------------
   // surface_reference_dq() -- dq_track referenced to the layer surface (radial
   // normal in the barrel, z in the endcap), evaluated at m_sp2 where cov_ex
@@ -252,6 +255,7 @@ namespace mkfit {
         m_dq_track[i] = 3.0f * std::sqrt(var);
     }
   }
+#endif
 
   void MkBins::find_bin_ranges(const LayerOfHits &loh, MkBinLimits &bl) {
     for (int i = 0; i < NN; ++i) {

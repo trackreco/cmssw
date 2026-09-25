@@ -68,6 +68,19 @@ namespace mkfit {
     constexpr float bkfitErrScale = 100.0f;
 #endif
 
+    // Material diagnostics for applyMaterialEffects(), 1 in the CMSSW build:
+    // factors on radL and on the energy-loss straggling variance in err(3,3).
+    // The standalone build also has matScaleFwdPix, radL in the forward pixel
+    // discs only.
+#if defined(MKFIT_STANDALONE)
+    extern float matScale;
+    extern float matElossVarScale;
+    extern float matScaleFwdPix;
+#else
+    constexpr float matScale = 1.0f;
+    constexpr float matElossVarScale = 1.0f;
+#endif
+
     // Config for Bfield. Note: for now the same for CMS-phase1 and CylCowWLids.
     constexpr float Bfield = 3.8112;
     constexpr float mag_c1 = 3.8114;

@@ -114,6 +114,7 @@ namespace mkfit {
       MKFIT_V2P2_KNOB(float, detv_const, 0.0f);  // ln(det V) per hit, used when use_detv is false
     }  // namespace Score
 
+#if defined(MKFIT_STANDALONE)
     //--------------------------------------------------------------------------
     // Diagnostic instruments, off by default.
     namespace Diag {
@@ -125,7 +126,6 @@ namespace mkfit {
       MKFIT_V2P2_KNOB(bool, mkbins_surface_q, false);
     }  // namespace Diag
 
-#if defined(MKFIT_STANDALONE)
     // Running sums of the likelihood terms, for measuring the ablation
     // constants. Not thread safe: accumulate only in a serialised (trace) build.
     namespace ScoreStats {

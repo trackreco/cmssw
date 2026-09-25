@@ -102,17 +102,6 @@ namespace mkfit {
                     const int N_proc,
                     const PropagationFlags& pflags);
 
-  // Selects the root form used by getS() in the plane solve: true (default) the
-  // numerically stable one, false the historical (-B +- sqrt)/(2C). A runtime
-  // switch so the two can be compared in one binary. The A/B that settled it
-  // is atticked: mkFit-external/mkfit-standalone-attic/prop-kalman-validation.
-  extern bool g_getS_stable_root;
-  // Diagnostic: multiplies radL in applyMaterialEffects. Default 1.
-  extern float g_mat_scale;
-  // Diagnostic: multiplies the energy-loss straggling variance into err(3,3).
-  extern float g_mat_eloss_var_scale;
-  // Diagnostic: extra radL factor for the FORWARD PIXEL DISCS only.
-  extern float g_mat_scale_fwdpix;
 
   void propagateHelixToPlaneMPlex(const MPlexLS& inErr,
                                   const MPlexLV& inPar,

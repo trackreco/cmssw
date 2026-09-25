@@ -364,29 +364,16 @@ namespace {
     const float C = -(eta0 * p0[1] - eta1 * p0[0]) * rho * 0.5f;
     const float sqb2m4ac = std::sqrt(B * B - 4.f * A * C);
 
-    if (g_getS_stable_root) {
-      // C is proportional to rho, i.e. to 1/p, so in the stiff-track limit the
-      // original form below cancels in the numerator of the SMALL root -- which
-      // is the one wanted. This form does not cancel, and the large root is not
-      // needed at all.
-      const float s = 2.f * A / (-B - std::copysign(sqb2m4ac, B));
-#ifdef DEBUG
-      if (debug)
-        std::cout << "A=" << A << " B=" << B << " C=" << C << " s=" << s << std::endl;
-#endif
-      return s;
-    }
-
-    // Original form, retained behind the switch so the before/after is
-    // measurable in one binary -- the A/B that established this lives in
-    // mkFit-external/mkfit-standalone-attic/prop-kalman-validation (pkv_task5).
-    const float s1 = (-B + sqb2m4ac) * 0.5f / C;
-    const float s2 = (-B - sqb2m4ac) * 0.5f / C;
+    // C is proportional to rho, i.e. to 1/p, so in the stiff-track limit the
+    // textbook (-B +- sqrt)/(2C) cancels in the numerator of the SMALL root --
+    // which is the one wanted. This form does not cancel, and the large root is
+    // not needed at all.
+    const float s = 2.f * A / (-B - std::copysign(sqb2m4ac, B));
 #ifdef DEBUG
     if (debug)
-      std::cout << "A=" << A << " B=" << B << " C=" << C << " s1=" << s1 << " s2=" << s2 << std::endl;
+      std::cout << "A=" << A << " B=" << B << " C=" << C << " s=" << s << std::endl;
 #endif
-    return (std::abs(s1) > std::abs(s2) ? s2 : s1);
+    return s;
   }
 
   void helixAtPlane_impl(const MPlexLV& __restrict__ inPar,
@@ -505,8 +492,6 @@ namespace {
 // ============================================================================
 
 namespace mkfit {
-
-  bool g_getS_stable_root = true;
 
   void helixAtPlane(const MPlexLV& inPar,
                     const MPlexQI& inChg,

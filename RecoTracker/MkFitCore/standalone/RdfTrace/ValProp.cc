@@ -1868,8 +1868,8 @@ namespace mkfit {
   // Diagnostic scale on radL in applyMaterialEffects (scattering only; the
   // energy-loss terms use hitsXi and are untouched).
   void val_mat_scale(float f) {
-    g_mat_scale = f;
-    printf("val_mat_scale: g_mat_scale = %.3f\n", f);
+    Config::matScale = f;
+    printf("val_mat_scale: Config::matScale = %.3f\n", f);
   }
 
   // Scales ONLY the energy-loss straggling variance into err(3,3). Separate
@@ -1879,13 +1879,13 @@ namespace mkfit {
   // Extra radL factor applied ONLY in the forward pixel discs (|z|>22, r<26).
   // The prediction it tests: "outside the window" moves, chi2 does not.
   void val_mat_fwdpix(float f) {
-    g_mat_scale_fwdpix = f;
-    printf("val_mat_fwdpix: g_mat_scale_fwdpix = %.3f\n", f);
+    Config::matScaleFwdPix = f;
+    printf("val_mat_fwdpix: Config::matScaleFwdPix = %.3f\n", f);
   }
 
   void val_eloss_var_scale(float f) {
-    g_mat_eloss_var_scale = f;
-    printf("val_eloss_var_scale: g_mat_eloss_var_scale = %.3f\n", f);
+    Config::matElossVarScale = f;
+    printf("val_eloss_var_scale: Config::matElossVarScale = %.3f\n", f);
   }
 
 

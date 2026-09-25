@@ -71,7 +71,9 @@ namespace mkfit {
     void transport_position_cov(const MPlexLV &par0, const MPlexLS &err0, MkBinTrackCovExtract &tce) const;
 
     void determine_bin_windows(const MkBinTrackCovExtract &cov_ex);
+#if defined(MKFIT_STANDALONE)
     void surface_reference_dq(const MkBinTrackCovExtract &cov_ex);
+#endif
 
     // Fetch derived from the v2p2 cut, Config::V2p2::Window.
     void find_bin_ranges(const LayerOfHits &loh, MkBinLimits &bl);

@@ -14,6 +14,64 @@
 
 namespace mkfit {
 
+  //==============================================================================
+  // SimHitState
+  //==============================================================================
+
+  // Truth state at a SIM HIT: position and momentum, and nothing else.
+  //
+  // Indexed by mcHitID, i.e. parallel to Event::simHitsInfo_ -- the same
+  // convention the legacy Event::simTrackStates_ uses.
+  //
+  // Deliberately NOT a TrackState, which is 112 B:
+  //  - no covariance. A Geant truth state has none, and the sim TRACK's own
+  //    covariance is a documented placeholder (err(i,i) = value^2, a 100 %
+  //    relative error, singular at the origin). Writing it would be 84 bytes of
+  //    zeros per sim hit.
+  //  - no charge. It is a per-TRACK property, reachable from the same index as
+  //      simTracks_[ simHitsInfo_[mcHitID].mcTrackID() ].charge()
+  //
+  // That is 24 B against 112, which is what makes the section affordable: the
+  // April PU sample carries 383k-471k sim hits per event, so the full TrackState
+  // form would be 49 MB/event and more than double the file, against 10.5
+  // MB/event (+30 %) for this.
+  //
+  // INVALID IS ZERO MOMENTUM. There is no separate valid flag -- a real sim hit
+  // never has |p| = 0, so `mom` all-zero means "no truth state for this hit",
+  // which is the case for a rec hit whose sim link was not established. Test it
+  // with is_valid() rather than by reading mcTrackID, because the two are not
+  // equivalent: bestTkIdx() can clear the track link while the sim hit itself is
+  // perfectly well defined (see the arbitration defect in RecoTracker/CLAUDE.md).
+  struct SimHitState {
+    SVector3 pos;
+    SVector3 mom;
+
+    SimHitState() : pos(0.f, 0.f, 0.f), mom(0.f, 0.f, 0.f) {}
+    SimHitState(const SVector3 &p, const SVector3 &m) : pos(p), mom(m) {}
+    SimHitState(float x, float y, float z, float px, float py, float pz)
+        : pos(x, y, z), mom(px, py, pz) {}
+
+    bool is_valid() const { return mom[0] != 0.f || mom[1] != 0.f || mom[2] != 0.f; }
+
+    float x() const { return pos[0]; }
+    float y() const { return pos[1]; }
+    float z() const { return pos[2]; }
+    float px() const { return mom[0]; }
+    float py() const { return mom[1]; }
+    float pz() const { return mom[2]; }
+
+    float r() const { return std::hypot(pos[0], pos[1]); }
+    float pT() const { return std::hypot(mom[0], mom[1]); }
+    float p() const { return std::sqrt(mom[0] * mom[0] + mom[1] * mom[1] + mom[2] * mom[2]); }
+    float momPhi() const { return std::atan2(mom[1], mom[0]); }
+    float momEta() const {
+      const float pt = pT();
+      return std::log((p() + mom[2]) / (pt > 0.f ? pt : 1e-9f));
+    }
+  };
+
+  typedef std::vector<SimHitState> SHSVec;
+
   struct DataFile;
 
   class Event {

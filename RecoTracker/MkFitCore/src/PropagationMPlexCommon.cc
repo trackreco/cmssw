@@ -13,10 +13,6 @@
 
 namespace mkfit {
 
-  float g_mat_scale = 1.0f;
-  float g_mat_eloss_var_scale = 1.0f;
-  float g_mat_scale_fwdpix = 1.0f;
-
   // this version does not assume to know which elements are 0 or 1, so it does the full multiplication
   void MultHelixPropFull(const MPlexLL& A, const MPlexLS& B, MPlexLL& C) {
     for (int n = 0; n < NN; ++n) {
@@ -92,29 +88,17 @@ namespace mkfit {
     for (int n = 0; n < NN; ++n) {
       if (n >= N_proc)
         continue;
-      // g_mat_scale is a DIAGNOSTIC knob, default 1. The measured covariance
-      // deficit left after the surface fix is ~1.4x in sigma, i.e. ~2x in
-      // variance, and is isotropic -- which points at process noise. Scaling
-      // radL scales thetaMSC2 directly (it is linear in radL) and leaves the
-      // energy-loss terms, which use hitsXi, alone. If the residual/quoted
-      // ratio walks to 1 near scale ~2, under-counted scattering is the
-      // answer and the real fix is path-length scaling, not a factor:
-      // applyMaterialEffects samples ONE (z,r) bin at the destination and
-      // applies it as a single thin scatterer with no path length in it.
-      float radL = hitsRl.constAt(n, 0, 0) * g_mat_scale;
-      // FORWARD-PIXEL-ONLY scale, for the disc material test. TGeo and Geant4
-      // agree the disc values are 1.5-1.7x low and the census says 73.5 % of
-      // that region's material sits in no disc at all; the prediction is that
-      // more material there moves "outside the window" and nothing else.
-      // Geometric gate rather than a layer id, which applyMaterialEffects does
-      // not have: TFPX+TEPX is |z| > 22 with r < 26, while the OT barrel is
-      // r > 21 but |z| < 120 and TEDD is r > 24.
-      if (g_mat_scale_fwdpix != 1.0f) {
+      float radL = hitsRl.constAt(n, 0, 0) * Config::matScale;
+#if defined(MKFIT_STANDALONE)
+      // Forward pixel discs only (TFPX + TEPX: |z| > 22, r < 26), for the disc
+      // material test.
+      if (Config::matScaleFwdPix != 1.0f) {
         const float zz = std::abs(outPar.constAt(n, 2, 0));
         const float rr = hipo(outPar.constAt(n, 0, 0), outPar.constAt(n, 1, 0));
         if (zz > 22.0f && rr < 26.0f)
-          radL *= g_mat_scale_fwdpix;
+          radL *= Config::matScaleFwdPix;
       }
+#endif
       if (radL < 1e-13f)
         continue;  //ugly, please fixme
       const float theta = outPar.constAt(n, 5, 0);
@@ -184,19 +168,9 @@ namespace mkfit {
       //std::cout << "dEdx=" << dEdx << " delta=" << deltahalf << " wmax=" << wmax << " Xi=" << hitsXi.constAt(n,0,0) << std::endl;
       const float dP = propSign.constAt(n, 0, 0) * dEdx / beta;
       outPar.At(n, 3, 0) = p / (std::max(p - dP, 0.001f) * pt);  //stay above 1MeV
-      // Bethe-Bloch STRAGGLING variance (from trackreco PR #181, the CMS
-      // EnergyLossUpdator form). The "//assume 100% uncertainty" comment that
-      // used to sit here belonged to the OLD dP*dP/(p2*pt*pt) and said the
-      // opposite of what this computes -- removed rather than left to mislead.
-      //
-      // g_mat_eloss_var_scale is a diagnostic, default 1. This term is the only
-      // route by which energy-loss mismodelling can be ABSORBED: it is what
-      // makes err(3,3) -- the 1/pT variance -- large enough for the Kalman gain
-      // to let hits correct the momentum instead of the filter trusting its own
-      // dE/dx. Note the radL knob does NOT touch it: radL drives thetaMSC2, i.e.
-      // err(4,4)/(5,5), the ANGLES. So the two knobs probe different halves.
+      // Bethe-Bloch straggling variance, the CMS EnergyLossUpdator form.
       const float dEdx2 = (hitsXi.constAt(n, 0, 0) * invCos / beta2) * wmax * (1 - beta2 * 0.5);
-      outErr.At(n, 3, 3) += g_mat_eloss_var_scale * dEdx2 / (beta2 * p2 * pt * pt);
+      outErr.At(n, 3, 3) += Config::matElossVarScale * dEdx2 / (beta2 * p2 * pt * pt);
     }
   }
 
