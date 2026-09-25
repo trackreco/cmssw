@@ -15,6 +15,11 @@
 #include "RecoTracker/MkFitCore/standalone/Event.h"
 #endif
 
+#ifdef MKFIT_TRACE
+#include "RecoTracker/MkFitCore/standalone/DataFormats/RntStructs.h"
+#include "RecoTracker/MkFitCore/standalone/DataFormats/RntConversions.h"
+#endif
+
 #ifdef RNT_DUMP_MkF_SelHitIdcs
 // declares struct RntIfc_selectHitIndices rnt_shi in unnamed namespace;
 #include "RecoTracker/MkFitCore/standalone/RntDumper/MkFinder_selectHitIndices.icc"
@@ -531,7 +536,7 @@ namespace mkfit {
       const auto ngr = [](float f) { return isFinite(f) ? f : -999.0f; };
 
       const int seed_lbl = m_event->currentSeed(m_SeedOriginIdx[itrack]).label();
-      const Event::SimLabelFromHits slfh = m_event->simLabelForCurrentSeed(m_SeedOriginIdx[itrack]);
+      Event::SimInfoFromHits slfh = m_event->simInfoForCurrentSeed(m_SeedOriginIdx[itrack]);
       const int seed_mcid = (slfh.is_set() && slfh.good_frac() > 0.7f) ? slfh.label : -999999;
 #endif
 
@@ -775,9 +780,9 @@ namespace mkfit {
 
 #ifdef RNT_DUMP_MkF_SelHitIdcs
     rnt_shi.InnerIdcsReset(N_proc);
-    Event::SimLabelFromHits sim_lbls[NN];
+    Event::SimInfoFromHits sim_lbls[NN];
     for (int i = 0; i < N_proc; ++i) {
-      sim_lbls[i] = m_event->simLabelForCurrentSeed(m_SeedOriginIdx[i]);
+      sim_lbls[i] = m_event->simInfoForCurrentSeed(m_SeedOriginIdx[i]);
       if (m_FailFlag[i]) {
         rnt_shi.RegisterFailedProp(i, m_Par[1 - iI], m_Par[iI], m_event, m_SeedOriginIdx[i]);
       } else if (sim_lbls[i].is_set()) {
@@ -831,8 +836,8 @@ namespace mkfit {
 
         // Matriplex::min_max(sp1.dphi, sp2.dphi, dphi_min, dphi_max);
         // the above is wrong: dalpha is not dphi --> renamed variable in State
-        const auto xp1 = mp::fast_atan2(sp1.y, sp1.x);
-        const auto xp2 = mp::fast_atan2(sp2.y, sp2.x);
+        const auto xp1 = Matriplex::fast_atan2(sp1.y, sp1.x);
+        const auto xp2 = Matriplex::fast_atan2(sp2.y, sp2.x);
         MPlexQF pmin, pmax;
         Matriplex::min_max(xp1, xp2, pmin, pmax);
         // Matriplex::min_max(mp::fast_atan2(sp1.y, sp1.x), smp::fast_atan2(sp2.y, sp2.x), pmin, pmax);
@@ -929,8 +934,8 @@ namespace mkfit {
                           m_XWsrResult[i].m_wsr,
                           m_XWsrResult[i].m_in_gap,
                           false});
-      ci.ps_min = statep2propstate(B.sp1, i);
-      ci.ps_max = statep2propstate(B.sp2, i);
+      ci.ps_min = statep2propinfo(B.sp1, i);
+      ci.ps_max = statep2propinfo(B.sp2, i);
     }
 #endif
 
@@ -1022,7 +1027,7 @@ namespace mkfit {
 
               // This could work well instead of prop-to-r, too. Limit to 0.05 rad, 2.85 deg.
               if (std::abs(mi.zdir(2)) > 0.05f) {
-                prop_fail = mp_is.propagate_to_plane(mp::PA_Line, mi, mp_s, true);
+                prop_fail = mp_is.propagate_to_plane(mp::PA_Line, mi.pos, mi.zdir, mp_s, true);
                 new_q = mp_s.z;
                 /*
                 // This for calculating ddq on the dector plane, along the "strip" direction.
@@ -1964,7 +1969,7 @@ namespace mkfit {
   // Backward Fit hack
   //==============================================================================
 
-  void MkFinder::bkFitInputTracks(TrackVec &cands, int beg, int end) {
+  void MkFinder::bkFitInputTracks(TrackVec &cands, int beg, int end, bool scale_errors) {
     // Uses HitOnTrack vector from Track directly + a local cursor array to current hit.
 
     MatriplexTrackPacker mtp(&cands[beg]);
@@ -1985,10 +1990,11 @@ namespace mkfit {
 
     mtp.pack(m_Err[iC], m_Par[iC]);
 
-    m_Err[iC].scale(100.0f);
+    if (scale_errors)
+      m_Err[iC].scale(Config::bkfitErrScale);
   }
 
-  void MkFinder::bkFitInputTracks(EventOfCombCandidates &eocss, int beg, int end) {
+  void MkFinder::bkFitInputTracks(EventOfCombCandidates &eocss, int beg, int end, bool scale_errors) {
     // Could as well use HotArrays from tracks directly + a local cursor array to last hit.
 
     // XXXX - shall we assume only TrackCand-zero is needed and that we can freely
@@ -2016,7 +2022,8 @@ namespace mkfit {
 
     mtp.pack(m_Err[iC], m_Par[iC]);
 
-    m_Err[iC].scale(100.0f);
+    if (scale_errors)
+      m_Err[iC].scale(Config::bkfitErrScale);
   }
 
   //------------------------------------------------------------------------------
@@ -2462,6 +2469,56 @@ namespace mkfit {
     MPlexQF tmp_chi2{0.0f};
     MPlexQI done_flag(0);
 
+#ifdef MKFIT_TRACE
+    // Per-lane bookkeeping for the trace: which hit each lane is on this pass
+    // and how many steps it has taken. These existed for the old BkFitHook,
+    // which is gone, so they are now trace-only and live inside the guard --
+    // outside it they are set and never read, which is a -Werror build failure.
+    int hk_layer[NN], hk_mcid[NN], hk_hit[NN], hk_step[NN], hk_live[NN];
+    for (int i = 0; i < NN; ++i) { hk_layer[i] = hk_mcid[i] = hk_hit[i] = -1; hk_step[i] = 0; hk_live[i] = 0; }
+
+    // Trace chain: one TrCandState per lane, advanced at every accepted hit.
+    // Kept LOCAL rather than on TrackCand::m_trace_state_id, which belongs to
+    // the search -- writing it here would make the search chain its own states
+    // onto the fit's and inherit the wrong stage_id.
+    int tr_state[NN];
+    for (int i = 0; i < NN; ++i) tr_state[i] = -1;
+    const bool bk_trace = (m_event != nullptr);
+    if (bk_trace) {
+      for (int i = 0; i < N_proc; ++i) {
+        TrackCand *tc = m_TrkCand[i];
+        if (tc == nullptr) continue;
+        CombCandidate *cc = tc->combCandidate();
+        if (cc == nullptr) continue;
+        // Lazily created and idempotent, exactly as MkBuilder does it -- in HLT
+        // the backward fit runs BEFORE any search, so it may well be first here.
+        if (cc->m_trace_meta_id == -1)
+          cc->m_trace_meta_id = m_event->trace_new_cand_meta(m_event->evtID(), cc->seed_origin_index());
+        // The root state is the INPUT state, i.e. AFTER bkFitInputTracks has
+        // inflated the covariance by Config::bkfitErrScale (100, so 10x in sigma).
+        // Do not compare it against a search state without allowing for that.
+        TrackState ts;
+        m_Par[iC].copyOut(i, ts.parArray_nc());
+        m_Err[iC].copyOut(i, ts.errArray_nc());
+        ts.charge = m_Chg[i];
+        const EBiVec3 kine { EVec3(ts.x(), ts.y(), ts.z()), EVec3(ts.px(), ts.py(), ts.pz()) };
+        // layer -1: the root sits before any hit. stage 1 = BkwFit.
+        auto [stage_id, state_id] =
+            m_event->trace_new_cand_stage_and_state(cc->m_trace_meta_id, -1, 1, -1, kine, ts);
+        cc->m_trace_stage_id = stage_id;
+        TrCandMeta &cm = m_event->tr_candmeta(cc->m_trace_meta_id);
+        cm.stage_ids[1] = stage_id;
+        // MkBuilder fills this too, but in HLT the fit runs FIRST, so the meta
+        // can exist without it. It is the truth-join key: seeds are relabelled
+        // sequentially, so a track's label IS its index in seedTracks_.
+        if (cm.global_seed == -1 && tc->label() >= 0)
+          cm.global_seed = tc->label();
+        tr_state[i] = state_id;
+      }
+    }
+    const bool bk_rec = bk_trace;
+#endif
+
     MPlexHV plNrm{0.0f};  // input detector plane [pl - plane]
     MPlexHV plDir{0.0f};  // ""
     MPlexHV plPnt{0.0f};  // ""
@@ -2472,12 +2529,23 @@ namespace mkfit {
     printf("bkfit-p2p entry, track in slot %d\n", DSLOT);
     print_par_err(iC, DSLOT);
 #endif
+#if defined(DEBUG_BACKWARD_FIT)
+    const Hit *last_hit_ptr[NN];
+    int last_layer[NN];
+#endif
+
+    // Skip the last hit (or two), ie, do not refit it (them).
+    // If there are overlap hits in the same layer, they will still get processed.
+    // A more proper thing to do might be to:
+    // a) skip all hits on the last double layer; or
+    // b) skip last hits that are closer than some ds, say, 5 cm.
+    // for (int i = 0; i < N_proc; ++i) {
+    //   m_CurNode[i] = m_HoTNodeArr[i][m_CurNode[i]].m_prev_idx;
+    //   // m_CurNode[i] = m_HoTNodeArr[i][m_CurNode[i]].m_prev_idx;
+    // }
 
     int done_count = 0;
     while (done_count != N_proc) {
-#if defined(DEBUG_BACKWARD_FIT)
-      const Hit *last_hit_ptr[NN];
-#endif
 
       int here_count = 0;
       for (int i = 0; i < N_proc; ++i) {
@@ -2526,15 +2594,28 @@ namespace mkfit {
           plDir.copyIn(i, mi.xdir.Array());
           plPnt.copyIn(i, mi.pos.Array());
 
+#ifdef MKFIT_TRACE
+          if (bk_rec) {
+            hk_layer[i] = layer;
+            hk_mcid[i] = hit.mcHitID();
+            hk_hit[i] = m_HoTNodeArr[i][m_CurNode[i]].m_hot.index;
+            hk_live[i] = 1;
+          }
+#endif
+
           ++here_count;
 
           m_CurNode[i] = m_HoTNodeArr[i][m_CurNode[i]].m_prev_idx;
 
 #ifdef DEBUG_BACKWARD_FIT
           last_hit_ptr[i] = &hit;
+          last_layer[i] = layer;
 #endif
 #if defined(DEBUG_PROP_UPDATE)
           DSLOT_layer = layer;
+          printf("\nbkfit start layer %d, track in slot %d -- fail=%d, hit_xyz = (%g, %g, %g)\n\n",
+             DSLOT_layer, DSLOT, m_FailFlag[DSLOT],
+             m_msPar(DSLOT, 0, 0), m_msPar(DSLOT, 1, 0), m_msPar(DSLOT, 2, 0));
 #endif
         }
       }
@@ -2552,13 +2633,81 @@ namespace mkfit {
       // clang-format off
 
       m_FailFlag.setVal(0);
-      propagateHelixToPlaneMPlex(m_Err[iC], m_Par[iC], m_Chg, plPnt, plNrm,
+      propagateHelixToPlaneMPlex(m_Err[iC], m_Par[iC], m_Chg, plPnt, plNrm, nullptr,
                                  m_Err[iP], m_Par[iP], m_FailFlag,
                                  N_proc, m_prop_config->backward_fit_pflags, nullptr);
       kalmanOperationPlaneLocal(KFO_Calculate_Chi2 | KFO_Update_Params | KFO_Local_Cov,
                                 m_Err[iP], m_Par[iP], m_Chg, m_msErr, m_msPar, plNrm, plDir, plPnt,
                                 m_Err[iC], m_Par[iC], tmp_chi2, N_proc);
       kalmanCheckChargeFlip(m_Par[iC], m_Chg, N_proc);
+
+#ifdef MKFIT_TRACE
+      // The whole block records TrBkFitUpdate and nothing else, so it is guarded
+      // as a unit. It used to be compiled unconditionally with bk_rec forced
+      // false, which left its locals unused and broke a non-tracing -Werror build.
+      if (bk_rec) {
+        for (int i = 0; i < N_proc; ++i) {
+          if (!hk_live[i]) continue;
+          hk_live[i] = 0;
+          const int step = hk_step[i]++;
+          // residual of the PROPAGATED state (iP) against the hit, in the
+          // module frame. ydir = zdir x xdir.
+          const float dx = m_Par[iP].constAt(i, 0, 0) - m_msPar.constAt(i, 0, 0);
+          const float dy = m_Par[iP].constAt(i, 1, 0) - m_msPar.constAt(i, 1, 0);
+          const float dz = m_Par[iP].constAt(i, 2, 0) - m_msPar.constAt(i, 2, 0);
+          const float nx = plNrm.constAt(i, 0, 0), ny = plNrm.constAt(i, 1, 0), nz = plNrm.constAt(i, 2, 0);
+          const float ux = plDir.constAt(i, 0, 0), uy = plDir.constAt(i, 1, 0), uz = plDir.constAt(i, 2, 0);
+          const float vx = ny * uz - nz * uy, vy = nz * ux - nx * uz, vz = nx * uy - ny * ux;
+          const float d_xdir = dx * ux + dy * uy + dz * uz;
+          const float d_ydir = dx * vx + dy * vy + dz * vz;
+          const float d_zdir = dx * nx + dy * ny + dz * nz;
+          const float ipt = m_Par[iP].constAt(i, 3, 0);
+          const float pt = ipt != 0.f ? 1.f / std::abs(ipt) : 0.f;
+          const float theta = m_Par[iP].constAt(i, 5, 0);
+
+          if (bk_trace && tr_state[i] >= 0) {
+            const float phi_p = m_Par[iP].constAt(i, 4, 0);
+            TrBkFitUpdate bu;
+            bu.state_id_in = tr_state[i];
+            bu.layer = hk_layer[i];
+            bu.hit = hk_hit[i];
+            bu.step = step;
+            bu.fail = m_FailFlag[i];
+            bu.chi2 = tmp_chi2.constAt(i, 0, 0);
+            bu.chi2_cum = m_Chi2.constAt(i, 0, 0);
+            bu.kine_on_plane = { EVec3(m_Par[iP].constAt(i, 0, 0),
+                                       m_Par[iP].constAt(i, 1, 0),
+                                       m_Par[iP].constAt(i, 2, 0)),
+                                 EVec3(pt * std::cos(phi_p), pt * std::sin(phi_p),
+                                       pt / std::tan(theta)) };
+            bu.residual_x = d_xdir;
+            bu.residual_y = d_ydir;
+            bu.residual_z = d_zdir;
+            // WHICH particle made this hit. Not compared to anything here: the
+            // track's sim label is not available at this point (see the struct).
+            if (hk_mcid[i] >= 0 && hk_mcid[i] < (int) m_event->simHitsInfo_.size())
+              bu.mc_track_id = m_event->simHitsInfo_[hk_mcid[i]].mcTrackID();
+            // Post-update state: iC, after kalmanOperationPlaneLocal above.
+            TrackState ts;
+            m_Par[iC].copyOut(i, ts.parArray_nc());
+            m_Err[iC].copyOut(i, ts.errArray_nc());
+            ts.charge = m_Chg[i];
+#ifdef MKFIT_TRACE_KALMAN_DEBUG
+            TrackState tp;
+            m_Par[iP].copyOut(i, tp.parArray_nc());
+            m_Err[iP].copyOut(i, tp.errArray_nc());
+            tp.charge = m_Chg[i];
+            bu.propagated_state = tp;
+#endif
+            const EBiVec3 kine { EVec3(ts.x(), ts.y(), ts.z()), EVec3(ts.px(), ts.py(), ts.pz()) };
+            const int sid = m_event->trace_new_cand_state(tr_state[i], hk_layer[i], kine, ts);
+            bu.state_id_out = sid;
+            tr_state[i] = sid;
+            m_event->trace_bkfitupdate(std::move(bu));
+          }
+        }
+      }
+#endif
 
 #if defined(DEBUG_PROP_UPDATE)
       printf("\nbkfit at layer %d, track in slot %d -- fail=%d, hit_xyz = (%g, %g, %g)\n",
@@ -2619,6 +2768,8 @@ namespace mkfit {
           int ti = iP;
           float chi = tmp_chi2.At(i, 0, 0);
           float chi_prnt = std::isfinite(chi) ? chi : -9;
+          const int layer = last_layer[i];
+          const LayerOfHits &L = eventofhits[layer];
 
 #if defined(MKFIT_STANDALONE)
           const MCHitInfo &mchi = m_event->simHitsInfo_[last_hit_ptr[i]->mcHitID()];

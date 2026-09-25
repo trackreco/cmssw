@@ -48,7 +48,6 @@ namespace mkfit {
 
     // Config for propagation - could/should enter into PropagationFlags?!
     constexpr int Niter = 5;
-    constexpr bool useTrigApprox = true;
     // for prop to plane getS step
     constexpr int nSStepsInProp2Plane = 2;
     // Move to Config.cc, make a command-line option in mkFit.cc to ease profiling comparisons.
@@ -57,6 +56,30 @@ namespace mkfit {
     // constexpr bool usePtMultScat = true;
     extern bool usePropToPlane;
     extern bool usePtMultScat;
+
+    // MkFinderV2p2 switches and parameters are in src/V2p2Config.h.
+
+    // Variance scale applied to the seed covariance by both
+    // MkFinder::bkFitInputTracks() overloads -- 100, i.e. 10x in sigma.
+    // Settable in the standalone build so it can be scanned in one process.
+#if defined(MKFIT_STANDALONE)
+    extern float bkfitErrScale;
+#else
+    constexpr float bkfitErrScale = 100.0f;
+#endif
+
+    // Material diagnostics for applyMaterialEffects(), 1 in the CMSSW build:
+    // factors on radL and on the energy-loss straggling variance in err(3,3).
+    // The standalone build also has matScaleFwdPix, radL in the forward pixel
+    // discs only.
+#if defined(MKFIT_STANDALONE)
+    extern float matScale;
+    extern float matElossVarScale;
+    extern float matScaleFwdPix;
+#else
+    constexpr float matScale = 1.0f;
+    constexpr float matElossVarScale = 1.0f;
+#endif
 
     // Config for Bfield. Note: for now the same for CMS-phase1 and CylCowWLids.
     constexpr float Bfield = 3.8112;

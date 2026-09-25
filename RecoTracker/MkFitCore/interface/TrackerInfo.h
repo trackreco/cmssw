@@ -55,15 +55,20 @@ namespace mkfit {
     SVector3 xdir;  // the precise / "phi" direction
     unsigned int detid;
     unsigned short shapeid;
+    // Explicit, zero-initialised tail padding. The struct is fwrite'n whole into
+    // the geometry binary, and the two bytes the compiler inserts after shapeid
+    // were going to file uninitialised: two dumps of the SAME geometry then
+    // differed in ~46 kB of 2.1 MB, which makes a byte comparison of two
+    // geometry files meaningless. sizeof(ModuleInfo) is unchanged at 44, so the
+    // file format and f_sizeof_moduleinfo are unaffected.
+    unsigned short pad_ = 0;
 
     ModuleInfo() = default;
     ModuleInfo(SVector3 p, SVector3 zd, SVector3 xd, unsigned int did, unsigned short sid)
         : pos(p), zdir(zd), xdir(xd), detid(did), shapeid(sid) {}
 
     SVector3 calc_ydir() const {
-      return {zdir[1] * xdir[2] - zdir[2] * xdir[1],
-              zdir[2] * xdir[0] - zdir[0] * xdir[2],
-              zdir[0] * zdir[1] - zdir[1] * xdir[0]};
+      return ROOT::Math::Cross(zdir, xdir);
     }
   };
 
@@ -104,6 +109,7 @@ namespace mkfit {
     int subdet() const { return m_subdet; }
     bool is_barrel() const { return m_layer_type == Barrel; }
     bool is_pixel() const { return m_is_pixel; }
+    bool is_strip() const { return ! m_is_pixel; }
     bool is_stereo() const { return m_is_stereo; }
     bool has_charge() const { return m_has_charge; }
 
@@ -112,6 +118,10 @@ namespace mkfit {
     bool is_within_q_limits(float q) const { return is_barrel() ? is_within_z_limits(q) : is_within_r_limits(q); }
 
     bool is_in_r_hole(float r) const { return m_has_r_range_hole ? is_in_r_hole_no_check(r) : false; }
+
+    bool has_r_range_hole() const { return m_has_r_range_hole; }
+    float hole_r_min() const { return m_hole_r_min; }
+    float hole_r_max() const { return m_hole_r_max; }
 
     WSR_Result is_within_z_sensitive_region(float z, float dz) const {
       if (z > m_zmax + dz || z < m_zmin - dz)
@@ -211,6 +221,11 @@ namespace mkfit {
     bool check_idcs(int i1, int i2) const { return i1 >= 0 && i1 < m_n1 && i2 >= 0 && i2 < m_n2; }
 
   private:
+    // TrackerInfo::write_bin_file() streams m_n1/m_n2 by taking the address of
+    // the rectvec itself and writing two ints, so their position is part of the
+    // geometry file format and it static_asserts on it.
+    friend class TrackerInfo;
+
     int m_n1, m_n2;
     std::vector<T> m_vec;
   };
@@ -254,8 +269,22 @@ namespace mkfit {
     const PropagationConfig& prop_config() const { return m_prop_config; }
     PropagationConfig& prop_config_nc() { return m_prop_config; }
 
-    void write_bin_file(const std::string& fname) const;
+    // geom_version is the geometry's identity, e.g. "Run4D127". Passed in rather
+    // than stored on the object because the caller is an EventSetup product that
+    // must not be mutated. Empty writes an empty stamp, which reads back as
+    // "unknown".
+    void write_bin_file(const std::string& fname, const std::string& geom_version = "") const;
     void read_bin_file(const std::string& fname);
+
+    // Fixed-size storage, because the value's only destination is a fixed-size
+    // field in the geometry file header. A std::string here would have to be
+    // truncated on the way out, silently: two versions sharing a 63-character
+    // prefix would then stamp identically, and a truncated stamp would falsely
+    // mismatch a full one. Setting an over-long value is an error instead.
+    static constexpr size_t s_geom_version_size = 64;
+
+    std::string geom_version() const { return m_geom_version; }
+    void set_geom_version(const std::string& v);
     void print_tracker(int level, int precision = 3) const;
 
     void create_material(int nBinZ, float rngZ, int nBinR, float rngR);
@@ -291,6 +320,13 @@ namespace mkfit {
     rectvec<Material> m_mat_vec;
 
     PropagationConfig m_prop_config;
+
+    // Identity of the geometry this TrackerInfo was built from, e.g. "Run4D127".
+    // Set by the dumper from its configuration (see write_bin_file) and read back
+    // from the binary; EMPTY means the file predates the stamp (format v3) or the
+    // dumper was not told. Not streamed as part of this object -- it lives in
+    // GeomFileHeader.
+    char m_geom_version[s_geom_version_size] = {0};
   };
 
 }  // end namespace mkfit

@@ -7,6 +7,13 @@ namespace mkfit {
     bool usePropToPlane = false;
     bool usePtMultScat = false;
 
+#if defined(MKFIT_STANDALONE)
+    float bkfitErrScale = 100.0f;
+    float matScale = 1.0f;
+    float matElossVarScale = 1.0f;
+    float matScaleFwdPix = 1.0f;
+#endif
+
     // Multi threading configuration
 #if defined(MKFIT_STANDALONE)
     int numThreadsFinder = 1;

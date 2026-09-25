@@ -88,7 +88,17 @@ namespace mkfit {
     for (int n = 0; n < NN; ++n) {
       if (n >= N_proc)
         continue;
-      float radL = hitsRl.constAt(n, 0, 0);
+      float radL = hitsRl.constAt(n, 0, 0) * Config::matScale;
+#if defined(MKFIT_STANDALONE)
+      // Forward pixel discs only (TFPX + TEPX: |z| > 22, r < 26), for the disc
+      // material test.
+      if (Config::matScaleFwdPix != 1.0f) {
+        const float zz = std::abs(outPar.constAt(n, 2, 0));
+        const float rr = hipo(outPar.constAt(n, 0, 0), outPar.constAt(n, 1, 0));
+        if (zz > 22.0f && rr < 26.0f)
+          radL *= Config::matScaleFwdPix;
+      }
+#endif
       if (radL < 1e-13f)
         continue;  //ugly, please fixme
       const float theta = outPar.constAt(n, 5, 0);
@@ -158,8 +168,9 @@ namespace mkfit {
       //std::cout << "dEdx=" << dEdx << " delta=" << deltahalf << " wmax=" << wmax << " Xi=" << hitsXi.constAt(n,0,0) << std::endl;
       const float dP = propSign.constAt(n, 0, 0) * dEdx / beta;
       outPar.At(n, 3, 0) = p / (std::max(p - dP, 0.001f) * pt);  //stay above 1MeV
-      //assume 100% uncertainty
-      outErr.At(n, 3, 3) += dP * dP / (p2 * pt * pt);
+      // Bethe-Bloch straggling variance, the CMS EnergyLossUpdator form.
+      const float dEdx2 = (hitsXi.constAt(n, 0, 0) * invCos / beta2) * wmax * (1 - beta2 * 0.5);
+      outErr.At(n, 3, 3) += Config::matElossVarScale * dEdx2 / (beta2 * p2 * pt * pt);
     }
   }
 
