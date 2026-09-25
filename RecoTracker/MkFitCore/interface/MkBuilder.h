@@ -73,6 +73,7 @@ namespace mkfit {
     TrackVec &ref_tracks_nc() { return m_tracks; }
 
     const EventOfCombCandidates &ref_eocc() const { return m_event_of_comb_cands; }
+    EventOfCombCandidates &ref_eocc_nc() { return m_event_of_comb_cands; }
 
     // --------
 
@@ -107,8 +108,10 @@ namespace mkfit {
 
     void seed_post_cleaning(TrackVec &tv);
 
+    using FindTracks_foo = void (MkBuilder::*)(SteeringParams::IterationType_e);
     void findTracksBestHit(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
     void findTracksStandard(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
+    void findTracksStandardv2p2(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
     void findTracksCloneEngine(SteeringParams::IterationType_e iteration_dir = SteeringParams::IT_FwdSearch);
 
     void backwardFitBH();

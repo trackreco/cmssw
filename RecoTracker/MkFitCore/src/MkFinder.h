@@ -155,10 +155,14 @@ namespace mkfit {
     //----------------------------------------------------------------------------
     // Backward fit
 
-    void bkFitInputTracks(TrackVec &cands, int beg, int end);
+    // scale_errors: inflate the input covariance by Config::bkfitErrScale (default
+    // 100, i.e. 10x in sigma). Correct when SEEDING the fit; WRONG when
+    // RE-LOADING an already-fitted state, which fit_cands does before the PCA
+    // propagation -- there it would inflate the fitted covariance a second time.
+    void bkFitInputTracks(TrackVec &cands, int beg, int end, bool scale_errors = true);
     void bkFitOutputTracks(TrackVec &cands, int beg, int end, bool outputProp);
 
-    void bkFitInputTracks(EventOfCombCandidates &eocss, int beg, int end);
+    void bkFitInputTracks(EventOfCombCandidates &eocss, int beg, int end, bool scale_errors = true);
     void bkFitOutputTracks(EventOfCombCandidates &eocss, int beg, int end, bool outputProp);
 
     void bkFitFitTracksBH(const EventOfHits &eventofhits,
