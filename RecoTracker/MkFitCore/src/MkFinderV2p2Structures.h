@@ -7,7 +7,11 @@
 #include "MiniPropagators.h"
 #include "V2p2Score.h"
 
-#include <queue>
+#include "V2p2Config.h"
+#include <algorithm>
+#include <cassert>
+#include <new>
+#include <type_traits>
 #include <vector>
 
 namespace mkfit {
@@ -44,6 +48,35 @@ namespace mkfit {
 
     //----------------------------------------------------------------------------
 
+    // A vector with fixed inline capacity and no construction of the unused
+    // slots, for trivially copyable T. Per-candidate, per-layer storage that
+    // std::vector would allocate and free on every layer.
+    template <typename T, int Cap>
+    class InlineVec {
+      static_assert(std::is_trivially_copyable_v<T>);
+      alignas(T) unsigned char m_buf[Cap * sizeof(T)];
+      int m_size = 0;
+
+    public:
+      static constexpr int capacity() { return Cap; }
+      int size() const { return m_size; }
+      bool empty() const { return m_size == 0; }
+      void clear() { m_size = 0; }
+      T *begin() { return std::launder(reinterpret_cast<T *>(m_buf)); }
+      T *end() { return begin() + m_size; }
+      const T *begin() const { return std::launder(reinterpret_cast<const T *>(m_buf)); }
+      const T *end() const { return begin() + m_size; }
+      T &operator[](int i) { return begin()[i]; }
+      const T &operator[](int i) const { return begin()[i]; }
+      T &front() { return begin()[0]; }
+      void push_back(const T &v) {
+        assert(m_size < Cap);
+        new (m_buf + m_size * sizeof(T)) T(v);
+        ++m_size;
+      }
+      void pop_back() { --m_size; }
+    };
+
     struct PrimTCandRep {
       CCandRep *mp_ccrep;
       int m_origin_tcand_index; // TrackCand index in CombCandidate
@@ -70,15 +103,28 @@ namespace mkfit {
       // One bounded pqueue per sub-layer, [0] primary and [1] secondary, so each
       // sensor has its own reduction budget. See doc/MkFinderV2p2-DesignNotes.md,
       // "Reduction and hit ordering".
-      // Need to sub-class it to be able to call reserve on the vec
-      std::priority_queue<PQE, std::vector<PQE>> m_pqueue[2];
+      // Max-heaps on score, worst on top, run with std::push_heap / pop_heap
+      // exactly as std::priority_queue<PQE> does, in inline storage.
+      static constexpr int kPqCap = Config::V2p2::InLayer::max_presel_hits_limit;
+      InlineVec<PQE, kPqCap> m_pqueue[2];
       int m_pqueue_size[2] = {0, 0};
 
+      void pq_push(int sl, const PQE &e) {
+        m_pqueue[sl].push_back(e);
+        std::push_heap(m_pqueue[sl].begin(), m_pqueue[sl].end());
+      }
+      const PQE &pq_top(int sl) { return m_pqueue[sl].front(); }
+      void pq_pop(int sl) {
+        std::pop_heap(m_pqueue[sl].begin(), m_pqueue[sl].end());
+        m_pqueue[sl].pop_back();
+      }
+
       // Survivors of both queues, in path order (sorted by dir * dalpha).
-      std::vector<PQE> m_layer_hits;
+      InlineVec<PQE, 2 * kPqCap> m_layer_hits;
 
       // Did this candidate produce any in-layer path? Set by expand_in_layer().
       bool m_has_sec_nodes = false;
+      float m_log_rho = 0.0f;  // local hit density, ln(hits / cm^2), for the score
 
       PrimTCandRep(CCandRep *ccr, int orig_idx) {
         mp_ccrep = ccr;
@@ -133,7 +179,14 @@ namespace mkfit {
       // step -- the best-hit path has no use for it.
       // std::vector<int> m_otherTCs;
 
-      // int m_num_primTCs_to_kalman = 0; // to be improved
+      // PrimTCandReps of this layer still in MkFinderV2p2::m_cand_queue. They are
+      // queued together, so at zero the CombCandidate is through the layer and
+      // can be selected before end of layer.
+      int  m_n_queued = 0;
+      // With the running Kalman batches: Kalman items in flight plus nodes
+      // waiting to be expanded. Selection needs both counts at zero.
+      int  m_n_inflight = 0;
+      bool m_selected = false;  // select_and_materialise() already ran this layer
 
     #if defined(MKFIT_STANDALONE)
       // Tuning & Debugging. Managed in MkFinderV2p2 processing.

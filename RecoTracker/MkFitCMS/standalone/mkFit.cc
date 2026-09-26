@@ -641,6 +641,10 @@ int main(int argc, const char* argv[]) {
           "                           keep the best of them per seed, outward only (def: %d)\n"
           "  --v2p2-reserve-hole-slot <0|1>  MkFinderV2p2: keep one beam slot for a continuation\n"
           "                           that declined the layer, even when outranked (def: %d)\n"
+          "  --v2p2-early-select <0|1>  MkFinderV2p2: select a CombCandidate after its last layer\n"
+          "                           batch and reuse its tree-node slots (def: %d)\n"
+          "  --v2p2-running-kalman <0|1>  MkFinderV2p2: in-layer Kalman batches stay open across\n"
+          "                           layer batches and fire only when full (def: %d)\n"
           "  --v2p2-max-sec-depth <n> MkFinderV2p2: most hits one in-layer path may take (def: %d)\n"
           "  --v2p2-max-presel-hits <n>  MkFinderV2p2: pre-selection reduction cap, per sub-layer (def: %d)\n"
           "  --v2p2-hit-bonus <f>     MkFinderV2p2 score: per hit taken (def: %g)\n"
@@ -814,6 +818,8 @@ int main(int argc, const char* argv[]) {
           V2p2::Score::fwd.hit_eff,
           int(V2p2::InLayer::best_short),
           int(V2p2::InLayer::reserve_hole_slot),
+          int(V2p2::InLayer::early_select),
+          int(V2p2::InLayer::running_kalman),
           V2p2::InLayer::max_sec_depth,
           V2p2::InLayer::max_presel_hits,
           V2p2::Score::fwd.hit_bonus,
@@ -1066,12 +1072,23 @@ int main(int argc, const char* argv[]) {
     } else if (*i == "--v2p2-reserve-hole-slot") {
       next_arg_or_die(mArgs, i);
       V2p2::InLayer::reserve_hole_slot = (bool)atoi(i->c_str());
+    } else if (*i == "--v2p2-early-select") {
+      next_arg_or_die(mArgs, i);
+      V2p2::InLayer::early_select = (bool)atoi(i->c_str());
+    } else if (*i == "--v2p2-running-kalman") {
+      next_arg_or_die(mArgs, i);
+      V2p2::InLayer::running_kalman = (bool)atoi(i->c_str());
     } else if (*i == "--v2p2-max-sec-depth") {
       next_arg_or_die(mArgs, i);
       V2p2::InLayer::max_sec_depth = atoi(i->c_str());
     } else if (*i == "--v2p2-max-presel-hits") {
       next_arg_or_die(mArgs, i);
       V2p2::InLayer::max_presel_hits = atoi(i->c_str());
+      if (V2p2::InLayer::max_presel_hits < 1 ||
+          V2p2::InLayer::max_presel_hits > V2p2::InLayer::max_presel_hits_limit) {
+        fprintf(stderr, "--v2p2-max-presel-hits must be in [1, %d]\n", V2p2::InLayer::max_presel_hits_limit);
+        exit(1);
+      }
     } else if (*i == "--v2p2-hit-bonus") {
       next_arg_or_die(mArgs, i);
       V2p2::Score::fwd.hit_bonus = V2p2::Score::bkw.hit_bonus = atof(i->c_str());

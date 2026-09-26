@@ -78,10 +78,19 @@ namespace mkfit {
     namespace InLayer {
       MKFIT_V2P2_KNOB(bool, comb, true);         // off: one best hit per layer
       MKFIT_V2P2_KNOB(int, max_presel_hits, 6);  // reduction cap per sub-layer
+      constexpr int max_presel_hits_limit = 12;   // inline storage; max_presel_hits must not exceed it
       MKFIT_V2P2_KNOB(int, max_sec_depth, 4);    // most hits one path may take in a layer
       constexpr int max_sec_depth_limit = 8;     // array size; max_sec_depth must not exceed it
       MKFIT_V2P2_KNOB(bool, reserve_hole_slot, false);  // keep one decliner in the beam
       MKFIT_V2P2_KNOB(bool, best_short, false);         // stopped candidates leave the beam (outward)
+      // Select a CombCandidate as soon as its last candidate has been through a
+      // layer batch, and return its tree nodes to the arena's free list, instead
+      // of holding every node until end of layer.
+      MKFIT_V2P2_KNOB(bool, early_select, true);
+      // Keep the in-layer Kalman batches open across layer batches and fire them
+      // only when full (or at end of layer), instead of flushing at every depth
+      // boundary of every layer batch.
+      MKFIT_V2P2_KNOB(bool, running_kalman, true);
     }  // namespace InLayer
 
     //--------------------------------------------------------------------------

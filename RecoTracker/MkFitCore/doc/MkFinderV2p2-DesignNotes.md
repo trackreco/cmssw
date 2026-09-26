@@ -90,11 +90,32 @@ Two batch widths are in play. `LayerBatch` is NN candidates wide and indexed by
 
 Each phase keeps its own Matriplex batches full: pre-selection batches pairs
 across candidates, and the Kalman stage batches lanes across candidates and
-across expansion nodes. What this layout does not do is pipeline across phases,
-or retire a CombCandidate before the end of the layer. The selection runs in
-`end_layer()` because one CombCandidate's candidates can straddle a batch
-boundary. Retiring a CombCandidate as soon as its last batch completes is
-possible and not built.
+across expansion nodes. The phases themselves are not pipelined.
+
+**Early selection** (`InLayer::early_select`, `select_completed_ccreps()`). A
+CombCandidate's candidates enter the queue together, and `CCandRep::m_n_queued`
+counts those not yet taken. Once it is zero and no work of the CombCandidate is
+in flight, the CombCandidate is selected right after the layer batch, and its
+tree nodes go back to the arena's free list. `end_layer()` selects whatever is
+left. On its own this changes nothing measurable: the arena's high water per
+layer drops from 50 to 12 nodes on average, at 184 bytes a node.
+
+**Running Kalman batches** (`InLayer::running_kalman`,
+`expand_in_layer_running()`). The in-layer Kalman batches stay open across layer
+batches and fire only when full; `rk_drain()` empties them at the end of the
+layer. There are two, because depth 0 is handed the path length from the
+Hermite while deeper steps solve the plane. A harvested node that may still be
+extended goes to `m_deep_queue` and is expanded when popped.
+`CCandRep::m_n_inflight` counts a CombCandidate's Kalman items and queued nodes,
+and an item is retired only after its children are queued, so the count cannot
+pass through zero while work remains. Every Matriplex lane is computed
+independently, so the nodes are the same as with the per-depth flush; the
+results differ only in rounding, where a lane goes through vector rather than
+scalar code. The per-depth path, `expand_in_layer()`, is kept for comparison.
+
+Measured on phi3, T100: lanes filled at depth 0 go from 6.19 to 7.70 of 8 and
+deeper from 4.38 to 6.99 of 8, and the forward search takes 5.3 % less time at
+`-mavx`, 4.6 % at AVX2 and 3.8 % at AVX-512.
 
 ## Candidate pickup and stopping cuts
 
@@ -469,7 +490,11 @@ pass the real cut.
 ddphi, one queue per sub-layer, capped at `InLayer::max_presel_hits`. One queue
 per sub-layer gives each sensor of a pair its own budget, so a busy sensor
 cannot crowd out the other. The cap sits upstream of the in-layer search and
-bounds what it can see. Overlap availability varies strongly across the
+bounds what it can see. The queues and `m_layer_hits` use inline storage
+(`InlineVec`) sized by `InLayer::max_presel_hits_limit`, because a
+`PrimTCandRep` lives for one layer and a `std::vector` there allocated and freed
+on every layer. The heaps run `std::push_heap` / `std::pop_heap` exactly as
+`std::priority_queue` does. Overlap availability varies strongly across the
 detector, so the cap should become per layer.
 
 **Ordering.** The queues drain into one list per candidate, `m_layer_hits`,
@@ -527,13 +552,16 @@ to 90.8 % at depth 4.
 **Storage.** Nodes live in one `std::vector<SecTCandRep>` per finder, reached by
 index, with a single parent index each. A node exists to be walked back from,
 so a surviving leaf can register its hits into the CombCandidate; nothing needs
-to walk forward. `end_layer()` clears the vector and keeps its capacity. There
-is no free list: a node with live children must not be reused.
+to walk forward. `end_layer()` clears the vector and keeps its capacity. Slots
+of a selected CombCandidate go to a free list, `m_sec_free`, reused last in,
+first out. A node with live children must not be reused, so slots are only ever
+freed a whole CombCandidate at a time, after it has materialised.
 
 The arena is per finder and not per CombCandidate because one Kalman batch
 draws lanes from several candidates and CombCandidates. Breadth-first by depth
-keeps every parent at a lower index than its children, so a forward sweep of
-the arena is a valid topological order.
+means a parent is always in the arena before its children are created. Nothing
+depends on parents having lower indices: each depth's harvest is handed on as a
+list of indices.
 
 A `SecTCandRep` carries a full `TrackState` and lives for one layer. A
 `HoTNode` in `CombCandidate::m_hots` is 12 bytes and lives for the event. That
