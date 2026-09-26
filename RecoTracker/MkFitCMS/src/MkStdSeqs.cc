@@ -8,6 +8,10 @@
 
 #include "RecoTracker/MkFitCore/interface/binnor.h"
 
+#include <algorithm>
+#include <cstdint>
+#include <vector>
+
 namespace mkfit {
 
   namespace StdSeq {
@@ -502,95 +506,166 @@ namespace mkfit {
       remove_duplicates(tracks);
     }
 
-    void clean_duplicates_sharedhits_pixelseed(TrackVec &tracks, const IterationConfig &itconf) {
-      const float fraction = itconf.dc_fracSharedHits;
-      const float drth_central = itconf.dc_drth_central;
-      const float drth_obarrel = itconf.dc_drth_obarrel;
-      const float drth_forward = itconf.dc_drth_forward;
-      const auto ntracks = tracks.size();
+    namespace {
+      // Valid hits of all tracks as sorted (layer, index) keys, one flat array,
+      // plus each track's slot-0 key (-1 when slot 0 is not a valid hit).
+      struct DupCleanHitKeys {
+        std::vector<int64_t> keys;
+        std::vector<int> begin;  // track t's keys are [begin[t], begin[t + 1])
+        std::vector<int64_t> first;
 
-      std::vector<float> ctheta(ntracks);
-      for (auto itrack = 0U; itrack < ntracks; itrack++) {
+        explicit DupCleanHitKeys(const TrackVec &tracks) {
+          const int n = tracks.size();
+          begin.resize(n + 1);
+          first.assign(n, -1);
+          for (int t = 0; t < n; ++t) {
+            const Track &trk = tracks[t];
+            begin[t] = keys.size();
+            for (int i = 0; i < trk.nTotalHits(); ++i) {
+              if (trk.getHitIdx(i) < 0)
+                continue;
+              const int64_t k = (int64_t(trk.getHitLyr(i)) << 32) | uint32_t(trk.getHitIdx(i));
+              keys.push_back(k);
+              if (i == 0)
+                first[t] = k;
+            }
+            std::sort(keys.begin() + begin[t], keys.end());
+          }
+          begin[n] = keys.size();
+        }
+
+        // Number of equal (i, j) key pairs between two tracks, multiplicities
+        // included, which is what the all-pairs hit loop counted.
+        int count_equal_pairs(int a, int b) const {
+          int n = 0;
+          int i = begin[a], j = begin[b];
+          const int ie = begin[a + 1], je = begin[b + 1];
+          while (i < ie && j < je) {
+            if (keys[i] < keys[j])
+              ++i;
+            else if (keys[j] < keys[i])
+              ++j;
+            else {
+              const int64_t k = keys[i];
+              int ni = 0, nj = 0;
+              while (i < ie && keys[i] == k) {
+                ++i;
+                ++ni;
+              }
+              while (j < je && keys[j] == k) {
+                ++j;
+                ++nj;
+              }
+              n += ni * nj;
+            }
+          }
+          return n;
+        }
+      };
+
+      // One pair, itrack < jtrack. The body is asymmetric (the region threshold
+      // comes from itrack's cot(theta), and a tie marks itrack), so the order of
+      // the arguments is the original loop's.
+      void dupclean_pair(TrackVec &tracks, const std::vector<float> &ctheta, int itrack, int jtrack,
+                         const IterationConfig &itconf, const DupCleanHitKeys &hk) {
         auto &trk = tracks[itrack];
-        ctheta[itrack] = 1.f / std::tan(trk.theta());
+        auto &track2 = tracks[jtrack];
+        if (trk.label() == track2.label())
+          return;
+        const float ctheta1 = ctheta[itrack];
+        const float dctheta = std::abs(ctheta[jtrack] - ctheta1);
+        if (dctheta > Config::maxdcth)
+          return;
+        const float dphi = std::abs(squashPhiMinimal(trk.momPhi() - track2.momPhi()));
+        if (dphi > Config::maxdphi)
+          return;
+
+        float maxdRSquared = itconf.dc_drth_central * itconf.dc_drth_central;
+        if (std::abs(ctheta1) > Config::maxcth_fw)
+          maxdRSquared = itconf.dc_drth_forward * itconf.dc_drth_forward;
+        else if (std::abs(ctheta1) > Config::maxcth_ob)
+          maxdRSquared = itconf.dc_drth_obarrel * itconf.dc_drth_obarrel;
+        const float dr2 = dphi * dphi + dctheta * dctheta;
+        if (dr2 < maxdRSquared) {
+          //Keep track with best score
+          if (trk.score() > track2.score())
+            track2.setDuplicateValue(true);
+          else
+            trk.setDuplicateValue(true);
+          return;
+        }
+
+        if (std::abs(track2.invpT() - trk.invpT()) > Config::maxd1pt)
+          return;
+
+        const auto minFoundHits = std::min(trk.nFoundHits(), track2.nFoundHits());
+        const int sharedCount = hk.count_equal_pairs(itrack, jtrack);
+        const int sharedFirst = (hk.first[itrack] >= 0 && hk.first[itrack] == hk.first[jtrack]) ? 1 : 0;
+
+        //selection here - 11percent fraction of shared hits to label a duplicate
+        if ((sharedCount - sharedFirst) >= ((minFoundHits - sharedFirst) * itconf.dc_fracSharedHits)) {
+          if (trk.score() > track2.score())
+            track2.setDuplicateValue(true);
+          else
+            trk.setDuplicateValue(true);
+        }
       }
+    }  // namespace
 
-      float phi1, invpt1, dctheta, ctheta1, dphi, dr2;
-      for (auto itrack = 0U; itrack < ntracks; itrack++) {
-        auto &trk = tracks[itrack];
-        phi1 = trk.momPhi();
-        invpt1 = trk.invpT();
-        ctheta1 = ctheta[itrack];
-        for (auto jtrack = itrack + 1; jtrack < ntracks; jtrack++) {
-          auto &track2 = tracks[jtrack];
-          if (trk.label() == track2.label())
+    // Same decisions as visiting all pairs, which is what this did before, at
+    // about a tenth of the cost on PU200. A pair can only be marked if its
+    // |dcot(theta)| is within Config::maxdcth, so pairs are visited in cot(theta)
+    // order within that window. A duplicate mark is only ever set, so the visiting
+    // order does not change the outcome. A non-finite cot(theta) never fails that
+    // cut, so such a track is paired with every other one. Shared hits are counted
+    // by merging sorted (layer, index) keys; the early continues of the old
+    // all-pairs hit loop changed neither count.
+
+    void clean_duplicates_sharedhits_pixelseed(TrackVec &tracks, const IterationConfig &itconf) {
+      const int n = tracks.size();
+
+      std::vector<float> ctheta(n);
+      for (int t = 0; t < n; ++t)
+        ctheta[t] = 1.f / std::tan(tracks[t].theta());
+
+      std::vector<int> ord, nonfin;
+      ord.reserve(n);
+      for (int t = 0; t < n; ++t)
+        (isFinite(ctheta[t]) ? ord : nonfin).push_back(t);
+      std::sort(ord.begin(), ord.end(), [&](int a, int b) { return ctheta[a] < ctheta[b]; });
+
+      const DupCleanHitKeys hk(tracks);
+
+      // Sorted copies of what the first two tests read, so a pair rejected by
+      // them never touches a Track. Same floats, and the phi difference is taken
+      // lower index first, as in the pair body.
+      const int m = ord.size();
+      std::vector<float> cs(m), ps(m);
+      std::vector<int> ls(m);
+      for (int p = 0; p < m; ++p) {
+        cs[p] = ctheta[ord[p]];
+        ps[p] = tracks[ord[p]].momPhi();
+        ls[p] = tracks[ord[p]].label();
+      }
+      for (int p = 0; p < m; ++p) {
+        for (int q = p + 1; q < m && cs[q] - cs[p] <= Config::maxdcth; ++q) {
+          if (ls[p] == ls[q])
             continue;
-
-          dctheta = std::abs(ctheta[jtrack] - ctheta1);
-
-          if (dctheta > Config::maxdcth)
-            continue;
-
-          dphi = std::abs(squashPhiMinimal(phi1 - track2.momPhi()));
-
+          const bool p_lower = ord[p] < ord[q];
+          const float dphi = std::abs(squashPhiMinimal(p_lower ? ps[p] - ps[q] : ps[q] - ps[p]));
           if (dphi > Config::maxdphi)
             continue;
-
-          float maxdRSquared = drth_central * drth_central;
-          if (std::abs(ctheta1) > Config::maxcth_fw)
-            maxdRSquared = drth_forward * drth_forward;
-          else if (std::abs(ctheta1) > Config::maxcth_ob)
-            maxdRSquared = drth_obarrel * drth_obarrel;
-          dr2 = dphi * dphi + dctheta * dctheta;
-          if (dr2 < maxdRSquared) {
-            //Keep track with best score
-            if (trk.score() > track2.score())
-              track2.setDuplicateValue(true);
-            else
-              trk.setDuplicateValue(true);
-            continue;
-          }
-
-          if (std::abs(track2.invpT() - invpt1) > Config::maxd1pt)
-            continue;
-
-          auto sharedCount = 0;
-          auto sharedFirst = 0;
-          const auto minFoundHits = std::min(trk.nFoundHits(), track2.nFoundHits());
-
-          for (int i = 0; i < trk.nTotalHits(); ++i) {
-            if (trk.getHitIdx(i) < 0)
-              continue;
-            const int a = trk.getHitLyr(i);
-            const int b = trk.getHitIdx(i);
-            for (int j = 0; j < track2.nTotalHits(); ++j) {
-              if (track2.getHitIdx(j) < 0)
-                continue;
-              const int c = track2.getHitLyr(j);
-              const int d = track2.getHitIdx(j);
-
-              //this is to count once shared matched hits (may be done more properly...)
-              if (a == c && b == d)
-                sharedCount += 1;
-              if (j == 0 && i == 0 && a == c && b == d)
-                sharedFirst += 1;
-
-              if ((sharedCount - sharedFirst) >= ((minFoundHits - sharedFirst) * fraction))
-                continue;
-            }
-            if ((sharedCount - sharedFirst) >= ((minFoundHits - sharedFirst) * fraction))
-              continue;
-          }
-
-          //selection here - 11percent fraction of shared hits to label a duplicate
-          if ((sharedCount - sharedFirst) >= ((minFoundHits - sharedFirst) * fraction)) {
-            if (trk.score() > track2.score())
-              track2.setDuplicateValue(true);
-            else
-              trk.setDuplicateValue(true);
-          }
+          dupclean_pair(tracks, ctheta, std::min(ord[p], ord[q]), std::max(ord[p], ord[q]), itconf, hk);
         }
-      }  //end loop one over tracks
+      }
+      for (int x = 0; x < (int) nonfin.size(); ++x) {
+        const int a = nonfin[x];
+        for (int b = 0; b < n; ++b) {
+          if (b == a || (!isFinite(ctheta[b]) && b < a))
+            continue;  // a pair of two non-finite tracks is visited once
+          dupclean_pair(tracks, ctheta, std::min(a, b), std::max(a, b), itconf, hk);
+        }
+      }
 
       remove_duplicates(tracks);
     }
