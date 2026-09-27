@@ -234,7 +234,13 @@ namespace mkfit {
                                  // so it has divided the precision out; -0.5*ln(det V)
                                  // is what puts it back, and it is what tells a
                                  // macro-pixel hit from a 2S strip hit at equal chi2.
-                                 MPlexQF* outDetV = nullptr);
+                                 MPlexQF* outDetV = nullptr,
+                                 // Acceptance chi2: the same residual against
+                                 // accTrkScale2 * C_trk + C_hit, i.e. with the track
+                                 // block of the residual covariance scaled and the
+                                 // hit block as it is. Does not enter the update.
+                                 MPlexQF* outChi2Acc = nullptr,
+                                 float accTrkScale2 = 1.0f);
 
 }  // end namespace mkfit
 #endif

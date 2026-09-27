@@ -42,11 +42,17 @@ namespace mkfit {
     const MPlexQI chg_pre_update = tsChg;
 #endif
 
+    const float acc_scale2 = Config::V2p2::Policy::chi2_trk_fac * Config::V2p2::Policy::chi2_trk_fac;
+    const bool acc_separate = acc_scale2 != 1.0f;
+
     kalmanOperationPlaneLocal(KFO_Calculate_Chi2 | KFO_Update_Params | KFO_Local_Cov,
                               propErr, propPar, tsChg, msErr, msPar, plNrm, plDir, plPnt,
                               tsErr, tsPar, tsChi2, N_filled, nullptr, nullptr, false,
                               // det V is read only by the likelihood score.
-                              Config::V2p2::Score::mode == 1 ? &tsDetV : nullptr);
+                              Config::V2p2::Score::mode == 1 ? &tsDetV : nullptr,
+                              acc_separate ? &tsChi2Acc : nullptr, acc_scale2);
+    if ( ! acc_separate)
+      tsChi2Acc = tsChi2;
     kalmanCheckChargeFlip(tsPar, tsChg, N_filled);
 
     // The original -- but Chi2 only.
@@ -82,6 +88,7 @@ namespace mkfit {
         ptcp[i]->bState.charge = tsChg[i];
         ptcp[i]->bHot = hot[i];
         ptcp[i]->bChi2 = tsChi2[i];
+        ptcp[i]->bChi2Acc = tsChi2Acc[i];
 #ifdef MKFIT_TRACE
         ptcp[i]->b_tr_hitmatch_id = tr_hitmatch_ids[i];
 #endif
@@ -129,6 +136,7 @@ namespace mkfit {
         o.hit_in_layer = hit_in_layer[i];
         o.chi2 = tsChi2[i];
         o.det_v = tsDetV[i];
+        o.chi2_acc = tsChi2Acc[i];
         tsPar.copyOut(i, o.state.parArray_nc());
         tsErr.copyOut(i, o.state.errArray_nc());
         o.state.charge = tsChg[i];

@@ -108,6 +108,7 @@ namespace mkfit {
   void val_hit_extents(const EventOfHits *eoh, int lay_beg, int lay_end);
   void val_dphi(float trk_fac, float hit_rad, int extra_bins);
   void val_precut(bool q, bool phi);
+  void val_hit_chi2(float cut, float trk_fac);
   void val_qprecut_reset();
   void val_qprecut_event(const Event *ev);
   void val_qprecut_report(const char *tag);

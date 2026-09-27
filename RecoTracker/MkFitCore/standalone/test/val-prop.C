@@ -44,6 +44,7 @@ void val_phi_per_hit(bool on, float fac) { mkfit::val_phi_per_hit(on, fac); }
 void val_hit_extents(const mkfit::EventOfHits *eoh, int a, int b) { mkfit::val_hit_extents(eoh, a, b); }
 void val_dphi(float trk_fac, float hit_rad, int extra_bins) { mkfit::val_dphi(trk_fac, hit_rad, extra_bins); }
 void val_precut(bool q, bool phi) { mkfit::val_precut(q, phi); }
+void val_hit_chi2(float cut, float trk_fac) { mkfit::val_hit_chi2(cut, trk_fac); }
 void val_qpc_reset() { mkfit::val_qprecut_reset(); }
 void val_qpc_ev(const mkfit::Event *e) { mkfit::val_qprecut_event(e); }
 void val_qpc_report(const char *t) { mkfit::val_qprecut_report(t); }

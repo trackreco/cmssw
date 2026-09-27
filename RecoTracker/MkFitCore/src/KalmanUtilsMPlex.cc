@@ -1359,7 +1359,9 @@ namespace mkfit {
                                  const MPlexQI* doCPE,
                                  cpe_func cpe_corr_func,
                                  bool use_param_b_field,
-                                 MPlexQF* outDetV) {
+                                 MPlexQF* outDetV,
+                                 MPlexQF* outChi2Acc,
+                                 float accTrkScale2) {
 #ifdef DEBUG
     {
       dmutex_guard;
@@ -1580,6 +1582,18 @@ namespace mkfit {
       resErr_loc(n, 0, 0) = psErrLoc(n, 3, 3) + msErr_loc(n, 0, 0);
       resErr_loc(n, 0, 1) = psErrLoc(n, 3, 4) + msErr_loc(n, 0, 1);
       resErr_loc(n, 1, 1) = psErrLoc(n, 4, 4) + msErr_loc(n, 1, 1);
+    }
+
+    if (outChi2Acc) {
+      MPlex2S accErr_loc;
+#pragma omp simd
+      for (int n = 0; n < NN; ++n) {
+        accErr_loc(n, 0, 0) = accTrkScale2 * psErrLoc(n, 3, 3) + msErr_loc(n, 0, 0);
+        accErr_loc(n, 0, 1) = accTrkScale2 * psErrLoc(n, 3, 4) + msErr_loc(n, 0, 1);
+        accErr_loc(n, 1, 1) = accTrkScale2 * psErrLoc(n, 4, 4) + msErr_loc(n, 1, 1);
+      }
+      Matriplex::invertCramerSym(accErr_loc);
+      Chi2Similarity(res_loc, accErr_loc, *outChi2Acc);
     }
 
     /*

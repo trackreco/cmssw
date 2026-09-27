@@ -1414,6 +1414,12 @@ namespace mkfit {
   //   hit_rad    the flat per-hit tolerance, RADIANS (one phi bin = 0.024544);
   //              used only with the per-hit extent off, see val_phi_per_hit()
   //   extra_bins fetch safety margin beyond the cut, in WHOLE bins
+  void val_hit_chi2(float cut, float trk_fac) {
+    V2p2::Policy::hit_chi2_cut = cut;
+    V2p2::Policy::chi2_trk_fac = trk_fac;
+    printf("val_hit_chi2: cut %g, trk_fac %g\n", cut, trk_fac);
+  }
+
   void val_precut(bool q, bool phi) {
     V2p2::PreCut::q = q;
     V2p2::PreCut::phi = phi;

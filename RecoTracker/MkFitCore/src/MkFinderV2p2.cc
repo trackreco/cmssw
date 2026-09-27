@@ -1298,9 +1298,9 @@ namespace mkfit {
       }
 
 #ifdef MKFIT_TRACE
-      if (ptc.bChi2 < Policy::hit_chi2_cut || (Diag::force_mc && ptc.bIsMc)) {
+      if (ptc.bChi2Acc < Policy::hit_chi2_cut || (Diag::force_mc && ptc.bIsMc)) {
 #else
-      if (ptc.bChi2 < Policy::hit_chi2_cut) {
+      if (ptc.bChi2Acc < Policy::hit_chi2_cut) {
 #endif
         // XXXX Extra missed layer -- to check stuff / maxgrowth / scores etc
         // This is somewhat impure :)
@@ -1389,7 +1389,7 @@ namespace mkfit {
   void MkFinderV2p2::harvest_sec_nodes() {
     m_sec_harvested.clear();
     for (const auto &o : m_sec_out) {
-      if ( ! (o.chi2 < Policy::hit_chi2_cut))   // also rejects NaN
+      if ( ! (o.chi2_acc < Policy::hit_chi2_cut))   // also rejects NaN
         continue;
       SecTCandRep n;
       n.m_ptc        = o.ptc;

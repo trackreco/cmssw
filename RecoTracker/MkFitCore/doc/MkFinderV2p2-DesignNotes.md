@@ -577,6 +577,92 @@ fully recovered tracks 52.8 % to 82.4 %.
 F30 gains 39 found tracks. Before the line pre-cut, T100 build time with the
 search on was 60.79 s at cap 3 and 76.45 s at cap 4.
 
+## Kalman hit acceptance
+
+**Code:** `kalmanOperationPlaneLocal(..., outChi2Acc, accTrkScale2)`,
+`KalmanOpArgs::tsChi2Acc`, `harvest_sec_nodes()`, `process_kalman_results()`,
+`Policy::hit_chi2_cut`, `Policy::chi2_trk_fac`.
+
+**The cut.** A hit is accepted if
+
+```
+chi2_acc = r^T (chi2_trk_fac^2 * C_trk + C_hit)^-1 r  <  hit_chi2_cut
+```
+
+with r the residual and C_trk, C_hit the track and hit covariances, all in the
+module's local 2-D frame. Defaults: `chi2_trk_fac` 3, `hit_chi2_cut` 9.21, the
+99 % point of chi2 with 2 degrees of freedom. The Kalman update and the
+layer-step score use the plain chi2 with the unscaled covariance; only the
+accept/reject decision uses `chi2_acc`.
+
+**Why two factors.** The cut used to be the plain chi2 below a constant 30.
+That one number stood for two things: a probability, and compensation for a
+track covariance that is known to be too small, by 1.2-2x in sigma on the
+inward search and more above |eta| 1.6. The hit covariance comes from the
+cluster and matches the sensor pitch, so it is taken as it is. The factor on
+the track covariance carries the deficit, and the cut is left as a probability.
+The q window is split the same way, see "Search window".
+
+**Measured.** F30, paired against the plain chi2 < 30:
+
+| cut | chi2_trk_fac | d found | d fakes |
+|---|---|---|---|
+| 20 | 1 | -129 | +322 |
+| 13.8 | 1 | -382 | +781 |
+| 9.21 | 1 | -953 | +1612 |
+| 30 | 1.5 | +110 | -225 |
+| 13.8 | 2 | +95 | -187 |
+| 9.21 | 2 | +19 | -44 |
+| 20 | 2 | +115 | -233 |
+| 13.8 | 3 | +118 | -242 |
+| **9.21** | **3** | **+115** (8.3 sigma) | **-231** (12.3 sigma) |
+
+Lowering the plain chi2 cut loses tracks and adds fakes at every value, so the
+30 was compensating the covariance, not merely generous. With the track factor
+the gain saturates at 2-3. It sits at |eta| 1.5-2.5, where the phi pull is
+furthest from 1. The common-subset d(pT)/pT width does not move (0.02078 to
+0.02085).
+
+I50: chopped hits recovered 198340 to 200841 (93.8 % to 95.0 %), fully
+recovered tracks 39167 to 39798 (90.3 % to 91.8 %). True pixel-barrel hits on
+barrel-only tracks go from 96.6 % to 97.3 %, which is the one-hit-per-layer
+ceiling.
+
+**Time.** T100 on phi3 (Skylake-SP, `-mavx`), forward search, with F30 against
+the plain chi2 < 30:
+
+| cut | chi2_trk_fac | d found | d fakes | s | |
+|---|---|---|---|---|---|
+| 30 | 1 | | | 22.62 | |
+| 30 | 1.0001 | 0 | 0 | 22.66 | second chi2 only |
+| 13.8 | 1.5 | -5 | +19 | 22.60 | same physics |
+| 9.21 | 2 | +19 | -44 | 22.70 | +0.3 % |
+| 9.21 | 2.5 | +94 | -187 | 22.97 | +1.6 % |
+| 9.21 | 3 | +115 | -231 | 23.14 | +2.3 % |
+
+The second 2x2 chi2 costs 0.2 %. At the old physics the time is the old time:
+every pre-selected hit goes through the Kalman update either way, and the cut
+only decides which results become nodes. Time grows with the true hits kept.
+What reaches the Kalman is set upstream, by the window and the line pre-cut.
+
+**Tried and not taken.**
+- f a function of |eta| (a ramp from f_lo below 0.8 to 3 above 1.6): central
+  f_lo 1 / 1.5 / 2 costs -245 / -76 / -24 F30 found and -2240 / -538 / -164 I50
+  fully recovered tracks. The central region needs the full factor at the chi2
+  level, although the phi pull there is 1.25.
+- A separate f for the second and later hits within a layer: f 1.5 is a null
+  forward and -53 on I50, and it saves no time, since the cost is set by what
+  the first hit in the layer accepts.
+- The gain is flat in pT above 0.9 GeV, so it is not multiple scattering.
+- The hit covariance short instead of the track's
+  (h^2 C_hit, as f = 1/h at cut h^2 * 9.21): h 2 costs -776 F30 found and -6601
+  I50 fully recovered tracks. The deficit is on the track side.
+- f 4 and 5: within noise of 3 in both directions, so one value serves forward
+  and inward.
+
+The factor 3 is a compensation and should come down when the track covariance
+is fixed (the forward material model), as `Window::dphi_trk_fac` should.
+
 ## End-of-layer selection
 
 **Code:** `select_and_materialise()`, `offer_best_short()`, `SelEntry`.
