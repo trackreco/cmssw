@@ -85,6 +85,9 @@ namespace mkfit {
     extern bool refitBkwMsFixedMomentum;
     // refitBkwSubSteps: number of sub-steps of each propagation of the backward pass (1 = one step).
     extern int refitBkwSubSteps;
+    // refitMaterialPerModule: material of each crossed module from its own MediumProperties (ModuleInfo) instead
+    //   of the (|z|, r) grid.
+    extern bool refitMaterialPerModule;
 
     // Config for SelectHitIndices
     // Use extra arrays to store phi and q of hits.

@@ -732,7 +732,9 @@ namespace mkfit {
                                      MPlexQI& outFailFlag,
                                      const int N_proc,
                                      const PropagationFlags& pflags,
-                                     const MPlexQI* noMatEffPtr);
+                                     const MPlexQI* noMatEffPtr,
+                                     const MPlexQF* matRadl,
+                                     const MPlexQF* matBbxi);
 
   void propagateHelixToPlaneMPlex(const MPlexLS& inErr,
                                   const MPlexLV& inPar,
@@ -744,7 +746,9 @@ namespace mkfit {
                                   MPlexQI& outFailFlag,
                                   const int N_proc,
                                   const PropagationFlags& pflags,
-                                  const MPlexQI* noMatEffPtr) {
+                                  const MPlexQI* noMatEffPtr,
+                                  const MPlexQF* matRadl,
+                                  const MPlexQF* matBbxi) {
     // debug = true;
 
     outErr = inErr;
@@ -810,8 +814,19 @@ namespace mkfit {
     }
 #endif
 
-    finishPlanePropagation(
-        inErr, inPar, plNrm, errorProp, pathL, outErr, outPar, outFailFlag, N_proc, pflags, noMatEffPtr);
+    finishPlanePropagation(inErr,
+                           inPar,
+                           plNrm,
+                           errorProp,
+                           pathL,
+                           outErr,
+                           outPar,
+                           outFailFlag,
+                           N_proc,
+                           pflags,
+                           noMatEffPtr,
+                           matRadl,
+                           matBbxi);
   }
 
   static void finishPlanePropagation(const MPlexLS& inErr,
@@ -824,7 +839,9 @@ namespace mkfit {
                                      MPlexQI& outFailFlag,
                                      const int N_proc,
                                      const PropagationFlags& pflags,
-                                     const MPlexQI* noMatEffPtr) {
+                                     const MPlexQI* noMatEffPtr,
+                                     const MPlexQF* matRadl,
+                                     const MPlexQF* matBbxi) {
     // Matriplex version of:
     // result.errors = ROOT::Math::Similarity(errorProp, outErr);
     MPlexLL temp{0.0f};
@@ -876,6 +893,8 @@ namespace mkfit {
       MPlexQF propSign;
 
       const TrackerInfo& tinfo = *pflags.tracker_info;
+      // the crossed module's own material instead of the (|z|,r) grid (Config::refitMaterialPerModule)
+      const bool use_mod_mat = Config::refitMaterialPerModule && matRadl && matBbxi;
       // energy-loss sign from the fit pass (PropagationFlags::eloss_by_pass), else from the path-length sign
       const float passSign = pflags.eloss_outward ? 1.f : -1.f;
       const bool by_pass = pflags.eloss_by_pass;
@@ -889,10 +908,15 @@ namespace mkfit {
           hitsXi(n, 0, 0) = 0.f;
           propSign(n, 0, 0) = -1.f;
         } else {
-          const float hypo = hipo(outPar(n, 0, 0), outPar(n, 1, 0));
-          const auto mat = tinfo.material_checked(std::abs(outPar(n, 2, 0)), hypo);
-          hitsRl(n, 0, 0) = mat.radl;
-          hitsXi(n, 0, 0) = mat.bbxi;
+          if (use_mod_mat) {
+            hitsRl(n, 0, 0) = matRadl->constAt(n, 0, 0);
+            hitsXi(n, 0, 0) = matBbxi->constAt(n, 0, 0);
+          } else {
+            const float hypo = hipo(outPar(n, 0, 0), outPar(n, 1, 0));
+            const auto mat = tinfo.material_checked(std::abs(outPar(n, 2, 0)), hypo);
+            hitsRl(n, 0, 0) = mat.radl;
+            hitsXi(n, 0, 0) = mat.bbxi;
+          }
           propSign(n, 0, 0) = by_pass ? passSign : (pathL(n, 0, 0) > 0.f ? 1.f : -1.f);
         }
       }
@@ -1036,7 +1060,9 @@ namespace mkfit {
                                          const PropagationFlags& pflags,
                                          const int nSub,
                                          const bool* split,
-                                         const MPlexQI* noMatEffPtr) {
+                                         const MPlexQI* noMatEffPtr,
+                                         const MPlexQF* matRadl,
+                                         const MPlexQF* matBbxi) {
     namespace mpt = Matriplex;
     PropagationFlags pfs = pflags;
     pfs.apply_material = false;  // intermediate sub-steps: no material (it is applied at the destination)
@@ -1075,7 +1101,7 @@ namespace mkfit {
 
     outErr = inErr;
     finishPlanePropagation(
-        inErr, inPar, plNrm, errorProp, sTot, outErr, outPar, outFailFlag, N_proc, pflags, noMatEffPtr);
+        inErr, inPar, plNrm, errorProp, sTot, outErr, outPar, outFailFlag, N_proc, pflags, noMatEffPtr, matRadl, matBbxi);
   }
 
 }  // namespace mkfit

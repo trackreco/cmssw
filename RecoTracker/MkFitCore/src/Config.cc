@@ -17,6 +17,7 @@ namespace mkfit {
     bool refitElossSignFromPass = false;
     bool refitBkwMsFixedMomentum = false;
     int refitBkwSubSteps = 1;
+    bool refitMaterialPerModule = false;
 
     // Multi threading configuration
 #if defined(MKFIT_STANDALONE)

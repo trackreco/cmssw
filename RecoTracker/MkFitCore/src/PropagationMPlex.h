@@ -109,7 +109,11 @@ namespace mkfit {
                                   MPlexQI& outFailFlag,
                                   const int N_proc,
                                   const PropagationFlags& pflags,
-                                  const MPlexQI* noMatEffPtr = nullptr);
+                                  const MPlexQI* noMatEffPtr = nullptr,
+                                  // per-lane module material (Config::refitMaterialPerModule); when null or
+                                  // disabled the (|z|,r) grid is used
+                                  const MPlexQF* matRadl = nullptr,
+                                  const MPlexQF* matBbxi = nullptr);
 
   // Propagation to a plane in nSub sub-steps (parameters only; covariance with the whole-step Jacobian; material
   // at the destination).  split[n] = false keeps lane n as one step (nullptr = split all lanes).
@@ -125,7 +129,9 @@ namespace mkfit {
                                          const PropagationFlags& pflags,
                                          const int nSub,
                                          const bool* split = nullptr,
-                                         const MPlexQI* noMatEffPtr = nullptr);
+                                         const MPlexQI* noMatEffPtr = nullptr,
+                                         const MPlexQF* matRadl = nullptr,
+                                         const MPlexQF* matBbxi = nullptr);
 
   // Common functions: PropagationMPlexCommon.cc
 

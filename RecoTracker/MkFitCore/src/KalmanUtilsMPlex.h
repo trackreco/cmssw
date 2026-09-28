@@ -169,7 +169,9 @@ namespace mkfit {
                                             const bool propToHit,
                                             const MPlexQI* noMatEffPtr = nullptr,
                                             const MPlexQI* doCPE = nullptr,
-                                            cpe_func cpe_corr_func = nullptr);
+                                            cpe_func cpe_corr_func = nullptr,
+                                            const MPlexQF* matRadl = nullptr,
+                                            const MPlexQF* matBbxi = nullptr);
 
   void kalmanComputeChi2Plane(const MPlexLS& psErr,
                               const MPlexLV& psPar,

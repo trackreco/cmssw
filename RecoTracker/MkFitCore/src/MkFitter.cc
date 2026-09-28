@@ -220,6 +220,7 @@ namespace mkfit {
     MPlexLV propPar;
 
     MPlexHV norm, dir, pnt;
+    MPlexQF mat_radl{0.0f}, mat_bbxi{0.0f};  // per-module material (Config::refitMaterialPerModule)
 
     MPlexQI no_mat_effs;
     MPlexQI do_cpe;
@@ -296,6 +297,8 @@ namespace mkfit {
           pnt.At(i, 0, 0) = mi.pos[0];
           pnt.At(i, 1, 0) = mi.pos[1];
           pnt.At(i, 2, 0) = mi.pos[2];
+          mat_radl.At(i, 0, 0) = mi.radl;
+          mat_bbxi.At(i, 0, 0) = mi.bbxi;
 #ifdef DEBUG_FIT
           std::cout << "mi.pos[0] " << mi.pos[0] << " mi.pos[1] " << mi.pos[1] << " mi.pos[2] " << mi.pos[2]
                     << std::endl;
@@ -352,7 +355,9 @@ namespace mkfit {
                                            propHit,
                                            &no_mat_effs,
                                            &do_cpe,
-                                           m_cpe_corr_func);
+                                           m_cpe_corr_func,
+                                           &mat_radl,
+                                           &mat_bbxi);
 
 #ifdef DEBUG_FIT
       std::cout << " i1 " << i1 << " iP " << iP << " iC " << iC << std::endl;
@@ -392,6 +397,7 @@ namespace mkfit {
     MPlexLV propPar;
 
     MPlexHV norm, dir, pnt;
+    MPlexQF mat_radl{0.0f}, mat_bbxi{0.0f};  // per-module material (Config::refitMaterialPerModule)
 
     MPlexQI no_mat_effs;
     MPlexQI do_cpe;
@@ -477,6 +483,8 @@ namespace mkfit {
           pnt.At(i, 0, 0) = mi.pos[0];
           pnt.At(i, 1, 0) = mi.pos[1];
           pnt.At(i, 2, 0) = mi.pos[2];
+          mat_radl.At(i, 0, 0) = mi.radl;
+          mat_bbxi.At(i, 0, 0) = mi.bbxi;
 #ifdef DEBUG_FIT_BKW
           std::cout << "mi.pos[0] " << mi.pos[0] << " mi.pos[1] " << mi.pos[1] << " mi.pos[2] " << mi.pos[2]
                     << std::endl;
@@ -547,7 +555,9 @@ namespace mkfit {
                                           bk_flags,
                                           Config::refitBkwSubSteps,
                                           splitLane,
-                                          &no_mat_effs);
+                                          &no_mat_effs,
+                                          &mat_radl,
+                                          &mat_bbxi);
         kalmanPropagateAndUpdateAndChi2Plane(propErr,
                                              propPar,
                                              m_Chg,
@@ -565,7 +575,9 @@ namespace mkfit {
                                              false,  // already propagated
                                              &no_mat_effs,
                                              &do_cpe,
-                                             m_cpe_corr_func);
+                                             m_cpe_corr_func,
+                                             &mat_radl,
+                                             &mat_bbxi);
       } else
         kalmanPropagateAndUpdateAndChi2Plane(m_Err[i1],
                                              m_Par[i1],
@@ -584,7 +596,9 @@ namespace mkfit {
                                              propHit,
                                              &no_mat_effs,
                                              &do_cpe,
-                                             m_cpe_corr_func);
+                                             m_cpe_corr_func,
+                                             &mat_radl,
+                                             &mat_bbxi);
 
 #ifdef DEBUG_FIT_BKW
       std::cout << " i1 " << i1 << " iP " << iP << " iC " << iC << std::endl;
