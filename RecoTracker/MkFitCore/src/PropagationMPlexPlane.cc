@@ -850,7 +850,7 @@ namespace mkfit {
           propSign(n, 0, 0) = by_pass ? passSign : (pathL(n, 0, 0) > 0.f ? 1.f : -1.f);
         }
       }
-      applyMaterialEffects(hitsRl, hitsXi, propSign, plNrm, outErr, outPar, N_proc);
+      applyMaterialEffects(hitsRl, hitsXi, propSign, plNrm, outErr, outPar, N_proc, pflags.ms_ref_p);
 #ifdef DEBUG
       if (debug && g_debug) {
         for (int kk = 0; kk < N_proc; ++kk) {

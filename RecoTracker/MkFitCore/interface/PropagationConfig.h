@@ -19,6 +19,9 @@ namespace mkfit {
   class PropagationFlags {
   public:
     const TrackerInfo *tracker_info = nullptr;  // back-pointer for easy passing into low-level funcs
+    // Optional per-lane |p| [GeV] at which the multiple-scattering noise (theta0 and beta) is evaluated in
+    // propagation to plane, instead of at the propagated state's own momentum.  nullptr = running estimate.
+    const float *ms_ref_p = nullptr;
     bool use_param_b_field : 1;
     bool apply_material : 1;
     bool copy_input_state_on_fail : 1;

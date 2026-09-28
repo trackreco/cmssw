@@ -80,6 +80,9 @@ namespace mkfit {
     // refitElossSignFromPass: sign of the energy loss from the pass (forward loses, backward gains) instead of
     //   from the sign of each step's path length, which is wrong on every step the refit takes backwards.
     extern bool refitElossSignFromPass;
+    // refitBkwMsFixedMomentum: multiple-scattering noise of the backward pass at the momentum of its start
+    //   state (the forward result), fixed per track, instead of at the running estimate.
+    extern bool refitBkwMsFixedMomentum;
 
     // Config for SelectHitIndices
     // Use extra arrays to store phi and q of hits.

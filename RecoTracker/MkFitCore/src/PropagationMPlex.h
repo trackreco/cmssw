@@ -119,7 +119,8 @@ namespace mkfit {
                             const MPlexHV& plNrm,
                             MPlexLS& outErr,
                             MPlexLV& outPar,
-                            const int N_proc);
+                            const int N_proc,
+                            const float* msRefP = nullptr);  // see PropagationFlags::ms_ref_p
 
   void MultHelixPropFull(const MPlexLL& A, const MPlexLS& B, MPlexLL& C);
   void MultHelixPropTranspFull(const MPlexLL& A, const MPlexLL& B, MPlexLS& C);
