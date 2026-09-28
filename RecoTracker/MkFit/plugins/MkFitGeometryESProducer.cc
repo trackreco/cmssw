@@ -111,6 +111,7 @@ private:
   bool refitRadialFieldCorr_;
   bool refitElossSignFromPass_;
   bool refitBkwMsFixedMomentum_;
+  int refitBkwSubSteps_;
 };
 
 MkFitGeometryESProducer::MkFitGeometryESProducer(const edm::ParameterSet &iConfig) {
@@ -125,6 +126,9 @@ MkFitGeometryESProducer::MkFitGeometryESProducer(const edm::ParameterSet &iConfi
   refitRadialFieldCorr_ = iConfig.getParameter<bool>("refitRadialFieldCorr");
   refitElossSignFromPass_ = iConfig.getParameter<bool>("refitElossSignFromPass");
   refitBkwMsFixedMomentum_ = iConfig.getParameter<bool>("refitBkwMsFixedMomentum");
+  refitBkwSubSteps_ = iConfig.getParameter<int>("refitBkwSubSteps");
+  if (refitBkwSubSteps_ < 1)
+    throw cms::Exception("Configuration") << "refitBkwSubSteps must be >= 1";
 }
 
 void MkFitGeometryESProducer::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
@@ -151,6 +155,10 @@ void MkFitGeometryESProducer::fillDescriptions(edm::ConfigurationDescriptions &d
       ->setComment(
           "refit only: multiple-scattering noise of the backward pass at the momentum of its start state (the "
           "forward result), fixed per track, instead of at the running estimate");
+  desc.add<int>("refitBkwSubSteps", 2)
+      ->setComment(
+          "refit only: number of sub-steps of each propagation of the backward pass (fixed path length, parameters "
+          "only, covariance with the whole-step Jacobian); 1 = one step");
   descriptions.addWithDefaultLabel(desc);
 }
 
@@ -715,6 +723,7 @@ std::unique_ptr<MkFitGeometry> MkFitGeometryESProducer::produce(const TrackerRec
     Config::refitRadialFieldCorr = refitRadialFieldCorr_;
     Config::refitElossSignFromPass = refitElossSignFromPass_;
     Config::refitBkwMsFixedMomentum = refitBkwMsFixedMomentum_;
+    Config::refitBkwSubSteps = refitBkwSubSteps_;
     pconf.pca_prop_pflags = PropagationFlags(PF_none);
     pconf.apply_tracker_info(trackerInfo.get());
   }

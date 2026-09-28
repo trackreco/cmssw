@@ -111,6 +111,22 @@ namespace mkfit {
                                   const PropagationFlags& pflags,
                                   const MPlexQI* noMatEffPtr = nullptr);
 
+  // Propagation to a plane in nSub sub-steps (parameters only; covariance with the whole-step Jacobian; material
+  // at the destination).  split[n] = false keeps lane n as one step (nullptr = split all lanes).
+  void propagateHelixToPlaneSubStepMPlex(const MPlexLS& inErr,
+                                         const MPlexLV& inPar,
+                                         const MPlexQI& inChg,
+                                         const MPlexHV& plPnt,
+                                         const MPlexHV& plNrm,
+                                         MPlexLS& outErr,
+                                         MPlexLV& outPar,
+                                         MPlexQI& outFailFlag,
+                                         const int N_proc,
+                                         const PropagationFlags& pflags,
+                                         const int nSub,
+                                         const bool* split = nullptr,
+                                         const MPlexQI* noMatEffPtr = nullptr);
+
   // Common functions: PropagationMPlexCommon.cc
 
   void applyMaterialEffects(const MPlexQF& hitsRl,

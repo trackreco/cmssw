@@ -665,16 +665,19 @@ namespace {
 
 namespace mkfit {
 
-  void helixAtPlane(const MPlexLV& inPar,
-                    const MPlexQI& inChg,
-                    const MPlexHV& plPnt,
-                    const MPlexHV& plNrm,
-                    MPlexQF& pathL,
-                    MPlexLV& outPar,
-                    MPlexLL& errorProp,
-                    MPlexQI& outFailFlag,
-                    const int N_proc,
-                    const PropagationFlags& pflags) {
+  // helixAtPlane with the choice of skipping the Jacobian (want_err = false: parameters only, the same outPar),
+  // for the intermediate sub-steps of propagateHelixToPlaneSubStepMPlex.
+  static void helixAtPlaneSel(const MPlexLV& inPar,
+                              const MPlexQI& inChg,
+                              const MPlexHV& plPnt,
+                              const MPlexHV& plNrm,
+                              MPlexQF& pathL,
+                              MPlexLV& outPar,
+                              MPlexLL& errorProp,
+                              MPlexQI& outFailFlag,
+                              const int N_proc,
+                              const PropagationFlags& pflags,
+                              const bool want_err) {
     errorProp.setVal(0.f);
     outFailFlag.setVal(0.f);
 
@@ -695,13 +698,41 @@ namespace mkfit {
       const MPlexQF halfD = 0.5f * brDeltaRPphiV(inPar, par0, inChg);
       MPlexLV parH = inPar;
       applyDpPhiV(parH, halfD, N_proc);
-      helixAtPlane_impl(parH, inChg, plPnt, plNrm, pathL, outPar, errorProp, outFailFlag, N_proc, pf0);
+      helixAtPlane_impl(parH, inChg, plPnt, plNrm, pathL, outPar, errorProp, outFailFlag, N_proc, pf0, want_err);
       applyDpPhiV(outPar, halfD, N_proc);
       return;
     }
 
-    helixAtPlane_impl(inPar, inChg, plPnt, plNrm, pathL, outPar, errorProp, outFailFlag, N_proc, pflags);
+    helixAtPlane_impl(inPar, inChg, plPnt, plNrm, pathL, outPar, errorProp, outFailFlag, N_proc, pflags, want_err);
   }
+
+  void helixAtPlane(const MPlexLV& inPar,
+                    const MPlexQI& inChg,
+                    const MPlexHV& plPnt,
+                    const MPlexHV& plNrm,
+                    MPlexQF& pathL,
+                    MPlexLV& outPar,
+                    MPlexLL& errorProp,
+                    MPlexQI& outFailFlag,
+                    const int N_proc,
+                    const PropagationFlags& pflags) {
+    helixAtPlaneSel(inPar, inChg, plPnt, plNrm, pathL, outPar, errorProp, outFailFlag, N_proc, pflags, true);
+  }
+
+  // The part of a propagation to a plane after the transport: 6x6 error similarity with errorProp (outErr must hold
+  // the error to transport on entry), material at the destination, phi squash, restore the input on failure.
+  // Shared by propagateHelixToPlaneMPlex and propagateHelixToPlaneSubStepMPlex so the two cannot drift apart.
+  static void finishPlanePropagation(const MPlexLS& inErr,
+                                     const MPlexLV& inPar,
+                                     const MPlexHV& plNrm,
+                                     const MPlexLL& errorProp,
+                                     const MPlexQF& pathL,
+                                     MPlexLS& outErr,
+                                     MPlexLV& outPar,
+                                     MPlexQI& outFailFlag,
+                                     const int N_proc,
+                                     const PropagationFlags& pflags,
+                                     const MPlexQI* noMatEffPtr);
 
   void propagateHelixToPlaneMPlex(const MPlexLS& inErr,
                                   const MPlexLV& inPar,
@@ -779,6 +810,21 @@ namespace mkfit {
     }
 #endif
 
+    finishPlanePropagation(
+        inErr, inPar, plNrm, errorProp, pathL, outErr, outPar, outFailFlag, N_proc, pflags, noMatEffPtr);
+  }
+
+  static void finishPlanePropagation(const MPlexLS& inErr,
+                                     const MPlexLV& inPar,
+                                     const MPlexHV& plNrm,
+                                     const MPlexLL& errorProp,
+                                     const MPlexQF& pathL,
+                                     MPlexLS& outErr,
+                                     MPlexLV& outPar,
+                                     MPlexQI& outFailFlag,
+                                     const int N_proc,
+                                     const PropagationFlags& pflags,
+                                     const MPlexQI* noMatEffPtr) {
     // Matriplex version of:
     // result.errors = ROOT::Math::Similarity(errorProp, outErr);
     MPlexLL temp{0.0f};
@@ -888,6 +934,148 @@ namespace mkfit {
       }
     }
     // }
+  }
+
+  // ============================================================================
+  // Sub-stepped propagation to a plane (refit backward pass, Config::refitBkwSubSteps; MkFitter).
+  //
+  // One propagation over a long step mis-bends near the solenoid ends: B is sampled once (at the chord midpoint)
+  // and the radial-field correction is applied only at the two ends, which is exact only to second order in the
+  // step length.  nSub sub-steps remove 1 - 1/nSub^2 of that error.  Only the parameters need the sub-steps:
+  //   nSub-1 drifts of fixed path length s0/nSub (s0 = the first path-length estimate to the destination plane),
+  //   each with the same field model as a full step (midpoint B, radial-field half-kicks), no plane solve; the
+  //   last sub-step lands on the plane with the full solve.
+  // The covariance is transported once, with the Jacobian of the whole step (the same one-step transport as without
+  // sub-stepping), and material is applied at the destination only, as before.  split[n] = false keeps lane n as
+  // one step (zero-length intermediate sub-steps).
+
+  // First path-length estimate to the plane: the starting value of helixAtPlane_impl's solve (exact in z for disks),
+  // straight line if that is not finite.  Only partitions the step -- the last sub-step lands with the full solve.
+  static MPlexQF firstPathEstimate(const MPlexLV& inPar,
+                                   const MPlexQI& inChg,
+                                   const MPlexHV& plPnt,
+                                   const MPlexHV& plNrm,
+                                   const int N_proc,
+                                   const PropagationFlags& pf) {
+    namespace mpt = Matriplex;
+    const MPlexQF kSign = mpt::negate_if_ltz(MPlexQF(-Const::sol_over_100), inChg);
+    const MPlexQF bFld =
+        pf.use_param_b_field ? getBFieldFromZXY(inPar(2, 0), inPar(0, 0), inPar(1, 0)) : MPlexQF(Config::Bfield);
+    const MPlexQF kinv = kSign * bFld;
+    MPlexQF sinP, cosP, sinT, cosT;
+    mpt::fast_sincos(inPar(4, 0), sinP, cosP);
+    mpt::fast_sincos(inPar(5, 0), sinT, cosT);
+    MPlexQF s0{0.0f};
+    for (int n = 0; n < N_proc; ++n) {
+      const float d0 = inPar.constAt(n, 0, 0) - plPnt.constAt(n, 0, 0);
+      const float d1 = inPar.constAt(n, 1, 0) - plPnt.constAt(n, 1, 0);
+      const float d2 = inPar.constAt(n, 2, 0) - plPnt.constAt(n, 2, 0);
+      const float e0 = plNrm.constAt(n, 0, 0), e1 = plNrm.constAt(n, 1, 0), e2 = plNrm.constAt(n, 2, 0);
+      float s = std::abs(e2) < 1.f ? getS(d0,
+                                          d1,
+                                          d2,
+                                          e0,
+                                          e1,
+                                          e2,
+                                          sinP[n],
+                                          cosP[n],
+                                          sinT[n],
+                                          cosT[n],
+                                          inPar.constAt(n, 3, 0),
+                                          inChg.constAt(n, 0, 0),
+                                          kinv[n])
+                                   : (plPnt.constAt(n, 2, 0) - inPar.constAt(n, 2, 0)) / cosT[n];
+      if (!mkfit::isFinite(s))
+        s = -(e0 * d0 + e1 * d1 + e2 * d2) / (e0 * cosP[n] * sinT[n] + e1 * sinP[n] * sinT[n] + e2 * cosT[n]);
+      s0[n] = mkfit::isFinite(s) ? s : 0.f;
+    }
+    return s0;
+  }
+
+  // One fixed-length sub-step of path length h (per lane; 0 = no move), parameters only, with the same field model
+  // as a propagation to a plane: predictor drift with B at the start, re-drift with B at the chord midpoint
+  // (b_field_at_mid), radial-field half-kicks D/(2 r0) before and D/(2 r1) after the drift (radial_field_corr; D
+  // between the uncorrected endpoints).  The kicked drift reuses the midpoint field (the kick moves the chord
+  // midpoint only at second order).
+  static void fixedLengthSubStep(MPlexLV& par,
+                                 const MPlexQI& inChg,
+                                 const MPlexQF& kSign,
+                                 const MPlexQF& h,
+                                 const int N_proc,
+                                 const PropagationFlags& pf) {
+    const MPlexLV& p0 = par;
+    MPlexQF kinv =
+        kSign * (pf.use_param_b_field ? getBFieldFromZXY(p0(2, 0), p0(0, 0), p0(1, 0)) : MPlexQF(Config::Bfield));
+    MPlexLV p1{0.0f};
+    parsFromPathL_impl(p0, p1, kinv, h);
+    if (pf.use_param_b_field && pf.b_field_at_mid) {
+      kinv = kSign *
+             getBFieldFromZXY(0.5f * (p0(2, 0) + p1(2, 0)), 0.5f * (p0(0, 0) + p1(0, 0)), 0.5f * (p0(1, 0) + p1(1, 0)));
+      parsFromPathL_impl(p0, p1, kinv, h);
+    }
+    if (pf.use_param_b_field && pf.radial_field_corr) {
+      const MPlexQF dvec = brDeltaRPphiV(p0, p1, inChg);
+      MPlexLV ph = p0;
+      applyDpPhiV(ph, 0.5f * dvec, N_proc);
+      parsFromPathL_impl(ph, p1, kinv, h);
+      applyDpPhiV(p1, 0.5f * dvec, N_proc);
+    }
+    squashPhiMPlex(p1, N_proc);
+    par = p1;
+  }
+
+  void propagateHelixToPlaneSubStepMPlex(const MPlexLS& inErr,
+                                         const MPlexLV& inPar,
+                                         const MPlexQI& inChg,
+                                         const MPlexHV& plPnt,
+                                         const MPlexHV& plNrm,
+                                         MPlexLS& outErr,
+                                         MPlexLV& outPar,
+                                         MPlexQI& outFailFlag,
+                                         const int N_proc,
+                                         const PropagationFlags& pflags,
+                                         const int nSub,
+                                         const bool* split,
+                                         const MPlexQI* noMatEffPtr) {
+    namespace mpt = Matriplex;
+    PropagationFlags pfs = pflags;
+    pfs.apply_material = false;  // intermediate sub-steps: no material (it is applied at the destination)
+    outFailFlag.setVal(0);
+    MPlexQI ff{0};
+    MPlexLL epDummy{0.0f};
+    MPlexQF pl{0.0f}, sTot{0.0f};
+    MPlexLV par = inPar;
+    const MPlexQF kSign = mpt::negate_if_ltz(MPlexQF(-Const::sol_over_100), inChg);
+
+    MPlexQF h = firstPathEstimate(par, inChg, plPnt, plNrm, N_proc, pflags);
+    for (int n = 0; n < NN; ++n)
+      h[n] = (n < N_proc && (split == nullptr || split[n])) ? h[n] / nSub : 0.f;
+    for (int ks = 1; ks < nSub; ++ks) {
+      fixedLengthSubStep(par, inChg, kSign, h, N_proc, pfs);
+      sTot = sTot + h;
+    }
+
+    // last sub-step onto the destination plane, parameters only
+    helixAtPlaneSel(par, inChg, plPnt, plNrm, pl, outPar, epDummy, ff, N_proc, pfs, false);
+    for (int n = 0; n < N_proc; ++n)
+      if (ff.constAt(n, 0, 0))
+        outFailFlag.At(n, 0, 0) = 1;
+    sTot = sTot + pl;
+
+    // whole-step Jacobian: from the step start over the accumulated path length, with the field of the step
+    // (chord midpoint with b_field_at_mid) -- i.e. the one-step transport
+    const MPlexQF bW = !pflags.use_param_b_field ? MPlexQF(Config::Bfield)
+                       : pflags.b_field_at_mid   ? getBFieldFromZXY(0.5f * (inPar(2, 0) + outPar(2, 0)),
+                                                                  0.5f * (inPar(0, 0) + outPar(0, 0)),
+                                                                  0.5f * (inPar(1, 0) + outPar(1, 0)))
+                                                 : getBFieldFromZXY(inPar(2, 0), inPar(0, 0), inPar(1, 0));
+    MPlexLV parJ{0.0f};
+    MPlexLL errorProp{0.0f};
+    parsAndErrPropFromPathL_impl(inPar, inChg, parJ, kSign * bW, bW, sTot, errorProp, N_proc, pflags);
+
+    outErr = inErr;
+    finishPlanePropagation(
+        inErr, inPar, plNrm, errorProp, sTot, outErr, outPar, outFailFlag, N_proc, pflags, noMatEffPtr);
   }
 
 }  // namespace mkfit

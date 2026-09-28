@@ -516,24 +516,75 @@ namespace mkfit {
       }
 #endif
 
-      kalmanPropagateAndUpdateAndChi2Plane(m_Err[i1],
-                                           m_Par[i1],
-                                           m_Chg,
-                                           m_msErr,
-                                           m_msPar,
-                                           norm,
-                                           dir,
-                                           pnt,
-                                           m_Err[i2],
-                                           m_Par[i2],
-                                           m_FailFlag,
-                                           outChi2,
-                                           N_proc,
-                                           bk_flags,
-                                           propHit,
-                                           &no_mat_effs,
-                                           &do_cpe,
-                                           m_cpe_corr_func);
+      // Config::refitBkwSubSteps > 1: propagate in that many sub-steps (parameters only, whole-step Jacobian; see
+      // propagateHelixToPlaneSubStepMPlex), then update.  A single propagation over a long step mis-bends by up
+      // to ~0.3 % near the solenoid ends, which the fit absorbs as a pT-low bias at |eta| 1.2-2.5.
+      bool subProp = false;
+      bool splitLane[NN] = {false};
+      if (propHit && Config::refitBkwSubSteps > 1) {
+        for (int i = 0; i < N_proc; ++i) {
+          const float d = (pnt.constAt(i, 0, 0) - m_Par[i1].constAt(i, 0, 0)) * norm.constAt(i, 0, 0) +
+                          (pnt.constAt(i, 1, 0) - m_Par[i1].constAt(i, 1, 0)) * norm.constAt(i, 1, 0) +
+                          (pnt.constAt(i, 2, 0) - m_Par[i1].constAt(i, 2, 0)) * norm.constAt(i, 2, 0);
+          if (d != 0.f) {
+            splitLane[i] = true;
+            subProp = true;
+          }
+        }
+      }
+      if (subProp) {
+        MPlexLS propErr;
+        MPlexLV propPar;
+        propagateHelixToPlaneSubStepMPlex(m_Err[i1],
+                                          m_Par[i1],
+                                          m_Chg,
+                                          pnt,
+                                          norm,
+                                          propErr,
+                                          propPar,
+                                          m_FailFlag,
+                                          N_proc,
+                                          bk_flags,
+                                          Config::refitBkwSubSteps,
+                                          splitLane,
+                                          &no_mat_effs);
+        kalmanPropagateAndUpdateAndChi2Plane(propErr,
+                                             propPar,
+                                             m_Chg,
+                                             m_msErr,
+                                             m_msPar,
+                                             norm,
+                                             dir,
+                                             pnt,
+                                             m_Err[i2],
+                                             m_Par[i2],
+                                             m_FailFlag,
+                                             outChi2,
+                                             N_proc,
+                                             bk_flags,
+                                             false,  // already propagated
+                                             &no_mat_effs,
+                                             &do_cpe,
+                                             m_cpe_corr_func);
+      } else
+        kalmanPropagateAndUpdateAndChi2Plane(m_Err[i1],
+                                             m_Par[i1],
+                                             m_Chg,
+                                             m_msErr,
+                                             m_msPar,
+                                             norm,
+                                             dir,
+                                             pnt,
+                                             m_Err[i2],
+                                             m_Par[i2],
+                                             m_FailFlag,
+                                             outChi2,
+                                             N_proc,
+                                             bk_flags,
+                                             propHit,
+                                             &no_mat_effs,
+                                             &do_cpe,
+                                             m_cpe_corr_func);
 
 #ifdef DEBUG_FIT_BKW
       std::cout << " i1 " << i1 << " iP " << iP << " iC " << iC << std::endl;

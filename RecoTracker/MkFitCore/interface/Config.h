@@ -83,6 +83,8 @@ namespace mkfit {
     // refitBkwMsFixedMomentum: multiple-scattering noise of the backward pass at the momentum of its start
     //   state (the forward result), fixed per track, instead of at the running estimate.
     extern bool refitBkwMsFixedMomentum;
+    // refitBkwSubSteps: number of sub-steps of each propagation of the backward pass (1 = one step).
+    extern int refitBkwSubSteps;
 
     // Config for SelectHitIndices
     // Use extra arrays to store phi and q of hits.

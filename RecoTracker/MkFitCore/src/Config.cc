@@ -16,6 +16,7 @@ namespace mkfit {
     bool refitRadialFieldCorr = false;
     bool refitElossSignFromPass = false;
     bool refitBkwMsFixedMomentum = false;
+    int refitBkwSubSteps = 1;
 
     // Multi threading configuration
 #if defined(MKFIT_STANDALONE)
