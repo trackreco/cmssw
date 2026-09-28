@@ -1437,7 +1437,11 @@ namespace mkfit {
                              std::map<int, std::vector<int>> *remap) {
     //could be wrapped into some setup_fit
     const TrackerInfo &ti = m_job->m_trk_info;
-    PropagationFlags my_flags = PropagationFlags(PF_use_param_b_field | PF_apply_material);
+    // The field-model fixes are enabled for the final fit only: propagateHelixToPlaneMPlex is also used in
+    // building, where they would change which hits are found (efficiency, fakes, HLT timing).
+    PropagationFlags my_flags = PropagationFlags(PF_use_param_b_field | PF_apply_material |
+                                                 (Config::refitBFieldAtMid ? PF_b_field_at_mid : PF_none) |
+                                                 (Config::refitRadialFieldCorr ? PF_radial_field_corr : PF_none));
     my_flags.tracker_info = &ti;
     //clean at the end
     mkfitter->refit_flags = &my_flags;
