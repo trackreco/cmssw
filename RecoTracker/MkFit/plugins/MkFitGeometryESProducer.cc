@@ -315,6 +315,23 @@ void MkFitGeometryESProducer::fillShapeAndPlacement(const GeomDet *det,
     (*lgc_map)[lay].add_current();
   }
 
+  // The material histogram below is filled over the module's r-z bounding box, but
+  // TrackerInfo::material_checked() is later queried at the point where the track
+  // crosses the module.  The four corners sampled above do not bound that point:
+  // for a barrel module r is *minimal* along the local x=0 line, and for a
+  // trapezoidal endcap module the smallest r is the midpoint of the short edge.
+  // Sampling only the corners therefore biases the deposit outward in r, and when
+  // a bin boundary falls in between the crossed bin is left empty -- material_checked()
+  // then returns zero material, i.e. no energy loss and no multiple scattering, for
+  // perfectly good hits.  Add the x=0 edge midpoints to the material box to close this.
+  // Note: deliberately not passed to considerPoint(), so the layer bounding boxes --
+  // to which mkFit's hit/miss logic is tuned -- stay bit-for-bit unchanged.
+  for (const float y_mid : {xy[0][1], xy[1][1]}) {
+    for (const float z_mid : {-dz, dz}) {
+      findRZBox(det->surface().toGlobal(Local3DPoint(0.f, y_mid, z_mid)), rbox_min, rbox_max, zbox_min, zbox_max);
+    }
+  }
+
   // Double-sided module (join of two modules) information is not used in mkFit and
   // also not needed for the material calculation.
   // NOTE: This check should actually be performed even before the bounding box calculation
@@ -617,6 +634,25 @@ std::unique_ptr<MkFitGeometry> MkFitGeometryESProducer::produce(const TrackerRec
   // Material grid
   aggregateMaterialInfo(*trackerInfo, material_histogram);
   fillLayers(*trackerInfo);
+
+  // Safety net: every module must resolve to non-zero material through the very same
+  // lookup the propagator uses.  A zero here is silent in reco -- applyMaterialEffects()
+  // simply skips the hit -- so make it loud at geometry-build time instead.
+  {
+    unsigned int n_zero = 0;
+    for (const auto &det : trackerGeom_->dets()) {
+      const auto &mp = det->surface().mediumProperties();
+      if (!mp.isValid() || mp.xi() <= 0.f)
+        continue;
+      const auto &p = det->position();
+      if (trackerInfo->material_checked(std::abs(p.z()), p.perp()).bbxi <= 0.f)
+        ++n_zero;
+    }
+    if (n_zero > 0)
+      edm::LogWarning("MkFitGeometryESProducer")
+          << n_zero << " modules with material resolve to zero in the mkFit material grid; "
+          << "tracks through them will get no energy loss and no multiple scattering.";
+  }
 
   // Propagation configuration
   {
