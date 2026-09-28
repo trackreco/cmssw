@@ -55,6 +55,7 @@ namespace mkfit {
 
     const Event *m_event = nullptr;
     const PropagationFlags *refit_flags = nullptr;
+    const PropagationFlags *refit_flags_bk = nullptr;  // backward pass; nullptr = refit_flags
     cpe_func m_cpe_corr_func = nullptr;
   };
 

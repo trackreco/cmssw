@@ -1443,8 +1443,18 @@ namespace mkfit {
                                                  (Config::refitBFieldAtMid ? PF_b_field_at_mid : PF_none) |
                                                  (Config::refitRadialFieldCorr ? PF_radial_field_corr : PF_none));
     my_flags.tracker_info = &ti;
+    // Energy-loss sign from the pass (Config::refitElossSignFromPass): the forward pass loses energy on every
+    // step, the backward pass gains it, whatever order the refit visits the modules in.
+    PropagationFlags my_flags_bk = my_flags;
+    if (Config::refitElossSignFromPass) {
+      my_flags.eloss_by_pass = true;
+      my_flags.eloss_outward = true;
+      my_flags_bk.eloss_by_pass = true;
+      my_flags_bk.eloss_outward = false;
+    }
     //clean at the end
     mkfitter->refit_flags = &my_flags;
+    mkfitter->refit_flags_bk = &my_flags_bk;
     mkfitter->set_cpe(m_job->m_cpe_corr_func);
 
     mkfitter->m_event = m_event;

@@ -109,6 +109,7 @@ private:
   std::vector<double> bFieldParams_;
   bool refitBFieldAtMid_;
   bool refitRadialFieldCorr_;
+  bool refitElossSignFromPass_;
 };
 
 MkFitGeometryESProducer::MkFitGeometryESProducer(const edm::ParameterSet &iConfig) {
@@ -121,6 +122,7 @@ MkFitGeometryESProducer::MkFitGeometryESProducer(const edm::ParameterSet &iConfi
     throw cms::Exception("Configuration") << "bFieldParams needs 4 values {c1, b0, b1, a}";
   refitBFieldAtMid_ = iConfig.getParameter<bool>("refitBFieldAtMid");
   refitRadialFieldCorr_ = iConfig.getParameter<bool>("refitRadialFieldCorr");
+  refitElossSignFromPass_ = iConfig.getParameter<bool>("refitElossSignFromPass");
 }
 
 void MkFitGeometryESProducer::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
@@ -139,6 +141,10 @@ void MkFitGeometryESProducer::fillDescriptions(edm::ConfigurationDescriptions &d
       ->setComment(
           "refit only: correct each propagate-to-plane step for the radial field Br = -(r/2) dBz/dz, "
           "antisymmetrically (half of the change in r*p_phi at each end of the step)");
+  desc.add<bool>("refitElossSignFromPass", true)
+      ->setComment(
+          "refit only: energy-loss sign from the pass (forward loses, backward gains) instead of from each step's "
+          "path-length sign, which is wrong wherever the refit visits two modules in reverse order");
   descriptions.addWithDefaultLabel(desc);
 }
 
@@ -701,6 +707,7 @@ std::unique_ptr<MkFitGeometry> MkFitGeometryESProducer::produce(const TrackerRec
     // the refit (MkBuilder::fit_tracks) builds its own flags from these
     Config::refitBFieldAtMid = refitBFieldAtMid_;
     Config::refitRadialFieldCorr = refitRadialFieldCorr_;
+    Config::refitElossSignFromPass = refitElossSignFromPass_;
     pconf.pca_prop_pflags = PropagationFlags(PF_none);
     pconf.apply_tracker_info(trackerInfo.get());
   }

@@ -14,6 +14,7 @@ namespace mkfit {
 
     bool refitBFieldAtMid = false;
     bool refitRadialFieldCorr = false;
+    bool refitElossSignFromPass = false;
 
     // Multi threading configuration
 #if defined(MKFIT_STANDALONE)

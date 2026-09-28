@@ -77,6 +77,9 @@ namespace mkfit {
     //   the constant-Bz helix neglects, antisymmetrically (half at each end of the step).
     extern bool refitBFieldAtMid;
     extern bool refitRadialFieldCorr;
+    // refitElossSignFromPass: sign of the energy loss from the pass (forward loses, backward gains) instead of
+    //   from the sign of each step's path length, which is wrong on every step the refit takes backwards.
+    extern bool refitElossSignFromPass;
 
     // Config for SelectHitIndices
     // Use extra arrays to store phi and q of hits.

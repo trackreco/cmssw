@@ -414,6 +414,8 @@ namespace mkfit {
       hitIndex[i] = indices_R2Z[i].size();
     }
 
+    const PropagationFlags &bk_flags = refit_flags_bk ? *refit_flags_bk : *refit_flags;
+
     for (int h = 0; h < nFoundHits; ++h)  //first loop over the group - need to use the mplex here
     {
 #ifdef DEBUG_FIT_BKW
@@ -516,7 +518,7 @@ namespace mkfit {
                                            m_FailFlag,
                                            outChi2,
                                            N_proc,
-                                           *refit_flags,
+                                           bk_flags,
                                            propHit,
                                            &no_mat_effs,
                                            &do_cpe,
@@ -556,6 +558,7 @@ namespace mkfit {
     m_event = nullptr;
     //refit_flags
     refit_flags = nullptr;
+    refit_flags_bk = nullptr;
     //cpe
     m_cpe_corr_func = nullptr;
   }

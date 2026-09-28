@@ -830,6 +830,9 @@ namespace mkfit {
       MPlexQF propSign;
 
       const TrackerInfo& tinfo = *pflags.tracker_info;
+      // energy-loss sign from the fit pass (PropagationFlags::eloss_by_pass), else from the path-length sign
+      const float passSign = pflags.eloss_outward ? 1.f : -1.f;
+      const bool by_pass = pflags.eloss_by_pass;
 
 #if !defined(__clang__)
 #pragma omp simd
@@ -844,7 +847,7 @@ namespace mkfit {
           const auto mat = tinfo.material_checked(std::abs(outPar(n, 2, 0)), hypo);
           hitsRl(n, 0, 0) = mat.radl;
           hitsXi(n, 0, 0) = mat.bbxi;
-          propSign(n, 0, 0) = (pathL(n, 0, 0) > 0.f ? 1.f : -1.f);
+          propSign(n, 0, 0) = by_pass ? passSign : (pathL(n, 0, 0) > 0.f ? 1.f : -1.f);
         }
       }
       applyMaterialEffects(hitsRl, hitsXi, propSign, plNrm, outErr, outPar, N_proc);
