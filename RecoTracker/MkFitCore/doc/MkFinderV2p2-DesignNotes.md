@@ -623,6 +623,14 @@ the gain saturates at 2-3. It sits at |eta| 1.5-2.5, where the phi pull is
 furthest from 1. The common-subset d(pT)/pT width does not move (0.02078 to
 0.02085).
 
+**These counts reward track length.** They use quality-val's association, in
+which a correctly matched track with fewer than `nMinFoundHits` (10) hits is not
+found and counts as a fake, as does a track on an unseeded pileup particle. With
+MTV's association (a fake is a track matched to no sim track, no minimum length),
+20 events, 9.21 / 3 against chi2 < 30 is -32 found and -4 fakes: no measurable
+change. The acceptance cut is kept as the first-order replacement of the fixed
+30. What removed v2p2's extra fakes is the hit bonus, see "Layer-step score".
+
 I50: chopped hits recovered 198340 to 200841 (93.8 % to 95.0 %), fully
 recovered tracks 39167 to 39798 (90.3 % to 91.8 %). True pixel-barrel hits on
 barrel-only tracks go from 96.6 % to 97.3 %, which is the one-hit-per-layer
@@ -755,6 +763,32 @@ likelihood the same way, so replacing ln rho by a constant equal to its measured
 mean removes only its variation. On F30 in mode 1 with eps 0.99, removing the
 variation of rho costs 114 found tracks and removing that of det V costs 67.
 Production uses mode 0.
+
+**The hit bonus.** In mode 0 a hit beats a hole when
+`hit_bonus - chi2_weight * chi2 > -miss_penalty`, i.e. below chi2 =
+`(hit_bonus + miss_penalty) / chi2_weight`. With the former bonus of 30 that was
+chi2 38. Almost every hit that passed the acceptance cut then beat a hole. A
+low-pT candidate that ran into a neighbouring particle's outer-tracker hits took
+them. In CMSSW MTV on ttbar PU200 D121, v2p2 had a fake rate of 4.67 % against
+1.98 % for V2. The extra fakes were tracks of 6-16 hits with a correct pixel
+seed, and their outer-tracker hits belonged mostly to another particle. The
+bonus is 3, so a hole wins above chi2 11.
+
+MTV, `TrackBuilding/initialStep`, 100 events, V2 = CMSSW_20_1_0_pre2 as
+released, v2p2 = this branch without the rin fix:
+
+| | efficiency | fake rate | mean hits |
+|---|---|---|---|
+| V2 | 66.92 % | 1.98 % | 14.17 |
+| v2p2, bonus 30 | 66.57 % | 4.67 % | 15.57 |
+| v2p2, bonus 10 | 66.89 % | 3.27 % | 15.32 |
+| v2p2, bonus 5 | 66.94 % | 2.79 % | 15.05 |
+| v2p2, bonus 3 | 66.94 % | 2.57 % | 14.72 |
+
+The remaining excess is at 1.7 < |eta| < 2.7 and pT < 0.5 GeV. Standalone, 50
+events, MTV association: below a bonus of 3 the found and fake counts stop
+improving, while tracks become shorter than V2's, the d(pT)/pT width grows and
+duplicates rise.
 
 ## V2 compatibility
 

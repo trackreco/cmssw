@@ -28,7 +28,7 @@ namespace mkfit {
   // Coefficients of the layer-step score (V2p2Score.h), one set per search
   // direction.
   struct V2p2ScoreParams {
-    float hit_bonus = 30.0f;     // per hit taken
+    float hit_bonus = 3.0f;      // per hit taken; a hole wins above chi2 11, see the design notes
     float overlap_bonus = 0.0f;  // per hit beyond the first in a layer
     float chi2_weight = 1.0f;    // per unit of chi2
     float miss_penalty = 8.0f;   // a real hole
