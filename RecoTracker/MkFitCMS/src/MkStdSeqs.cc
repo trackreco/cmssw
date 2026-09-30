@@ -756,11 +756,31 @@ namespace mkfit {
       return score;
     }
 
+    float trackScoreLstIntoPixels(const int nfoundhits,
+                                  const int ntailholes,
+                                  const int noverlaphits,
+                                  const int nmisshits,
+                                  const float chi2,
+                                  const float pt,
+                                  const bool inFindCandidates) {
+      float bonus = 30;
+      // Max chi2 is 30 -- having a hit is always better
+      // We keep penalty the same for inner hits ... this is for T5 into pix!
+      // - Note that we keep too many -1 hits -- this needs to be done better.
+
+      float penalty = Config::missingHitPenalty_;
+      float tailPenalty = Config::missingHitPenalty_; // !!! not tailMissingHitPenalty_ !!!!
+      // float overlapBonus = 0; // Config::overlapHitBonus_;
+      float score = bonus * nfoundhits - penalty * nmisshits - tailPenalty * ntailholes - chi2;
+      return score;
+    }
+
     namespace {
       CMS_SA_ALLOW struct register_track_scorers {
         register_track_scorers() {
           IterationConfig::register_track_scorer("default", trackScoreDefault);
           IterationConfig::register_track_scorer("phase1:default", trackScoreDefault);
+          IterationConfig::register_track_scorer("phase2:LstIntoPix", trackScoreLstIntoPixels);
         }
       } rts_instance;
     }  // namespace

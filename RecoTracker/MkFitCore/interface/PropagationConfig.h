@@ -18,7 +18,6 @@ namespace mkfit {
     bool use_param_b_field : 1;
     bool apply_material : 1;
     bool copy_input_state_on_fail : 1;
-    // Could add: bool use_trig_approx       -- now Config::useTrigApprox = true
     // Could add: int  n_prop_to_r_iters : 8 -- now Config::Niter = 5
 
     PropagationFlags() : use_param_b_field(false), apply_material(false), copy_input_state_on_fail(false) {}

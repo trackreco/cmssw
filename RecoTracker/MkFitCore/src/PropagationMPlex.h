@@ -2,10 +2,12 @@
 #define RecoTracker_MkFitCore_src_PropagationMPlex_h
 
 #include "Matrix.h"
+#include "RecoTracker/MkFitCore/interface/MathInlineCore.h"
 
 namespace mkfit {
 
   class PropagationFlags;
+
 
   inline void squashPhiMPlex(MPlexLV& par, const int N_proc) {
 #pragma omp simd
@@ -92,6 +94,7 @@ namespace mkfit {
                     const MPlexQI& inChg,
                     const MPlexHV& plPnt,
                     const MPlexHV& plNrm,
+                    const MPlexQF* sPerp,
                     MPlexQF& pathL,
                     MPlexLV& outPar,
                     MPlexLL& errorProp,
@@ -99,11 +102,13 @@ namespace mkfit {
                     const int N_proc,
                     const PropagationFlags& pflags);
 
+
   void propagateHelixToPlaneMPlex(const MPlexLS& inErr,
                                   const MPlexLV& inPar,
                                   const MPlexQI& inChg,
                                   const MPlexHV& plPnt,
                                   const MPlexHV& plNrm,
+                                  const MPlexQF* sPerp,
                                   MPlexLS& outErr,
                                   MPlexLV& outPar,
                                   MPlexQI& outFailFlag,
