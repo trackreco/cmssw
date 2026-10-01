@@ -36,8 +36,9 @@ namespace mkfit {
     // side 0: +z, 1: -z
     SeedChainFinder &finder(int side) { return *m_finder[side]; }
 
-    // layer_hits: the event's HitVecs, indexed by mkFit layer id
-    void fill(const std::vector<HitVec> &layer_hits);
+    // layer_hits: the event's HitVecs, indexed by mkFit layer id; bs: the event's beam spot, the origin
+    // of the seeder's transverse coordinates
+    void fill(const std::vector<HitVec> &layer_hits, const BeamSpot &bs);
 
     // out: (layer ids, original hit indices) per quad, +z side first; scores, if given: the cleaning
     // score of each quad, parallel to out

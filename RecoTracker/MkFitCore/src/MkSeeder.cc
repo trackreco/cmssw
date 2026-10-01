@@ -18,7 +18,7 @@ namespace mkfit {
     m_finder[1]->setup(minus);
   }
 
-  void MkSeeder::fill(const std::vector<HitVec> &layer_hits) { m_hits.fill(layer_hits); }
+  void MkSeeder::fill(const std::vector<HitVec> &layer_hits, const BeamSpot &bs) { m_hits.fill(layer_hits, bs); }
 
   void MkSeeder::find(std::vector<std::pair<std::array<int, 4>, SeedQuad>> &out,
                       SeedCounters &cnt,

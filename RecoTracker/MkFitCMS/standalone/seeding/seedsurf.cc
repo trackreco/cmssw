@@ -22,6 +22,7 @@
 //                      place of the pattern list; the patterns then give window tables and the denominator;
 //                      --chain-batch runs the batched float finder (SeedSurfBatch.h) on the same configuration;
 //                      --chain-batch-d N its stage d prediction: 0 direct from hit c, 1 one-point cubic, 2 two-point Hermite
+//        [--beam-spot-origin]   x, y, r, phi from the origin instead of the sample's beam spot
 //        [--truth OUT.txt] [--resid OUT.txt] [--dump quads.txt] [--quad-dump OUT.txt] [--eta-max E]
 //        batch finder fake rejection (SurfChainBatch, README "Fakes in the finder"):
 //        [--fk-score S]   a quad's (dq_c/w)^2 + (dphi_c/w)^2 + (dphi_d/w)^2 + (dq_d/w)^2 below S
@@ -81,6 +82,17 @@ using namespace mkfit::seeding;
 namespace {
   using clk = std::chrono::steady_clock;
   double secs(clk::time_point a, clk::time_point b) { return std::chrono::duration<double>(b - a).count(); }
+
+  // a hit's x, y and its r, phi from the beam line at its z, as SeedLayerOfHits::fill() computes them
+  void beam_xy(const Hit &h, const BeamSpot &bs, float &x, float &y) {
+    const float dz = h.z() - bs.z;
+    x = h.x() - (bs.x + bs.dxdz * dz), y = h.y() - (bs.y + bs.dydz * dz);
+  }
+  void beam_rphi(const Hit &h, const BeamSpot &bs, float &r, float &ph) {
+    float x, y;
+    beam_xy(h, bs, x, y);
+    ph = getPhi(x, y), r = hipo(x, y);
+  }
 
   const char *lname(int l, char *buf) {
     if (l <= 3)
@@ -151,6 +163,7 @@ int main(int argc, char *argv[]) {
   int chain_batch = 0; // --chain-batch: the batched float finder (SurfChainBatch)
   int chain_batch_d = 0; // --chain-batch-d: its stage d prediction (0 direct, 1 one-point cubic, 2 two-point Hermite)
   int chain_phases = 0;  // --chain-phases: time the chain's phases
+  bool bs_origin = false;  // --beam-spot-origin: the seeder's coordinates from (0, 0, 0), not the sample's beam spot
   float fk_score = 0, fk_ot2 = 0;
   float ot2_win[4] = {-8.1e-4f, 5.92e-3f, 0.3084f, 0.0909f};  // q97 of true quads, events 0-39
   float ot2_phimin = 1.31e-3f;  // --ot2-phimin: the floor of its phi term, the q97 above 3 GeV
@@ -278,6 +291,8 @@ int main(int argc, char *argv[]) {
       chain_batch_d = atoi(next());
     else if (a == "--chain-fast-check")
       g_surf_fast_check.on = true;
+    else if (a == "--beam-spot-origin")
+      bs_origin = true;
     else if (a == "--chain-phases")
       chain_phases = 1;
     else if (a == "--fk-score")
@@ -577,7 +592,9 @@ int main(int argc, char *argv[]) {
     Event ev(iev, ti.n_layers());
     ev.read_in(df);
     const auto t0 = clk::now();
-    seeder.fill(ev.layerHits_);
+    // the origin of the seeder's transverse coordinates, for the fill and every point made here from a hit
+    const BeamSpot bsv = bs_origin ? BeamSpot() : ev.beamSpot_;
+    seeder.fill(ev.layerHits_, bsv);
     t_fill += secs(t0, clk::now());
 
     const MCHitInfoVec &mc = ev.simHitsInfo_;
@@ -688,7 +705,9 @@ int main(int argc, char *argv[]) {
           for (int k = 0; k < 4; ++k) {
             Ls[k] = layers.layer(l[k]);
             const Hit &hh = ev.layerHits_[l[k]][q[k]];
-            h[k] = {hh.x(), hh.y(), hh.z()};
+            float bxh, byh;
+            beam_xy(hh, bsv, bxh, byh);
+            h[k] = {bxh, byh, hh.z()};
           }
           SurfParams Qm = CH[0].P;
           if (auto it = CH[0].win_c.find({l[0], l[1], l[2]}); it != CH[0].win_c.end())
@@ -831,7 +850,8 @@ int main(int argc, char *argv[]) {
           surf::P3 h3[3];
           for (int k = 0; k < 3; ++k) {
             const Hit &h = (*H[k])[q[k]];
-            const float r = h.r(), ph = h.phi();
+            float r, ph;
+            beam_rphi(h, bsv, r, ph);
             h3[k] = {r * std::cos(ph), r * std::sin(ph), h.z()};
           }
           pte = surf::Helix(h3[0], h3[1], h3[2]).pt();
@@ -859,7 +879,8 @@ int main(int argc, char *argv[]) {
           surf::P3 h4[4];
           for (int k = 0; k < 4; ++k) {
             const Hit &h = (*H[k])[q[k]];
-            const float r = h.r(), ph = h.phi();
+            float r, ph;
+            beam_rphi(h, bsv, r, ph);
             h4[k] = {r * std::cos(ph), r * std::sin(ph), h.z()};
           }
           SurfEval e;
@@ -900,7 +921,8 @@ int main(int argc, char *argv[]) {
                   surf::P3 h[4];
                   for (int k = 0; k < 4; ++k) {
                     const Hit &hh = (*H[k])[ii[k]];
-                    const float r = hh.r(), ph = hh.phi();
+                    float r, ph;
+                    beam_rphi(hh, bsv, r, ph);
                     h[k] = {r * std::cos(ph), r * std::sin(ph), hh.z()};
                   }
                   SurfEval e;
@@ -942,7 +964,8 @@ int main(int argc, char *argv[]) {
       std::vector<int> att(cands.size(), -1);  // the attached OT1-P hit (index into layerHits_[4]), -1 none
       auto fxyz = [&](int l, unsigned int k, float &x, float &y, float &z) {
         const Hit &h = ev.layerHits_[l][k];
-        const float r = h.r(), ph = h.phi();
+        float r, ph;
+        beam_rphi(h, bsv, r, ph);
         x = r * std::cos(ph), y = r * std::sin(ph), z = h.z();
       };
       for (int i = 0; i < (int)cands.size(); ++i) {
@@ -1022,10 +1045,11 @@ int main(int argc, char *argv[]) {
       fprintf(fq, "E %d %zu\n", iev, fb_any.size());
       // the next outer P layer: OT1-P after a pixel d, OT2-P after an OT1-P d
       const SurfLayer *LP4 = layers.layer(4), *LP6 = layers.layer(6);
-      const double bx = ev.beamSpot_.x, by = ev.beamSpot_.y;
+      const double bx = 0, by = 0;  // the points below are beam-relative already (p3of)
       auto p3of = [&](int l, unsigned int k) {
         const Hit &h = ev.layerHits_[l][k];
-        const float r = h.r(), ph = h.phi();
+        float r, ph;
+        beam_rphi(h, bsv, r, ph);
         return surf::P3(r * std::cos(ph), r * std::sin(ph), h.z());
       };
       // transverse distance of the helix circle from the beam spot
