@@ -198,8 +198,8 @@ namespace mkfit {
     }
 
     inline P3 p3(const SeedLayerOfHits &L, unsigned int k) {
-      return L.with_double ? P3::cached(L.x_[k], L.y_[k], L.z_[k], L.pr_[k], L.pphi_[k])
-                           : P3::cached(L.x_[k], L.y_[k], L.z_[k], L.r_[k], L.phi_[k]);
+      return L.m_with_double ? P3::cached(L.m_x[k], L.m_y[k], L.m_z[k], L.m_pr[k], L.m_pphi[k])
+                             : P3::cached(L.m_x[k], L.m_y[k], L.m_z[k], L.m_r[k], L.m_phi[k]);
     }
 
     inline auto phi_bins_d(const SeedLayerOfHits &S, double c, double w) {
@@ -222,30 +222,30 @@ namespace mkfit {
       const double zlo = P.bs_z - P.zv, zhi = P.bs_z + P.zv;
       const double ra = ha.r(), pa = ha.phi();
       // phi from the geometric bound at the layer's largest r; q from the beam-line window
-      const double rbmax = Bl.disc ? Bl.q_hi : Bl.qbar_hi;
+      const double rbmax = Bl.m_disc ? Bl.m_q_hi : Bl.m_qbar_hi;
       const double w_ab = b_window(P, ra, rbmax) + P.marg_b;
       double bq_lo, bq_hi;
-      if (!Bl.disc) {
+      if (!Bl.m_disc) {
         // z_b = z_a + (z_a - z0) (r_b - r_a) / r_a, bilinear: take the corners
         double zz[4];
         int n = 0;
-        for (double rb : {Bl.qbar_lo, Bl.qbar_hi})
+        for (double rb : {Bl.m_qbar_lo, Bl.m_qbar_hi})
           for (double z0 : {zlo, zhi})
             zz[n++] = ha.z + (ha.z - z0) * (rb - ra) / ra;
         bq_lo = *std::min_element(zz, zz + 4);
         bq_hi = *std::max_element(zz, zz + 4);
       } else {
         // r_b = r_a + r_a (z_b - z_a) / (z_a - z0); in s z, s = side of the disc
-        const double s = (Bl.qbar_lo + Bl.qbar_hi) > 0 ? 1 : -1;
-        const double za = s * ha.z, zb0 = std::min(s * Bl.qbar_lo, s * Bl.qbar_hi),
-                     zb1 = std::max(s * Bl.qbar_lo, s * Bl.qbar_hi);
+        const double s = (Bl.m_qbar_lo + Bl.m_qbar_hi) > 0 ? 1 : -1;
+        const double za = s * ha.z, zb0 = std::min(s * Bl.m_qbar_lo, s * Bl.m_qbar_hi),
+                     zb1 = std::max(s * Bl.m_qbar_lo, s * Bl.m_qbar_hi);
         const double z0min = std::min(s * zlo, s * zhi), z0max = std::max(s * zlo, s * zhi);
         if (za - z0min <= 0)
           return false;
         bq_lo = ra + ra * (zb0 - za) / (za - z0min);
-        bq_hi = za - z0max > 0 ? ra + ra * (zb1 - za) / (za - z0max) : Bl.q_hi;
+        bq_hi = za - z0max > 0 ? ra + ra * (zb1 - za) / (za - z0max) : Bl.m_q_hi;
       }
-      if (bq_hi < Bl.q_lo || bq_lo > Bl.q_hi)
+      if (bq_hi < Bl.m_q_lo || bq_lo > Bl.m_q_hi)
         return false;
       fe.p = phi_bins_d(Bl, pa, w_ab);
       fe.q = q_bins_d(Bl, bq_lo, bq_hi);
