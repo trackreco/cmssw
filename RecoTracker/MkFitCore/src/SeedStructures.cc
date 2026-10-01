@@ -28,13 +28,24 @@ namespace mkfit {
         m_ax_q((float)m_q_lo, (float)m_q_hi, nq(m_q_lo, m_q_hi, qbin)),
         m_binnor(m_ax_phi, m_ax_q, true, false) {}
 
-  void SeedLayerOfHits::fill(const HitVec &hits) {
-    // the registration is LayerOfHits::suckInHits()'s
+  void SeedLayerOfHits::fill(const HitVec &hits, const BeamSpot &bs) {
     m_n = hits.size();
+    // phi and r from the beam line at the hit's z, by Hit::phi()'s and Hit::r()'s own expressions, so a
+    // beam spot at the origin with no slope gives exactly the hit's own phi and r
+    m_tmp_phi.resize(m_n);
+    m_tmp_r.resize(m_n);
+    for (unsigned int i = 0; i < m_n; ++i) {
+      const Hit &h = hits[i];
+      const float dz = h.z() - bs.z;
+      const float x = h.x() - (bs.x + bs.dxdz * dz), y = h.y() - (bs.y + bs.dydz * dz);
+      m_tmp_phi[i] = getPhi(x, y);
+      m_tmp_r[i] = hipo(x, y);
+    }
+    // the registration is LayerOfHits::suckInHits()'s
     m_binnor.reset_contents();
     m_binnor.begin_registration(m_n);
     for (unsigned int i = 0; i < m_n; ++i)
-      m_binnor.register_entry_safe(hits[i].phi(), m_disc ? hits[i].r() : hits[i].z());
+      m_binnor.register_entry_safe(m_tmp_phi[i], m_disc ? m_tmp_r[i] : hits[i].z());
     m_binnor.finalize_registration();
 
     m_phi.resize(m_n);
@@ -47,9 +58,9 @@ namespace mkfit {
     for (unsigned int i = 0; i < m_n; ++i) {
       const unsigned int j = m_binnor.m_ranks[i];
       const Hit &h = hits[j];
-      m_phi[i] = h.phi();
+      m_phi[i] = m_tmp_phi[j];
       m_z[i] = h.z();
-      m_r[i] = h.r();
+      m_r[i] = m_tmp_r[j];
       m_invr[i] = 1.0f / m_r[i];
       // float r times float cos(phi), so a finder reads the same value it would compute
       m_x[i] = m_r[i] * std::cos(m_phi[i]);
@@ -95,9 +106,9 @@ namespace mkfit {
       kv.second->m_with_double = wd;
   }
 
-  void SeedEventOfHits::fill(const std::vector<HitVec> &layer_hits) {
+  void SeedEventOfHits::fill(const std::vector<HitVec> &layer_hits, const BeamSpot &bs) {
     for (auto &kv : m_layers)
-      kv.second->fill(layer_hits[kv.first]);
+      kv.second->fill(layer_hits[kv.first], bs);
   }
 
 }  // namespace mkfit

@@ -15,7 +15,14 @@
 // length along z, and the r and phi in double for the double-precision
 // reference finder. A range of phi bins within one q bin is one contiguous
 // run of the arrays, and m_start[] is a CSR over the bins in that order.
+//
+// The transverse coordinates are taken from the BEAM LINE, not the origin: x, y,
+// r and phi of a hit are relative to the beam spot moved along its slope to the
+// hit's z, so a track's d0 in the seeder is its d0 from the beam. z is global.
+// The beam spot moves with the machine's tuning; in the D121 samples it sits at
+// (1e-5, 0, 0) cm with no slope.
 
+#include "RecoTracker/MkFitCore/interface/BeamSpot.h"
 #include "RecoTracker/MkFitCore/interface/Config.h"
 #include "RecoTracker/MkFitCore/interface/Hit.h"
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
@@ -61,7 +68,7 @@ namespace mkfit {
     // qbin: the q bin width in cm
     SeedLayerOfHits(int id_, const LayerInfo &li, double qbin);
 
-    void fill(const HitVec &hits);
+    void fill(const HitVec &hits, const BeamSpot &bs);
 
     // the hit's own qbar and q
     double qbar(unsigned int k) const { return m_disc ? m_z[k] : m_r[k]; }
@@ -157,6 +164,8 @@ namespace mkfit {
     binnor_t m_binnor;
     std::vector<unsigned int> m_start;
     unsigned int m_n = 0;
+    // the hits' beam-relative phi and r in their HitVec's order, for the registration
+    std::vector<float> m_tmp_phi, m_tmp_r;
   };
 
   //==============================================================================
@@ -178,7 +187,7 @@ namespace mkfit {
 
     void set_with_double(bool wd);
     // layer_hits: the event's HitVecs, indexed by mkFit layer id
-    void fill(const std::vector<HitVec> &layer_hits);
+    void fill(const std::vector<HitVec> &layer_hits, const BeamSpot &bs);
 
   private:
     std::map<int, std::unique_ptr<SeedLayerOfHits>> m_layers;
