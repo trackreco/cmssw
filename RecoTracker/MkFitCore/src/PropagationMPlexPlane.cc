@@ -240,14 +240,26 @@ namespace {
     }
   }
 
-  void parsFromPathL_impl(const MPlexLV& __restrict__ inPar,
+  // Trigonometry of a start state, computed once per state and shared by its helix drifts and its Jacobian:
+  // sin(theta) from fast_sin for the turning angle (as before), sin/cos of phi and theta from fast_sincos.
+  struct StartTrig {
+    MPlexQF sinTa, sinP, cosP, sinT, cosT;
+    explicit StartTrig(const MPlexLV& par) {
+      sinTa = Matriplex::fast_sin(par(5, 0));
+      Matriplex::fast_sincos(par(4, 0), sinP, cosP);
+      Matriplex::fast_sincos(par(5, 0), sinT, cosT);
+    }
+  };
+
+  void parsFromPathL_trig(const MPlexLV& __restrict__ inPar,
                           MPlexLV& __restrict__ outPar,
                           const MPlexQF& __restrict__ kinv,
-                          const MPlexQF& __restrict__ s) {
+                          const MPlexQF& __restrict__ s,
+                          const StartTrig& tr) {
     namespace mpt = Matriplex;
     using MPF = MPlexQF;
 
-    const MPF alpha = s * mpt::fast_sin(inPar(5, 0)) * inPar(3, 0) * kinv;
+    const MPF alpha = s * tr.sinTa * inPar(3, 0) * kinv;
 
     MPF sinah, cosah;
     if constexpr (Config::useTrigApprox) {
@@ -256,11 +268,10 @@ namespace {
       mpt::fast_sincos(0.5f * alpha, sinah, cosah);
     }
 
-    MPF sin_mom_phi, cos_mom_phi;
-    mpt::fast_sincos(inPar(4, 0), sin_mom_phi, cos_mom_phi);
-
-    MPF sin_mom_tht, cos_mom_tht;
-    mpt::fast_sincos(inPar(5, 0), sin_mom_tht, cos_mom_tht);
+    const MPF& sin_mom_phi = tr.sinP;
+    const MPF& cos_mom_phi = tr.cosP;
+    const MPF& sin_mom_tht = tr.sinT;
+    const MPF& cos_mom_tht = tr.cosT;
 
     outPar.aij(0, 0) = inPar(0, 0) + 2.f * sinah * (cos_mom_phi * cosah - sin_mom_phi * sinah) / (inPar(3, 0) * kinv);
     outPar.aij(1, 0) = inPar(1, 0) + 2.f * sinah * (sin_mom_phi * cosah + cos_mom_phi * sinah) / (inPar(3, 0) * kinv);
@@ -270,10 +281,17 @@ namespace {
     outPar.aij(5, 0) = inPar(5, 0);
   }
 
+  void parsFromPathL_impl(const MPlexLV& __restrict__ inPar,
+                          MPlexLV& __restrict__ outPar,
+                          const MPlexQF& __restrict__ kinv,
+                          const MPlexQF& __restrict__ s) {
+    parsFromPathL_trig(inPar, outPar, kinv, s, StartTrig(inPar));
+  }
+
   //*****************************************************************************************************
 
   //should kinv and D be templated???
-  void parsAndErrPropFromPathL_impl(const MPlexLV& __restrict__ inPar,
+  void parsAndErrPropFromPathL_trig(const MPlexLV& __restrict__ inPar,
                                     const MPlexQI& __restrict__ inChg,
                                     MPlexLV& __restrict__ outPar,
                                     const MPlexQF& __restrict__ kinv,
@@ -281,20 +299,21 @@ namespace {
                                     const MPlexQF& __restrict__ s,
                                     MPlexLL& __restrict__ errorProp,
                                     const int N_proc,
-                                    const PropagationFlags& pf) {
+                                    const PropagationFlags& pf,
+                                    const StartTrig& tr) {
     //iteration should return the path length s, then update parameters and compute errors
 
     namespace mpt = Matriplex;
     using MPF = MPlexQF;
 
-    parsFromPathL_impl(inPar, outPar, kinv, s);
+    parsFromPathL_trig(inPar, outPar, kinv, s, tr);
 
-    MPF sinPin, cosPin;
-    mpt::fast_sincos(inPar(4, 0), sinPin, cosPin);
+    const MPF& sinPin = tr.sinP;
+    const MPF& cosPin = tr.cosP;
     MPF sinPout, cosPout;
     mpt::fast_sincos(outPar(4, 0), sinPout, cosPout);
-    MPF sinT, cosT;
-    mpt::fast_sincos(inPar(5, 0), sinT, cosT);
+    const MPF& sinT = tr.sinT;
+    const MPF& cosT = tr.cosT;
 
     // use code from AnalyticalCurvilinearJacobian::computeFullJacobian for error propagation in curvilinear coordinates, then convert to CCS
     // main difference from the above function is that we assume that the magnetic field is purely along z (which also implies that there is no change in pz)
@@ -564,39 +583,43 @@ namespace {
     MPF delta1 = inPar(1, 0) - plPnt(1, 0);
     MPF delta2 = inPar(2, 0) - plPnt(2, 0);
 
-    MPF sinP, cosP;
-    mpt::fast_sincos(inPar(4, 0), sinP, cosP);
-    MPF sinT, cosT;
-    mpt::fast_sincos(inPar(5, 0), sinT, cosT);
+    // trigonometry of the start state, shared by every drift below and by the Jacobian
+    const StartTrig tr(inPar);
+    MPF sinP = tr.sinP, cosP = tr.cosP;
+    const MPF& sinT = tr.sinT;
+    const MPF& cosT = tr.cosT;
 
     // determine solution for straight line
     MPF sl = -(plNrm(0, 0) * delta0 + plNrm(1, 0) * delta1 + plNrm(2, 0) * delta2) /
              (plNrm(0, 0) * cosP * sinT + plNrm(1, 0) * sinP * sinT + plNrm(2, 0) * cosT);
 
-    //float s[nmax - nmin];
+    // The path-length solves are computed for every lane without a branch, so that they vectorise (a select
+    // around the square root and the divisions keeps them scalar), and the plane type picks the solution after.
+    MPF sH, sZ;
     //first iteration outside the loop
-#pragma omp simd
-    for (int n = 0; n < N_proc; ++n) {
-      s[n] = (std::abs(plNrm(n, 2, 0)) < 1.f ? getS(delta0[n],
-                                                    delta1[n],
-                                                    delta2[n],
-                                                    plNrm(n, 0, 0),
-                                                    plNrm(n, 1, 0),
-                                                    plNrm(n, 2, 0),
-                                                    sinP[n],
-                                                    cosP[n],
-                                                    sinT[n],
-                                                    cosT[n],
-                                                    inPar(n, 3, 0),
-                                                    inChg(n, 0, 0),
-                                                    kinv[n])
-                                             : (plPnt.constAt(n, 2, 0) - inPar.constAt(n, 2, 0)) / cosT[n]);
-    }
+    for (int n = 0; n < NN; ++n)
+      sH[n] = getS(delta0[n],
+                   delta1[n],
+                   delta2[n],
+                   plNrm(n, 0, 0),
+                   plNrm(n, 1, 0),
+                   plNrm(n, 2, 0),
+                   sinP[n],
+                   cosP[n],
+                   sinT[n],
+                   cosT[n],
+                   inPar(n, 3, 0),
+                   inChg(n, 0, 0),
+                   kinv[n]);
+    for (int n = 0; n < NN; ++n)
+      sZ[n] = (plPnt.constAt(n, 2, 0) - inPar.constAt(n, 2, 0)) / cosT[n];
+    for (int n = 0; n < N_proc; ++n)
+      s[n] = std::abs(plNrm(n, 2, 0)) < 1.f ? sH[n] : sZ[n];
 
     CMS_UNROLL_LOOP_COUNT(Config::nSStepsInProp2Plane - 1)
     for (int i = 0; i < Config::nSStepsInProp2Plane - 1; ++i) {
       MPlexLV outParTmp{0.0f};
-      parsFromPathL_impl(inPar, outParTmp, kinv, s);
+      parsFromPathL_trig(inPar, outParTmp, kinv, s, tr);
 
       if (pf.use_param_b_field && pf.b_field_at_mid) {
         // Re-sample B at the chord midpoint of the step, 0.5*(start + end).  That point does not depend
@@ -617,24 +640,26 @@ namespace {
       mpt::fast_sincos(outParTmp(4, 0), sinP, cosP);
       // Note, sinT/cosT not updated
 
-#pragma omp simd
-      for (int n = 0; n < N_proc; ++n) {
-        s[n] += (std::abs(plNrm(n, 2, 0)) < 1.f
-                     ? getS(delta0[n],
-                            delta1[n],
-                            delta2[n],
-                            plNrm(n, 0, 0),
-                            plNrm(n, 1, 0),
-                            plNrm(n, 2, 0),
-                            sinP[n],
-                            cosP[n],
-                            sinT[n],
-                            cosT[n],
-                            inPar(n, 3, 0),
-                            inChg(n, 0, 0),
-                            kinv[n])
-                     : (plPnt.constAt(n, 2, 0) - outParTmp.constAt(n, 2, 0)) / std::cos(outParTmp.constAt(n, 5, 0)));
-      }
+      for (int n = 0; n < NN; ++n)
+        sH[n] = getS(delta0[n],
+                     delta1[n],
+                     delta2[n],
+                     plNrm(n, 0, 0),
+                     plNrm(n, 1, 0),
+                     plNrm(n, 2, 0),
+                     sinP[n],
+                     cosP[n],
+                     sinT[n],
+                     cosT[n],
+                     inPar(n, 3, 0),
+                     inChg(n, 0, 0),
+                     kinv[n]);
+      // disks: the scalar cos only on the lanes that need it
+      for (int n = 0; n < N_proc; ++n)
+        if (!(std::abs(plNrm(n, 2, 0)) < 1.f))
+          sH[n] = (plPnt.constAt(n, 2, 0) - outParTmp.constAt(n, 2, 0)) / std::cos(outParTmp.constAt(n, 5, 0));
+      for (int n = 0; n < N_proc; ++n)
+        s[n] += sH[n];
     }  //end Niter-1
 
     // use linear approximation if s did not converge (for very high pT tracks)
@@ -654,9 +679,9 @@ namespace {
       std::cout << "s=" << s[0] << std::endl;
 #endif
     if (want_err)
-      parsAndErrPropFromPathL_impl(inPar, inChg, outPar, kinv, bFld, s, errorProp, N_proc, pf);
+      parsAndErrPropFromPathL_trig(inPar, inChg, outPar, kinv, bFld, s, errorProp, N_proc, pf, tr);
     else
-      parsFromPathL_impl(inPar, outPar, kinv, s);
+      parsFromPathL_trig(inPar, outPar, kinv, s, tr);
   }
 
 }  // namespace
@@ -980,37 +1005,42 @@ namespace mkfit {
                                    const MPlexHV& plPnt,
                                    const MPlexHV& plNrm,
                                    const int N_proc,
-                                   const PropagationFlags& pf) {
+                                   const PropagationFlags& pf,
+                                   const StartTrig& tr) {
     namespace mpt = Matriplex;
     const MPlexQF kSign = mpt::negate_if_ltz(MPlexQF(-Const::sol_over_100), inChg);
     const MPlexQF bFld =
         pf.use_param_b_field ? getBFieldFromZXY(inPar(2, 0), inPar(0, 0), inPar(1, 0)) : MPlexQF(Config::Bfield);
     const MPlexQF kinv = kSign * bFld;
-    MPlexQF sinP, cosP, sinT, cosT;
-    mpt::fast_sincos(inPar(4, 0), sinP, cosP);
-    mpt::fast_sincos(inPar(5, 0), sinT, cosT);
-    MPlexQF s0{0.0f};
-    for (int n = 0; n < N_proc; ++n) {
+    const MPlexQF &sinP = tr.sinP, &cosP = tr.cosP, &sinT = tr.sinT, &cosT = tr.cosT;
+    // the three candidates for every lane without a branch (so that they vectorise), then the choice
+    MPlexQF sH, sZ, sL;
+    for (int n = 0; n < NN; ++n) {
       const float d0 = inPar.constAt(n, 0, 0) - plPnt.constAt(n, 0, 0);
       const float d1 = inPar.constAt(n, 1, 0) - plPnt.constAt(n, 1, 0);
       const float d2 = inPar.constAt(n, 2, 0) - plPnt.constAt(n, 2, 0);
       const float e0 = plNrm.constAt(n, 0, 0), e1 = plNrm.constAt(n, 1, 0), e2 = plNrm.constAt(n, 2, 0);
-      float s = std::abs(e2) < 1.f ? getS(d0,
-                                          d1,
-                                          d2,
-                                          e0,
-                                          e1,
-                                          e2,
-                                          sinP[n],
-                                          cosP[n],
-                                          sinT[n],
-                                          cosT[n],
-                                          inPar.constAt(n, 3, 0),
-                                          inChg.constAt(n, 0, 0),
-                                          kinv[n])
-                                   : (plPnt.constAt(n, 2, 0) - inPar.constAt(n, 2, 0)) / cosT[n];
+      sH[n] = getS(d0,
+                   d1,
+                   d2,
+                   e0,
+                   e1,
+                   e2,
+                   sinP[n],
+                   cosP[n],
+                   sinT[n],
+                   cosT[n],
+                   inPar.constAt(n, 3, 0),
+                   inChg.constAt(n, 0, 0),
+                   kinv[n]);
+      sZ[n] = (plPnt.constAt(n, 2, 0) - inPar.constAt(n, 2, 0)) / cosT[n];
+      sL[n] = -(e0 * d0 + e1 * d1 + e2 * d2) / (e0 * cosP[n] * sinT[n] + e1 * sinP[n] * sinT[n] + e2 * cosT[n]);
+    }
+    MPlexQF s0{0.0f};
+    for (int n = 0; n < N_proc; ++n) {
+      float s = std::abs(plNrm.constAt(n, 2, 0)) < 1.f ? sH[n] : sZ[n];
       if (!mkfit::isFinite(s))
-        s = -(e0 * d0 + e1 * d1 + e2 * d2) / (e0 * cosP[n] * sinT[n] + e1 * sinP[n] * sinT[n] + e2 * cosT[n]);
+        s = sL[n];
       s0[n] = mkfit::isFinite(s) ? s : 0.f;
     }
     return s0;
@@ -1031,11 +1061,12 @@ namespace mkfit {
     MPlexQF kinv =
         kSign * (pf.use_param_b_field ? getBFieldFromZXY(p0(2, 0), p0(0, 0), p0(1, 0)) : MPlexQF(Config::Bfield));
     MPlexLV p1{0.0f};
-    parsFromPathL_impl(p0, p1, kinv, h);
+    const StartTrig tr0(p0);
+    parsFromPathL_trig(p0, p1, kinv, h, tr0);
     if (pf.use_param_b_field && pf.b_field_at_mid) {
       kinv = kSign *
              getBFieldFromZXY(0.5f * (p0(2, 0) + p1(2, 0)), 0.5f * (p0(0, 0) + p1(0, 0)), 0.5f * (p0(1, 0) + p1(1, 0)));
-      parsFromPathL_impl(p0, p1, kinv, h);
+      parsFromPathL_trig(p0, p1, kinv, h, tr0);
     }
     if (pf.use_param_b_field && pf.radial_field_corr) {
       const MPlexQF dvec = brDeltaRPphiV(p0, p1, inChg);
@@ -1073,7 +1104,8 @@ namespace mkfit {
     MPlexLV par = inPar;
     const MPlexQF kSign = mpt::negate_if_ltz(MPlexQF(-Const::sol_over_100), inChg);
 
-    MPlexQF h = firstPathEstimate(par, inChg, plPnt, plNrm, N_proc, pflags);
+    const StartTrig trIn(inPar);
+    MPlexQF h = firstPathEstimate(par, inChg, plPnt, plNrm, N_proc, pflags, trIn);
     for (int n = 0; n < NN; ++n)
       h[n] = (n < N_proc && (split == nullptr || split[n])) ? h[n] / nSub : 0.f;
     for (int ks = 1; ks < nSub; ++ks) {
@@ -1097,7 +1129,7 @@ namespace mkfit {
                                                  : getBFieldFromZXY(inPar(2, 0), inPar(0, 0), inPar(1, 0));
     MPlexLV parJ{0.0f};
     MPlexLL errorProp{0.0f};
-    parsAndErrPropFromPathL_impl(inPar, inChg, parJ, kSign * bW, bW, sTot, errorProp, N_proc, pflags);
+    parsAndErrPropFromPathL_trig(inPar, inChg, parJ, kSign * bW, bW, sTot, errorProp, N_proc, pflags, trIn);
 
     outErr = inErr;
     finishPlanePropagation(
