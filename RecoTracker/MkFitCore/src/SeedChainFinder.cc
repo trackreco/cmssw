@@ -640,7 +640,7 @@ namespace mkfit {
                         const float t = (hu[i] - um) * ihh;
                         if (std::abs(hq[i] - (qm + t * (qa1 + t * qa2))) > wq_pre)
                           continue;
-                        float px, py, qp, s3 = -1;
+                        float px = 0, py = 0, qp = 0, s3 = -1;
                         const bool ok = H.at(disc, hu[i], px, py, qp, s3);
                         float wq = wqd, sp2 = sw2;
                         if (isr > 0) {
