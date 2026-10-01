@@ -1191,10 +1191,13 @@ namespace mkfit {
       }
 
       // Path order for the in-layer search: dalpha is monotone in path length
-      // for one candidate, and dir makes it path order in either direction.
+      // for one candidate, but it is a signed turning angle, so its sign goes
+      // with the charge. m_sp1 is the near bounding surface and m_sp2 the far
+      // one in the search direction, so dalpha times the sign of its change
+      // from m_sp1 to m_sp2 grows along the path, in either search direction.
       // Once per candidate is enough. See doc/MkFinderV2p2-DesignNotes.md,
       // "Reduction and hit ordering".
-      const float dir = m_rz_limits.is_outward() ? 1.0f : -1.0f;
+      const float dir = b.B.m_sp2.dalpha[i] >= b.B.m_sp1.dalpha[i] ? 1.0f : -1.0f;
       std::sort(ptc.m_layer_hits.begin(), ptc.m_layer_hits.end(),
                 [dir](const PrimTCandRep::PQE &a, const PrimTCandRep::PQE &b) {
                   return dir * a.mixed_state.dalpha < dir * b.mixed_state.dalpha;

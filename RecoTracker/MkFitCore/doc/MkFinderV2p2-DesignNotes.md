@@ -499,8 +499,12 @@ detector, so the cap should become per layer.
 
 **Ordering.** The queues drain into one list per candidate, `m_layer_hits`,
 sorted by `dir * dalpha`. dalpha is monotone in path length for all hits of one
-candidate, since they are reached from the same state with the same curvature,
-and the sign factor turns it into path order for either search direction. ddphi
+candidate, since they are reached from the same state with the same curvature.
+It is a signed turning angle, so its sign goes with the charge; `dir` is the sign
+of its change from `m_sp1` (the near bounding surface in the search direction) to
+`m_sp2` (the far one), which makes the key path order for both charges and either
+search direction. Until 2026-10-01 `dir` was the search direction alone, so for
+one charge every layer's hits were walked in reverse path order. ddphi
 decides which hits survive; path order decides the order the search walks them.
 The sort is done once per candidate. A Kalman update moves the trajectory by
 about the hit resolution, so it can only swap hits that are already that close.
