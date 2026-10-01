@@ -9,11 +9,13 @@ MAIN    := ../mkFit
 MAIN_DEPS := ${LIB_CMS}
 MAIN_LIBS := -lMkFitCore -lMkFitCMS
 WRMEMF  := ../writeMemoryFile
+# the seeder's standalone driver, seeding/seedsurf.cc
+SEEDSURF := ../seedsurf
 WMF_DICT_PCM := ../WriteMemFileDict_rdict.pcm
 SHELL_DICT_PCM := ../Shell_Dict_rdict.pcm
 ROOTOUT := WriteMemFileDict.cc Shell_Dict.cc
 
-TGTS := ${LIB_CMS} ${MAIN}
+TGTS := ${LIB_CMS} ${MAIN} ${SEEDSURF}
 
 ifdef WITH_ROOT
 MAIN_DEPS += ../libMkFitRootDataFormats.so
@@ -25,7 +27,7 @@ endif
 
 all: ${TGTS}
 
-SRCS := $(wildcard ${CMS_DIR}/src/*.cc) $(wildcard ${SACMS}/*.cc)
+SRCS := $(wildcard ${CMS_DIR}/src/*.cc) $(wildcard ${SACMS}/*.cc) ${SACMS}/seeding/seedsurf.cc
 
 ifdef WITH_ROOT
 SRCS += ${SACMS}/tkNtuple/WriteMemoryFile.cc
@@ -46,9 +48,9 @@ SRCB := $(notdir ${SRCS})
 DEPS := $(SRCB:.cc=.d)
 OBJS := $(SRCB:.cc=.o)
 
-CMS_OBJS := $(filter-out mkFit.o WriteMemoryFile.o, ${OBJS})
+CMS_OBJS := $(filter-out mkFit.o WriteMemoryFile.o seedsurf.o, ${OBJS})
 
-vpath %.cc ${CMS_DIR}/src ${SACMS} ${SACMS}/tkNtuple
+vpath %.cc ${CMS_DIR}/src ${SACMS} ${SACMS}/tkNtuple ${SACMS}/seeding
 
 ifdef WITH_ROOT
 DEPS += Shell_Dict.cc.d
@@ -75,6 +77,9 @@ ${LIB_CMS}: ${CMS_OBJS}
 
 ${MAIN}: ${MAIN_DEPS} mkFit.o
 	${CXX} ${CXXFLAGS} ${VEC_HOST} ${LDFLAGS} mkFit.o -o $@ ${LDFLAGS_HOST} -ltbb -L.. ${MAIN_LIBS} -Wl,-rpath=.
+
+${SEEDSURF}: ${MAIN_DEPS} seedsurf.o
+	${CXX} ${CXXFLAGS} ${VEC_HOST} ${LDFLAGS} seedsurf.o -o $@ ${LDFLAGS_HOST} -ltbb -L.. ${MAIN_LIBS} -Wl,-rpath=.
 
 ${WRMEMF}: ${MAIN_DEPS} WriteMemoryFile.o WriteMemFileDict.o
 	${CXX} ${CXXFLAGS} ${LDFLAGS} WriteMemoryFile.o WriteMemFileDict.o -o $@ ${LDFLAGS_HOST} -ltbb -L.. ${MAIN_LIBS} -Wl,-rpath=.

@@ -1,0 +1,42 @@
+# seeding/ -- the mkFit seeder's standalone driver
+
+`seedsurf` runs the mkFit seeder (`MkSeeder`, `SeedChain`, `SeedChainFinder` in MkFitCore) on a
+standalone sample, with truth, and keeps the double-precision reference finder the float one is
+checked against.
+
+| file | what |
+|---|---|
+| `seedsurf.cc` | the driver: options, the configuration of the two passes (one `SeedChain` per z side, the window tables, the fake cuts), the event loop through `MkSeeder`, truth, `--dump`, `--margins`, `--resid` |
+| `SeedSurf.h` | the double-precision reference: `SurfChain` (the run on a `SeedChain`), the pattern finder, the ownership, `surf_eval()` |
+| `SeedSurfBatch.h` | the old name of `SeedChainFinder`, and the `--chain-fast-check` comparison |
+| `seedsurf-chain.sh` | the chosen configuration (2026-09-27): the chain, the window tables, cleaning N = 3 |
+| `windows-D121/` | the window tables for D121, as command-line options |
+| `truth2root.py` | `--truth` output into a ROOT file |
+
+## Build and run
+
+`seedsurf` is a target of the standalone build, so `./mymake` builds it next to `mkFit`. Run it
+from the build directory:
+
+```
+./mymake -j 16
+<this dir>/seedsurf-chain.sh --chain-batch --fk-score 0.75 --fk-ot2 1.5 --fk-shape \
+    --num-events 5 --dump quads.txt --truth truth.txt
+```
+
+`B` (the build directory, default the current one), `SS` (the binary in it), `S` (the sample),
+`GEOM` and `BIND` are read from the environment; `seedsurf-chain.sh` lists them.
+
+## Acceptance of a change that should not move the quads
+
+Run the same events and options with the binary before and after, `--dump` and `--truth` to two
+files each, and `cmp` them. The import into MkFitCore was done that way (2026-10-01): byte-identical
+for the batched chain with the nominal fake cuts on events 0-19 and for the double-precision chain
+on events 0-1. An older build's binary can be run with the same script through `B` and `SS`.
+
+## History
+
+The seeder was developed standalone on branch `mkfit-seeding` of mkFit-external, 2026-09-21 to
+09-30. Its research record, with what was tried and not kept and every measurement, is frozen there
+in `mkfit-standalone-attic/mkfit-seeding/README.md`, beside the barrel-only `seedfind` line and the
+geometry study `mkfit-standalone-seedgeom`.
