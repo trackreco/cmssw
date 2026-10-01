@@ -14,68 +14,68 @@ namespace mkfit {
   }
 
   SeedLayerOfHits::SeedLayerOfHits(int id_, const LayerInfo &li, double qbin)
-      : id(id_),
-        disc(!li.is_barrel()),
-        qbar_lo(li.is_barrel() ? li.rin() : li.zmin()),
-        qbar_hi(li.is_barrel() ? li.rout() : li.zmax()),
-        q_lo(li.is_barrel() ? li.zmin() : li.rin()),
-        q_hi(li.is_barrel() ? li.zmax() : li.rout()),
-        qbar_lo_nom(qbar_lo),
-        qbar_hi_nom(qbar_hi),
-        q_lo_nom(q_lo),
-        q_hi_nom(q_hi),
-        ax_phi_(-Const::PI, Const::PI),
-        ax_q_((float)q_lo, (float)q_hi, nq(q_lo, q_hi, qbin)),
-        binnor_(ax_phi_, ax_q_, true, false) {}
+      : m_id(id_),
+        m_disc(!li.is_barrel()),
+        m_qbar_lo(li.is_barrel() ? li.rin() : li.zmin()),
+        m_qbar_hi(li.is_barrel() ? li.rout() : li.zmax()),
+        m_q_lo(li.is_barrel() ? li.zmin() : li.rin()),
+        m_q_hi(li.is_barrel() ? li.zmax() : li.rout()),
+        m_qbar_lo_nom(m_qbar_lo),
+        m_qbar_hi_nom(m_qbar_hi),
+        m_q_lo_nom(m_q_lo),
+        m_q_hi_nom(m_q_hi),
+        m_ax_phi(-Const::PI, Const::PI),
+        m_ax_q((float)m_q_lo, (float)m_q_hi, nq(m_q_lo, m_q_hi, qbin)),
+        m_binnor(m_ax_phi, m_ax_q, true, false) {}
 
   void SeedLayerOfHits::fill(const HitVec &hits) {
     // the registration is LayerOfHits::suckInHits()'s
-    n_ = hits.size();
-    binnor_.reset_contents();
-    binnor_.begin_registration(n_);
-    for (unsigned int i = 0; i < n_; ++i)
-      binnor_.register_entry_safe(hits[i].phi(), disc ? hits[i].r() : hits[i].z());
-    binnor_.finalize_registration();
+    m_n = hits.size();
+    m_binnor.reset_contents();
+    m_binnor.begin_registration(m_n);
+    for (unsigned int i = 0; i < m_n; ++i)
+      m_binnor.register_entry_safe(hits[i].phi(), m_disc ? hits[i].r() : hits[i].z());
+    m_binnor.finalize_registration();
 
-    phi_.resize(n_);
-    z_.resize(n_);
-    r_.resize(n_);
-    invr_.resize(n_);
-    x_.resize(n_);
-    y_.resize(n_);
-    orig_.resize(n_);
-    for (unsigned int i = 0; i < n_; ++i) {
-      const unsigned int j = binnor_.m_ranks[i];
+    m_phi.resize(m_n);
+    m_z.resize(m_n);
+    m_r.resize(m_n);
+    m_invr.resize(m_n);
+    m_x.resize(m_n);
+    m_y.resize(m_n);
+    m_orig.resize(m_n);
+    for (unsigned int i = 0; i < m_n; ++i) {
+      const unsigned int j = m_binnor.m_ranks[i];
       const Hit &h = hits[j];
-      phi_[i] = h.phi();
-      z_[i] = h.z();
-      r_[i] = h.r();
-      invr_[i] = 1.0f / r_[i];
+      m_phi[i] = h.phi();
+      m_z[i] = h.z();
+      m_r[i] = h.r();
+      m_invr[i] = 1.0f / m_r[i];
       // float r times float cos(phi), so a finder reads the same value it would compute
-      x_[i] = r_[i] * std::cos(phi_[i]);
-      y_[i] = r_[i] * std::sin(phi_[i]);
-      orig_[i] = j;
+      m_x[i] = m_r[i] * std::cos(m_phi[i]);
+      m_y[i] = m_r[i] * std::sin(m_phi[i]);
+      m_orig[i] = j;
     }
 
     const unsigned int nb = n_phi_bins() * n_q_bins();
-    start_.assign(nb + 1, 0);
+    m_start.assign(nb + 1, 0);
     for (unsigned int k = 0; k < nb; ++k)
-      start_[k + 1] = start_[k] + binnor_.m_bins[k].count;
+      m_start[k + 1] = m_start[k] + m_binnor.m_bins[k].count;
 
-    pr_.resize(with_double ? n_ : 0);
-    pphi_.resize(with_double ? n_ : 0);
-    span_.resize(n_);
-    qbar_lo = qbar_lo_nom, qbar_hi = qbar_hi_nom, q_lo = q_lo_nom, q_hi = q_hi_nom;
-    if (with_double)
-      for (unsigned int k = 0; k < n_; ++k) {
-        pr_[k] = std::hypot((double)x_[k], (double)y_[k]);
-        pphi_[k] = std::atan2((double)y_[k], (double)x_[k]);
+    m_pr.resize(m_with_double ? m_n : 0);
+    m_pphi.resize(m_with_double ? m_n : 0);
+    m_span.resize(m_n);
+    m_qbar_lo = m_qbar_lo_nom, m_qbar_hi = m_qbar_hi_nom, m_q_lo = m_q_lo_nom, m_q_hi = m_q_hi_nom;
+    if (m_with_double)
+      for (unsigned int k = 0; k < m_n; ++k) {
+        m_pr[k] = std::hypot((double)m_x[k], (double)m_y[k]);
+        m_pphi[k] = std::atan2((double)m_y[k], (double)m_x[k]);
       }
-    for (unsigned int k = 0; k < n_; ++k) {
-      span_[k] = hits[orig_[k]].spanCols();
+    for (unsigned int k = 0; k < m_n; ++k) {
+      m_span[k] = hits[m_orig[k]].spanCols();
       const double u = qbar(k), v = q(k);
-      qbar_lo = std::min(qbar_lo, u), qbar_hi = std::max(qbar_hi, u);
-      q_lo = std::min(q_lo, v), q_hi = std::max(q_hi, v);
+      m_qbar_lo = std::min(m_qbar_lo, u), m_qbar_hi = std::max(m_qbar_hi, u);
+      m_q_lo = std::min(m_q_lo, v), m_q_hi = std::max(m_q_hi, v);
     }
   }
 
@@ -84,19 +84,19 @@ namespace mkfit {
   //==============================================================================
 
   void SeedEventOfHits::add_layer(int l, const LayerInfo &li, double qbin) {
-    if (layers_.count(l))
+    if (m_layers.count(l))
       return;
-    layers_[l] = std::make_unique<SeedLayerOfHits>(l, li, qbin);
-    map_[l] = layers_[l].get();
+    m_layers[l] = std::make_unique<SeedLayerOfHits>(l, li, qbin);
+    m_map[l] = m_layers[l].get();
   }
 
   void SeedEventOfHits::set_with_double(bool wd) {
-    for (auto &kv : layers_)
-      kv.second->with_double = wd;
+    for (auto &kv : m_layers)
+      kv.second->m_with_double = wd;
   }
 
   void SeedEventOfHits::fill(const std::vector<HitVec> &layer_hits) {
-    for (auto &kv : layers_)
+    for (auto &kv : m_layers)
       kv.second->fill(layer_hits[kv.first]);
   }
 

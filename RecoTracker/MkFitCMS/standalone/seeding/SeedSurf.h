@@ -257,7 +257,7 @@ namespace mkfit::seeding {
     e.z0 = h[0].z - ra * (h[1].z - h[0].z) / (rb - ra);
     e.dphi_b = wrap(h[1].phi() - h[0].phi());
     e.w_b = surf_wb(P, ra, rb);
-    const bool dc = Ls[2]->disc;
+    const bool dc = Ls[2]->m_disc;
     const Line ln(dc, h[0], h[1]);
     const double uc = dc ? h[2].z : h[2].r();
     if (ln.t(uc) > 1) {
@@ -269,7 +269,7 @@ namespace mkfit::seeding {
     if (!hx.ok)
       return;
     e.pte = hx.pt();
-    const bool dd = Ls[3]->disc;
+    const bool dd = Ls[3]->m_disc;
     double q, phi;
     if (hx.predict(dd, dd ? h[3].z : h[3].r(), q, phi, &e.s_cd)) {
       e.dphi_d = wrap(h[3].phi() - phi);
@@ -328,7 +328,7 @@ namespace mkfit::seeding {
     const float ra = ha.r(), pa = ha.phi(), za = ha.z, inva = 1.0f / ra;
     const float inv2R = 0.003f * 3.8f / (2.0f * P.pt_min), d0 = P.d0_max, marg = P.marg_b;
     const float zlo = P.bs_z - P.zv, zhi = P.bs_z + P.zv;
-    const float *phi = Bl.phi_.data(), *r = Bl.r_.data(), *z = Bl.z_.data(), *ir = Bl.invr_.data();
+    const float *phi = Bl.m_phi.data(), *r = Bl.m_r.data(), *z = Bl.m_z.data(), *ir = Bl.m_invr.data();
     Bl.for_each_run(fe.p, fe.q, [&](unsigned int b, unsigned int e) {
       for (unsigned int i0 = b; i0 < e; i0 += 64) {
         const unsigned int n = std::min(64u, e - i0);
@@ -357,14 +357,14 @@ namespace mkfit::seeding {
   template <typename F>
   inline void surf_stage_c(const SurfParams &P, const surf::P3 &h1, const surf::P3 &h2, const SurfLayer &C, SeedCounters &cnt, F &&f) {
     using namespace surf;
-    const Line ln(C.disc, h1, h2);
-    const double u0 = C.qbar_lo, u1 = C.qbar_hi;
+    const Line ln(C.m_disc, h1, h2);
+    const double u0 = C.m_qbar_lo, u1 = C.m_qbar_hi;
     if (std::max(ln.t(u0), ln.t(u1)) <= 1)
       return;
     const double cq0 = ln.q(u0), cq1 = ln.q(u1), cp0 = ln.phi(u0), cp1 = ln.phi(u1);
     // the D0 term is largest at the far edge; r there from the line (barrel: the edge itself)
     const double ufar = std::abs(ln.t(u0)) > std::abs(ln.t(u1)) ? u0 : u1;
-    const double rfar = std::max(0.5, C.disc ? ln.q(ufar) : ufar);
+    const double rfar = std::max(0.5, C.m_disc ? ln.q(ufar) : ufar);
     const double wc_phi = P.d0_max * ln.d0term(ufar, rfar) + P.phi_c;
     const auto qc = q_bins(C, std::min(cq0, cq1) - P.q_c, std::max(cq0, cq1) + P.q_c);
     const double cmid = cp0 + 0.5 * wrap(cp1 - cp0), chalf = 0.5 * std::abs(wrap(cp1 - cp0));
@@ -375,7 +375,7 @@ namespace mkfit::seeding {
       if (ln.t(uc) <= 1)
         return;
       if (!P.no_cut) {
-        if (std::abs((C.disc ? hc.r() : hc.z) - ln.q(uc)) > P.q_c)
+        if (std::abs((C.m_disc ? hc.r() : hc.z) - ln.q(uc)) > P.q_c)
           return;
         if (std::abs(wrap(hc.phi() - ln.phi(uc))) > P.d0_max * ln.d0term(uc, hc.r()) + P.phi_c)
           return;
@@ -399,8 +399,8 @@ namespace mkfit::seeding {
     }
     const SurfParams &P = *pp;
     double dq0, dp0, dq1, dp1, s0 = -1, s1 = -1;
-    const bool ok0 = hx.predict(D.disc, D.qbar_lo, dq0, dp0, &s0);
-    const bool ok1 = hx.predict(D.disc, D.qbar_hi, dq1, dp1, &s1);
+    const bool ok0 = hx.predict(D.m_disc, D.m_qbar_lo, dq0, dp0, &s0);
+    const bool ok1 = hx.predict(D.m_disc, D.m_qbar_hi, dq1, dp1, &s1);
     if (!ok0 && !ok1)
       return;
     if (!ok0)
@@ -415,10 +415,10 @@ namespace mkfit::seeding {
       cnt.d_touched++;
       const P3 hd = surf_p3(D, kd);
       double q, phi, s = -1;
-      if (!hx.predict(D.disc, D.qbar(kd), q, phi, &s))
+      if (!hx.predict(D.m_disc, D.qbar(kd), q, phi, &s))
         return;
       const double wq = P.s_ref > 0 ? P.wq_d(pte, s) : wqd, wp = P.s_ref > 0 ? P.wphi_d(pte, s) : wpd;
-      if (!P.no_cut && (std::abs((D.disc ? hd.r() : hd.z) - q) > wq || std::abs(wrap(hd.phi() - phi)) > wp))
+      if (!P.no_cut && (std::abs((D.m_disc ? hd.r() : hd.z) - q) > wq || std::abs(wrap(hd.phi() - phi)) > wp))
         return;
       cnt.quads++;
       f(kd, hd);
@@ -460,11 +460,11 @@ namespace mkfit::seeding {
       pp = &Pe;
     }
     const SurfParams &P = *pp;
-    const double u0 = D.qbar_lo, u1 = D.qbar_hi, um = 0.5 * (u0 + u1), hh = 0.5 * (u1 - u0);
+    const double u0 = D.m_qbar_lo, u1 = D.m_qbar_hi, um = 0.5 * (u0 + u1), hh = 0.5 * (u1 - u0);
     double q0, p0, q1, p1, qm, pm, s0 = -1, s1 = -1, sm = -1;
-    const bool ok0 = hx.predict_cf(D.disc, u0, q0, p0, &s0);
-    const bool ok1 = hx.predict_cf(D.disc, u1, q1, p1, &s1);
-    const bool okm = hx.predict_cf(D.disc, um, qm, pm, &sm);
+    const bool ok0 = hx.predict_cf(D.m_disc, u0, q0, p0, &s0);
+    const bool ok1 = hx.predict_cf(D.m_disc, u1, q1, p1, &s1);
+    const bool okm = hx.predict_cf(D.m_disc, um, qm, pm, &sm);
     if (!(ok0 && ok1 && okm) || hh <= 0) {
       surf_stage_d(P0, hx, D, cnt, f);
       return;
@@ -474,7 +474,7 @@ namespace mkfit::seeding {
       const double uu[3] = {u0, u1, um}, qq[3] = {q0, q1, qm}, ph[3] = {p0, p1, pm};
       for (int j = 0; j < 3; ++j) {
         double qn, pn;
-        if (!hx.predict(D.disc, uu[j], qn, pn)) {
+        if (!hx.predict(D.m_disc, uu[j], qn, pn)) {
           ++CK.node_fail_mismatch;
           continue;
         }
@@ -497,8 +497,8 @@ namespace mkfit::seeding {
     const float ipt = 1.0f / (float)std::max((double)P.pt_min, pte);
     const float aq = P.q_d, bq = P.b_q_d * ipt, ap = P.phi_d, bp = P.b_phi_d * ipt, isr = P.s_ref > 0 ? 1.0f / P.s_ref : 0.0f;
     constexpr float kPi = 3.14159265358979f, k2Pi = 6.28318530717959f;
-    const float *hphi = D.phi_.data(), *hq = D.disc ? D.r_.data() : D.z_.data(),
-                *hu = D.disc ? D.z_.data() : D.r_.data();
+    const float *hphi = D.m_phi.data(), *hq = D.m_disc ? D.m_r.data() : D.m_z.data(),
+                *hu = D.m_disc ? D.m_z.data() : D.m_r.data();
     D.for_each_run(phi_bins(D, dmid, dhalf + wpd), qd, [&](unsigned int b, unsigned int e) {
       for (unsigned int i0 = b; i0 < e; i0 += 64) {
         const unsigned int n = std::min(64u, e - i0);
@@ -515,7 +515,7 @@ namespace mkfit::seeding {
           m[j] = (std::abs(hq[i] - qp) <= kSlackD * (aq + lev * bq)) & (std::abs(dp) <= kSlackD * (ap + lev * bp));
           if (CK.on) {
             double qe, pe;
-            if (hx.predict(D.disc, D.qbar(i), qe, pe)) {
+            if (hx.predict(D.m_disc, D.qbar(i), qe, pe)) {
               ++CK.cands;
               const double pq = fqm + (bq1 + bq2 * x) * x, pphi = pm + (bp1 + bp2 * x) * x;
               CK.max_rel_q = std::max(CK.max_rel_q, std::abs(pq - qe) / (aq + lev * bq));
@@ -531,10 +531,10 @@ namespace mkfit::seeding {
           const unsigned int kd = i0 + j;
           const P3 hd = surf_p3(D, kd);
           double q, phi, s = -1;
-          if (!hx.predict(D.disc, D.qbar(kd), q, phi, &s))
+          if (!hx.predict(D.m_disc, D.qbar(kd), q, phi, &s))
             continue;
           const double wq = P.s_ref > 0 ? P.wq_d(pte, s) : wqd, wp = P.s_ref > 0 ? P.wphi_d(pte, s) : wpd;
-          if (!P.no_cut && (std::abs((D.disc ? hd.r() : hd.z) - q) > wq || std::abs(wrap(hd.phi() - phi)) > wp))
+          if (!P.no_cut && (std::abs((D.m_disc ? hd.r() : hd.z) - q) > wq || std::abs(wrap(hd.phi() - phi)) > wp))
             continue;
           cnt.quads++;
           f(kd, hd);
@@ -552,7 +552,7 @@ namespace mkfit::seeding {
         surf_stage_c(P, ha, hb, C, cnt, [&](unsigned int kc, const surf::P3 &hc) {
           const surf::Helix hx(ha, hb, hc);
           surf_stage_d(P, hx, D, cnt, [&](unsigned int kd, const surf::P3 &) {
-            out.push_back({A.orig_[ka], Bl.orig_[kb], C.orig_[kc], D.orig_[kd]});
+            out.push_back({A.m_orig[ka], Bl.m_orig[kb], C.m_orig[kc], D.m_orig[kd]});
           });
         });
       });
@@ -820,7 +820,7 @@ namespace mkfit::seeding {
               found = true;
               std::array<int, 4> ids{order[c.pos[0]], order[c.pos[1]], order[c.pos[2]], order[p]};
               const SurfLayer *La = layer(c.pos[0]), *Lb = layer(c.pos[1]), *Lc = layer(c.pos[2]);
-              out.push_back({ids, {La->orig_[c.k[0]], Lb->orig_[c.k[1]], Lc->orig_[c.k[2]], T->orig_[kd]}});
+              out.push_back({ids, {La->m_orig[c.k[0]], Lb->m_orig[c.k[1]], Lc->m_orig[c.k[2]], T->m_orig[kd]}});
             };
             if (fast)
               surf_stage_d_fast(Pd, hx, *T, cnt, on_d);

@@ -909,7 +909,7 @@ int main(int argc, char *argv[]) {
                   const Hit &hd = (*H[3])[i3];
                   const double x = hd.x(), y = hd.y(), r2 = x * x + y * y;
                   const double sphi = std::sqrt(std::max(0.0, (double)(y * y * hd.exx() - 2 * x * y * hd.exy() + x * x * hd.eyy()))) / r2;
-                  const double sq = L[3]->disc ? std::sqrt(std::max(0.0, (double)(x * x * hd.exx() + 2 * x * y * hd.exy() + y * y * hd.eyy()) / r2))
+                  const double sq = L[3]->m_disc ? std::sqrt(std::max(0.0, (double)(x * x * hd.exx() + 2 * x * y * hd.exy() + y * y * hd.eyy()) / r2))
                                                : std::sqrt((double)hd.ezz());
                   const double cot_ad = (h[3].z - h[0].z) / (std::hypot(h[3].x, h[3].y) - std::hypot(h[0].x, h[0].y));
                   const double z0_ad = h[0].z - cot_ad * std::hypot(h[0].x, h[0].y);
@@ -964,13 +964,13 @@ int main(int argc, char *argv[]) {
         const float wp = attach_ot1 * (ot1_win[0] + ot1_win[1] * ip), wz = attach_ot1 * (ot1_win[2] + ot1_win[3] * ip);
         const int kn = SurfChainBatch::next_hit(LP, bcd, pte, wp, wz, zm, dp, dz, sc);
         // in OT1's acceptance, as for OT2-P in the finder
-        if (kn == -2 || std::abs(zm) >= LP.q_hi - 2) {
+        if (kn == -2 || std::abs(zm) >= LP.m_q_hi - 2) {
           att[i] = -2;
           continue;
         }
         ++at_reach;
         if (kn >= 0 && std::abs(dp) < wp && std::abs(dz) < wz)
-          att[i] = LP.orig_[kn], ++at_att;
+          att[i] = LP.m_orig[kn], ++at_att;
       }
       t_attach += secs(a0, clk::now());
       for (int i = 0; i < (int)cands.size(); ++i)
@@ -1061,7 +1061,7 @@ int main(int argc, char *argv[]) {
           ot = 2;
         else if (LP && bcd.ok) {
           double q0, p0, q1, p1;
-          const bool ok0 = bcd.predict(false, LP->qbar_lo, q0, p0), ok1 = bcd.predict(false, LP->qbar_hi, q1, p1);
+          const bool ok0 = bcd.predict(false, LP->m_qbar_lo, q0, p0), ok1 = bcd.predict(false, LP->m_qbar_hi, q1, p1);
           if (ok0 || ok1) {
             if (!ok0)
               q0 = q1, p0 = p1;
@@ -1078,12 +1078,12 @@ int main(int argc, char *argv[]) {
                                  double qp, pp;
                                  if (!bcd.predict(false, LP->qbar(kk), qp, pp))
                                    return;
-                                 const double dp = surf::wrap(LP->phi_[kk] - pp), dz = LP->z_[kk] - qp;
+                                 const double dp = surf::wrap(LP->m_phi[kk] - pp), dz = LP->m_z[kk] - qp;
                                  const double sc = (dp / sphi) * (dp / sphi) + (dz / sz) * (dz / sz);
                                  n3 += sc < 9;
                                  if (sc < best) {
                                    best = sc, bdp = dp, bdz = dz, ot = 1;
-                                   same = c.lab >= 0 && label_l(hp4[LP->orig_[kk]], elay) == c.lab;
+                                   same = c.lab >= 0 && label_l(hp4[LP->m_orig[kk]], elay) == c.lab;
                                  }
                                });
           }

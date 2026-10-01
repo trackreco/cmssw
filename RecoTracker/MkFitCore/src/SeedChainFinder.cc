@@ -96,7 +96,7 @@ namespace mkfit {
                                 float &score) {
     using namespace seedchain;
     float x0, y0, q0, s0, x1, y1, q1, s1;
-    const bool ok0 = H.ok && H.at_r(LP.qbar_lo, x0, y0, q0, s0), ok1 = H.ok && H.at_r(LP.qbar_hi, x1, y1, q1, s1);
+    const bool ok0 = H.ok && H.at_r(LP.m_qbar_lo, x0, y0, q0, s0), ok1 = H.ok && H.at_r(LP.m_qbar_hi, x1, y1, q1, s1);
     if (!ok0 && !ok1)
       return -2;
     if (!ok0)
@@ -104,7 +104,7 @@ namespace mkfit {
     if (!ok1)
       x1 = x0, y1 = y0, q1 = q0;
     zmid = 0.5f * (q0 + q1);
-    if (std::min(q0, q1) > LP.q_hi || std::max(q0, q1) < LP.q_lo)
+    if (std::min(q0, q1) > LP.m_q_hi || std::max(q0, q1) < LP.m_q_lo)
       return -2;  // outside the layer at both edges
     const float pt = std::max(0.5f, pte), sphi = 0.0005f + 3.2e-3f / pt, sz = 0.075f + 0.0316f / pt;
     const float p0 = std::atan2(y0, x0), p1 = std::atan2(y1, x1), dpp = wrap(p1 - p0);
@@ -114,9 +114,9 @@ namespace mkfit {
                    seedchain::q_bins_d(LP, std::min(q0, q1) - fz, std::max(q0, q1) + fz),
                    [&](unsigned int k) {
                      float px, py, qp, s3;
-                     if (!H.at_r(LP.r_[k], px, py, qp, s3))
+                     if (!H.at_r(LP.m_r[k], px, py, qp, s3))
                        return;
-                     const float dp = wrap(LP.phi_[k] - std::atan2(py, px)), dq = LP.z_[k] - qp;
+                     const float dp = wrap(LP.m_phi[k] - std::atan2(py, px)), dq = LP.m_z[k] - qp;
                      const float sc = (dp / sphi) * (dp / sphi) + (dq / sz) * (dq / sz);
                      if (sc < best)
                        best = sc, kb = k, dphi = dp, dz = dq;
@@ -182,7 +182,7 @@ namespace mkfit {
     if (shA || shB) {
       for (int i = 0; i < m; ++i) {
         const float ac = std::abs(w_cot[i]);
-        const int ok = (!shA || shA->pass(A->span_[bka[i]], ac)) & (!shB || shB->pass(B->span_[bkb[i]], ac));
+        const int ok = (!shA || shA->pass(A->m_span[bka[i]], ac)) & (!shB || shB->pass(B->m_span[bkb[i]], ac));
         n_fk_shape += shp[i] & !ok;
         shp[i] &= ok;
       }
@@ -235,7 +235,7 @@ namespace mkfit {
       const float uhi = clo[1] > chi[1] ? chi[0] : clo[0] > chi[0] ? chi[1] : std::max(chi[0], chi[1]);
       // narrow the fetch by the cot range: a barrel B with both ends finite, a disc B with a range not
       // containing 0 (1/cot finite at both ends up to 1e-30)
-      const bool cot_q = B->disc ? (ulo > 0 || uhi < 0) : (ulo > -1e29f && uhi < 1e29f);
+      const bool cot_q = B->m_disc ? (ulo > 0 || uhi < 0) : (ulo > -1e29f && uhi < 1e29f);
       int nb[2] = {0, 0};
       auto flush = [&](int k) {
         sb[k]->flush_start(ss[k], nb[k], bka[k], bkb[k], bz0[k], bct[k]);
@@ -244,7 +244,7 @@ namespace mkfit {
       const float inv2R = 0.003f * 3.8f / (2.0f * P.pt_min), d0 = P.d0_max, marg = P.marg_b;
       const float zlo = P.bs_z - P.zv, zhi = P.bs_z + P.zv, side = Ch.side;
       const float clo0 = clo[0], chi0 = chi[0], clo1 = clo[1], chi1 = chi[1];
-      const float *bphi = B->phi_.data(), *br = B->r_.data(), *bz = B->z_.data(), *bir = B->invr_.data();
+      const float *bphi = B->m_phi.data(), *br = B->m_r.data(), *bz = B->m_z.data(), *bir = B->m_invr.data();
       for (unsigned int ka = 0; ka < A->n(); ++ka) {
         const seedchain::P3 ha = seedchain::p3(*A, ka);
         seedchain::BFetch fe;
@@ -255,13 +255,13 @@ namespace mkfit {
         // the q range the start pair's cot range allows on B, 0.01 cm wider
         if (cot_q) {
           float lo, hi;
-          if (!B->disc) {
-            const float d0 = B->qbar_lo - ra, d1 = B->qbar_hi - ra;
+          if (!B->m_disc) {
+            const float d0 = B->m_qbar_lo - ra, d1 = B->m_qbar_hi - ra;
             const float e0 = ulo * d0, e1 = ulo * d1, e2 = uhi * d0, e3 = uhi * d1;
             lo = za + std::min(std::min(e0, e1), std::min(e2, e3));
             hi = za + std::max(std::max(e0, e1), std::max(e2, e3));
           } else {
-            const float i0 = 1.0f / ulo, i1 = 1.0f / uhi, d0 = B->qbar_lo - za, d1 = B->qbar_hi - za;
+            const float i0 = 1.0f / ulo, i1 = 1.0f / uhi, d0 = B->m_qbar_lo - za, d1 = B->m_qbar_hi - za;
             const float e0 = i0 * d0, e1 = i0 * d1, e2 = i1 * d0, e3 = i1 * d1;
             lo = ra + std::min(std::min(e0, e1), std::min(e2, e3));
             hi = ra + std::max(std::max(e0, e1), std::max(e2, e3));
@@ -272,7 +272,7 @@ namespace mkfit {
             continue;
           // on a disc the phi bound grows with r_b: take it at the largest r a usable line reaches,
           // instead of the disc's outer edge (a hit beyond it fails the cot range)
-          if (B->disc && hi + 0.01f < B->q_hi)
+          if (B->m_disc && hi + 0.01f < B->m_q_hi)
             fe.p = seedchain::phi_bins_d(*B, ha.phi(), seedchain::b_window(P, ha.r(), hi + 0.01f) + P.marg_b);
         }
         B->for_each_run(fe.p, fe.q, [&](unsigned int b, unsigned int e) {
@@ -381,13 +381,13 @@ namespace mkfit {
       const SeedLayerOfHits *T = lay[p];
       if (!T)
         continue;
-      const bool disc = T->disc;
-      const float *hphi = T->phi_.data(), *hz = T->z_.data(), *hr = T->r_.data(), *hir = T->invr_.data();
-      const float *hx_ = T->x_.data(), *hy_ = T->y_.data();
+      const bool disc = T->m_disc;
+      const float *hphi = T->m_phi.data(), *hz = T->m_z.data(), *hr = T->m_r.data(), *hir = T->m_invr.data();
+      const float *hx_ = T->m_x.data(), *hy_ = T->m_y.data();
       const float *hu = disc ? hz : hr, *hq = disc ? hr : hz;
-      const float u0 = T->qbar_lo, u1 = T->qbar_hi;
+      const float u0 = T->m_qbar_lo, u1 = T->m_qbar_hi;
       const ShapeTab *shT = shape_of(p);
-      const int *hsp = T->span_.data();
+      const int *hsp = T->m_span.data();
 
       // -- stage c: the doublets queued at p
       auto &Qd = Q2_[p];
@@ -404,10 +404,10 @@ namespace mkfit {
             const ParF &w = par_[ix >= 0 ? ix : 0];
             const SeedLayerOfHits &La = *lay[c.pos[0]], &Lb = *lay[c.pos[1]];
             const unsigned ka = c.k[0], kb = c.k[1];
-            const float ua = disc ? La.z_[ka] : La.r_[ka], ub = disc ? Lb.z_[kb] : Lb.r_[kb];
-            const float qa = disc ? La.r_[ka] : La.z_[ka], qb = disc ? Lb.r_[kb] : Lb.z_[kb];
-            const float pa = La.phi_[ka], dp = wrap(Lb.phi_[kb] - pa);
-            const float ia = La.invr_[ka], ib = Lb.invr_[kb], idu = 1.0f / (ub - ua);
+            const float ua = disc ? La.m_z[ka] : La.m_r[ka], ub = disc ? Lb.m_z[kb] : Lb.m_r[kb];
+            const float qa = disc ? La.m_r[ka] : La.m_z[ka], qb = disc ? Lb.m_r[kb] : Lb.m_z[kb];
+            const float pa = La.m_phi[ka], dp = wrap(Lb.m_phi[kb] - pa);
+            const float ia = La.m_invr[ka], ib = Lb.m_invr[kb], idu = 1.0f / (ub - ua);
             const float t0_ = (u0 - ua) * idu, t1_ = (u1 - ua) * idu;
             if (std::max(t0_, t1_) > 1) {
               const float cq0 = qa + (qb - qa) * t0_, cq1 = qa + (qb - qa) * t1_;
@@ -468,7 +468,7 @@ namespace mkfit {
           for (int i = 0; i < m; ++i) {
             const Cand &c = Qd[t_j[i]];
             const SeedLayerOfHits &La = *lay[c.pos[0]];
-            const float za = La.z_[c.k[0]], ra = La.r_[c.k[0]], zc = hz[t_k[i]], rc = hr[t_k[i]];
+            const float za = La.m_z[c.k[0]], ra = La.m_r[c.k[0]], zc = hz[t_k[i]], rc = hr[t_k[i]];
             const float cot = (zc - za) / (rc - ra);
             w_cot[i] = cot, w_z0[i] = za - cot * ra;
             w_allow[i] = c.holes <= max_holes_ot;
@@ -511,8 +511,15 @@ namespace mkfit {
           const Cand &c = Qt[j];
           const SeedLayerOfHits &La = *lay[c.pos[0]], &Lb = *lay[c.pos[1]], &Lc = *lay[c.pos[2]];
           const unsigned ka = c.k[0], kb = c.k[1], kc = c.k[2];
-          hx[j - b0].make(
-              La.x_[ka], La.y_[ka], La.z_[ka], Lb.x_[kb], Lb.y_[kb], Lb.z_[kb], Lc.x_[kc], Lc.y_[kc], Lc.z_[kc]);
+          hx[j - b0].make(La.m_x[ka],
+                          La.m_y[ka],
+                          La.m_z[ka],
+                          Lb.m_x[kb],
+                          Lb.m_y[kb],
+                          Lb.m_z[kb],
+                          Lc.m_x[kc],
+                          Lc.m_y[kc],
+                          Lc.m_z[kc]);
         }
         f_j.clear();
         for (size_t j = b0; j < b1; ++j) {
@@ -580,13 +587,14 @@ namespace mkfit {
                   const SeedLayerOfHits &Lb = *lay[c.pos[1]], &Lc = *lay[c.pos[2]];
                   const unsigned kb = c.k[1], kc = c.k[2];
                   HelixF H3;
-                  H3.make(Lb.x_[kb], Lb.y_[kb], Lb.z_[kb], Lc.x_[kc], Lc.y_[kc], Lc.z_[kc], hx_[kd], hy_[kd], hz[kd]);
+                  H3.make(
+                      Lb.m_x[kb], Lb.m_y[kb], Lb.m_z[kb], Lc.m_x[kc], Lc.m_y[kc], Lc.m_z[kc], hx_[kd], hy_[kd], hz[kd]);
                   float zm = 0, dpb = 0, dzb = 0, scb = 0;
                   const float ip2 = 1.0f / std::max(0.9f, pte);
                   const float wp2 = fk_ot2 * std::max(ot2_aphi + ot2_bphi * ip2, ot2_phimin);
                   const float wz2 = fk_ot2 * (ot2_aq + ot2_bq * ip2);
                   const int kn = next_hit(*lay_ot2, H3, pte, wp2, wz2, zm, dpb, dzb, scb);
-                  if (kn != -2 && std::abs(zm) < lay_ot2->q_hi - 2) {
+                  if (kn != -2 && std::abs(zm) < lay_ot2->m_q_hi - 2) {
                     ++n_ot2_tested;
                     const bool pass = kn >= 0 && std::abs(dpb) < wp2 && std::abs(dzb) < wz2;
                     if (!pass) {
@@ -599,21 +607,21 @@ namespace mkfit {
                 ++n_qd;
                 const std::array<int, 4> ids{Ch.order[c.pos[0]], Ch.order[c.pos[1]], Ch.order[c.pos[2]], Ch.order[p]};
                 out.push_back({ids,
-                               {lay[c.pos[0]]->orig_[c.k[0]],
-                                lay[c.pos[1]]->orig_[c.k[1]],
-                                lay[c.pos[2]]->orig_[c.k[2]],
-                                T->orig_[kd]}});
+                               {lay[c.pos[0]]->m_orig[c.k[0]],
+                                lay[c.pos[1]]->m_orig[c.k[1]],
+                                lay[c.pos[2]]->m_orig[c.k[2]],
+                                T->m_orig[kd]}});
                 if (score_out_) {
                   // the cleaning score, (dq_c / q_c)^2 + (dphi_d / wphi_d)^2 + (dq_d / wq_d)^2, with the
                   // pattern's own windows, no |eta| slices and no lever arm (surf_eval in seedsurf.cc
                   // computes the same in double)
                   const SeedLayerOfHits &La = *lay[c.pos[0]], &Lb = *lay[c.pos[1]], &Lc = *lay[c.pos[2]];
-                  const bool dc = Lc.disc;
+                  const bool dc = Lc.m_disc;
                   const unsigned ka = c.k[0], kb = c.k[1], kc = c.k[2];
-                  const float ua = dc ? La.z_[ka] : La.r_[ka], ub = dc ? Lb.z_[kb] : Lb.r_[kb];
-                  const float uc = dc ? Lc.z_[kc] : Lc.r_[kc];
-                  const float qa = dc ? La.r_[ka] : La.z_[ka], qb = dc ? Lb.r_[kb] : Lb.z_[kb];
-                  const float qcc = dc ? Lc.r_[kc] : Lc.z_[kc];
+                  const float ua = dc ? La.m_z[ka] : La.m_r[ka], ub = dc ? Lb.m_z[kb] : Lb.m_r[kb];
+                  const float uc = dc ? Lc.m_z[kc] : Lc.m_r[kc];
+                  const float qa = dc ? La.m_r[ka] : La.m_z[ka], qb = dc ? Lb.m_r[kb] : Lb.m_z[kb];
+                  const float qcc = dc ? Lc.m_r[kc] : Lc.m_z[kc];
                   const float rqc = (qcc - (qa + (qb - qa) * (uc - ua) / (ub - ua))) / w.q_c;
                   const float wpc = w.aphi + w.bphi * ipt, wqc = w.aq + w.bq * ipt;
                   // dphi^2 from sin^2: asin(x)^2 = x^2 (1 + x^2 / 3 + ...), the next term 8/45 x^6

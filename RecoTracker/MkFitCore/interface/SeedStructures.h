@@ -14,7 +14,7 @@
 // and in the cache: struct-of-arrays of phi, z, r, 1/r, x, y, the cluster
 // length along z, and the r and phi in double for the double-precision
 // reference finder. A range of phi bins within one q bin is one contiguous
-// run of the arrays, and start_[] is a CSR over the bins in that order.
+// run of the arrays, and m_start[] is a CSR over the bins in that order.
 
 #include "RecoTracker/MkFitCore/interface/Config.h"
 #include "RecoTracker/MkFitCore/interface/Hit.h"
@@ -64,12 +64,12 @@ namespace mkfit {
     void fill(const HitVec &hits);
 
     // the hit's own qbar and q
-    double qbar(unsigned int k) const { return disc ? z_[k] : r_[k]; }
-    double q(unsigned int k) const { return disc ? r_[k] : z_[k]; }
+    double qbar(unsigned int k) const { return m_disc ? m_z[k] : m_r[k]; }
+    double q(unsigned int k) const { return m_disc ? m_r[k] : m_z[k]; }
 
     // [begin, end) of the hits in q N-bin qi and phi N-bins [p1, p2), NO wrap.
-    unsigned int run_begin(unsigned int qi, unsigned int p1) const { return start_[qi * n_phi_bins() + p1]; }
-    unsigned int run_end(unsigned int qi, unsigned int p2) const { return start_[qi * n_phi_bins() + p2]; }
+    unsigned int run_begin(unsigned int qi, unsigned int p1) const { return m_start[qi * n_phi_bins() + p1]; }
+    unsigned int run_end(unsigned int qi, unsigned int p2) const { return m_start[qi * n_phi_bins() + p2]; }
 
     // Calls f(i) for every hit in phi N-bins [p.begin, p.end) (half-open, may
     // wrap) and q N-bins [q.begin, q.end).  A range with begin == end on the
@@ -108,7 +108,7 @@ namespace mkfit {
     // lo, hi may lie outside (-pi, pi]; wrap them first, since the axis floors
     // (r - R_min) * fac straight into an unsigned bin index.
     typename AxPhi::I_pair phi_range(float lo, float hi) const {
-      return ax_phi_.from_R_minmax_to_N_bins(wrap(lo), wrap(hi));
+      return m_ax_phi.from_R_minmax_to_N_bins(wrap(lo), wrap(hi));
     }
     static float wrap(float p) {
       if (p > Const::PI)
@@ -117,46 +117,46 @@ namespace mkfit {
         p += 2 * Const::PI;
       return p;
     }
-    typename AxQ::I_pair q_range(float lo, float hi) const { return ax_q_.from_R_minmax_to_N_bins(lo, hi); }
+    typename AxQ::I_pair q_range(float lo, float hi) const { return m_ax_q.from_R_minmax_to_N_bins(lo, hi); }
     typename AxQ::I_pair q_all() const { return typename AxQ::I_pair(0, n_q_bins()); }
 
-    unsigned int n_phi_bins() const { return ax_phi_.size_of_N(); }
-    unsigned int n_q_bins() const { return ax_q_.size_of_N(); }
-    float q_min() const { return ax_q_.m_R_min; }
-    float q_max() const { return ax_q_.m_R_max; }
-    unsigned int n() const { return n_; }
+    unsigned int n_phi_bins() const { return m_ax_phi.size_of_N(); }
+    unsigned int n_q_bins() const { return m_ax_q.size_of_N(); }
+    float q_min() const { return m_ax_q.m_R_min; }
+    float q_max() const { return m_ax_q.m_R_max; }
+    unsigned int n() const { return m_n; }
 
-    const binnor_t &binnor_ref() const { return binnor_; }
+    const binnor_t &binnor_ref() const { return m_binnor; }
 
     // the layer
-    int id = -1;
-    bool disc = false;
+    int m_id = -1;
+    bool m_disc = false;
     // r range (barrel) or z range (disc), and z range (barrel) or r range (disc): the LayerInfo extent,
     // widened in fill() to hold every hit of the event. The pixel barrel's LayerInfo::rin() lay inside
     // its inner shell before the rin fix (layer 0: 2.868 cm, hits from 2.750), so ~half its hits had r
     // below it, and a fetch over the nominal extent could miss them.
-    double qbar_lo = 0, qbar_hi = 0;
-    double q_lo = 0, q_hi = 0;
-    double qbar_lo_nom = 0, qbar_hi_nom = 0, q_lo_nom = 0, q_hi_nom = 0;
+    double m_qbar_lo = 0, m_qbar_hi = 0;
+    double m_q_lo = 0, m_q_hi = 0;
+    double m_qbar_lo_nom = 0, m_qbar_hi_nom = 0, m_q_lo_nom = 0, m_q_hi_nom = 0;
 
     // struct-of-arrays, bin order
-    std::vector<float> phi_, z_, r_, invr_, x_, y_;
-    std::vector<unsigned int> orig_;
+    std::vector<float> m_phi, m_z, m_r, m_invr, m_x, m_y;
+    std::vector<unsigned int> m_orig;
     // the cluster's length in columns (Hit::spanCols()): along z in the barrel pixels
-    std::vector<int> span_;
+    std::vector<int> m_span;
     // r and phi of each hit as the double-precision finders compute them from the float x, y: only
-    // with with_double; without it the finders take the float r and phi
-    std::vector<double> pr_, pphi_;
-    bool with_double = true;
+    // with m_with_double; without it the finders take the float r and phi
+    std::vector<double> m_pr, m_pphi;
+    bool m_with_double = true;
 
   private:
     static unsigned int nq(double lo, double hi, double bin);
 
-    AxPhi ax_phi_;
-    AxQ ax_q_;
-    binnor_t binnor_;
-    std::vector<unsigned int> start_;
-    unsigned int n_ = 0;
+    AxPhi m_ax_phi;
+    AxQ m_ax_q;
+    binnor_t m_binnor;
+    std::vector<unsigned int> m_start;
+    unsigned int m_n = 0;
   };
 
   //==============================================================================
@@ -168,21 +168,21 @@ namespace mkfit {
   public:
     // a no-op if the layer is there already
     void add_layer(int l, const LayerInfo &li, double qbin);
-    bool has(int l) const { return layers_.count(l); }
+    bool has(int l) const { return m_layers.count(l); }
     const SeedLayerOfHits *layer(int l) const {
-      auto it = layers_.find(l);
-      return it == layers_.end() ? nullptr : it->second.get();
+      auto it = m_layers.find(l);
+      return it == m_layers.end() ? nullptr : it->second.get();
     }
     // every layer, by id
-    const std::map<int, const SeedLayerOfHits *> &layer_map() const { return map_; }
+    const std::map<int, const SeedLayerOfHits *> &layer_map() const { return m_map; }
 
     void set_with_double(bool wd);
     // layer_hits: the event's HitVecs, indexed by mkFit layer id
     void fill(const std::vector<HitVec> &layer_hits);
 
   private:
-    std::map<int, std::unique_ptr<SeedLayerOfHits>> layers_;
-    std::map<int, const SeedLayerOfHits *> map_;
+    std::map<int, std::unique_ptr<SeedLayerOfHits>> m_layers;
+    std::map<int, const SeedLayerOfHits *> m_map;
   };
 
 }  // namespace mkfit
