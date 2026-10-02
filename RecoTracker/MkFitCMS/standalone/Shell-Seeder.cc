@@ -481,3 +481,236 @@ namespace mkfit {
   }
 
 }  // namespace mkfit
+
+//=============================================================================
+// Where the fakes come from; the sim tracks no seed is on
+//=============================================================================
+
+#include "RecoTracker/MkFitCore/standalone/TrackExtra.h"
+
+namespace mkfit {
+
+  namespace {
+    constexpr int kNReg = 3;
+    const char *const kRegName[kNReg] = {"barrel |eta|<0.9", "transition 0.9-1.7", "endcap >1.7"};
+    const char *const kSeedClass[4] = {"true", "undecidable", "fake", "no seed found"};
+    int reg_of(float ae) { return ae < 0.9f ? 0 : ae < 1.7f ? 1 : 2; }
+
+    // [row][acceptance 0 all, 1 pT > 0.9 and |eta| < 2.5][region][seed class]
+    long g_fo_trk[2][2][kNReg][4], g_fo_fake[2][2][kNReg][4];
+    // fakes from a true seed whose sim track another track of the event found
+    long g_fo_fake_true_found[2][2][kNReg];
+
+    // [region]: selected sim tracks; not on a seeder seed; of those, found by production initialStep or
+    // highPtTripletStep. Per distinct pixel layers 0..4 (4 = 4 or more), for both populations.
+    long g_ms_sel[kNReg], g_ms_unseeded[kNReg], g_ms_unseeded_prod[kNReg];
+    long g_ms_npix[2][kNReg][5];
+    // pixel layers == 3: [population][region][has OT1-P (4)][has OT2-P (6)]
+    long g_ms_ot[2][kNReg][2][2];
+    // pixel layers == 3, barrel: which of layers 0-3 is missing, [population][layer]
+    long g_ms_missing[2][4];
+
+    // seed class from its hits: 0 true, 1 undecidable, 2 fake
+    int seed_class(const Event &ev, const Track &s) {
+      int lab = -1, n_unl = 0;
+      bool two = false;
+      for (int k = 0; k < s.nTotalHits(); ++k) {
+        const HitOnTrack hot = s.getHitOnTrack(k);
+        if (hot.index < 0)
+          continue;
+        const int mcid = ev.layerHits_[hot.layer][hot.index].mcHitID();
+        const int l = mcid >= 0 ? ev.simHitsInfo_[mcid].mcTrackID() : -1;
+        if (l < 0) {
+          ++n_unl;
+          continue;
+        }
+        if (lab >= 0 && l != lab)
+          two = true;
+        lab = l;
+      }
+      return two || lab < 0 ? 2 : n_unl > 0 ? 1 : 0;
+    }
+  }  // namespace
+
+  void Shell::SeederDiagReset() {
+    std::fill(&g_fo_trk[0][0][0][0], &g_fo_trk[0][0][0][0] + 2 * 2 * kNReg * 4, 0L);
+    std::fill(&g_fo_fake[0][0][0][0], &g_fo_fake[0][0][0][0] + 2 * 2 * kNReg * 4, 0L);
+    std::fill(&g_fo_fake_true_found[0][0][0], &g_fo_fake_true_found[0][0][0] + 2 * 2 * kNReg, 0L);
+    std::fill(g_ms_sel, g_ms_sel + kNReg, 0L);
+    std::fill(g_ms_unseeded, g_ms_unseeded + kNReg, 0L);
+    std::fill(g_ms_unseeded_prod, g_ms_unseeded_prod + kNReg, 0L);
+    std::fill(&g_ms_npix[0][0][0], &g_ms_npix[0][0][0] + 2 * kNReg * 5, 0L);
+    std::fill(&g_ms_ot[0][0][0][0], &g_ms_ot[0][0][0][0] + 2 * kNReg * 4, 0L);
+    std::fill(&g_ms_missing[0][0], &g_ms_missing[0][0] + 8, 0L);
+  }
+
+  void Shell::SeederFakeOrigin(EvCtx &ctx, int row) {
+    const Event &ev = *ctx.ev;
+    const TrackVec &seeds = ctx.seeds;
+    const TrackVec &tracks = ev.candidateTracks_;
+    std::map<std::pair<int, int>, std::vector<int>> hit2seed;
+    for (int i = 0; i < (int)seeds.size(); ++i)
+      for (int k = 0; k < seeds[i].nTotalHits(); ++k) {
+        const HitOnTrack hot = seeds[i].getHitOnTrack(k);
+        if (hot.index >= 0)
+          hit2seed[{hot.layer, hot.index}].push_back(i);
+      }
+    struct Row {
+      int reg, cls, mc, seed_lab;
+      bool acc;
+    };
+    std::vector<Row> rows;
+    std::set<int> found;
+    for (const Track &c : tracks) {
+      std::set<std::pair<int, int>> th;
+      for (int k = 0; k < c.nTotalHits(); ++k) {
+        const HitOnTrack hot = c.getHitOnTrack(k);
+        if (hot.index >= 0)
+          th.insert({hot.layer, hot.index});
+      }
+      // the seed: one whose every hit is on the track
+      int si = -1;
+      for (const auto &h : th) {
+        auto it = hit2seed.find(h);
+        if (it == hit2seed.end())
+          continue;
+        for (int i : it->second) {
+          bool all = true;
+          for (int k = 0; k < seeds[i].nTotalHits() && all; ++k) {
+            const HitOnTrack hot = seeds[i].getHitOnTrack(k);
+            all = hot.index < 0 || th.count({hot.layer, hot.index});
+          }
+          if (all) {
+            si = i;
+            break;
+          }
+        }
+        if (si >= 0)
+          break;
+      }
+      // the association, as val_eff makes it: over the non-seed hits
+      TrackExtra extra(c.label());
+      if (si >= 0)
+        extra.findMatchingSeedHits(c, seeds[si], ev.layerHits_);
+      extra.setMCTrackIDInfo(c, ev.layerHits_, ev.simHitsInfo_, ev.simTracks_, false, false);
+      const int mc = extra.mcTrackID();
+      const bool fake = mc < 0 || mc >= (int)ev.simTracks_.size();
+      if (!fake)
+        found.insert(mc);
+      const int cls = si >= 0 ? seed_class(ev, seeds[si]) : 3;
+      int seed_lab = -1;
+      if (si >= 0 && cls == 0) {
+        const HitOnTrack hot = seeds[si].getHitOnTrack(0);
+        seed_lab = ev.simHitsInfo_[ev.layerHits_[hot.layer][hot.index].mcHitID()].mcTrackID();
+      }
+      const float ae = std::abs(c.momEta());
+      rows.push_back({reg_of(ae), cls, fake ? -1 : mc, seed_lab, c.pT() > 0.9f && ae < 2.5f});
+    }
+    for (const Row &r : rows)
+      for (int a = 0; a < 2; ++a) {
+        if (a == 1 && !r.acc)
+          continue;
+        ++g_fo_trk[row][a][r.reg][r.cls];
+        if (r.mc < 0) {
+          ++g_fo_fake[row][a][r.reg][r.cls];
+          if (r.cls == 0 && found.count(r.seed_lab))
+            ++g_fo_fake_true_found[row][a][r.reg];
+        }
+      }
+  }
+
+  void Shell::SeederMissStudy(EvCtx &ctx) {
+    const Event &ev = *ctx.ev;
+    std::set<int> seeded;
+    for (const Track &s : ctx.seeds) {
+      const auto si = ev.simInfoForTrack(s);
+      if (si.label >= 0)
+        seeded.insert(si.label);
+    }
+    std::set<int> prod_found;
+    for (const Track &t : ev.cmsswTracks_) {
+      if (t.algorithm() != TrackBase::TrackAlgorithm::initialStep &&
+          t.algorithm() != TrackBase::TrackAlgorithm::highPtTripletStep)
+        continue;
+      const auto si = ev.simInfoForTrack(t);
+      if (si.label >= 0 && si.good_frac() > 0.75f)
+        prod_found.insert(si.label);
+    }
+    for (int L = 0; L < (int)ev.simTracks_.size(); ++L) {
+      const Track &st = ev.simTracks_[L];
+      const float ae = std::abs(st.momEta()), pt = st.pT();
+      // val_eff's MTV selection
+      if (!st.isFindable() || std::hypot(st.x(), st.y()) > 3.5f || std::abs(st.z()) > 30.0f)
+        continue;
+      if (ae >= 2.5f || pt <= 0.9f || st.nUniqueLayers() < 4)
+        continue;
+      const int reg = reg_of(ae);
+      ++g_ms_sel[reg];
+      if (seeded.count(L))
+        continue;
+      ++g_ms_unseeded[reg];
+      const bool pf = prod_found.count(L);
+      g_ms_unseeded_prod[reg] += pf;
+      std::set<int> pix;
+      bool ot1p = false, ot2p = false;
+      for (int i = 0; i < st.nTotalHits(); ++i) {
+        const HitOnTrack hot = st.getHitOnTrack(i);
+        if (hot.index < 0 || hot.layer < 0)
+          continue;
+        if (Config::TrkInfo[hot.layer].is_pixel())
+          pix.insert(hot.layer);
+        ot1p |= hot.layer == 4;
+        ot2p |= hot.layer == 6;
+      }
+      const int np = std::min(4, (int)pix.size());
+      for (int pop = 0; pop < 2; ++pop) {
+        if (pop == 1 && !pf)
+          continue;
+        ++g_ms_npix[pop][reg][np];
+        if (np == 3) {
+          ++g_ms_ot[pop][reg][ot1p][ot2p];
+          if (reg == 0)
+            for (int l = 0; l < 4; ++l)
+              g_ms_missing[pop][l] += !pix.count(l);
+        }
+      }
+    }
+  }
+
+  void Shell::SeederDiagReport() {
+    printf("\nShell::SeederDiagReport\n");
+    printf("\n  found tracks and fakes (val_eff's association: no sim track by the non-seed hits), by the truth of"
+           " their seed\n");
+    for (int row = 0; row < 2; ++row)
+      for (int a = 0; a < 2; ++a) {
+        printf("  %s, %s\n  %-20s", row == 0 ? "file seeds" : "seeder seeds",
+               a == 0 ? "all tracks" : "tracks with pT > 0.9, |eta| < 2.5", "region");
+        for (int c = 0; c < 4; ++c)
+          printf(" | %-24s", kSeedClass[c]);
+        printf(" | fakes from a true seed whose sim track another track found\n");
+        for (int r = 0; r < kNReg; ++r) {
+          printf("  %-20s", kRegName[r]);
+          for (int c = 0; c < 4; ++c)
+            printf(" | %7ld trk %6ld fake  ", g_fo_trk[row][a][r][c], g_fo_fake[row][a][r][c]);
+          printf(" | %ld\n", g_fo_fake_true_found[row][a][r]);
+        }
+      }
+    printf("\n  selected sim tracks (MTV selection) no seeder seed is on, after the seed cleaning\n");
+    printf("  %-20s %8s %9s %22s\n", "region", "selected", "unseeded", "of them prod found");
+    for (int r = 0; r < kNReg; ++r)
+      printf("  %-20s %8ld %9ld %22ld\n", kRegName[r], g_ms_sel[r], g_ms_unseeded[r], g_ms_unseeded_prod[r]);
+    for (int pop = 0; pop < 2; ++pop) {
+      printf("\n  %s: by distinct pixel layers with a sim hit\n  %-20s %7s %7s %7s %7s %7s | 3 pixel layers:"
+             " OT1-P & OT2-P, OT1-P only, OT2-P only, neither\n",
+             pop == 0 ? "unseeded" : "unseeded, found by prod initialStep or highPtTripletStep", "region", "0", "1",
+             "2", "3", ">=4");
+      for (int r = 0; r < kNReg; ++r)
+        printf("  %-20s %7ld %7ld %7ld %7ld %7ld | %7ld %7ld %7ld %7ld\n", kRegName[r], g_ms_npix[pop][r][0],
+               g_ms_npix[pop][r][1], g_ms_npix[pop][r][2], g_ms_npix[pop][r][3], g_ms_npix[pop][r][4],
+               g_ms_ot[pop][r][1][1], g_ms_ot[pop][r][1][0], g_ms_ot[pop][r][0][1], g_ms_ot[pop][r][0][0]);
+      printf("  barrel, 3 pixel layers, the missing one: L0 %ld, L1 %ld, L2 %ld, L3 %ld\n", g_ms_missing[pop][0],
+             g_ms_missing[pop][1], g_ms_missing[pop][2], g_ms_missing[pop][3]);
+    }
+  }
+
+}  // namespace mkfit

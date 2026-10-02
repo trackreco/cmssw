@@ -199,6 +199,19 @@ namespace mkfit {
     void SeederSeedCheck() { SeederSeedCheck(m_ctx); }
     void SeederSeedCheckReport();
 
+    // Where the fakes come from: per found track, its seed (by hits) and the seed's truth: true (all hits
+    // on one sim track), undecidable (the linked hits agree, some hits unlinked), fake, or no seed found.
+    // row 0: the tracks of the file's seeds, 1: of the seeder's. Call right after the processing.
+    // SeederMissStudy(): the selected sim tracks (val_eff's MTV selection) that no seeder seed is on,
+    // by their pixel layers and OT1-P / OT2-P hits, and whether production's initialStep or
+    // highPtTripletStep found them. Call after ProcessEventSeeder().
+    void SeederDiagReset();
+    void SeederFakeOrigin(EvCtx &ctx, int row);
+    void SeederFakeOrigin(int row) { SeederFakeOrigin(m_ctx, row); }
+    void SeederMissStudy(EvCtx &ctx);
+    void SeederMissStudy() { SeederMissStudy(m_ctx); }
+    void SeederDiagReport();
+
     // --------------------------------------------------------
     // Analysis helpers
 
