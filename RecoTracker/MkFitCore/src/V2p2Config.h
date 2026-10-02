@@ -35,7 +35,7 @@ namespace mkfit {
     float edge_penalty = 0.0f;   // crossing at the layer boundary
     float gap_penalty = 0.0f;    // crossing in an inactive region
     float stop_penalty = 8.0f;   // out of hole budget
-    float hit_eff = 0.99f;       // per-layer hit efficiency, likelihood mode only
+    float hit_eff = 0.90f;       // per-layer hit efficiency, likelihood mode only
   };
 
   namespace Config::V2p2 {
@@ -121,7 +121,7 @@ namespace mkfit {
     //--------------------------------------------------------------------------
     // Layer-step score, design notes "Layer-step score".
     namespace Score {
-      MKFIT_V2P2_KNOB(int, mode, 0);  // 0 linear, 1 log-likelihood ratio
+      MKFIT_V2P2_KNOB(int, mode, 1);  // 0 linear, 1 log-likelihood ratio
       MKFIT_V2P2_KNOB(V2p2ScoreParams, fwd, {});
       MKFIT_V2P2_KNOB(V2p2ScoreParams, bkw, {});
       // Term ablation of the likelihood: replace a term by a constant.

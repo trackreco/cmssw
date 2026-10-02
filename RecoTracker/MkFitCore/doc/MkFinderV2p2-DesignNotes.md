@@ -766,7 +766,7 @@ extent the covariance is.
 likelihood the same way, so replacing ln rho by a constant equal to its measured
 mean removes only its variation. On F30 in mode 1 with eps 0.99, removing the
 variation of rho costs 114 found tracks and removing that of det V costs 67.
-Production uses mode 0.
+The default is mode 1 with `hit_eff` 0.90, see "The default" below.
 
 **The hit bonus.** In mode 0 a hit beats a hole when
 `hit_bonus - chi2_weight * chi2 > -miss_penalty`, i.e. below chi2 =
@@ -793,6 +793,22 @@ The remaining excess is at 1.7 < |eta| < 2.7 and pT < 0.5 GeV. Standalone, 50
 events, MTV association: below a bonus of 3 the found and fake counts stop
 improving, while tracks become shorter than V2's, the d(pT)/pT width grows and
 duplicates rise.
+
+**The default.** The linear score cannot remove the forward fakes without
+shortening the tracks. The log-likelihood can: a hit has to be better than the
+local hit density predicts for a random one, so a wrong hit in a dense region
+loses to a hole. With `hit_eff` 0.95 it added fakes at 0.9 < |eta| < 1.7; 0.90
+does not. Same MTV setup; the mode 1 row also has the in-layer path order fix
+and v2p2's own backward fit, the mode 0 row is before both:
+
+| | efficiency | fake rate | duplicates | mean hits |
+|---|---|---|---|---|
+| V2 | 66.92 % | 1.98 % | 0.18 % | 14.17 |
+| v2p2, mode 0, bonus 3 | 66.94 % | 2.55 % | 0.12 % | 14.79 |
+| v2p2, mode 1, hit_eff 0.90 | 67.03 % | 2.08 % | 0.15 % | 14.71 |
+
+What is left of the fake excess is in the barrel (1.15 % against 0.93 %) and at
+0.9 < |eta| < 1.7 (2.87 % against 2.36 %).
 
 ## V2 compatibility
 
