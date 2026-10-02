@@ -273,6 +273,9 @@ namespace mkfit {
     int known_only = 1;    // search a target only for a layer combination with a window table; else move on
     int max_holes_ot = 0;  // holes a candidate may carry into an outer-tracker layer: 0 = OT1-P only
                            // where the pixels have a geometric gap, not after a missed hit
+    int inner_ot_only = 0;  // 1: a candidate with a hole charged after its start (a missed pixel hit) may
+                            // complete its quad only on an outer-tracker layer, so it needs OT1-P (and the
+                            // OT2-P confirmation); the late starts are not affected. Batch finder only.
     int side = 1;
     const SeedLayerEnvelopes *own = nullptr;
     std::vector<int> order;                   // mkFit layer ids, crossing order

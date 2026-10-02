@@ -18,7 +18,7 @@
 //                      better = fewer outer-tracker layers in the pattern, then smaller
 //                      (dq_c/q_c)^2 + (dphi_d/w_phi_d)^2 + (dq_d/w_q_d)^2
 //        [--bind CM]   labels bound to geometry: needs SimHitStates in the sample
-//        [--chain H] [--chain-holes-ot K] [--chain-hole-always] [--chain-any] [--chain-start-holes K] [--chain-lead-only] [--chain-fast] [--chain-batch] [--chain-fast-check] [--chain-phases]   the feed-forward chain (SurfChain) in
+//        [--chain H] [--chain-holes-ot K] [--chain-hole-always] [--chain-any] [--chain-start-holes K] [--chain-lead-only] [--chain-inner-ot-only] [--chain-fast] [--chain-batch] [--chain-fast-check] [--chain-phases]   the feed-forward chain (SurfChain) in
 //                      place of the pattern list; the patterns then give window tables and the denominator;
 //                      --chain-batch runs the batched float finder (SeedSurfBatch.h) on the same configuration;
 //                      --chain-batch-d N its stage d prediction: 0 direct from hit c, 1 one-point cubic, 2 two-point Hermite
@@ -161,6 +161,7 @@ int main(int argc, char *argv[]) {
   int own_debug = 0;       // print this many true quads the ownership rejects
   int chain_holes = -1;    // >= 0: the feed-forward chain (SurfChain) instead of the patterns, this many holes
   int chain_hole_always = 0, chain_holes_ot = 0, chain_any = 0, chain_start_holes = -1, chain_lead_only = 0;
+  int chain_inner_ot_only = 0;
   int chain_fast = 0;  // --chain-fast: the float kernels (K2) in the chain
   int chain_batch = 0; // --chain-batch: the batched float finder (SurfChainBatch)
   int chain_batch_d = 0; // --chain-batch-d: its stage d prediction (0 direct, 1 one-point cubic, 2 two-point Hermite)
@@ -287,6 +288,8 @@ int main(int argc, char *argv[]) {
       chain_start_holes = atoi(next());
     else if (a == "--chain-lead-only")
       chain_lead_only = 1;
+    else if (a == "--chain-inner-ot-only")
+      chain_inner_ot_only = 1;
     else if (a == "--chain-fast")
       chain_fast = 1;
     else if (a == "--chain-batch")
@@ -442,6 +445,7 @@ int main(int argc, char *argv[]) {
       C.known_only = !chain_any;
       C.start_holes = chain_start_holes;
       C.lead_only = chain_lead_only;
+      C.inner_ot_only = chain_inner_ot_only;
       C.fast = chain_fast;
       C.phases = chain_phases;
       C.setup(OWN, sd == 0 ? 1 : -1, have);

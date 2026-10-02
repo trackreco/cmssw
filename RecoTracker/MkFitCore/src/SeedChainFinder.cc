@@ -200,7 +200,7 @@ namespace mkfit {
       Cand c;
       c.k[0] = w_i0[i], c.k[1] = w_i1[i], c.k[2] = 0;
       c.pos[0] = pa_, c.pos[1] = pb_, c.pos[2] = 0;
-      c.holes = w_holes[i];
+      c.holes = w_holes[i], c.inner = 0;
       c.z0 = w_z0[i], c.cot = w_cot[i], c.sc = 0;
       return c;
     });
@@ -492,6 +492,7 @@ namespace mkfit {
           route(p, m);
           push(Q2_, m, [&](int i) {
             Cand c = Qd[f_j[i]];
+            c.inner += w_holes[i] > c.holes;
             c.holes = w_holes[i];
             return c;
           });
@@ -527,7 +528,9 @@ namespace mkfit {
           const int ix = idx_d(c, p);
           bool found = false;
           const HelixF &H = hx[j - b0];
-          if ((!Ch.known_only || ix >= 0) && H.ok) {
+          // with inner_ot_only, a candidate that missed a pixel hit completes only on an OT layer
+          const bool inner_ok = !Ch.inner_ot_only || !c.inner || !SeedLayerEnvelopes::is_pix(Ch.order[p]);
+          if ((!Ch.known_only || ix >= 0) && H.ok && inner_ok) {
             ++n_d_cand;
             const ParF &w = par_[ix >= 0 ? ix : 0];
             float aphi = w.aphi, bphi = w.bphi, aq = w.aq, bq = w.bq;
@@ -736,6 +739,7 @@ namespace mkfit {
           route(p, m);
           push(Q3_, m, [&](int i) {
             Cand c = Qt[f_j[i]];
+            c.inner += w_holes[i] > c.holes;
             c.holes = w_holes[i];
             return c;
           });

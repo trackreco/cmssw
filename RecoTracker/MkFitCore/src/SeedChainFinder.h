@@ -311,6 +311,7 @@ namespace mkfit {
   struct SeedCand {
     unsigned int k[3];
     unsigned char pos[3], holes, st;
+    unsigned char inner;  // holes charged after the start, in extension
     float z0, cot;  // the r-z line through its first and last hit
     float sc;       // a triplet: the stage c part of the residual score (fk_score)
   };
