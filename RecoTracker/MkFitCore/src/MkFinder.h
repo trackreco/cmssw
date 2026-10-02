@@ -180,6 +180,12 @@ namespace mkfit {
                                   const int N_proc,
                                   bool chiDebug = false);
 
+    // The backward fit of MkFinderV2p2 tracks, in MkFinderV2p2-BkFit.cc.
+    void bkFitFitTracksV2p2(const EventOfHits &eventofhits,
+                            const SteeringParams &st_par,
+                            const int N_proc,
+                            bool chiDebug = false);
+
     void bkFitPropTracksToPCA(const int N_proc);
 
     //----------------------------------------------------------------------------

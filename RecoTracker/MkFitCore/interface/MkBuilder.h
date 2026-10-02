@@ -144,6 +144,9 @@ namespace mkfit {
 
     // State for Std / CloneEngine
     EventOfCombCandidates m_event_of_comb_cands;
+    // The candidates in m_event_of_comb_cands were made by findTracksStandardv2p2();
+    // fit_cands() then uses MkFinder::bkFitFitTracksV2p2(). Reset in begin_event().
+    bool m_cands_from_v2p2 = false;
 
     // Per-region seed information
     std::vector<int> m_seedEtaSeparators;

@@ -215,6 +215,7 @@ namespace mkfit {
   //------------------------------------------------------------------------------
 
   void MkBuilder::begin_event(MkJob *job, Event *ev, const char *build_type) {
+    m_cands_from_v2p2 = false;
     m_nan_n_silly_per_layer_count = 0;
 
     m_job = job;
@@ -496,6 +497,7 @@ namespace mkfit {
   }
 
   void MkBuilder::findTracksBestHit(SteeringParams::IterationType_e iteration_dir) {
+    m_cands_from_v2p2 = false;
     // bool debug = true;
 
     TrackVec &cands = m_tracks;
@@ -803,6 +805,7 @@ namespace mkfit {
   //------------------------------------------------------------------------------
 
   void MkBuilder::findTracksStandardv2p2(SteeringParams::IterationType_e iteration_dir) {
+    m_cands_from_v2p2 = true;
     // debug = true;
 
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
@@ -920,6 +923,7 @@ namespace mkfit {
   //------------------------------------------------------------------------------
 
   void MkBuilder::findTracksStandard(SteeringParams::IterationType_e iteration_dir) {
+    m_cands_from_v2p2 = false;
     // debug = true;
 
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
@@ -1110,6 +1114,7 @@ namespace mkfit {
   //------------------------------------------------------------------------------
 
   void MkBuilder::findTracksCloneEngine(SteeringParams::IterationType_e iteration_dir) {
+    m_cands_from_v2p2 = false;
     // debug = true;
 
     EventOfCombCandidates &eoccs = m_event_of_comb_cands;
@@ -1552,7 +1557,10 @@ namespace mkfit {
         // input tracks
         mkfndr->bkFitInputTracks(eoccs, icand, end);
         // fit tracks back to first layer
-        mkfndr->bkFitFitTracksProp2Plane(m_job->m_event_of_hits, st_par, end - icand, chi_debug);
+        if (m_cands_from_v2p2)
+          mkfndr->bkFitFitTracksV2p2(m_job->m_event_of_hits, st_par, end - icand, chi_debug);
+        else
+          mkfndr->bkFitFitTracksProp2Plane(m_job->m_event_of_hits, st_par, end - icand, chi_debug);
         // tracks are put back into correcponding TrackCand when finsihed in the above function
         // now move one last time to PCA
         if (prop_config.backward_fit_to_pca) {
