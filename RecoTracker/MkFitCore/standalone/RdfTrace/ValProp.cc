@@ -1497,6 +1497,14 @@ namespace mkfit {
   // Keep one beam slot for a continuation that declined the layer. A beam policy,
   // not a score: declining is the only move that does not shrink the covariance,
   // so it is the only branch left open to an earlier hit having been wrong.
+  void val_late_max_cands(int max_cands, int hits, float step_cm) {
+    V2p2::InLayer::late_max_cands = max_cands;
+    V2p2::InLayer::late_max_cands_hits = hits;
+    V2p2::InLayer::late_max_cands_step_cm = step_cm;
+    printf("val_late_max_cands: V2p2::InLayer::late_max_cands = %d above %d found hits, except steps over %.1f cm"
+           " (0 = off)\n", max_cands, hits, step_cm);
+  }
+
   void val_reserve_hole_slot(bool on) {
     V2p2::InLayer::reserve_hole_slot = on;
     printf("val_reserve_hole_slot: V2p2::InLayer::reserve_hole_slot = %d\n", (int) on);

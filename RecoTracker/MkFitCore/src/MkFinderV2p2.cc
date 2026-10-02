@@ -39,6 +39,7 @@ namespace mkfit {
     n_hole_slot_reserved = 0; n_best_short_offered = 0; n_best_short_taken = 0;
     n_kalman_calls = 0; n_kalman_lanes = 0; n_kalman_calls_d0 = 0; n_kalman_lanes_d0 = 0;
     n_arena_layers = 0; n_arena_hw_sum = 0; n_arena_hw_max = 0; n_early_selections = 0;
+    n_late_max_cands = 0; n_late_max_cands_dropped = 0; n_late_max_cands_long = 0;
   }
 
   void V2p2PolicyCounters::print(const char *tag) const {
@@ -59,7 +60,8 @@ namespace mkfit {
            "  hole slots : %ld reserved for an outranked decliner\n"
            "  best-short : %ld stopped cands left the beam, %ld became the seed's best short\n"
            "  Mplex lanes: depth 0 %.2f of %d over %ld calls; deeper %.2f over %ld calls\n"
-           "  arena      : high water per layer %.1f nodes mean, %ld max; %ld of %ld selections early\n",
+           "  arena      : high water per layer %.1f nodes mean, %ld max; %ld of %ld selections early\n"
+           "  late max_cands: %ld activations at it, %ld TrackCands dropped, %ld kept wide by a long step\n",
            tag,
            n_quadrant_skip.load(), n_stop_minpt.load(), n_stop_looper.load(),
            n_wsr, n_wsr_inside.load(), f * n_wsr_inside, n_wsr_edge.load(), f * n_wsr_edge,
@@ -82,7 +84,8 @@ namespace mkfit {
              (double)(n_kalman_lanes - n_kalman_lanes_d0) / (n_kalman_calls - n_kalman_calls_d0) : 0.0,
            (long)(n_kalman_calls - n_kalman_calls_d0),
            n_arena_layers > 0 ? (double) n_arena_hw_sum / n_arena_layers : 0.0, n_arena_hw_max.load(),
-           n_early_selections.load(), n_selections.load());
+           n_early_selections.load(), n_selections.load(),
+           n_late_max_cands.load(), n_late_max_cands_dropped.load(), n_late_max_cands_long.load());
   }
 #endif
 
@@ -296,6 +299,31 @@ namespace mkfit {
     // Score is set to worst-possible elsewhere.
   }
 
+  // Straight-line path length from the candidate's state (its last hit) to the
+  // layer's near surface, against InLayer::late_max_cands_step_cm. Barrel: radial gap
+  // times p / pT; endcap: z gap times p / |pz|. Curvature is ignored, so the
+  // barrel path is underestimated for strongly bending tracks.
+  bool MkFinderV2p2::long_step_to_layer(const TrackCand &tc) const {
+    if (InLayer::late_max_cands_step_cm <= 0.0f)
+      return false;
+    const LayerInfo &li = m_rz_limits.layer_info_1();
+    float s;
+    if (li.is_barrel()) {
+      const float r = tc.posR();
+      const float dr = std::max({li.rin() - r, r - li.rout(), 0.0f});
+      s = dr * tc.p() / std::max(1e-3f, tc.pT());
+    } else {
+      const float z = tc.z();
+      const float dz = std::max({li.zmin() - z, z - li.zmax(), 0.0f});
+      s = dz * tc.p() / std::max(1e-3f, std::abs(tc.pz()));
+    }
+    if (s > InLayer::late_max_cands_step_cm) {
+      V2P2_COUNT(n_late_max_cands_long);
+      return true;
+    }
+    return false;
+  }
+
   void MkFinderV2p2::begin_next_Ccrep_in_layer() {
     CCandRep &ccrep = * m_active_ccreps_pos;
     CombCandidate &ccand = ccrep.m_ccand;
@@ -303,6 +331,20 @@ namespace mkfit {
     // QQQQ reserve to CombCand.capacity already done CCandRep ctor.
     // We will probably need a variable number per layer / layer pair.
     // But this will be first relevant / handled elsewhere.
+    // Beam width for this layer, per seed: see InLayer::late_max_cands. The
+    // TrackCands are in score order from the previous selection, so dropping
+    // the tail here is the selection having kept fewer.
+    ccrep.m_max_cands = ccand.capacity();
+    if (InLayer::late_max_cands > 0 && ccand.size() > 0 && ccand[0].nFoundHits() > InLayer::late_max_cands_hits &&
+        !long_step_to_layer(ccand[0])) {
+      ccrep.m_max_cands = std::min(ccrep.m_max_cands, (int) InLayer::late_max_cands);
+      V2P2_COUNT(n_late_max_cands);
+      if ((int) ccand.size() > ccrep.m_max_cands) {
+        V2P2_COUNT_ADD(n_late_max_cands_dropped, (int) ccand.size() - ccrep.m_max_cands);
+        ccand.resize(ccrep.m_max_cands);
+      }
+    }
+
     ccrep.m_primTCs.reserve(ccand.size());
 
     for (int ic = 0; ic < (int) ccand.size(); ++ic) {
@@ -1741,7 +1783,7 @@ namespace mkfit {
 
   void MkFinderV2p2::select_and_materialise(CCandRep &ccrep) {
     CombCandidate &ccand = ccrep.m_ccand;
-    const int cap = ccand.capacity();
+    const int max_cands = ccrep.m_max_cands > 0 ? ccrep.m_max_cands : ccand.capacity();
 
     m_sel.clear();
 
@@ -1795,8 +1837,8 @@ namespace mkfit {
     if (m_sel.empty())
       return;
 
-    // Partial sort: only the top cap matter, and cap is 6.
-    const int n_keep = std::min((int) m_sel.size(), cap);
+    // Partial sort: only the top max_cands matter.
+    const int n_keep = std::min((int) m_sel.size(), max_cands);
     std::partial_sort(m_sel.begin(), m_sel.begin() + n_keep, m_sel.end(),
                       [](const SelEntry &a, const SelEntry &b) { return a.score > b.score; });
 

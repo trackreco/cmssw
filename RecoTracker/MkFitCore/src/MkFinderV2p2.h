@@ -69,6 +69,9 @@ namespace mkfit {
     std::atomic<long> n_arena_hw_sum{0};
     std::atomic<long> n_arena_hw_max{0};
     std::atomic<long> n_early_selections{0};  // selections run before end of layer
+    std::atomic<long> n_late_max_cands{0};          // CombCandidate activations at InLayer::late_max_cands
+    std::atomic<long> n_late_max_cands_dropped{0};  // ... TrackCands dropped by it at activation
+    std::atomic<long> n_late_max_cands_long{0};     // activations kept at full width by a long step
 
     void reset();
     void print(const char *tag) const;
@@ -264,6 +267,7 @@ namespace mkfit {
     // selection and registers the survivors into the CombCandidate.
     void expand_in_layer(LayerBatch &b);
     void select_and_materialise(CCandRep &ccrep);
+    bool long_step_to_layer(const TrackCand &tc) const;
     void offer_best_short(CombCandidate &ccand, const TrackCand &tc) const;
     // The direction-, layer- and candidate-dependent part of a layer step, filled
     // once per path root and carried down the tree.

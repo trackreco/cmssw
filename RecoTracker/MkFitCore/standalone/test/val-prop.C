@@ -61,6 +61,7 @@ void val_hitpur_report() { mkfit::val_hitpur_report(); }
 void val_trkdump_reset() { mkfit::val_trkdump_reset(); }
 void val_trkdump_ev(const mkfit::Event *ev, const char *cfg) { mkfit::val_trkdump_event(ev, cfg); }
 void val_trkdump_write(const char *fn) { mkfit::val_trkdump_write(fn); }
+void val_late_max_cands(int max_cands, int hits, float step_cm = 0) { mkfit::val_late_max_cands(max_cands, hits, step_cm); }
 void val_in_layer_comb(bool on) { mkfit::val_in_layer_comb(on); }
 void val_layer_policy(bool w, bool h, bool s) { mkfit::val_layer_policy(w, h, s); }
 void val_reserve_hole_slot(bool on) { mkfit::val_reserve_hole_slot(on); }

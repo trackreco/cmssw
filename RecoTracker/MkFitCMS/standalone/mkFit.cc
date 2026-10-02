@@ -648,6 +648,11 @@ int main(int argc, const char* argv[]) {
           "                           batch and reuse its tree-node slots (def: %d)\n"
           "  --v2p2-running-kalman <0|1>  MkFinderV2p2: in-layer Kalman batches stay open across\n"
           "                           layer batches and fire only when full (def: %d)\n"
+          "  --v2p2-late-max-cands <n>      MkFinderV2p2: beam width per seed once its best candidate has\n"
+          "                           more than --v2p2-late-max-cands-hits found hits; 0 = off (def: %d)\n"
+          "  --v2p2-late-max-cands-hits <n> MkFinderV2p2: found hits above which --v2p2-late-max-cands applies (def: %d)\n"
+          "  --v2p2-late-max-cands-step <f> MkFinderV2p2: ... except on a straight-line step to the layer longer\n"
+          "                           than this [cm]; 0 = off (def: %g)\n"
           "  --v2p2-max-sec-depth <n> MkFinderV2p2: most hits one in-layer path may take (def: %d)\n"
           "  --v2p2-max-presel-hits <n>  MkFinderV2p2: pre-selection reduction cap, per sub-layer (def: %d)\n"
           "  --v2p2-hit-bonus <f>     MkFinderV2p2 score: per hit taken (def: %g)\n"
@@ -825,6 +830,9 @@ int main(int argc, const char* argv[]) {
           int(V2p2::InLayer::reserve_hole_slot),
           int(V2p2::InLayer::early_select),
           int(V2p2::InLayer::running_kalman),
+          V2p2::InLayer::late_max_cands,
+          V2p2::InLayer::late_max_cands_hits,
+          V2p2::InLayer::late_max_cands_step_cm,
           V2p2::InLayer::max_sec_depth,
           V2p2::InLayer::max_presel_hits,
           V2p2::Score::fwd.hit_bonus,
@@ -1089,6 +1097,15 @@ int main(int argc, const char* argv[]) {
     } else if (*i == "--v2p2-running-kalman") {
       next_arg_or_die(mArgs, i);
       V2p2::InLayer::running_kalman = (bool)atoi(i->c_str());
+    } else if (*i == "--v2p2-late-max-cands") {
+      next_arg_or_die(mArgs, i);
+      V2p2::InLayer::late_max_cands = atoi(i->c_str());
+    } else if (*i == "--v2p2-late-max-cands-hits") {
+      next_arg_or_die(mArgs, i);
+      V2p2::InLayer::late_max_cands_hits = atoi(i->c_str());
+    } else if (*i == "--v2p2-late-max-cands-step") {
+      next_arg_or_die(mArgs, i);
+      V2p2::InLayer::late_max_cands_step_cm = atof(i->c_str());
     } else if (*i == "--v2p2-max-sec-depth") {
       next_arg_or_die(mArgs, i);
       V2p2::InLayer::max_sec_depth = atoi(i->c_str());

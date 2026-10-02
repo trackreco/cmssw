@@ -188,6 +188,9 @@ namespace mkfit {
       // waiting to be expanded. Selection needs both counts at zero.
       int  m_n_inflight = 0;
       bool m_selected = false;  // select_and_materialise() already ran this layer
+      // Beam width this layer, set in begin_next_Ccrep_in_layer(); 0 = the
+      // CombCandidate's capacity. See InLayer::late_max_cands.
+      int  m_max_cands = 0;
 
     #if defined(MKFIT_STANDALONE)
       // Tuning & Debugging. Managed in MkFinderV2p2 processing.

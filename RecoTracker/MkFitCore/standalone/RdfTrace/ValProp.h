@@ -123,6 +123,7 @@ namespace mkfit {
   // build and every configuration sees identical events and seeds in one process.
   void val_in_layer_comb(bool on);
   void val_layer_policy(bool wsr, bool hole_limits, bool stop_cuts);
+  void val_late_max_cands(int max_cands, int hits, float step_cm = 0.0f);
   void val_reserve_hole_slot(bool on);
   void val_score_mode(int mode, float hit_eff);
   void val_score_terms(bool use_rho, float rho_const, bool use_detv, float detv_const);

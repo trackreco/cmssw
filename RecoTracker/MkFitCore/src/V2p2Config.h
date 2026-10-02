@@ -91,6 +91,18 @@ namespace mkfit {
       // only when full (or at end of layer), instead of flushing at every depth
       // boundary of every layer batch.
       MKFIT_V2P2_KNOB(bool, running_kalman, true);
+      // Beam width per seed, decided when its CombCandidate is activated in a
+      // layer: the CombCandidate keeps late_max_cands candidates instead of its
+      // capacity (maxCandsPerSeed), and the surplus is dropped at activation,
+      // unless its best candidate
+      //  - has at most late_max_cands_hits found hits (the seed parameters are still
+      //    poorly known), or
+      //  - is more than late_max_cands_step_cm away from the layer, along a straight
+      //    line from its last hit (a long step; 0 = this test off).
+      // late_max_cands 0 = off.
+      MKFIT_V2P2_KNOB(int, late_max_cands, 0);
+      MKFIT_V2P2_KNOB(int, late_max_cands_hits, 10);
+      MKFIT_V2P2_KNOB(float, late_max_cands_step_cm, 0.0f);
     }  // namespace InLayer
 
     //--------------------------------------------------------------------------
