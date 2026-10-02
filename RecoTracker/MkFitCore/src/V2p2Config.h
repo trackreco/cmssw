@@ -131,6 +131,18 @@ namespace mkfit {
     }  // namespace Policy
 
     //--------------------------------------------------------------------------
+    // MkFinderV2p2's own backward fit, MkFinderV2p2-BkFit.cc. Outlier rejection
+    // as in cms-sw/cmssw#52015 for MkFinder's fit: a hit whose chi2 increment is
+    // above outlier_chi2 becomes a missing hit and the propagated state is kept,
+    // at most max_outliers per track, on tracks with pT above outlier_min_pt.
+    // outlier_chi2 0 = off.
+    namespace BkFit {
+      MKFIT_V2P2_KNOB(float, outlier_chi2, 0.0f);
+      MKFIT_V2P2_KNOB(int, max_outliers, 3);
+      MKFIT_V2P2_KNOB(float, outlier_min_pt, 5.0f);
+    }  // namespace BkFit
+
+    //--------------------------------------------------------------------------
     // Layer-step score, design notes "Layer-step score".
     namespace Score {
       MKFIT_V2P2_KNOB(int, mode, 1);  // 0 linear, 1 log-likelihood ratio

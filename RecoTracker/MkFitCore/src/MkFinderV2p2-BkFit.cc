@@ -12,6 +12,9 @@
 #include "RecoTracker/MkFitCore/interface/cms_common_macros.h"
 #include "RecoTracker/MkFitCore/interface/IterationConfig.h"
 #include "KalmanUtilsMPlex.h"
+#include "V2p2Config.h"
+
+#include <algorithm>
 
 //#define DEBUG
 #include "Debug.h"
@@ -121,9 +124,14 @@ namespace mkfit {
     //   // m_CurNode[i] = m_HoTNodeArr[i][m_CurNode[i]].m_prev_idx;
     // }
 
+    const float outlier_chi2 = Config::V2p2::BkFit::outlier_chi2;
+    int n_outliers[NN] = {0};
+
     int done_count = 0;
     while (done_count != N_proc) {
 
+      int fit_node[NN];  // HoT node fitted in this step, -1 if none
+      std::fill_n(fit_node, NN, -1);
       int here_count = 0;
       for (int i = 0; i < N_proc; ++i) {
         if (done_flag[i])
@@ -180,6 +188,7 @@ namespace mkfit {
           }
 #endif
 
+          fit_node[i] = m_CurNode[i];
           ++here_count;
 
           m_CurNode[i] = m_HoTNodeArr[i][m_CurNode[i]].m_prev_idx;
@@ -210,6 +219,7 @@ namespace mkfit {
       // clang-format off
 
       m_FailFlag.setVal(0);
+      const MPlexQI chg_prev = m_Chg;
       propagateHelixToPlaneMPlex(m_Err[iC], m_Par[iC], m_Chg, plPnt, plNrm, nullptr,
                                  m_Err[iP], m_Par[iP], m_FailFlag,
                                  N_proc, m_prop_config->backward_fit_pflags, nullptr);
@@ -217,6 +227,26 @@ namespace mkfit {
                                 m_Err[iP], m_Par[iP], m_Chg, m_msErr, m_msPar, plNrm, plDir, plPnt,
                                 m_Err[iC], m_Par[iC], tmp_chi2, N_proc);
       kalmanCheckChargeFlip(m_Par[iC], m_Chg, N_proc);
+
+      // Outlier rejection, Config::V2p2::BkFit: the hit becomes a missing hit and
+      // the propagated state is kept. The negated comparison leaves a NaN chi2 alone.
+      if (outlier_chi2 > 0.0f) {
+        for (int i = 0; i < N_proc; ++i) {
+          if (fit_node[i] < 0 || !(tmp_chi2[i] > outlier_chi2) ||
+              n_outliers[i] >= Config::V2p2::BkFit::max_outliers ||
+              m_TrkCand[i]->pT() < Config::V2p2::BkFit::outlier_min_pt)
+            continue;
+          m_Err[iC].copySlot(i, m_Err[iP]);
+          m_Par[iC].copySlot(i, m_Par[iP]);
+          m_Chg[i] = chg_prev[i];
+          tmp_chi2[i] = 0.0f;
+          TrackCand &trk = *m_TrkCand[i];
+          trk.combCandidate()->hot_node_nc(fit_node[i]).m_hot.index = Hit::kHitMissIdx;
+          trk.setNFoundHits(trk.nFoundHits() - 1);
+          trk.setNMissingHits(trk.nMissingHits() + 1);
+          ++n_outliers[i];
+        }
+      }
 
 #ifdef MKFIT_TRACE
       // The whole block records TrBkFitUpdate and nothing else, so it is guarded
