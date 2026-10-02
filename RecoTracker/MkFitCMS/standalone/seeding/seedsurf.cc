@@ -24,6 +24,8 @@
 //                      --chain-batch-d N its stage d prediction: 0 direct from hit c, 1 one-point cubic, 2 two-point Hermite
 //        [--beam-spot-origin]   x, y, r, phi from the origin instead of the sample's beam spot
 //        [--truth OUT.txt] [--resid OUT.txt] [--dump quads.txt] [--quad-dump OUT.txt] [--eta-max E]
+//        [--seeds OUT.txt]   the quads kept by the cleaning, as seeds for the track finding (Shell::LoadSeederQuads):
+//                      'ev l0 l1 l2 l3 h0 h1 h2 h3 score', ev the file's event, 0-based; h the hit indices in layerHits_
 //        batch finder fake rejection (SurfChainBatch, README "Fakes in the finder"):
 //        [--fk-score S]   a quad's (dq_c/w)^2 + (dphi_c/w)^2 + (dphi_d/w)^2 + (dq_d/w)^2 below S
 //        [--shape-win L BINW N LO_0 HI_0 ... LO_N-1 HI_N-1]   barrel pixel layer L: the kept band of the
@@ -148,7 +150,7 @@ namespace {
 }  // namespace
 
 int main(int argc, char *argv[]) {
-  std::string input, geom = "CMS-phase2", truth_out, resid_out, dump_out, qdump_out;
+  std::string input, geom = "CMS-phase2", truth_out, resid_out, dump_out, qdump_out, seeds_out;
   int n_events = 10, first_event = 0;
   double eta_max = 4.0;
   double win_scale = 1.0;  // multiplies every c and d window
@@ -275,6 +277,8 @@ int main(int argc, char *argv[]) {
       dump_out = next();
     else if (a == "--quad-dump")
       qdump_out = next();
+    else if (a == "--seeds")
+      seeds_out = next();
     else if (a == "--own")
       own_delta = atof(next());
     else if (a == "--chain")
@@ -504,6 +508,10 @@ int main(int argc, char *argv[]) {
   }
   FILE *fd = dump_out.empty() ? nullptr : fopen(dump_out.c_str(), "w");
   FILE *fq = qdump_out.empty() ? nullptr : fopen(qdump_out.c_str(), "w");
+  FILE *fs = seeds_out.empty() ? nullptr : fopen(seeds_out.c_str(), "w");
+  if (fs)
+    fprintf(fs, "# seedsurf --seeds: per quad kept after the cleaning: ev l0 l1 l2 l3 h0 h1 h2 h3 score\n"
+                "# ev: the event in the file, 0-based; l: mkFit layers; h: hit indices in layerHits_[l]\n");
   if (fq)
     fprintf(fq, "# seedsurf --quad-dump: per event 'E ev n_findable'; per quad kept after the cleaning\n"
                 "# Q ip l0 l1 l2 l3  tru fake findable lab  eta pte  d0_abc d0_acd  rc_q rc_phi rd_phi rd_q"
@@ -1005,6 +1013,14 @@ int main(int argc, char *argv[]) {
           }
         }
     }
+    if (fs)
+      for (int i = 0; i < (int)cands.size(); ++i)
+        if (keep_c[i]) {
+          const Cand &c = cands[i];
+          const auto &ll = pats[c.ip].l;
+          fprintf(fs, "%d %d %d %d %d %u %u %u %u %.6g\n", first_event + iev, ll[0], ll[1], ll[2], ll[3], c.q[0], c.q[1],
+                  c.q[2], c.q[3], c.score);
+        }
     Stats &su = SU;
     std::unordered_map<int, int> fd_any;
     std::unordered_map<int, std::set<int>> fd_pat;
@@ -1139,6 +1155,8 @@ int main(int argc, char *argv[]) {
     fclose(fr);
   if (fd)
     fclose(fd);
+  if (fs)
+    fclose(fs);
   if (fq)
     fclose(fq);
 
