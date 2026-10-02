@@ -9,7 +9,8 @@ checked against.
 | `seedsurf.cc` | the driver: options, the configuration of the two passes (one `SeedChain` per z side, the window tables, the fake cuts), the event loop through `MkSeeder`, truth, `--dump`, `--margins`, `--resid` |
 | `SeedSurf.h` | the double-precision reference: `SurfChain` (the run on a `SeedChain`), the pattern finder, the ownership, `surf_eval()` |
 | `SeedSurfBatch.h` | the old name of `SeedChainFinder`, and the `--chain-fast-check` comparison |
-| `seedsurf-chain.sh` | the chosen configuration (2026-09-27): the chain, the window tables, cleaning N = 3 |
+| `seedsurf-chain.sh` | the chosen configuration (2026-09-27): the chain, the window tables, cleaning N = 3; the reference of the identity checks |
+| `seedsurf-v2p2.sh` | the working point for seeding v2p2 (2026-10-02): `seedsurf-chain.sh` plus holes into OT1-P, d0_max 0.5 mm, zv 15 cm, S < 0.5 at \|eta\| >= 1.7 |
 | `windows-D121/` | the window tables for D121, as command-line options; `ot1p-hole.txt` holds B2 B3 B4 + OT1-P, B1 B2 B4 + OT1-P and B1 B3 B4 + OT1-P (q95 of true quads, events 30-99), for `--chain 1 --chain-holes-ot 1 --chain-inner-ot-only`, which `seedsurf-chain.sh` does not set |
 | `truth2root.py` | `--truth` output into a ROOT file |
 
