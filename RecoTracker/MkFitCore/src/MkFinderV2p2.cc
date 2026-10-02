@@ -334,7 +334,12 @@ namespace mkfit {
     // Beam width for this layer, per seed: see InLayer::late_max_cands. The
     // TrackCands are in score order from the previous selection, so dropping
     // the tail here is the selection having kept fewer.
-    ccrep.m_max_cands = ccand.capacity();
+    // The capacity is reserved for the larger of the forward and backward widths
+    // (MkJob::max_max_cands()); the search direction's own maxCandsPerSeed applies.
+    const auto &iter_params = (mp_steeringparams_iter->type() == SteeringParams::IT_BkwSearch)
+                                  ? mp_job->params_bks()
+                                  : mp_job->params();
+    ccrep.m_max_cands = std::min((int) ccand.capacity(), iter_params.maxCandsPerSeed);
     if (InLayer::late_max_cands > 0 && ccand.size() > 0 && ccand[0].nFoundHits() > InLayer::late_max_cands_hits &&
         !long_step_to_layer(ccand[0])) {
       ccrep.m_max_cands = std::min(ccrep.m_max_cands, (int) InLayer::late_max_cands);
