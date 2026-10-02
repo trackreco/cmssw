@@ -409,7 +409,13 @@ struct TrKalmanUpdate {
 
   float   chi2 = -999.99f;
   float   chi2_trk = -999.99f;
-  bool    accepted = false;    // this hit advanced the state
+  // The acceptance chi2 (Policy::chi2_trk_fac on the track covariance), which the
+  // cut Policy::hit_chi2_cut is applied to. v2p2 only.
+  float   chi2_acc = -999.99f;
+  // This hit advanced the state. In the in-layer combinatorial search, that is:
+  // the node is on a TrackCand that survived the end-of-layer selection, so a
+  // hit that passed the chi2_acc cut can still be not accepted.
+  bool    accepted = false;
 
   // Propagated track parameters are same as in TrHitMatch (as we pass it to Kalman update),
   // The local dx, dy, dz distance from point to hit is the same as for hit match.

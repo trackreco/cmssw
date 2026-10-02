@@ -2250,35 +2250,72 @@ namespace mkfit {
 
     // ---- one row per LAYER-SEARCH: where was the sim track's own hit?
     // Roll up what the search actually did, keyed by search id.
-    struct Roll { int nsc = 0; bool mc_sc = false, mc_pre = false, mc_kal = false;
-                  float mc_c2 = 1e30f, best_c2 = 1e30f; };
-    std::vector<Roll> roll(n_ls);
+    struct Roll { int nsc = 0; bool mc_sc = false, mc_pre = false, mc_kal = false, mc_pass = false, mc_kept = false;
+                  int npass = 0, npass_wrong = 0, nkept_wrong = 0;
+                  float mc_c2 = 1e30f, mc_c2a = 1e30f, best_c2 = 1e30f, wrong_c2 = 1e30f, wrong_c2a = 1e30f; };
+    // One roll-up per SUB-LAYER of a search: a paired plan entry searches both
+    // sub-layers at once, and each gets its own row below (sub 1 = layer_sec).
+    std::vector<Roll> roll(2 * n_ls);
+    struct KuBest { float c2 = 1e30f, c2a = 1e30f; bool pass = false, kept = false; };
+    std::vector<KuBest> ku_best(ev->trHitMatches_.size());
+    for (const TrKalmanUpdate &ku : ev->trKalmanUpdates_) {
+      if (ku.hit_match_id < 0 || ku.hit_match_id >= (int) ku_best.size()) continue;
+      KuBest &kb = ku_best[ku.hit_match_id];
+      const bool pass = ku.chi2_acc > -900.f ? ku.chi2_acc < Config::V2p2::Policy::hit_chi2_cut : ku.chi2 < 30.f;
+      kb.pass |= pass;
+      kb.kept |= ku.accepted;
+      if (ku.chi2 < kb.c2) { kb.c2 = ku.chi2; kb.c2a = ku.chi2_acc; }
+    }
     for (const TrHitMatch &hm : ev->trHitMatches_) {
       if (hm.search_id < 0 || hm.search_id >= n_ls) continue;
-      Roll &r = roll[hm.search_id];
+      const TrLayerSearch &hls = ev->trLayerSearches_[hm.search_id];
+      const int sub = (hls.layer_sec >= 0 && hm.is_sec_layer) ? 1 : 0;
+      Roll &r = roll[2 * hm.search_id + sub];
       ++r.nsc;
-      float c2 = -999.f;
-      if (hm.kalman_id >= 0 && hm.kalman_id < n_ku)
-        c2 = ev->trKalmanUpdates_[hm.kalman_id].chi2;
-      if (c2 > -900.f && c2 < r.best_c2) r.best_c2 = c2;
+      // A hit can be evaluated more than once: at depth 0 and as the child of
+      // tree nodes, and hm.kalman_id names only the LAST evaluation. Take the
+      // best of all of them (ku_best, built above from TrKalmanUpdate::hit_match_id).
+      float c2 = -999.f, c2a = -999.f;
+      bool pass = false, kept = false;
+      const int hm_idx = (int)(&hm - &ev->trHitMatches_[0]);
+      if (hm.kalman_id >= 0 && hm.kalman_id < n_ku) {
+        const KuBest &kb = ku_best[hm_idx];
+        c2 = kb.c2;  c2a = kb.c2a;  kept = kb.kept;  pass = kb.pass;
+      }
+      if (pass) {
+        ++r.npass;
+        if (c2 < r.best_c2) r.best_c2 = c2;
+        if (!hm.mc_match) { ++r.npass_wrong;  if (kept) ++r.nkept_wrong;
+          if (c2 < r.wrong_c2) r.wrong_c2 = c2;
+          if (c2a < r.wrong_c2a) r.wrong_c2a = c2a; }
+      }
       if (hm.mc_match) { r.mc_sc = true;
         if (hm.passed_preselect) r.mc_pre = true;
         if (hm.kalman_id >= 0) { r.mc_kal = true;
-          if (c2 > -900.f && c2 < r.mc_c2) r.mc_c2 = c2; } }
+          if (pass) r.mc_pass = true;
+          if (kept) r.mc_kept = true;
+          if (c2 > -900.f && c2 < r.mc_c2) { r.mc_c2 = c2; r.mc_c2a = c2a; } } }
     }
-    for (int is = 0; is < n_ls; ++is) {
+    for (int isub = 0; isub < 2 * n_ls; ++isub) {
+      const int is = isub / 2, sub = isub % 2;
       const TrLayerSearch &ls = ev->trLayerSearches_[is];
       if (ls.layer < 0 || ls.state_id < 0 || ls.state_id >= n_cs) continue;
+      if (sub == 1 && ls.layer_sec < 0) continue;
+      const int lay = sub ? ls.layer_sec : ls.layer;
       ValSearchMiss m;
-      m.event = event_idx;  m.search_id = is;  m.layer = ls.layer;
+      m.event = event_idx;  m.search_id = is;  m.layer = lay;
       m.is_barrel = ls.is_barrel;
       m.wsr = ls.wsr;  m.wsr_in_gap = ls.wsr_in_gap;
       const TrCandState &cs = ev->trCandStates_[ls.state_id];
       m.step = cs.step;  m.pt = cs.state.pT();  m.eta = cs.state.momEta();
-      m.n_scanned = roll[is].nsc;  m.mc_scanned = roll[is].mc_sc;
-      m.mc_preselect = roll[is].mc_pre;  m.mc_kalman = roll[is].mc_kal;
-      if (roll[is].mc_c2   < 1e29f) m.mc_chi2   = roll[is].mc_c2;
-      if (roll[is].best_c2 < 1e29f) m.best_chi2 = roll[is].best_c2;
+      m.n_scanned = roll[isub].nsc;  m.mc_scanned = roll[isub].mc_sc;
+      m.mc_preselect = roll[isub].mc_pre;  m.mc_kalman = roll[isub].mc_kal;
+      if (roll[isub].mc_c2   < 1e29f) m.mc_chi2   = roll[isub].mc_c2;
+      if (roll[isub].best_c2 < 1e29f) m.best_chi2 = roll[isub].best_c2;
+      if (roll[isub].mc_c2a < 1e29f) m.mc_chi2_acc = roll[isub].mc_c2a;
+      m.n_pass = roll[isub].npass;  m.n_pass_wrong = roll[isub].npass_wrong;  m.n_kept_wrong = roll[isub].nkept_wrong;
+      if (roll[isub].wrong_c2 < 1e29f) m.best_wrong_chi2 = roll[isub].wrong_c2;
+      if (roll[isub].wrong_c2a < 1e29f) m.best_wrong_chi2_acc = roll[isub].wrong_c2a;
       if (cs.meta_id >= 0 && cs.meta_id < (int) ev->trCandMetas_.size()) {
         const TrCandMeta &cm = ev->trCandMetas_[cs.meta_id];
         if (cm.seed >= 0 && cm.seed < (int) seed_sim.size())
@@ -2288,7 +2325,7 @@ namespace mkfit {
 
       // Reconstruct the window centre in 3-D. q_center is z (barrel) or r
       // (endcap); the other coordinate is taken at the layer's mid-surface.
-      const LayerInfo &li = Config::TrkInfo[ls.layer];
+      const LayerInfo &li = Config::TrkInfo[lay];
       const double rc = m.is_barrel ? 0.5*(li.rin() + li.rout()) : ls.q_center;
       const double zc = m.is_barrel ? ls.q_center : 0.5*(li.zmin() + li.zmax());
       const double cx = rc*std::cos(ls.phi_center), cy = rc*std::sin(ls.phi_center);
@@ -2305,7 +2342,7 @@ namespace mkfit {
         const double d3 = std::sqrt(std::pow(h.x()-cx,2) + std::pow(h.y()-cy,2)
                                   + std::pow(h.z()-zc,2));
         if (d3 < best_any) { best_any = d3; m.near_layer = hot.layer; m.near_d3d = (float) d3; }
-        if (hot.layer != ls.layer) continue;
+        if (hot.layer != lay) continue;
         ++m.n_sim_in_layer;
         double dphi = std::atan2(h.y(), h.x()) - ls.phi_center;
         while (dphi >  M_PI) dphi -= 2.0*M_PI;
@@ -2325,10 +2362,9 @@ namespace mkfit {
       if (!m.has_sim_here)            m.verdict = 0;
       else if (m.mc_kalman) {
         if (m.mc_chi2 < -900.f)              m.verdict = 5;   // no usable chi2
-        else if (m.mc_chi2 >= 30.f)          m.verdict = 5;   // killed by the cut
-        else if (m.best_chi2 > -900.f &&
-                 m.best_chi2 < m.mc_chi2)    m.verdict = 6;   // outranked
-        else                                 m.verdict = 7;   // won
+        else if (!roll[isub].mc_pass)          m.verdict = 5;   // killed by the acceptance cut
+        else if (!roll[isub].mc_kept)          m.verdict = 6;   // passed, on no surviving candidate
+        else                                 m.verdict = 7;   // kept
       }
       else if (m.mc_preselect)        m.verdict = 4;
       else if (m.mc_scanned)          m.verdict = 3;

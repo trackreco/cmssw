@@ -101,6 +101,7 @@ namespace mkfit {
 
       TrKalmanUpdate &ku = mp_event->trace_kalmanupdate({ -1, hm_id, hm.state_id });
       ku.chi2 = tsChi2[i];
+      ku.chi2_acc = tsChi2Acc[i];
 
       // Do not know this yet -- how will I know?
       // ku.chi2_trk = 0.0f;  // Could track cumulative if needed

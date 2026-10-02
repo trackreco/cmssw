@@ -361,12 +361,24 @@ struct ValSearchMiss {
   //   2 in the window but not scanned (bin range / hit mask)
   //   3 scanned, failed pre-selection
   //   4 pre-selected, evicted before Kalman
-  //   5 reached the Kalman, chi2 >= 30 -- killed by the cut
-  //   6 reached the Kalman, chi2 < 30, but another hit had a lower chi2
-  //   7 reached the Kalman and WON its layer
+  //   5 reached the Kalman, failed the acceptance cut
+  //   6 passed the cut, but on no candidate that survived the layer
+  //   7 on a candidate that survived the layer
+  // The cut is TrKalmanUpdate::chi2_acc < Policy::hit_chi2_cut (chi2 < 30 before
+  // 2026-09-26); "survived" is TrKalmanUpdate::accepted. Before 2026-09-30,
+  // 6 and 7 were "outranked by a lower chi2" and "lowest chi2", with chi2 < 30.
   int   verdict = -1;
   float mc_chi2 = -999.f;    // best chi2 among the sim track's hits here
-  float best_chi2 = -999.f;  // best chi2 among ALL hits that reached the Kalman
+  float mc_chi2_acc = -999.f;  // its chi2_acc
+  float best_chi2 = -999.f;  // best chi2 among hits that passed the cut
+  // Hits that passed the acceptance cut in this search, those of them that are
+  // NOT the sim track's, and those of them kept on a surviving candidate. In a
+  // verdict-0 search (no sim hit in the layer) every passing hit is a wrong one.
+  int   n_pass = 0;
+  int   n_pass_wrong = 0;
+  int   n_kept_wrong = 0;
+  float best_wrong_chi2 = -999.f;      // lowest chi2 among passing hits that are not the sim track's
+  float best_wrong_chi2_acc = -999.f;  // lowest chi2_acc among them
 };
 
 
