@@ -109,6 +109,12 @@ namespace mkfit {
   void val_dphi(float trk_fac, float hit_rad, int extra_bins);
   void val_precut(bool q, bool phi);
   void val_hit_chi2(float cut, float trk_fac);
+  void val_assoc_mtv(bool on);
+  void val_hitorder_reset();
+  void val_hitorder_event(const Event *ev, const char *cfg);
+  void val_hitorder_report();
+  void val_track_scorer(const char *name);
+  void val_bkw_pickups(int r0, int r1, int r2, int r3, int r4);
   void val_qprecut_reset();
   void val_qprecut_event(const Event *ev);
   void val_qprecut_report(const char *tag);
@@ -164,6 +170,12 @@ namespace mkfit {
   // Per-sim-track efficiency, resolved in |eta|, pT and hits-per-layer, paired
   // across configurations. val_eff_ref() names the configuration everything else
   // is differenced against; without it the first one accumulated is used.
+  void val_hitpur_reset();
+  void val_hitpur_event(const Event *ev, const char *cfg);
+  void val_hitpur_report();
+  void val_trkdump_reset();
+  void val_trkdump_event(const Event *ev, const char *cfg);
+  void val_trkdump_write(const char *fn);
   void val_eff_reset();
   void val_eff_ref(const char *cfg);
   void val_eff_ref2(const char *cfg);

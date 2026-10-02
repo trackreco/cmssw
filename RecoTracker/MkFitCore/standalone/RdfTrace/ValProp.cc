@@ -1327,6 +1327,33 @@ namespace mkfit {
     printf("val_max_cands: maxCandsPerSeed = %d (fwd and bkw) for %d iteration configs\n", n, ni);
   }
 
+  // Default track scorer of every iteration config, by registered name (e.g.
+  // "phase1:default", which the CMSSW phase-2 initialStep JSON names, against
+  // the plugin's "phase2:LstIntoPix"). Re-resolves the function pointers.
+  void val_track_scorer(const char *name) {
+    const int ni = Config::ItrInfo.size();
+    for (int i = 0; i < ni; ++i) {
+      Config::ItrInfo[i].m_default_track_scorer_name = name;
+      Config::ItrInfo[i].setupStandardFunctionsFromNames();
+    }
+    printf("val_track_scorer: %s for %d iteration configs\n", name, ni);
+  }
+
+  // Backward-search pickup of iteration 0, as a PLAN INDEX per region (the
+  // form the JSON stores; the plugin derives it from a layer). -1 keeps it.
+  void val_bkw_pickups(int r0, int r1, int r2, int r3, int r4) {
+    auto &sps = Config::ItrInfo[0].m_steering_params;
+    const int v[5] = {r0, r1, r2, r3, r4};
+    for (int r = 0; r < 5 && r < (int)sps.size(); ++r) {
+      if (v[r] < 0)
+        continue;
+      if (v[r] >= (int)sps[r].m_layer_plan.size())
+        throw std::runtime_error("val_bkw_pickups: plan index out of range");
+      sps[r].m_bkw_search_pickup = v[r];
+    }
+    printf("val_bkw_pickups: %d %d %d %d %d\n", r0, r1, r2, r3, r4);
+  }
+
   void val_search_material(bool on) {
     auto &pc = const_cast<PropagationConfig&>(Config::TrkInfo.prop_config());
     pc.finding_inter_layer_pflags.apply_material = on;
@@ -1418,6 +1445,28 @@ namespace mkfit {
     V2p2::Policy::hit_chi2_cut = cut;
     V2p2::Policy::chi2_trk_fac = trk_fac;
     printf("val_hit_chi2: cut %g, trk_fac %g\n", cut, trk_fac);
+  }
+
+  // Truth association for val_eff and anything else on setMCTrackIDInfo. false
+  // is quality-val's rule, 2*mccount >= nCandHits over the non-seed hits. true
+  // is CMSSW MTV's quickTrackAssociatorByHits: shared / valid reco hits > 0.75,
+  // strictly, over all hits, seed hits included. Only the association: the
+  // --mtv-like-val option also changes the sim selection, this does not.
+  //
+  // MTV has no minimum track length, so MTV mode also sets nMinFoundHits = 0
+  // (as --mtv-like-val does): otherwise modifyRefTrackID() turns a correctly
+  // matched track with fewer than 10 non-seed hits into code -2, which
+  // val_eff then counted as a fake -- and a finder that builds longer tracks
+  // looked cleaner for it. The previous value is restored on switching off.
+  void val_assoc_mtv(bool on) {
+    static int saved_min_found_hits = Config::nMinFoundHits;
+    if (on && !Config::mtvLikeValidation)
+      saved_min_found_hits = Config::nMinFoundHits;
+    Config::mtvLikeValidation = on;
+    Config::nMinFoundHits = on ? 0 : saved_min_found_hits;
+    printf("val_assoc_mtv: %s, nMinFoundHits %d\n",
+           on ? "MTV, 4*mccount > 3*nCandHits over all hits" : "quality-val, 2*mccount >= nCandHits over non-seed hits",
+           Config::nMinFoundHits);
   }
 
   void val_precut(bool q, bool phi) {
@@ -2949,6 +2998,188 @@ namespace mkfit {
     printf("   %-26s rejects %5.1f %% of pairs   false rejects %8ld (%.3f %% of real passes)\n",
            "q a3 OR phi b3", P ? 100.0 * BR / P : 0.0, BF, RP ? 100.0 * BF / RP : 0.0);
     printf("false reject = the pre-cut drops a pair the real dq/dphi cut accepts.\n\n");
+  }
+
+  //==========================================================================
+  // val_hitorder -- is the hit order the CMSSW refit sees the propagation order?
+  //
+  // MkFitOutputConverter re-sorts each track's valid hits with std::sort
+  // before the CMSSW KF refit, with a comparator that switches rule per PAIR:
+  //   both barrel, neither on a TILTED TBPS module : perp2 (transverse radius)
+  //   either on a tilted TBPS module, or one barrel one endcap : mag2 (3D)
+  //   both endcap : |z|
+  // ("MkFit hits are *not* in the order of propagation, sort by 3D radius for
+  // now (as we don't have loopers)"). Mixed rules need not be a strict weak
+  // ordering, and then std::sort's result depends on its input order.
+  //
+  // The TRUE order is the turning angle along the track's own helix, about the
+  // centre computed from its state (exact for less than a full turn). Counted
+  // per track: adjacent inversions of the true order in (a) mkFit's own hit
+  // order, (b) the order after the converter's sort. |dt| * R of the worst
+  // inversion is the path length the refit would have to propagate BACKWARDS.
+  //==========================================================================
+  namespace {
+    struct HoHit { float x, y, z, t; bool barrel, tilted; };
+
+    bool ho_converter_less(const HoHit &a, const HoHit &b) {
+      if (a.barrel || b.barrel) {
+        if (a.tilted || b.tilted || !(a.barrel && b.barrel))
+          return a.x*a.x + a.y*a.y + a.z*a.z < b.x*b.x + b.y*b.y + b.z*b.z;
+        return a.x*a.x + a.y*a.y < b.x*b.x + b.y*b.y;
+      }
+      return std::abs(a.z) < std::abs(b.z);
+    }
+
+    struct HoBin {
+      long n_trk = 0, n_bad_mkf = 0, n_bad_cnv = 0, n_inv_mkf = 0, n_inv_cnv = 0;
+      long n_cnv_big = 0;  // tracks whose worst post-sort inversion is > 1 cm of path
+    };
+    struct HoCfg {
+      std::string name;
+      HoBin b[3][5];  // region x pT bin
+      // Sister pairs (even, even+1) of OT barrel layers 4..15 met as adjacent
+      // valid hits on a track: how often the even (first-in-plan) layer's hit
+      // comes SECOND along the helix. Index (even - 4) / 2.
+      long n_pair[6] = {}, n_pair_even_second[6] = {};
+    };
+    std::vector<HoCfg> g_ho;
+    const float ho_pt_edges[6] = {0.2f, 0.5f, 0.9f, 2.0f, 10.0f, 1e9f};
+    const char *ho_reg_name[3] = {"barrel |eta|<0.9", "trans 0.9-1.7", "endcap >1.7"};
+
+    HoCfg &ho_cfg(const char *name) {
+      for (auto &c : g_ho)
+        if (c.name == name)
+          return c;
+      g_ho.push_back(HoCfg{name, {}});
+      return g_ho.back();
+    }
+  }  // namespace
+
+  void val_hitorder_reset() { g_ho.clear(); }
+
+  void val_hitorder_event(const Event *ev, const char *cfg) {
+    HoCfg &C = ho_cfg(cfg);
+    const float k = 0.00299792458f * Config::Bfield;  // GeV per cm of radius
+    std::vector<HoHit> hv, hs;
+    for (const Track &trk : ev->candidateTracks_) {
+      const float pt = trk.pT();
+      if (!(pt > ho_pt_edges[0]))
+        continue;
+      const float ae = std::abs(trk.momEta());
+      const int reg = ae < 0.9f ? 0 : (ae < 1.7f ? 1 : 2);
+      int pb = 0;
+      while (pb < 4 && pt >= ho_pt_edges[pb + 1])
+        ++pb;
+
+      const float R = pt / k;
+      const int q = trk.charge();
+      const float ux = trk.px() / pt, uy = trk.py() / pt;
+      // Force q v x B with B along +z: centre is at +R (uy, -ux) for q > 0.
+      const float xc = trk.x() + q * R * uy, yc = trk.y() - q * R * ux;
+      const float phi0 = std::atan2(trk.y() - yc, trk.x() - xc);
+
+      hv.clear();
+      for (int i = 0; i < trk.nTotalHits(); ++i) {
+        const int lyr = trk.getHitLyr(i), idx = trk.getHitIdx(i);
+        if (lyr < 0 || idx < 0)
+          continue;
+        const Hit &h = ev->layerHits_[lyr][idx];
+        const LayerInfo &li = Config::TrkInfo[lyr];
+        HoHit o;
+        o.x = h.x(); o.y = h.y(); o.z = h.z();
+        o.barrel = li.is_barrel();
+        o.tilted = o.barrel && !li.is_pixel() && std::abs(li.module_info(h.detIDinLayer()).zdir[2]) > 1e-3f;
+        float dphi = std::atan2(o.y - yc, o.x - xc) - phi0;
+        while (dphi > float(M_PI)) dphi -= 2 * float(M_PI);
+        while (dphi <= -float(M_PI)) dphi += 2 * float(M_PI);
+        o.t = -q * dphi;  // a positive charge turns clockwise
+        hv.push_back(o);
+      }
+      if (hv.size() < 2)
+        continue;
+
+      {
+        int j = -1, prev_lyr = -1;
+        for (int i = 0; i < trk.nTotalHits(); ++i) {
+          const int lyr = trk.getHitLyr(i), idx = trk.getHitIdx(i);
+          if (lyr < 0 || idx < 0)
+            continue;
+          ++j;
+          if (j > 0 && prev_lyr >= 4 && prev_lyr <= 14 && prev_lyr % 2 == 0 && lyr == prev_lyr + 1) {
+            const int pi = (prev_lyr - 4) / 2;
+            ++C.n_pair[pi];
+            if (hv[j].t < hv[j - 1].t)
+              ++C.n_pair_even_second[pi];
+          }
+          prev_lyr = lyr;
+        }
+      }
+
+      hs = hv;
+      std::sort(hs.begin(), hs.end(), ho_converter_less);
+
+      static int n_dump = getenv("HO_DUMP") ? atoi(getenv("HO_DUMP")) : 0;
+      if (n_dump > 0 && reg == 0 && pt > 2.0f) {
+        --n_dump;
+        printf("HO_DUMP %s pt %.2f eta %.2f q %d R %.1f  state r %.2f z %.2f\n", cfg, pt, trk.momEta(), q, R,
+               std::hypot(trk.x(), trk.y()), trk.z());
+        int j = 0;
+        for (int i = 0; i < trk.nTotalHits(); ++i) {
+          const int lyr = trk.getHitLyr(i), idx = trk.getHitIdx(i);
+          if (lyr < 0 || idx < 0) { printf("   lyr %2d idx %d\n", lyr, idx); continue; }
+          const HoHit &o = hv[j++];
+          printf("   lyr %2d r %8.3f z %8.3f t %9.6f %s%s\n", lyr, std::hypot(o.x, o.y), o.z, o.t,
+                 o.tilted ? "tilted" : "", (j > 1 && o.t < hv[j - 2].t) ? "  <-- INV" : "");
+        }
+      }
+
+      auto count = [&](const std::vector<HoHit> &v, float &worst) {
+        int n = 0;
+        worst = 0;
+        for (size_t i = 1; i < v.size(); ++i)
+          if (v[i].t < v[i - 1].t) {
+            ++n;
+            worst = std::max(worst, (v[i - 1].t - v[i].t) * R);
+          }
+        return n;
+      };
+      float w_m, w_c;
+      const int im = count(hv, w_m), ic = count(hs, w_c);
+      HoBin &B = C.b[reg][pb];
+      ++B.n_trk;
+      B.n_inv_mkf += im;
+      B.n_inv_cnv += ic;
+      if (im) ++B.n_bad_mkf;
+      if (ic) ++B.n_bad_cnv;
+      if (w_c > 1.0f) ++B.n_cnv_big;
+    }
+  }
+
+  void val_hitorder_report() {
+    printf("\n=== val_hitorder: tracks whose valid hits are NOT in helix (propagation) order ===\n");
+    printf("mkf = mkFit's own order; cnv = after MkFitOutputConverter's std::sort;\n");
+    printf("inv/trk = adjacent inversions per track; >1cm = worst post-sort inversion over 1 cm of path\n");
+    for (auto &C : g_ho) {
+      printf("\n--- %s\n", C.name.c_str());
+      printf("%-18s %-10s %8s %8s %8s %8s %8s %8s\n", "region", "pT", "tracks", "mkf bad", "cnv bad",
+             "mkf i/t", "cnv i/t", "cnv>1cm");
+      for (int r = 0; r < 3; ++r)
+        for (int p = 0; p < 5; ++p) {
+          const HoBin &B = C.b[r][p];
+          if (!B.n_trk)
+            continue;
+          char pts[32];
+          snprintf(pts, sizeof(pts), "%.1f-%.1f", ho_pt_edges[p], p == 4 ? 99.0f : ho_pt_edges[p + 1]);
+          printf("%-18s %-10s %8ld %7.2f%% %7.2f%% %8.3f %8.3f %7.2f%%\n", ho_reg_name[r], pts, B.n_trk,
+                 100.0 * B.n_bad_mkf / B.n_trk, 100.0 * B.n_bad_cnv / B.n_trk, (double)B.n_inv_mkf / B.n_trk,
+                 (double)B.n_inv_cnv / B.n_trk, 100.0 * B.n_cnv_big / B.n_trk);
+        }
+      printf("sister pairs as adjacent hits, even layer's hit SECOND along the helix:\n");
+      for (int pi = 0; pi < 6; ++pi)
+        if (C.n_pair[pi])
+          printf("  layers %2d,%2d : %7ld pairs, even second %6.2f%%\n", 4 + 2 * pi, 5 + 2 * pi, C.n_pair[pi],
+                 100.0 * C.n_pair_even_second[pi] / C.n_pair[pi]);
+    }
   }
 
 }  // namespace mkfit

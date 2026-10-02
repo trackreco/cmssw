@@ -45,10 +45,22 @@ void val_hit_extents(const mkfit::EventOfHits *eoh, int a, int b) { mkfit::val_h
 void val_dphi(float trk_fac, float hit_rad, int extra_bins) { mkfit::val_dphi(trk_fac, hit_rad, extra_bins); }
 void val_precut(bool q, bool phi) { mkfit::val_precut(q, phi); }
 void val_hit_chi2(float cut, float trk_fac) { mkfit::val_hit_chi2(cut, trk_fac); }
+void val_assoc_mtv(bool on) { mkfit::val_assoc_mtv(on); }
+void val_ho_reset() { mkfit::val_hitorder_reset(); }
+void val_ho_ev(const mkfit::Event *e, const char *c) { mkfit::val_hitorder_event(e, c); }
+void val_ho_report() { mkfit::val_hitorder_report(); }
+void val_track_scorer(const char *n) { mkfit::val_track_scorer(n); }
+void val_bkw_pickups(int a, int b, int c, int d, int e) { mkfit::val_bkw_pickups(a, b, c, d, e); }
 void val_qpc_reset() { mkfit::val_qprecut_reset(); }
 void val_qpc_ev(const mkfit::Event *e) { mkfit::val_qprecut_event(e); }
 void val_qpc_report(const char *t) { mkfit::val_qprecut_report(t); }
 void val_surf_q_hit(bool on) { mkfit::val_surf_q_hit(on); }
+void val_hitpur_reset() { mkfit::val_hitpur_reset(); }
+void val_hitpur_ev(const mkfit::Event *ev, const char *cfg) { mkfit::val_hitpur_event(ev, cfg); }
+void val_hitpur_report() { mkfit::val_hitpur_report(); }
+void val_trkdump_reset() { mkfit::val_trkdump_reset(); }
+void val_trkdump_ev(const mkfit::Event *ev, const char *cfg) { mkfit::val_trkdump_event(ev, cfg); }
+void val_trkdump_write(const char *fn) { mkfit::val_trkdump_write(fn); }
 void val_in_layer_comb(bool on) { mkfit::val_in_layer_comb(on); }
 void val_layer_policy(bool w, bool h, bool s) { mkfit::val_layer_policy(w, h, s); }
 void val_reserve_hole_slot(bool on) { mkfit::val_reserve_hole_slot(on); }

@@ -131,6 +131,9 @@ namespace mkfit {
     void SetRemoveDuplicates(bool b);
     void SetUseDeadModules(bool b);
     void SetUseV2p2(bool b);
+    // Backward search with findTracksStandardv2p2 when v2p2 is on, as CMSSW's
+    // run_OneIteration() does; the default keeps findTracksCloneEngine.
+    void SetBkwSearchV2p2(bool b) { m_bkw_search_v2p2 = b; }
 
     Event *event() { return m_ctx.ev; }
     EventOfHits *eoh() { return m_ctx.eoh; }
@@ -265,6 +268,7 @@ namespace mkfit {
     // Initialised from Config::backwardSearch (--no-backward-search), which this
     // path used to ignore -- see ProcessEvent().
     bool m_backward_search = true;
+    bool m_bkw_search_v2p2 = false;
     bool m_remove_duplicates = true;
 
     using map_t = std::map<int, Track *>;

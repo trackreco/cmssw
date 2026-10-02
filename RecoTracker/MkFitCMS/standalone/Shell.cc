@@ -349,7 +349,10 @@ namespace mkfit {
 
         if (do_backward_search) {
           builder.beginBkwSearch();
-          builder.findTracksCloneEngine(SteeringParams::IT_BkwSearch);
+          if (Config::mimiUseV2p2 && m_bkw_search_v2p2)
+            builder.findTracksStandardv2p2(SteeringParams::IT_BkwSearch);
+          else
+            builder.findTracksCloneEngine(SteeringParams::IT_BkwSearch);
         }
 
         printf("Shell::ProcessEvent post backward fit (%s) / search (%s): %d comb-cands\n",

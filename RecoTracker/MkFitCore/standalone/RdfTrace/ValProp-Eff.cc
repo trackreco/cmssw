@@ -16,6 +16,7 @@
 // v2p2-eff-chop.sh. Output is <prefix>.root + <prefix>.txt; the deck reads a
 // copy of the .root directly, see ~/mic-dev/inlayer-slides/plots/420-eff.html.
 // ===========================================================================
+#include <array>
 #include "RecoTracker/MkFitCore/standalone/RdfTrace/ValProp.h"
 #include "RecoTracker/MkFitCore/standalone/DataFormats/ValStructs.h"
 #include "RecoTracker/MkFitCore/standalone/ConfigStandalone.h"
@@ -50,6 +51,7 @@
 
 #include "TFile.h"
 #include "TTree.h"
+#include "TNamed.h"
 #include "TH1D.h"
 #include "TCanvas.h"
 #include "TLegend.h"
@@ -80,6 +82,8 @@ namespace mkfit {
   // THE METRIC, and why each piece is safe:
   //  - Association is `TrackExtra::setMCTrackIDInfo`, i.e. `2*mccount >= nCandHits`
   //    over the non-seed hits -- exactly what quality-val's "found tracks" counts.
+  //    With val_assoc_mtv(true) it is MTV's rule instead, `4*mccount > 3*nCandHits`
+  //    over all hits, seed hits included; the report header says which.
   //    A WRONG extra hit raises the denominator only, so a gain here cannot be
   //    bought by taking more hits. `nH >= 80 %` is NOT used anywhere: it tests raw
   //    reco HITS against sim LAYERS and therefore rewards the thing under test.
@@ -137,6 +141,21 @@ namespace mkfit {
     const char *ve_regname[3] = {"barrel   |eta|<0.9", "transition 0.9-1.7", "endcap    >1.7"};
     int ve_region(float ae) { return ae < 0.9f ? 0 : (ae < 1.7f ? 1 : 2); }
 
+    // Uncut reco ranges, as mtvsum.C prints them: all, four |eta| ranges, five pT
+    // ranges, and 1.7 < |eta| < 2.7 split at pT 0.9.
+    constexpr int VE_NU = 12;
+    const char *ve_uname[VE_NU] = {"all", "eta 0-0.9", "eta 0.9-1.7", "eta 1.7-2.7", "eta 2.7-4.5",
+                                   "pT 0-0.5", "pT 0.5-0.9", "pT 0.9-2", "pT 2-10", "pT > 10",
+                                   "1.7-2.7 pT<0.9", "1.7-2.7 pT>0.9"};
+    void ve_ufill(std::array<long, VE_NU> &u, float ae, float pt) {
+      ++u[0];
+      const float er[5] = {0.f, 0.9f, 1.7f, 2.7f, 4.5f};
+      for (int r = 0; r < 4; ++r) if (ae >= er[r] && ae < er[r + 1]) ++u[1 + r];
+      const float pr[6] = {0.f, 0.5f, 0.9f, 2.f, 10.f, 1e9f};
+      for (int r = 0; r < 5; ++r) if (pt >= pr[r] && pt < pr[r + 1]) ++u[5 + r];
+      if (ae >= 1.7f && ae < 2.7f) ++u[pt < 0.9f ? 10 : 11];
+    }
+
     struct VeBins { long b[VE_NAX][VE_NB] = {}; long reg[3] = {}; long tot = 0; };
     struct VeRes { int evt; int lbl; int reg; float r; };
     // Same shape as VeBins but summing a weight, for mean track length. Kept
@@ -187,6 +206,10 @@ namespace mkfit {
       long sum_seed_hits[3] = {}, sum_seed_pix[3] = {};
       long n_ev = 0;
       std::vector<VeBins> ev_num, ev_den, ev_fake, ev_reco, ev_dup;
+      // Reco tracks WITHOUT the selection cuts, in mtvsum.C's ranges, per event.
+      // MTV's fake rate is over every reco track, and the pT > 0.9 cut above
+      // hides the low-pT fakes from the totals.
+      std::vector<std::array<long, VE_NU>> ev_ureco, ev_ufake;
       // d(pT)/pT of the best-matched reco track of each found sim track, one row
       // per found sim track and keyed by (event, sim label) so the report can
       // restrict every configuration to the tracks they ALL found. That
@@ -302,6 +325,7 @@ namespace mkfit {
   // the only way the two can be put on one axis.
   static void ve_accumulate(const Event *ev, const TrackVec &tracks, VeCfg &C) {
     VeBins e_den, e_num, e_dup, e_reco, e_fake, e_dens;
+    std::array<long, VE_NU> e_ureco{}, e_ufake{};
 
     // ---- seeds: which sim tracks did the search actually get a chance at, and
     // where is each seed, so its hits can be excluded from the association count.
@@ -371,8 +395,20 @@ namespace mkfit {
       const float rae = std::abs(c.momEta());
       const int rbe = ve_bin_eta(rae), rbp = ve_bin_pt(c.pT()), rreg = ve_region(rae);
       ve_fill(e_reco, rbe, rbp, -1, rreg, rae, c.pT());
-      if (mc < 0 || mc >= (int) ev->simTracks_.size())
+      ve_ufill(e_ureco, rae, c.pT());
+      // modifyRefTrackID() codes: >= 0 matched, findable; -2 matched but short;
+      // -3/-4 matched to a sim track that is not findable (in the shell: has no
+      // seed, i.e. most pileup); -1 and -5..-9 matched to NO sim track; -10
+      // duplicate. MTV's fake is "no sim track by hits", so in MTV mode only
+      // -1 and -5..-9 are fakes. The default mode keeps every negative code, as
+      // all numbers recorded before 2026-09-28 were made that way.
+      const bool fake = Config::mtvLikeValidation ? (mc == -1 || (mc <= -5 && mc >= -9))
+                                                  : (mc < 0 || mc >= (int) ev->simTracks_.size());
+      if (fake) {
         ve_fill(e_fake, rbe, rbp, -1, rreg, rae, c.pT());
+        ve_ufill(e_ufake, rae, c.pT());
+      } else if (mc < 0)
+        ;  // matched to a sim track that is not in the efficiency denominator
       else {
         ++n_assoc[mc];
         // Keep the best-matched reco track per sim track, so a duplicate does not
@@ -450,6 +486,7 @@ namespace mkfit {
     ve_add(C.reco, e_reco); ve_add(C.fake, e_fake);
     C.ev_den.push_back(e_den);  C.ev_num.push_back(e_num);  C.ev_dup.push_back(e_dup);
     C.ev_reco.push_back(e_reco); C.ev_fake.push_back(e_fake);
+    C.ev_ureco.push_back(e_ureco); C.ev_ufake.push_back(e_ufake);
     ++C.n_ev;
   }
 
@@ -463,6 +500,71 @@ namespace mkfit {
   // selectHitIndicesV2. Needs --read-cmssw-tracks AND a .bin converted with
   // --write-rec-tracks; without the latter the section is not in the file at all
   // and this reports an empty collection rather than failing quietly.
+  //--------------------------------------------------------------------------
+  // val_hitpur -- per mkFit layer, the hits on the reconstructed tracks: how
+  // many belong to the track's own particle (TrackExtra's mcTrackID, MTV rule
+  // when val_assoc_mtv is on) and how many to another or to none. Only tracks
+  // matched to a particle (mcTrackID >= 0) are counted, so "wrong" means a
+  // foreign hit on a track that is otherwise that particle's. Seed hits
+  // included. For comparing layer plans: where do the wrong hits enter.
+  //--------------------------------------------------------------------------
+  namespace {
+    struct HpCfg {
+      std::string name;
+      long n_trk = 0;
+      long own[64] = {}, wrong[64] = {}, none[64] = {};
+    };
+    std::vector<HpCfg> g_hp;
+  }  // namespace
+
+  void val_hitpur_reset() { g_hp.clear(); }
+
+  void val_hitpur_event(const Event *ev, const char *cfg) {
+    if (ev == nullptr) return;
+    HpCfg *C = nullptr;
+    for (auto &c : g_hp) if (c.name == cfg) C = &c;
+    if (!C) { g_hp.push_back(HpCfg()); g_hp.back().name = cfg; C = &g_hp.back(); }
+    for (const Track &c : ev->candidateTracks_) {
+      TrackExtra extra(c.label());
+      extra.setMCTrackIDInfo(c, ev->layerHits_, ev->simHitsInfo_, ev->simTracks_, false, false);
+      const int mc = extra.mcTrackID();
+      if (mc < 0 || mc >= (int) ev->simTracks_.size()) continue;
+      ++C->n_trk;
+      for (int h = 0; h < c.nTotalHits(); ++h) {
+        const HitOnTrack hot = c.getHitOnTrack(h);
+        if (hot.index < 0 || hot.layer < 0 || hot.layer >= 64) continue;
+        const Hit &hit = ev->layerHits_[hot.layer][hot.index];
+        const int id = hit.mcHitID();
+        const int st = (id >= 0 && id < (int) ev->simHitsInfo_.size()) ? ev->simHitsInfo_[id].mcTrackID() : -1;
+        if (st == mc) ++C->own[hot.layer];
+        else if (st < 0) ++C->none[hot.layer];
+        else ++C->wrong[hot.layer];
+      }
+    }
+  }
+
+  void val_hitpur_report() {
+    printf("\n--- val_hitpur: hits on particle-matched tracks, per mkFit layer: own / foreign / none ---\n");
+    printf("%-6s", "layer");
+    for (auto &c : g_hp) printf(" | %-30s", c.name.c_str());
+    printf("\n");
+    for (int l = 0; l < 64; ++l) {
+      bool any = false;
+      for (auto &c : g_hp) any |= (c.own[l] + c.wrong[l] + c.none[l]) > 0;
+      if (!any) continue;
+      printf("%-6d", l);
+      for (auto &c : g_hp) {
+        const long t = c.own[l] + c.wrong[l] + c.none[l];
+        printf(" | %8ld %6.2f%% %5.2f%% %5.3f", c.own[l], t ? 100.0 * c.wrong[l] / t : 0.0,
+               t ? 100.0 * c.none[l] / t : 0.0, c.n_trk ? (double) t / c.n_trk : 0.0);
+      }
+      printf("\n");
+    }
+    printf("  per config: own hits, foreign %%, none %%, hits per matched track; tracks:");
+    for (auto &c : g_hp) printf(" %s %ld", c.name.c_str(), c.n_trk);
+    printf("\n");
+  }
+
   void val_eff_cmssw_event(const Event *ev, const char *cfg) {
     if (ev == nullptr) return;
     if (ev->cmsswTracks_.empty()) {
@@ -621,10 +723,21 @@ namespace mkfit {
     ve_printf("  only the seeded ones; the seeded subset is in the next block, because the\n");
     ve_printf("  search cannot find what it was not seeded for and MTV's 'central' is in\n");
     ve_printf("  practice imposed by the seeds rather than by us.\n");
-    ve_printf("NUMERATOR: >= 1 reco track associated to it by 2*mccount >= nCandHits over the\n");
-    ve_printf("  non-seed hits (TrackExtra::setMCTrackIDInfo), which is what quality-val's\n");
-    ve_printf("  'found tracks' counts. A wrong extra hit raises the denominator of that\n");
-    ve_printf("  rule only, so nothing here can be bought by taking more hits.\n");
+    if (Config::mtvLikeValidation) {
+      ve_printf("NUMERATOR: >= 1 reco track associated to it by 4*mccount > 3*nCandHits over\n");
+      ve_printf("  ALL the track's hits, seed hits included (TrackExtra::setMCTrackIDInfo with\n");
+      ve_printf("  Config::mtvLikeValidation, set by val_assoc_mtv()). That is MTV's\n");
+      ve_printf("  quickTrackAssociatorByHits: shared / valid reco hits > 0.75, strictly, so\n");
+      ve_printf("  3 of 4 FAILS. Fakes use the same rule: a FAKE is a track matched to no sim\n");
+      ve_printf("  track at all; one matched to a non-findable (e.g. unseeded pileup) sim\n");
+      ve_printf("  track is not a fake. nMinFoundHits = 0, as MTV has no length cut.\n");
+    } else {
+      ve_printf("NUMERATOR: >= 1 reco track associated to it by 2*mccount >= nCandHits over the\n");
+      ve_printf("  non-seed hits (TrackExtra::setMCTrackIDInfo), which is what quality-val's\n");
+      ve_printf("  'found tracks' counts.\n");
+    }
+    ve_printf("  A wrong extra hit raises the denominator of either rule only, so nothing\n");
+    ve_printf("  here can be bought by taking more hits.\n");
     ve_printf("  nH >= 80%% is NOT used anywhere.\n");
     ve_printf("Reference configuration: %s\n", ref->name.c_str());
 
@@ -721,6 +834,32 @@ namespace mkfit {
     }
     ve_printf("  's' is the paired significance: the sum of the per-event difference over\n"
               "  the sigma of that sum, so it is the spread of the DIFFERENCE, not Poisson.\n");
+
+    // Fakes over EVERY reco track, no |eta| or pT cut, in mtvsum.C's ranges and
+    // by the reco track's own |eta| and pT, as MTV's fake rate is.
+    ve_printf("\n--- fakes over ALL reco tracks (no selection cut; reco |eta|, pT) ---\n");
+    ve_printf("%-16s", "range");
+    for (const auto &c : g_ve) ve_printf(" %22s", c.name.c_str());
+    for (const auto &c : g_ve) if (&c != ref) ve_printf(" %17s", ("d fake " + c.name).c_str());
+    ve_printf("\n");
+    for (int u = 0; u < VE_NU; ++u) {
+      ve_printf("%-16s", ve_uname[u]);
+      for (const auto &c : g_ve) {
+        long r = 0, f = 0;
+        for (size_t e = 0; e < c.ev_ureco.size(); ++e) { r += c.ev_ureco[e][u]; f += c.ev_ufake[e][u]; }
+        ve_printf(" %6ld/%7ld %6.2f%%", f, r, r ? 100.0 * f / r : 0.0);
+      }
+      for (const auto &c : g_ve) {
+        if (&c == ref) continue;
+        std::vector<long> a, b;
+        for (auto &x : c.ev_ufake) a.push_back(x[u]);
+        for (auto &x : ref->ev_ufake) b.push_back(x[u]);
+        double sm, sg;
+        ve_paired(a, b, sm, sg);
+        ve_printf(" %+9.0f %5.1fs", sm, sg > 0 ? sm / sg : 0.0);
+      }
+      ve_printf("\n");
+    }
 
     // Resolution, per region. NOT paired -- the population differs between
     // configurations by construction, since a configuration that finds more
@@ -1155,6 +1294,91 @@ namespace mkfit {
     ve_printf("\nval_chopres_report: wrote %s and %s (%zu configurations)\n",
               rootf.c_str(), txt.c_str(), g_cr.size());
     if (g_ve_log) { fclose(g_ve_log); g_ve_log = nullptr; }
+  }
+
+
+  //--------------------------------------------------------------------------
+  // val_trkdump -- one row per (configuration, event, sim track): the best-
+  // matched reco track (most matched hits, as val_eff), its pT, its state's
+  // position and its hits in HoT order (layer << 20 | index, -1 - layer for a
+  // hole). For comparing two configurations track by track on the same sim
+  // tracks: same hits and a different pT is the state, different hits the
+  // selection.
+  //--------------------------------------------------------------------------
+  namespace {
+    struct TdRow {
+      int cfg, ev, sim, nfound;
+      float sim_pt, sim_eta, pt, eta, chi2, sx, sy, sz;
+      std::vector<int> hits;
+      std::vector<float> hr, hz;
+      std::vector<int> hown;
+    };
+    std::vector<std::string> g_td_cfg;
+    std::vector<TdRow> g_td;
+  }  // namespace
+
+  void val_trkdump_reset() { g_td_cfg.clear(); g_td.clear(); }
+
+  void val_trkdump_event(const Event *ev, const char *cfg) {
+    if (ev == nullptr) return;
+    int ci = std::find(g_td_cfg.begin(), g_td_cfg.end(), std::string(cfg)) - g_td_cfg.begin();
+    if (ci == (int) g_td_cfg.size()) g_td_cfg.push_back(cfg);
+    std::map<int, std::pair<int, const Track *>> best;
+    for (const Track &c : ev->candidateTracks_) {
+      TrackExtra extra(c.label());
+      extra.setMCTrackIDInfo(c, ev->layerHits_, ev->simHitsInfo_, ev->simTracks_, false, false);
+      const int mc = extra.mcTrackID();
+      if (mc < 0 || mc >= (int) ev->simTracks_.size()) continue;
+      auto &b = best[mc];
+      if (b.second == nullptr || extra.nHitsMatched() > b.first) b = {extra.nHitsMatched(), &c};
+    }
+    for (auto &[mc, b] : best) {
+      const Track &c = *b.second, &st = ev->simTracks_[mc];
+      TdRow r{ci, ev->evtID(), mc, c.nFoundHits(), st.pT(), st.momEta(), c.pT(), c.momEta(), c.chi2(),
+              c.x(), c.y(), c.z(), {}, {}, {}, {}};
+      for (int h = 0; h < c.nTotalHits(); ++h) {
+        const HitOnTrack hot = c.getHitOnTrack(h);
+        r.hits.push_back(hot.index >= 0 ? (hot.layer << 20 | hot.index) : -1 - hot.layer);
+        if (hot.index >= 0) {
+          const Hit &hh = ev->layerHits_[hot.layer][hot.index];
+          r.hr.push_back(std::hypot(hh.x(), hh.y()));
+          r.hz.push_back(hh.z());
+          const int id = hh.mcHitID();
+          const int st = (id >= 0 && id < (int) ev->simHitsInfo_.size()) ? ev->simHitsInfo_[id].mcTrackID() : -1;
+          r.hown.push_back(st == mc ? 1 : (st < 0 ? -1 : 0));
+        } else {
+          r.hr.push_back(-1);
+          r.hz.push_back(0);
+          r.hown.push_back(-1);
+        }
+      }
+      g_td.push_back(std::move(r));
+    }
+  }
+
+  void val_trkdump_write(const char *fn) {
+    TFile f(fn, "RECREATE");
+    TTree t("trk", "best-matched reco track per sim track");
+    TdRow r;
+    std::vector<int> *hp = &r.hits;
+    std::vector<float> *hrp = &r.hr, *hzp = &r.hz;
+    std::vector<int> *hop = &r.hown;
+    t.Branch("cfg", &r.cfg);  t.Branch("ev", &r.ev);  t.Branch("sim", &r.sim);
+    t.Branch("nfound", &r.nfound);  t.Branch("sim_pt", &r.sim_pt);  t.Branch("sim_eta", &r.sim_eta);
+    t.Branch("pt", &r.pt);  t.Branch("eta", &r.eta);  t.Branch("chi2", &r.chi2);
+    t.Branch("sx", &r.sx);  t.Branch("sy", &r.sy);  t.Branch("sz", &r.sz);
+    t.Branch("hits", &hp);
+    t.Branch("hr", &hrp);
+    t.Branch("hz", &hzp);
+    t.Branch("hown", &hop);
+    for (auto &x : g_td) { r = x; t.Fill(); }
+    t.Write();
+    TNamed n("cfgs", "");
+    std::string cs;
+    for (auto &c : g_td_cfg) cs += c + " ";
+    n.SetTitle(cs.c_str());
+    n.Write();
+    printf("val_trkdump_write: %zu rows, configs %s-> %s\n", g_td.size(), cs.c_str(), fn);
   }
 
 }  // namespace mkfit

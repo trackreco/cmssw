@@ -8,6 +8,8 @@
 #
 #   usage:  v2p2-eff-chi2.sh [n_events] [sample] [out_prefix]
 #   CFGS="cut:fac ..." overrides the grid; the first entry is the reference.
+#   ASSOC=mtv associates by MTV's rule (> 75 % of all hits true) instead of
+#   quality-val's (>= 50 % of the non-seed hits).
 set -e
 cd /foo/matevz/mic-dev/current/src/standalone
 unset DISPLAY
@@ -23,6 +25,7 @@ CMD=(./mkFit --geom CMS-phase2 --seed-input cmssw --read-cmssw-tracks --input-fi
      --num-events "$N" --num-thr 1 --build-mimi --build-mimi-v2p2 --shell
      --shell-command 'gROOT->SetBatch(kTRUE)'
      --shell-command "gROOT->ProcessLine(\".L $T/val-prop.C\")"
+     --shell-command "val_assoc_mtv($([ "${ASSOC:-}" = mtv ] && echo true || echo false))"
      --shell-command 'val_eff_reset()'
      --shell-command "val_eff_ref(\"c$REF\")")
 
