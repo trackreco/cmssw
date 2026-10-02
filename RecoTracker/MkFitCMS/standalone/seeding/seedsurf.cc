@@ -28,6 +28,7 @@
 //                      'ev l0 l1 l2 l3 h0 h1 h2 h3 score', ev the file's event, 0-based; h the hit indices in layerHits_
 //        batch finder fake rejection (SurfChainBatch, README "Fakes in the finder"):
 //        [--fk-score S]   a quad's (dq_c/w)^2 + (dphi_c/w)^2 + (dphi_d/w)^2 + (dq_d/w)^2 below S
+//        [--fk-score-fwd S ETA]   ... below S instead where the candidate's r-z line has |eta| >= ETA
 //        [--shape-win L BINW N LO_0 HI_0 ... LO_N-1 HI_N-1]   barrel pixel layer L: the kept band of the
 //                      cluster length along z per |cot theta| bin of width BINW (windows-D121/shape.txt)
 //        [--fk-shape]     apply the shape bands
@@ -167,7 +168,7 @@ int main(int argc, char *argv[]) {
   int chain_batch_d = 0; // --chain-batch-d: its stage d prediction (0 direct, 1 one-point cubic, 2 two-point Hermite)
   int chain_phases = 0;  // --chain-phases: time the chain's phases
   bool bs_origin = false;  // --beam-spot-origin: the seeder's coordinates from (0, 0, 0), not the sample's beam spot
-  float fk_score = 0, fk_ot2 = 0;
+  float fk_score = 0, fk_ot2 = 0, fk_score_fwd = 0, fk_eta_fwd = 99;
   float ot2_win[4] = {-8.1e-4f, 5.92e-3f, 0.3084f, 0.0909f};  // q97 of true quads, events 0-39
   float ot2_phimin = 1.31e-3f;  // --ot2-phimin: the floor of its phi term, the q97 above 3 GeV
   float ot1_win[4] = {2.16e-3f, 9.99e-3f, 0.2318f, 0.3566f};  // q97 of true quads, events 0-39
@@ -304,6 +305,10 @@ int main(int argc, char *argv[]) {
       chain_phases = 1;
     else if (a == "--fk-score")
       fk_score = atof(next());
+    else if (a == "--fk-score-fwd") {
+      fk_score_fwd = atof(next());
+      fk_eta_fwd = atof(next());
+    }
     else if (a == "--fk-shape")
       fk_shape = true;
     else if (a == "--fk-ot2")
@@ -565,6 +570,7 @@ int main(int argc, char *argv[]) {
           surf_check_d(c, lay, disc, u, ok, px, py, qp, wq, wp, g_surf_fast_check);
         };
       B.fk_score = fk_score, B.fk_shape = fk_shape, B.fk_ot2 = fk_ot2;
+      B.fk_score_fwd = fk_score_fwd, B.fk_cot_fwd = std::sinh(fk_eta_fwd);
       B.ot2_aphi = ot2_win[0], B.ot2_bphi = ot2_win[1], B.ot2_aq = ot2_win[2], B.ot2_bq = ot2_win[3];
       B.ot2_phimin = ot2_phimin;
       for (int l = 0; l < 4; ++l)

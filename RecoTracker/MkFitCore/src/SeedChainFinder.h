@@ -353,6 +353,9 @@ namespace mkfit {
     //   with each residual over its own window, below fk_score. Stage c drops a triplet whose c part
     //   alone reaches it, and stage d adds the d part.
     float fk_score = 0;
+    // fk_score_fwd > 0: the score cut for a candidate whose r-z line has |cot theta| >= fk_cot_fwd (the
+    // doublet's at stage c, the a-c line's at stage d) in place of fk_score
+    float fk_score_fwd = 0, fk_cot_fwd = 1e30f;
     // fk_shape: the cluster length along z (Hit::spanCols()) of every hit on a barrel pixel layer (0-3)
     //   within the band of true hits for the line's |cot theta|: at stage b on the a-b line, at c and d
     //   on the line the candidate already has (a-b, a-c).

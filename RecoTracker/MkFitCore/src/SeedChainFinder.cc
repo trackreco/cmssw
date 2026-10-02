@@ -399,6 +399,7 @@ namespace mkfit {
           const Cand &c = Qd[j];
           const int ix = idx_c(c, p);
           bool found = false;
+          const float fks_c = fk_score_fwd > 0 && std::abs(c.cot) >= fk_cot_fwd ? fk_score_fwd : fks;
           if (!Ch.known_only || ix >= 0) {
             ++n_c_cand;
             const ParF &w = par_[ix >= 0 ? ix : 0];
@@ -443,7 +444,7 @@ namespace mkfit {
                       if (fk_on) {
                         const float rq = dq * iqcw, rp = dph / wph;
                         sc = rq * rq + rp * rp;
-                        if (sc >= fks || hsp[i] < slo || hsp[i] > shi)
+                        if (sc >= fks_c || hsp[i] < slo || hsp[i] > shi)
                           continue;
                       }
                       t_j.push_back(j), t_k.push_back(i), t_s.push_back(sc);
@@ -571,7 +572,7 @@ namespace mkfit {
               const float bqi = bq * ipt, bpi = bphi * ipt;
               const float sw = std::sin(wpd), sw2 = sw * sw;
               // the rest of the score, and the shape band of hit d on the a-c line
-              const float fkd = fks - c.sc;
+              const float fkd = (fk_score_fwd > 0 && std::abs(c.cot) >= fk_cot_fwd ? fk_score_fwd : fks) - c.sc;
               int slo = 0, shi = 1 << 30;
               if (shT) {
                 const int sb = shT->bin(std::abs(c.cot));
