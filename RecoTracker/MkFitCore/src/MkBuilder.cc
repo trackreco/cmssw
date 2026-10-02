@@ -906,6 +906,19 @@ namespace mkfit {
       auto &cstage = m_event->tr_candstage(cc.m_trace_stage_id);
       cstage.final_state_id = cstate.id;
       cstate.on_final_path = true;
+      if (iteration_dir == SteeringParams::IT_FwdSearch) {
+        auto &cmeta = m_event->tr_candmeta(cstate.meta_id);
+        cmeta.fwd_rank_max = bcand.m_rank_max;
+        cmeta.fwd_rank_max_layer = bcand.m_rank_max_layer;
+        cmeta.fwd_rank_over_layer = bcand.m_rank_over_layer;
+        const Track ft = bcand.exportTrack();
+        unsigned long long h = 1469598103934665603ull;
+        for (int ih = 0; ih < ft.nTotalHits(); ++ih) {
+          const HitOnTrack hot = ft.getHitOnTrack(ih);
+          h = (h ^ (unsigned long long) (hot.layer * 1000003 + hot.index)) * 1099511628211ull;
+        }
+        cmeta.fwd_hits_hash = h;
+      }
       int pid = cstate.parent_id;
       while (pid >= 0) {
         auto &pstate = m_event->tr_candstate(pid);

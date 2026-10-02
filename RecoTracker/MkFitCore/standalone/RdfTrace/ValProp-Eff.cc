@@ -517,6 +517,153 @@ namespace mkfit {
     std::vector<HpCfg> g_hp;
   }  // namespace
 
+  //============================================================================
+  // val_rank -- the worst end-of-layer selection rank along the ancestry of each
+  // seed's final forward-search candidate (TrCandMeta::fwd_rank_*, MKFIT_TRACE,
+  // MkFinderV2p2). The layer-step score is additive, so a candidate whose
+  // ancestors all ranked <= R at beam width W > R also survives at width R: its
+  // competitors at width R are a subset of those at W. So in a run at width 10,
+  // the final tracks with fwd_rank_max > 6 are the ones width 6 cannot make.
+  // Track-to-meta by TrCandMeta::cand, the export index: run WITHOUT
+  // --remove-dup, which erases tracks and shifts it. Truth as val_eff, by the
+  // association mode in force (val_assoc_mtv).
+  //============================================================================
+
+  namespace {
+    struct RkCfg {
+      std::string name;
+      // [class][rank bin]: class 0 good, 1 fake, 2 other; rank bin 0: <= rank_over,
+      // 1..4: rank_over + 1 .. + 4 and above.
+      long n[3][5] = {};
+      // first layer above rank_over, by group, per class
+      long over_grp[3][9] = {};
+      // per |eta| region of the reco track: tracks, of them above rank_over
+      long reg[3][3][2] = {};
+      long n_nometa = 0;
+      // per event (in call order), seed index -> (class, hash of the hit list,
+      // worst rank), for the per-seed comparison against the first config.
+      struct Fin { int cls; size_t hash; int rank; unsigned long long fwd_hash; };
+      std::vector<std::map<int, Fin>> per_ev;
+    };
+    std::vector<RkCfg> g_rk;
+
+    int rk_group(int l) {
+      // 0 PixB, 1 TBPS 1st, 2 TBPS 2nd, 3 TB2S 1st, 4 TB2S 2nd, 5 FPix, 6 TEDD 1st, 7 TEDD 2nd
+      if (l < 0) return 8;
+      if (l >= 38 && l <= 59) l -= 22;
+      if (l <= 3) return 0;
+      if (l <= 9) return 1 + (l & 1);
+      if (l <= 15) return 3 + (l & 1);
+      if (l <= 27) return 5;
+      return 6 + (l & 1);
+    }
+  }
+
+  void val_rank_reset() { g_rk.clear(); }
+
+  void val_rank_event(const Event *ev, const char *cfg) {
+    if (ev == nullptr) return;
+    RkCfg *C = nullptr;
+    for (auto &c : g_rk) if (c.name == cfg) C = &c;
+    if (!C) { g_rk.push_back(RkCfg()); g_rk.back().name = cfg; C = &g_rk.back(); }
+    const int R = Config::V2p2::Diag::rank_over;
+    C->per_ev.emplace_back();
+    auto &fin = C->per_ev.back();
+    std::vector<int> meta_of(ev->candidateTracks_.size(), -1);
+    for (int m = 0; m < (int) ev->trCandMetas_.size(); ++m) {
+      const int ci = ev->trCandMetas_[m].cand;
+      if (ci >= 0 && ci < (int) meta_of.size()) meta_of[ci] = m;
+    }
+    for (int ci = 0; ci < (int) ev->candidateTracks_.size(); ++ci) {
+      if (meta_of[ci] < 0) { ++C->n_nometa; continue; }
+      const TrCandMeta &cm = ev->trCandMetas_[meta_of[ci]];
+      const Track &c = ev->candidateTracks_[ci];
+      TrackExtra extra(c.label());
+      extra.setMCTrackIDInfo(c, ev->layerHits_, ev->simHitsInfo_, ev->simTracks_, false, false);
+      const int mc = extra.mcTrackID();
+      const bool fake = Config::mtvLikeValidation ? (mc == -1 || (mc <= -5 && mc >= -9))
+                                                  : (mc < 0 || mc >= (int) ev->simTracks_.size());
+      const int cls = fake ? 1 : (mc >= 0 && mc < (int) ev->simTracks_.size()) ? 0 : 2;
+      const int rb = cm.fwd_rank_max <= R ? 0 : std::min(4, cm.fwd_rank_max - R);
+      ++C->n[cls][rb];
+      if (rb > 0) ++C->over_grp[cls][rk_group(cm.fwd_rank_over_layer)];
+      const float ae = std::abs(c.momEta());
+      const int reg = ae < 0.9f ? 0 : ae < 1.7f ? 1 : 2;
+      ++C->reg[cls][reg][0];
+      if (rb > 0) ++C->reg[cls][reg][1];
+      size_t h = 1469598103934665603ull;
+      for (int ih = 0; ih < c.nTotalHits(); ++ih) {
+        const HitOnTrack hot = c.getHitOnTrack(ih);
+        h = (h ^ (size_t)(hot.layer * 1000003 + hot.index)) * 1099511628211ull;
+      }
+      fin[cm.seed] = {cls, h, cm.fwd_rank_max, cm.fwd_hits_hash};
+    }
+  }
+
+  void val_rank_report() {
+    const int R = Config::V2p2::Diag::rank_over;
+    const char *cls_name[3] = {"good", "fake", "other"};
+    const char *grp_name[9] = {"PixB", "TBPS1", "TBPS2", "TB2S1", "TB2S2", "FPix", "TEDD1", "TEDD2", "none"};
+    printf("\n--- val_rank: worst end-of-layer rank along the final candidate's ancestry (rank_over %d) ---\n", R);
+    for (auto &C : g_rk) {
+      printf("config %s (tracks without a trace meta: %ld)\n", C.name.c_str(), C.n_nometa);
+      printf("  %-6s %9s %9s   rank %d / %d / %d / >=%d\n", "class", "tracks", "<=", R + 1, R + 2, R + 3, R + 4);
+      for (int k = 0; k < 3; ++k) {
+        long t = 0;
+        for (int b = 0; b < 5; ++b) t += C.n[k][b];
+        printf("  %-6s %9ld %9ld   %6ld %6ld %6ld %6ld\n", cls_name[k], t, C.n[k][0], C.n[k][1], C.n[k][2],
+               C.n[k][3], C.n[k][4]);
+      }
+      printf("  first layer above rank %d, by group:\n  %-6s", R, "class");
+      for (int g = 0; g < 9; ++g) printf(" %6s", grp_name[g]);
+      printf("\n");
+      for (int k = 0; k < 3; ++k) {
+        printf("  %-6s", cls_name[k]);
+        for (int g = 0; g < 9; ++g) printf(" %6ld", C.over_grp[k][g]);
+        printf("\n");
+      }
+      printf("  by reco |eta|, tracks / above rank %d:   barrel        transition    endcap\n", R);
+      for (int k = 0; k < 3; ++k)
+        printf("  %-6s %32s %6ld / %-5ld %6ld / %-5ld %6ld / %-5ld\n", cls_name[k], "", C.reg[k][0][0],
+               C.reg[k][0][1], C.reg[k][1][0], C.reg[k][1][1], C.reg[k][2][0], C.reg[k][2][1]);
+    }
+    // Per seed against the first configuration: the same seeds in every config.
+    if (g_rk.size() < 2) return;
+    const RkCfg &A = g_rk[0];
+    for (size_t ic = 1; ic < g_rk.size(); ++ic) {
+      const RkCfg &B = g_rk[ic];
+      // [class A][class B][same hits][B rank above]; tf: the same, split by the
+      // forward search's final candidate instead of the final track.
+      long t[3][3][2][2] = {}, tf[3][3][2][2] = {};
+      long only_a = 0, only_b = 0;
+      const size_t ne = std::min(A.per_ev.size(), B.per_ev.size());
+      for (size_t e = 0; e < ne; ++e) {
+        for (auto &[s, fa] : A.per_ev[e]) {
+          auto it = B.per_ev[e].find(s);
+          if (it == B.per_ev[e].end()) { ++only_a; continue; }
+          const auto &fb = it->second;
+          ++t[fa.cls][fb.cls][fa.hash == fb.hash][fb.rank > R];
+          ++tf[fa.cls][fb.cls][fa.fwd_hash == fb.fwd_hash][fb.rank > R];
+        }
+        for (auto &[s, fb] : B.per_ev[e])
+          if (A.per_ev[e].find(s) == A.per_ev[e].end()) ++only_b;
+      }
+      printf("per seed, %s -> %s (%zu events; seeds only in %s %ld, only in %s %ld):\n", A.name.c_str(),
+             B.name.c_str(), ne, A.name.c_str(), only_a, B.name.c_str(), only_b);
+      printf("  %-14s %10s %10s %12s %12s\n", "", "same hits", "", "other hits", "");
+      printf("  %-14s %10s %10s %12s %12s\n", "", "rank<=", "rank>", "rank<=", "rank>");
+      for (int a = 0; a < 2; ++a)
+        for (int b = 0; b < 2; ++b)
+          printf("  %-5s -> %-5s  %10ld %10ld %12ld %12ld\n", cls_name[a], cls_name[b], t[a][b][1][0],
+                 t[a][b][1][1], t[a][b][0][0], t[a][b][0][1]);
+      printf("  split by the FORWARD search's final candidate (same / other forward hits):\n");
+      for (int a = 0; a < 2; ++a)
+        for (int b = 0; b < 2; ++b)
+          printf("  %-5s -> %-5s  %10ld %10ld %12ld %12ld\n", cls_name[a], cls_name[b], tf[a][b][1][0],
+                 tf[a][b][1][1], tf[a][b][0][0], tf[a][b][0][1]);
+    }
+  }
+
   void val_hitpur_reset() { g_hp.clear(); }
 
   void val_hitpur_event(const Event *ev, const char *cfg) {

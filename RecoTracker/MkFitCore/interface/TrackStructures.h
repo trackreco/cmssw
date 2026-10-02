@@ -270,6 +270,12 @@ namespace mkfit {
 #ifdef MKFIT_TRACE
   public:
     int m_trace_state_id = -1;
+    // Rank in the end-of-layer selections along this candidate's ancestry
+    // (MkFinderV2p2, forward search): the worst rank, the layer of it, and the
+    // first layer where the rank exceeded Config::V2p2::Diag::rank_over.
+    short int m_rank_max = 0;
+    short int m_rank_max_layer = -1;
+    short int m_rank_over_layer = -1;
 #endif
   };
 

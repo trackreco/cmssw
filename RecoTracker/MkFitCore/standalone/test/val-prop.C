@@ -58,10 +58,17 @@ void val_surf_q_hit(bool on) { mkfit::val_surf_q_hit(on); }
 void val_hitpur_reset() { mkfit::val_hitpur_reset(); }
 void val_hitpur_ev(const mkfit::Event *ev, const char *cfg) { mkfit::val_hitpur_event(ev, cfg); }
 void val_hitpur_report() { mkfit::val_hitpur_report(); }
+void val_rank_reset() { mkfit::val_rank_reset(); }
+void val_rank_ev(const mkfit::Event *ev, const char *cfg) { mkfit::val_rank_event(ev, cfg); }
+void val_rank_report() { mkfit::val_rank_report(); }
 void val_trkdump_reset() { mkfit::val_trkdump_reset(); }
 void val_trkdump_ev(const mkfit::Event *ev, const char *cfg) { mkfit::val_trkdump_event(ev, cfg); }
 void val_trkdump_write(const char *fn) { mkfit::val_trkdump_write(fn); }
 void val_late_max_cands(int max_cands, int hits, float step_cm = 0) { mkfit::val_late_max_cands(max_cands, hits, step_cm); }
+void val_sister_hole(bool on, float chi2 = 0) { mkfit::val_sister_hole(on, chi2); }
+void val_max_cands_fb(int n_fwd, int n_bkw) { mkfit::val_max_cands_fb(n_fwd, n_bkw); }
+void val_bkfit_outliers(float chi2, int max_outliers, float min_pt) { mkfit::val_bkfit_outliers(chi2, max_outliers, min_pt); }
+void val_dup_drth(float central, float obarrel, float forward) { mkfit::val_dup_drth(central, obarrel, forward); }
 void val_in_layer_comb(bool on) { mkfit::val_in_layer_comb(on); }
 void val_layer_policy(bool w, bool h, bool s) { mkfit::val_layer_policy(w, h, s); }
 void val_reserve_hole_slot(bool on) { mkfit::val_reserve_hole_slot(on); }

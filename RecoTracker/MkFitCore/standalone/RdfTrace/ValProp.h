@@ -124,6 +124,10 @@ namespace mkfit {
   void val_in_layer_comb(bool on);
   void val_layer_policy(bool wsr, bool hole_limits, bool stop_cuts);
   void val_late_max_cands(int max_cands, int hits, float step_cm = 0.0f);
+  void val_sister_hole(bool on, float chi2 = 0.0f);
+  void val_max_cands_fb(int n_fwd, int n_bkw);
+  void val_bkfit_outliers(float chi2, int max_outliers, float min_pt);
+  void val_dup_drth(float central, float obarrel, float forward);
   void val_reserve_hole_slot(bool on);
   void val_score_mode(int mode, float hit_eff);
   void val_score_terms(bool use_rho, float rho_const, bool use_detv, float detv_const);
@@ -174,6 +178,9 @@ namespace mkfit {
   void val_hitpur_reset();
   void val_hitpur_event(const Event *ev, const char *cfg);
   void val_hitpur_report();
+  void val_rank_reset();
+  void val_rank_event(const Event *ev, const char *cfg);
+  void val_rank_report();
   void val_trkdump_reset();
   void val_trkdump_event(const Event *ev, const char *cfg);
   void val_trkdump_write(const char *fn);

@@ -653,6 +653,10 @@ int main(int argc, const char* argv[]) {
           "  --v2p2-late-max-cands-hits <n> MkFinderV2p2: found hits above which --v2p2-late-max-cands applies (def: %d)\n"
           "  --v2p2-late-max-cands-step <f> MkFinderV2p2: ... except on a straight-line step to the layer longer\n"
           "                           than this [cm]; 0 = off (def: %g)\n"
+          "  --v2p2-sister-hole-drop <0|1>  MkFinderV2p2: drop the hole of a candidate whose path in the\n"
+          "                           same sub-layer pair takes the sister sensor (def: %d)\n"
+          "  --v2p2-sister-hole-chi2 <f>    MkFinderV2p2: ... only for a sister hit with chi2 below this;\n"
+          "                           0 = any accepted hit (def: %g)\n"
           "  --v2p2-max-sec-depth <n> MkFinderV2p2: most hits one in-layer path may take (def: %d)\n"
           "  --v2p2-max-presel-hits <n>  MkFinderV2p2: pre-selection reduction cap, per sub-layer (def: %d)\n"
           "  --v2p2-hit-bonus <f>     MkFinderV2p2 score: per hit taken (def: %g)\n"
@@ -833,6 +837,8 @@ int main(int argc, const char* argv[]) {
           V2p2::InLayer::late_max_cands,
           V2p2::InLayer::late_max_cands_hits,
           V2p2::InLayer::late_max_cands_step_cm,
+          int(V2p2::InLayer::sister_hole_drop),
+          V2p2::InLayer::sister_hole_chi2,
           V2p2::InLayer::max_sec_depth,
           V2p2::InLayer::max_presel_hits,
           V2p2::Score::fwd.hit_bonus,
@@ -1106,6 +1112,12 @@ int main(int argc, const char* argv[]) {
     } else if (*i == "--v2p2-late-max-cands-step") {
       next_arg_or_die(mArgs, i);
       V2p2::InLayer::late_max_cands_step_cm = atof(i->c_str());
+    } else if (*i == "--v2p2-sister-hole-drop") {
+      next_arg_or_die(mArgs, i);
+      V2p2::InLayer::sister_hole_drop = (bool)atoi(i->c_str());
+    } else if (*i == "--v2p2-sister-hole-chi2") {
+      next_arg_or_die(mArgs, i);
+      V2p2::InLayer::sister_hole_chi2 = atof(i->c_str());
     } else if (*i == "--v2p2-max-sec-depth") {
       next_arg_or_die(mArgs, i);
       V2p2::InLayer::max_sec_depth = atoi(i->c_str());

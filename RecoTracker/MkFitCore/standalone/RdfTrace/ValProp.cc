@@ -1327,6 +1327,37 @@ namespace mkfit {
     printf("val_max_cands: maxCandsPerSeed = %d (fwd and bkw) for %d iteration configs\n", n, ni);
   }
 
+  // Outlier rejection in v2p2's backward fit, Config::V2p2::BkFit (chi2 0 = off).
+  void val_bkfit_outliers(float chi2, int max_outliers, float min_pt) {
+    V2p2::BkFit::outlier_chi2 = chi2;
+    V2p2::BkFit::max_outliers = max_outliers;
+    V2p2::BkFit::outlier_min_pt = min_pt;
+    printf("val_bkfit_outliers: chi2 > %.1f, at most %d per track, pT > %.2f (chi2 0 = off)\n", chi2,
+           max_outliers, min_pt);
+  }
+
+  // The duplicate cleaner's direction-only check, dc_drth_{central,obarrel,forward}
+  // of every iteration config; 0 switches that check off.
+  void val_dup_drth(float central, float obarrel, float forward) {
+    const int ni = Config::ItrInfo.size();
+    for (int i = 0; i < ni; ++i) {
+      Config::ItrInfo[i].dc_drth_central = central;
+      Config::ItrInfo[i].dc_drth_obarrel = obarrel;
+      Config::ItrInfo[i].dc_drth_forward = forward;
+    }
+    printf("val_dup_drth: %g %g %g\n", central, obarrel, forward);
+  }
+
+  // Forward and backward beam widths separately (val_max_cands sets both).
+  void val_max_cands_fb(int n_fwd, int n_bkw) {
+    const int ni = Config::ItrInfo.size();
+    for (int i = 0; i < ni; ++i) {
+      Config::ItrInfo[i].m_params.maxCandsPerSeed = n_fwd;
+      Config::ItrInfo[i].m_backward_params.maxCandsPerSeed = n_bkw;
+    }
+    printf("val_max_cands_fb: maxCandsPerSeed = %d fwd, %d bkw for %d iteration configs\n", n_fwd, n_bkw, ni);
+  }
+
   // Default track scorer of every iteration config, by registered name (e.g.
   // "phase1:default", which the CMSSW phase-2 initialStep JSON names, against
   // the plugin's "phase2:LstIntoPix"). Re-resolves the function pointers.
@@ -1503,6 +1534,14 @@ namespace mkfit {
     V2p2::InLayer::late_max_cands_step_cm = step_cm;
     printf("val_late_max_cands: V2p2::InLayer::late_max_cands = %d above %d found hits, except steps over %.1f cm"
            " (0 = off)\n", max_cands, hits, step_cm);
+  }
+
+  // The sister-hole dominance, V2p2::InLayer::sister_hole_drop and sister_hole_chi2.
+  void val_sister_hole(bool on, float chi2) {
+    V2p2::InLayer::sister_hole_drop = on;
+    V2p2::InLayer::sister_hole_chi2 = chi2;
+    printf("val_sister_hole: V2p2::InLayer::sister_hole_drop = %d, sister chi2 below %.1f (0 = any accepted)\n",
+           (int) on, chi2);
   }
 
   void val_reserve_hole_slot(bool on) {

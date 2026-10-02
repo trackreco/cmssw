@@ -40,6 +40,42 @@ namespace mkfit {
     n_kalman_calls = 0; n_kalman_lanes = 0; n_kalman_calls_d0 = 0; n_kalman_lanes_d0 = 0;
     n_arena_layers = 0; n_arena_hw_sum = 0; n_arena_hw_max = 0; n_early_selections = 0;
     n_late_max_cands = 0; n_late_max_cands_dropped = 0; n_late_max_cands_long = 0;
+    n_sister_hole_dropped = 0;
+    for (int l = 0; l < k_dom_layers; ++l) {
+      n_dom_sel[l] = 0; n_dom_kept[l] = 0; n_dom_sel_full[l] = 0; n_dom_kept_full[l] = 0;
+      n_dom_sub[l] = 0; n_dom_hole[l] = 0; n_dom_sister[l] = 0;
+      n_dom_sub_full[l] = 0; n_dom_hole_full[l] = 0; n_dom_sister_full[l] = 0;
+    }
+  }
+
+  void V2p2PolicyCounters::print_dominance() const {
+    // Phase-2 layer groups; the OT pairs split into their first (even) and second
+    // (odd) sub-layer, the one where a sister hit follows.
+    struct G { const char *name; int lo, hi, parity; };  // parity -1: all layers
+    const G groups[] = {{"PixB 0-3", 0, 3, -1},           {"TBPS 1st (4,6,8)", 4, 9, 0},
+                        {"TBPS 2nd (5,7,9)", 4, 9, 1},    {"TB2S 1st", 10, 15, 0},
+                        {"TB2S 2nd", 10, 15, 1},          {"FPix +-", 16, 27, -1},
+                        {"TEDD 1st", 28, 37, 0},          {"TEDD 2nd", 28, 37, 1}};
+    printf("  dominated beam slots after the end-of-layer selection (all / in full selections):\n"
+           "    %-18s %9s %10s %7s %7s %7s %10s %10s %7s %7s %7s\n", "layers", "sel", "kept", "sub%",
+           "hole%", "sist%", "sel full", "kept full", "sub%", "hole%", "sist%");
+    for (const G &g : groups) {
+      long a[10] = {0};
+      for (int l = 0; l < k_dom_layers; ++l) {
+        int lm = l;
+        if (g.lo == 16) lm = (l >= 38 && l <= 49) ? l - 22 : l;   // FPix- onto FPix+
+        if (g.lo == 28) lm = (l >= 50 && l <= 59) ? l - 22 : l;   // TEDD- onto TEDD+
+        if (lm < g.lo || lm > g.hi || (g.parity >= 0 && (lm & 1) != g.parity))
+          continue;
+        a[0] += n_dom_sel[l]; a[1] += n_dom_kept[l]; a[2] += n_dom_sub[l]; a[3] += n_dom_hole[l];
+        a[4] += n_dom_sister[l]; a[5] += n_dom_sel_full[l]; a[6] += n_dom_kept_full[l];
+        a[7] += n_dom_sub_full[l]; a[8] += n_dom_hole_full[l]; a[9] += n_dom_sister_full[l];
+      }
+      auto pc = [](long x, long n) { return n > 0 ? 100.0 * x / n : 0.0; };
+      printf("    %-18s %9ld %10ld %7.1f %7.1f %7.1f %10ld %10ld %7.1f %7.1f %7.1f\n", g.name, a[0], a[1],
+             pc(a[2], a[1]), pc(a[3], a[1]), pc(a[4], a[1]), a[5], a[6], pc(a[7], a[6]), pc(a[8], a[6]),
+             pc(a[9], a[6]));
+    }
   }
 
   void V2p2PolicyCounters::print(const char *tag) const {
@@ -86,6 +122,8 @@ namespace mkfit {
            n_arena_layers > 0 ? (double) n_arena_hw_sum / n_arena_layers : 0.0, n_arena_hw_max.load(),
            n_early_selections.load(), n_selections.load(),
            n_late_max_cands.load(), n_late_max_cands_dropped.load(), n_late_max_cands_long.load());
+    printf("  sister hole: %ld holes dropped for a sibling on the sister sensor\n", n_sister_hole_dropped.load());
+    print_dominance();
   }
 #endif
 
@@ -303,6 +341,116 @@ namespace mkfit {
   // layer's near surface, against InLayer::late_max_cands_step_cm. Barrel: radial gap
   // times p / pT; endcap: z gap times p / |pz|. Curvature is ignored, so the
   // barrel path is underestimated for strongly bending tracks.
+  // InLayer::sister_hole_drop: remove from m_sel the holes that a path of the same
+  // TrackCand dominates by taking the sister sensor of its last hit. A sister pair
+  // is two adjacent layers, the lower one stereo and the upper one not, and the
+  // upper sensor's detid is the lower one's + 1; either may be crossed first.
+  void MkFinderV2p2::drop_sister_dominated_holes(const CombCandidate &ccand) {
+    const int lay = m_rz_limits.layer_info_1().layer_id();
+    const TrackerInfo &ti = mp_job->m_trk_info;
+    auto detid_of = [this](int layer, int idx) {
+      const LayerOfHits &L = mp_job->m_event_of_hits[layer];
+      return L.layer_info().module_info(L.refHit(idx).detIDinLayer()).detid;
+    };
+    int w = 0;
+    for (int k = 0; k < (int) m_sel.size(); ++k) {
+      const SelEntry e = m_sel[k];
+      bool drop = false;
+      if (e.node_idx < 0 && e.add_fake) {
+        const TrackCand &tc = ccand[e.tcand_idx];
+        const int pl = tc.getLastHitLyr(), pi = tc.getLastHitIdx();
+        const int lo = std::min(pl, lay), hi = std::max(pl, lay);
+        if (pi >= 0 && hi == lo + 1 && ti.layer(lo).is_stereo() && !ti.layer(hi).is_stereo()) {
+          const unsigned int d_prev = detid_of(pl, pi);
+          for (const SelEntry &f : m_sel) {
+            if (f.node_idx < 0 || f.tcand_idx != e.tcand_idx)
+              continue;
+            int root = f.node_idx;
+            while (m_sec_arena[root].m_parent_idx >= 0)
+              root = m_sec_arena[root].m_parent_idx;
+            const SecTCandRep &r = m_sec_arena[root];
+            if (InLayer::sister_hole_chi2 > 0.0f && !(r.m_chi2 < InLayer::sister_hole_chi2))
+              continue;
+            const unsigned int d_this = detid_of(r.m_hot.layer, r.m_hot.index);
+            if (pl < lay ? d_this == d_prev + 1 : d_prev == d_this + 1) {
+              drop = true;
+              break;
+            }
+          }
+        }
+      }
+      if (drop)
+        V2P2_COUNT(n_sister_hole_dropped);
+      else
+        m_sel[w++] = e;
+    }
+    m_sel.resize(w);
+  }
+
+#if defined(MKFIT_STANDALONE)
+  // Counts the dominated entries among the kept m_sel[0, n_keep), see
+  // V2p2PolicyCounters::n_dom_*. Measurement only: nothing is changed.
+  void MkFinderV2p2::count_dominated_kept(const CombCandidate &ccand, int n_keep) const {
+    auto &C = g_v2p2_policy_counters;
+    const int lay = m_rz_limits.layer_info_1().layer_id();
+    if (lay < 0 || lay >= V2p2PolicyCounters::k_dom_layers)
+      return;
+    const bool full = (int) m_sel.size() > n_keep;
+    ++C.n_dom_sel[lay];
+    C.n_dom_kept[lay] += n_keep;
+    if (full) {
+      ++C.n_dom_sel_full[lay];
+      C.n_dom_kept_full[lay] += n_keep;
+    }
+    auto detid_of = [this](int layer, int idx) {
+      const LayerOfHits &L = mp_job->m_event_of_hits[layer];
+      return L.layer_info().module_info(L.refHit(idx).detIDinLayer()).detid;
+    };
+    for (int k = 0; k < n_keep; ++k) {
+      const SelEntry &e = m_sel[k];
+      bool sub = false, hole = false, sister = false;
+      if (e.node_idx >= 0) {
+        for (int j = 0; j < n_keep && !sub; ++j) {
+          if (j == k || m_sel[j].node_idx < 0 || m_sel[j].tcand_idx != e.tcand_idx)
+            continue;
+          for (int ci = m_sec_arena[m_sel[j].node_idx].m_parent_idx; ci >= 0; ci = m_sec_arena[ci].m_parent_idx)
+            if (ci == e.node_idx) {
+              sub = true;
+              break;
+            }
+        }
+      } else if (e.add_fake) {
+        for (int j = 0; j < n_keep && !sister; ++j) {
+          if (j == k || m_sel[j].node_idx < 0 || m_sel[j].tcand_idx != e.tcand_idx)
+            continue;
+          hole = true;
+          const TrackCand &tc = ccand[e.tcand_idx];
+          const int pl = tc.getLastHitLyr(), pi = tc.getLastHitIdx();
+          if (pi < 0 || pl != lay - 1 || (lay & 1) == 0 || lay < 4 || (lay > 15 && lay < 28))
+            continue;
+          int root = m_sel[j].node_idx;
+          while (m_sec_arena[root].m_parent_idx >= 0)
+            root = m_sec_arena[root].m_parent_idx;
+          const auto &hot = m_sec_arena[root].m_hot;
+          sister = detid_of(hot.layer, hot.index) == detid_of(pl, pi) + 1;
+        }
+      }
+      if (sub) {
+        ++C.n_dom_sub[lay];
+        if (full) ++C.n_dom_sub_full[lay];
+      }
+      if (hole) {
+        ++C.n_dom_hole[lay];
+        if (full) ++C.n_dom_hole_full[lay];
+      }
+      if (sister) {
+        ++C.n_dom_sister[lay];
+        if (full) ++C.n_dom_sister_full[lay];
+      }
+    }
+  }
+#endif
+
   bool MkFinderV2p2::long_step_to_layer(const TrackCand &tc) const {
     if (InLayer::late_max_cands_step_cm <= 0.0f)
       return false;
@@ -1842,6 +1990,9 @@ namespace mkfit {
     if (m_sel.empty())
       return;
 
+    if (InLayer::sister_hole_drop)
+      drop_sister_dominated_holes(ccand);
+
     // Partial sort: only the top max_cands matter.
     const int n_keep = std::min((int) m_sel.size(), max_cands);
     std::partial_sort(m_sel.begin(), m_sel.begin() + n_keep, m_sel.end(),
@@ -1865,6 +2016,10 @@ namespace mkfit {
         }
       }
     }
+
+#if defined(MKFIT_STANDALONE)
+    count_dominated_kept(ccand, n_keep);
+#endif
 
     // Build the survivors as copies BEFORE touching the CombCandidate: several
     // winners can descend from the same TrackCand -- that is what branching is --
@@ -1934,6 +2089,18 @@ namespace mkfit {
       // score_ holds the layer-step score during finding; track_score_func
       // overwrites it at the end of the search.
       nc.setScore(e.score);
+#ifdef MKFIT_TRACE
+      {
+        const short int lay_sel = m_rz_limits.layer_info_1().layer_id();
+        const short int rank = k + 1;
+        if (rank > nc.m_rank_max) {
+          nc.m_rank_max = rank;
+          nc.m_rank_max_layer = lay_sel;
+        }
+        if (rank > Diag::rank_over && nc.m_rank_over_layer < 0)
+          nc.m_rank_over_layer = lay_sel;
+      }
+#endif
     }
 
     // Candidates that stopped IN this layer leave the beam the same way.

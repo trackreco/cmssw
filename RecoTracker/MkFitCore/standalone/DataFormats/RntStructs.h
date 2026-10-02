@@ -150,6 +150,13 @@ struct TrCandMeta {
   int sim = -1;         // index of sim track in event simTracks_
   int cand = -1;        // candidateTracks_ index (valid for final stage)
   int stage_ids[3] {-1, -1, -1}; // indices of stages
+  // The forward search's final candidate: its worst end-of-layer selection rank
+  // along its ancestry, that layer, and the first layer where the rank exceeded
+  // Config::V2p2::Diag::rank_over (TrackCand::m_rank_*).
+  int fwd_rank_max = 0;
+  int fwd_rank_max_layer = -1;
+  int fwd_rank_over_layer = -1;
+  unsigned long long fwd_hits_hash = 0;  // FNV-1a over its (layer, index) HoTs
 };
 
 struct TrCandStage {

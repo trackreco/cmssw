@@ -103,6 +103,13 @@ namespace mkfit {
       MKFIT_V2P2_KNOB(int, late_max_cands, 0);
       MKFIT_V2P2_KNOB(int, late_max_cands_hits, 10);
       MKFIT_V2P2_KNOB(float, late_max_cands_step_cm, 0.0f);
+      // Sister-hole dominance: in the second-crossed sub-layer of an OT pair, the
+      // hole of a TrackCand whose last hit is on the first sub-layer leaves the
+      // selection when a path of the same TrackCand starts on the sister sensor
+      // (detid + 1 of the lower sensor), with plain chi2 below sister_hole_chi2
+      // (0 = any accepted hit).
+      MKFIT_V2P2_KNOB(bool, sister_hole_drop, false);
+      MKFIT_V2P2_KNOB(float, sister_hole_chi2, 0.0f);
     }  // namespace InLayer
 
     //--------------------------------------------------------------------------
@@ -165,6 +172,8 @@ namespace mkfit {
       // Surface reference of dq_track with the layer's cylinder or disc normal,
       // in MkBins, so that the corrected value reaches the trace.
       MKFIT_V2P2_KNOB(bool, mkbins_surface_q, false);
+      // Rank above which TrackCand::m_rank_over_layer records the layer, MKFIT_TRACE.
+      MKFIT_V2P2_KNOB(int, rank_over, 6);
     }  // namespace Diag
 
     // Running sums of the likelihood terms, for measuring the ablation

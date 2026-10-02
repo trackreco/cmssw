@@ -72,9 +72,29 @@ namespace mkfit {
     std::atomic<long> n_late_max_cands{0};          // CombCandidate activations at InLayer::late_max_cands
     std::atomic<long> n_late_max_cands_dropped{0};  // ... TrackCands dropped by it at activation
     std::atomic<long> n_late_max_cands_long{0};     // activations kept at full width by a long step
+    std::atomic<long> n_sister_hole_dropped{0};     // holes dropped for a sister-sensor sibling
+    // Beam slots held by dominated competitors after the end-of-layer selection,
+    // per layer of the selection. "sub": a kept in-layer path whose hits are a
+    // strict prefix of another kept path of the same TrackCand. "hole": a kept
+    // hole of a TrackCand that also kept a path. "sister": of the holes, those in
+    // the second sub-layer of an OT pair where the path's first hit is on the
+    // sister sensor (detid + 1) of the TrackCand's last hit. "full": selections
+    // that dropped competitors, where a dominated slot cost an alternative.
+    static constexpr int k_dom_layers = 64;
+    std::atomic<long> n_dom_sel[k_dom_layers]{};
+    std::atomic<long> n_dom_kept[k_dom_layers]{};
+    std::atomic<long> n_dom_sel_full[k_dom_layers]{};
+    std::atomic<long> n_dom_kept_full[k_dom_layers]{};
+    std::atomic<long> n_dom_sub[k_dom_layers]{};
+    std::atomic<long> n_dom_hole[k_dom_layers]{};
+    std::atomic<long> n_dom_sister[k_dom_layers]{};
+    std::atomic<long> n_dom_sub_full[k_dom_layers]{};
+    std::atomic<long> n_dom_hole_full[k_dom_layers]{};
+    std::atomic<long> n_dom_sister_full[k_dom_layers]{};
 
     void reset();
     void print(const char *tag) const;
+    void print_dominance() const;
   };
   extern V2p2PolicyCounters g_v2p2_policy_counters;
 
@@ -267,6 +287,10 @@ namespace mkfit {
     // selection and registers the survivors into the CombCandidate.
     void expand_in_layer(LayerBatch &b);
     void select_and_materialise(CCandRep &ccrep);
+    void drop_sister_dominated_holes(const CombCandidate &ccand);
+#if defined(MKFIT_STANDALONE)
+    void count_dominated_kept(const CombCandidate &ccand, int n_keep) const;
+#endif
     bool long_step_to_layer(const TrackCand &tc) const;
     void offer_best_short(CombCandidate &ccand, const TrackCand &tc) const;
     // The direction-, layer- and candidate-dependent part of a layer step, filled
