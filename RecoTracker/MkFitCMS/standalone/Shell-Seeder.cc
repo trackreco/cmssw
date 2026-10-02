@@ -714,3 +714,167 @@ namespace mkfit {
   }
 
 }  // namespace mkfit
+
+//=============================================================================
+// CMSSW's MultiTrackSelector, phase-2 initialStepSelector
+//=============================================================================
+
+namespace mkfit {
+
+  namespace {
+    struct MtsPar {
+      float chi2n_par, res_par[2], d0_par1, dz_par1, d0_par2, dz_par2;
+      unsigned min_layers, min_3Dlayers, max_lost_layers;
+      float min_eta, max_eta;
+    };
+    // RecoTracker/IterativeTracking/python/InitialStep_cff.py, trackingPhase2PU140 initialStepSelector;
+    // the second element of every d0/dz pair is 4.0. The rest of looseMTS's defaults: max_d0 = max_z0 =
+    // 100, nSigmaZ 4, minHitsToBypassChecks 20, applyAdaptedPVCuts true, no other cut.
+    const MtsPar kMts[3] = {
+        {2.0f, {0.003f, 0.002f}, 0.8f, 0.9f, 0.6f, 0.8f, 3, 3, 3, -9999.f, 9999.f},   // initialStepLoose
+        {1.4f, {0.003f, 0.002f}, 0.7f, 0.8f, 0.5f, 0.7f, 3, 3, 2, -9999.f, 9999.f},   // initialStepTight
+        {1.2f, {0.003f, 0.001f}, 0.6f, 0.7f, 0.45f, 0.55f, 3, 3, 2, -4.1f, 4.1f},     // initialStep (highPurity)
+    };
+    float pow4(float x) { return x * x * x * x; }
+  }  // namespace
+
+  int Shell::SelectTracksCMSSW(EvCtx &ctx, int level) {
+    Event &ev = *ctx.ev;
+    const BeamSpot &bs = ev.beamSpot_;
+    // the primary vertices, from the sim tracks
+    std::map<long, std::pair<SVector3, int>> pv;
+    for (const Track &st : ev.simTracks_) {
+      if (st.charge() == 0 || std::hypot(st.x() - bs.x, st.y() - bs.y) > 0.01f)
+        continue;
+      auto &e = pv[std::lround(st.z() * 1e4)];
+      e.first = SVector3(st.x(), st.y(), st.z());
+      ++e.second;
+    }
+    std::vector<SVector3> points;
+    for (const auto &kv : pv)
+      if (kv.second.second >= 2)
+        points.push_back(kv.second.first);
+
+    auto phys = [](int l) { return Config::TrkInfo[l].is_pixel() ? l : 100 + l / 2; };
+
+    // the first cut a track fails: layers, 3D layers, lost layers, ndof, chi2, eta, d0, dz
+    long why[8] = {0};
+    double med_d0[2] = {0, 0}, med_r = 0;
+    long n_med = 0;
+    auto pass = [&](const Track &t, const MtsPar &P) -> bool {
+      const int nh = t.nFoundHits();
+      if (nh >= 20)  // minHitsToBypassChecks
+        return true;
+      std::map<int, int> valid;  // physical layer -> bit 1 first sub-layer, 2 second
+      std::set<int> missed;
+      int first = -1, last = -1;
+      for (int i = 0; i < t.nTotalHits(); ++i)
+        if (t.getHitOnTrack(i).index >= 0) {
+          if (first < 0)
+            first = i;
+          last = i;
+        }
+      for (int i = 0; i < t.nTotalHits(); ++i) {
+        const HitOnTrack h = t.getHitOnTrack(i);
+        if (h.layer < 0)
+          continue;
+        if (h.index >= 0)
+          valid[phys(h.layer)] |= Config::TrkInfo[h.layer].is_pixel() ? 3 : 1 << (h.layer & 1);
+        else if (h.index == Hit::kHitMissIdx && i > first && i < last)
+          missed.insert(phys(h.layer));
+      }
+      const unsigned nlayers = valid.size();
+      unsigned n3d = 0, nlost = 0;
+      for (const auto &kv : valid)
+        n3d += kv.second == 3;
+      for (int l : missed)
+        nlost += !valid.count(l);
+      if (nlayers < P.min_layers)
+        return ++why[0], false;
+      if (n3d < P.min_3Dlayers)
+        return ++why[1], false;
+      if (nlost > P.max_lost_layers)
+        return ++why[2], false;
+      const int ndof = 2 * nh - 5;
+      if (ndof < 1)
+        return ++why[3], false;
+      if (t.chi2() / ndof > P.chi2n_par * nlayers)
+        return ++why[4], false;
+      const float pt = std::max(t.pT(), 1e-6f), eta = t.momEta();
+      if (eta < P.min_eta || eta > P.max_eta)
+        return ++why[5], false;
+      // d0 and z0 at the point of closest approach to the beam line, from the helix through the state
+      // (at the track's first hit); their errors by a linear transport of the state's covariance back
+      // along the track (straight line, plus the sagitta's dependence on 1/pT for d0)
+      const float k = (t.charge() < 0 ? 100.0f : -100.0f) / (Const::sol * Config::Bfield);
+      const float R = std::abs(k) * pt, xc = t.x() - k * t.py(), yc = t.y() + k * t.px();
+      const float ux = bs.x - xc, uy = bs.y - yc, ul = std::hypot(ux, uy);
+      const float d0 = ul - R;
+      const float rsx = t.x() - xc, rsy = t.y() - yc;
+      const float ca = std::clamp((rsx * ux + rsy * uy) / (R * ul), -1.0f, 1.0f);
+      const float s_arc = R * std::acos(ca);
+      const float cot = 1.0f / std::tan(t.theta()), sth = std::sin(t.theta());
+      const float z0 = t.z() - s_arc * cot;
+      const float cphi = std::cos(t.momPhi()), sphi = std::sin(t.momPhi());
+      const SMatrixSym66 &C = t.errors();
+      // jacobians in (x, y, z, 1/pT, phi, theta)
+      const float kq = 0.5f * s_arc * s_arc * Const::sol_over_100 * Config::Bfield * t.charge();
+      const float Jd[6] = {-sphi, cphi, 0, kq, -s_arc, 0};
+      const float Jz[6] = {-cphi * cot, -sphi * cot, 1, 0, 0, s_arc / (sth * sth)};
+      float vd = 0, vz = 0;
+      for (int a = 0; a < 6; ++a)
+        for (int b = 0; b < 6; ++b)
+          vd += Jd[a] * C(a, b) * Jd[b], vz += Jz[a] * C(a, b) * Jz[b];
+      const float d0E = std::sqrt(std::max(0.f, vd)), dzE = std::sqrt(std::max(0.f, vz));
+      const float nomd0E = std::sqrt(P.res_par[0] * P.res_par[0] + (P.res_par[1] / pt) * (P.res_par[1] / pt));
+      const float nomdzE = nomd0E * std::cosh(eta);
+      const float dzCut = std::min(pow4(P.dz_par1 * nlayers) * nomdzE, pow4(P.dz_par2 * nlayers) * dzE);
+      const float d0Cut = std::min(pow4(P.d0_par1 * nlayers) * nomd0E, pow4(P.d0_par2 * nlayers) * d0E);
+      const float dzbs = z0 - bs.z;
+      bool zok = false, dok = false;
+      if (points.empty()) {
+        zok = std::abs(dzbs) < std::hypot(bs.sigmaZ * 4.f, dzCut);
+        dok = std::abs(d0) < d0Cut;
+      }
+      for (const SVector3 &v : points) {
+        if (zok && dok)
+          break;
+        // the vertices sit within 0.01 cm of the beam line: d0 to the beam line stands for d0 to each
+        zok |= std::abs(z0 - v[2]) < dzCut;
+        dok |= std::abs(d0) < d0Cut;
+      }
+      med_d0[0] += std::abs(d0), med_d0[1] += d0Cut, med_r += t.chi2() / ndof, ++n_med;
+      if (std::abs(d0) > 100.f && !dok)
+        return false;
+      if (std::abs(dzbs) > 100.f && !zok)
+        return false;
+      if (!dok)
+        return ++why[6], false;
+      if (!zok) {
+        if (s_seeder_debug > 0 && why[7] < 8) {
+          float best = 1e9;
+          for (const SVector3 &v : points)
+            best = std::min(best, std::abs(z0 - v[2]));
+          printf("[mts] dz fail: pt %.2f eta %.2f nl %u r %.3f z %.2f dzbs %.3f best |dzPV| %.4f dzCut %.4f (par1 %.4f par2 %.4f)"
+                 " dzE %.3g nomdzE %.3g chi2n %.2f\n",
+                 pt, eta, nlayers, std::hypot(t.x(), t.y()), t.z(), dzbs, best,
+                 dzCut, pow4(P.dz_par1 * nlayers) * nomdzE, pow4(P.dz_par2 * nlayers) * dzE, dzE, nomdzE, t.chi2() / ndof);
+        }
+        return ++why[7], false;
+      }
+      return true;
+    };
+
+    TrackVec &tv = ev.candidateTracks_;
+    const int n_in = tv.size();
+    for (int lv = 1; lv <= level; ++lv)
+      tv.erase(std::remove_if(tv.begin(), tv.end(), [&](const Track &t) { return !pass(t, kMts[lv - 1]); }), tv.end());
+    printf("Shell::SelectTracksCMSSW: event %d, level %d: %d of %d tracks kept (%d sim primary vertices); first failed"
+           " cut: layers %ld, 3D layers %ld, lost %ld, ndof %ld, chi2 %ld, eta %ld, d0 %ld, dz %ld; mean |d0| %.3g,"
+           " d0 cut %.3g, chi2/ndof %.3g\n",
+           ev.evtID(), level, (int)tv.size(), n_in, (int)points.size(), why[0], why[1], why[2], why[3], why[4], why[5],
+           why[6], why[7], n_med ? med_d0[0] / n_med : 0., n_med ? med_d0[1] / n_med : 0., n_med ? med_r / n_med : 0.);
+    return tv.size();
+  }
+
+}  // namespace mkfit

@@ -212,6 +212,17 @@ namespace mkfit {
     void SeederMissStudy() { SeederMissStudy(m_ctx); }
     void SeederDiagReport();
 
+    // CMSSW's MultiTrackSelector::select() with the phase-2 initialStepSelector parameter sets, on the
+    // event's candidateTracks_, in place: level 1 loose (what the track merger keeps, so what
+    // generalTracks holds), 2 tight, 3 highPurity, each applied after the ones below it as the
+    // selector's prefilters are. d0 and z0 come from the helix through the track's state (its first hit);
+    // their errors from a linear transport of its covariance (--backward-fit-pca exports tracks with a
+    // zero covariance and chi2 on this branch, so it is not used). The primary vertices are the SIM ones (production vertices
+    // within 0.01 cm of the beam line with >= 2 charged sim tracks), in place of
+    // firstStepPrimaryVertices. Returns the number of tracks kept.
+    int SelectTracksCMSSW(EvCtx &ctx, int level);
+    int SelectTracksCMSSW(int level) { return SelectTracksCMSSW(m_ctx, level); }
+
     // --------------------------------------------------------
     // Analysis helpers
 
