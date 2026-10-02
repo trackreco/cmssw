@@ -161,6 +161,44 @@ namespace mkfit {
     void ProcessEventSimSeeded(int n_seed_hits = 1, float pt_min = 0.5f)
       { ProcessEventSimSeeded(m_ctx, n_seed_hits, pt_min); }
 
+    // ---- The mkFit seeder's quads as seeds, in Shell-Seeder.cc -------------
+    // LoadSeederQuads() reads a `seedsurf --seeds` file (MkFitCMS/standalone/seeding/). Per event,
+    // MakeSeederSeeds() turns the current event's quads into seed tracks, and ProcessEventSeeder()
+    // runs the selected iteration on them, as ProcessEventStd() does on the file's own seeds.
+    // mode 0: the helix through the first, a middle and the last hit, at the last hit, with the
+    //         diagonal covariance s_seeder_fake_sigma;
+    // mode 1: the same helix at the first hit with the broad prior s_seeder_prior_sigma (times
+    //         s_seeder_prior_scale), then the Kalman update with each of the four hits, propagating
+    //         onto each hit's module plane with material (backward_fit_pflags); the state ends at the
+    //         last hit, as a CMSSW seed's does.
+    struct SeederQuad {
+      int l[4];
+      int h[4];
+      float score;
+    };
+    int LoadSeederQuads(const char *file);
+    int MakeSeederSeeds(EvCtx &ctx, int mode = 1);
+    int MakeSeederSeeds(int mode = 1) { return MakeSeederSeeds(m_ctx, mode); }
+    void ProcessEventSeeder(EvCtx &ctx, int mode = 1);
+    void ProcessEventSeeder(int mode = 1) { ProcessEventSeeder(m_ctx, mode); }
+    // sigma of x, y, z [cm], 1/pT (relative to the helix's 1/pT), phi, theta [rad]
+    static float s_seeder_prior_sigma[6];
+    static float s_seeder_prior_scale;
+    // mode 1: start with hit 0's position covariance and update with hits 1-3 only
+    static bool s_seeder_pos_from_hit0;
+    // print the first this many failed fits
+    static int s_seeder_debug;
+    static float s_seeder_fake_sigma[6];
+
+    // Seed states against truth: for each seed whose four hits share one sim track, the residual of
+    // q/pT, phi and theta to the SimHitState of its last hit, over the seed's own sigma; the same for
+    // the file's seeds of the selected iteration; and, for our seeds whose four hits are a file
+    // seed's, the ratio of the sigmas. Needs a sample with SimHitStates.
+    void SeederSeedCheckReset();
+    void SeederSeedCheck(EvCtx &ctx);
+    void SeederSeedCheck() { SeederSeedCheck(m_ctx); }
+    void SeederSeedCheckReport();
+
     // --------------------------------------------------------
     // Analysis helpers
 
@@ -275,6 +313,9 @@ namespace mkfit {
     using map_i = map_t::iterator;
 
     std::map<int, Track *> m_ckf_map, m_sim_map, m_seed_map, m_mkf_map;
+
+    // LoadSeederQuads(): by event id (1-based, as GoToEvent())
+    std::map<int, std::vector<SeederQuad>> m_seeder_quads;
 
 #ifdef WITH_REVE
     ROOT::Experimental::REveManager *m_reve_mgr = nullptr;

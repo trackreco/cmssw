@@ -41,7 +41,7 @@ Shell_Dict.cc ${SHELL_DICT_PCM} &: ${SHELL_DICT_IN}
 	rootcling --umbrellaHeader ${CPPFLAGS} -f Shell_Dict.cc ${SHELL_DICT_IN}
 	mv Shell_Dict_rdict.pcm ${SHELL_DICT_PCM}
 else
-SRCS := $(filter-out ${SACMS}/Shell.cc ${SACMS}/Shell-LST.cc, ${SRCS})
+SRCS := $(filter-out ${SACMS}/Shell.cc ${SACMS}/Shell-LST.cc ${SACMS}/Shell-Seeder.cc, ${SRCS})
 endif
 
 SRCB := $(notdir ${SRCS})
