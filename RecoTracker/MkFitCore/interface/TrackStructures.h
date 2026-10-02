@@ -489,7 +489,10 @@ namespace mkfit {
     int nh = nTotalHits();
     int ch = lastHitIdx_;
     int ll = -1;
-    while (--nh >= 0) {
+    // The chain can end before nTotalHits() nodes: in the backward-search
+    // representation it ends at node 0, which can be a hit made missing by the
+    // backward fit's outlier rejection.
+    while (--nh >= 0 && ch >= 0) {
       const HoTNode& hot_node = m_comb_candidate->hot_node(ch);
       if (hot_node.m_hot.index < 0) {
         ch = hot_node.m_prev_idx;
@@ -505,7 +508,10 @@ namespace mkfit {
     int nh = nTotalHits();
     int ch = lastHitIdx_;
     int ll = -1;
-    while (--nh >= 0) {
+    // The chain can end before nTotalHits() nodes: in the backward-search
+    // representation it ends at node 0, which can be a hit made missing by the
+    // backward fit's outlier rejection.
+    while (--nh >= 0 && ch >= 0) {
       const HoTNode& hot_node = m_comb_candidate->hot_node(ch);
       int tl = hot_node.m_hot.layer;
       if (hot_node.m_hot.index < 0 || !((0 <= tl && tl <= 3) || (18 <= tl && tl <= 20) || (45 <= tl && tl <= 47))) {
