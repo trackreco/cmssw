@@ -519,8 +519,10 @@ int main(int argc, char *argv[]) {
   FILE *fq = qdump_out.empty() ? nullptr : fopen(qdump_out.c_str(), "w");
   FILE *fs = seeds_out.empty() ? nullptr : fopen(seeds_out.c_str(), "w");
   if (fs)
-    fprintf(fs, "# seedsurf --seeds: per quad kept after the cleaning: ev l0 l1 l2 l3 h0 h1 h2 h3 score\n"
-                "# ev: the event in the file, 0-based; l: mkFit layers; h: hit indices in layerHits_[l]\n");
+    fprintf(fs, "# seedsurf --seeds: per quad kept after the cleaning: ev l0 l1 l2 l3 h0 h1 h2 h3 score fake_score n_amb\n"
+                "# ev: the event in the file, 0-based; l: mkFit layers; h: hit indices in layerHits_[l]\n"
+                "# score: the cleaning score; fake_score: the sum the fake cut applies to (-1: not known); n_amb: the\n"
+                "# quads the cleaning (--dedup) dropped for sharing hits with this one\n");
   if (fq)
     fprintf(fq, "# seedsurf --quad-dump: per event 'E ev n_findable'; per quad kept after the cleaning\n"
                 "# Q ip l0 l1 l2 l3  tru fake findable lab  eta pte  d0_abc d0_acd  rc_q rc_phi rd_phi rd_q"
@@ -661,18 +663,20 @@ int main(int argc, char *argv[]) {
       Quad q;
       double score;
       bool tru, fake;
+      float fk = -1;  // the fake score (batch chain only), -1 if not known
     };
     std::vector<Cand> cands;
     std::vector<std::vector<Quad>> chain_q;
     std::vector<std::vector<float>> chain_sc;  // the batch finder's cleaning score, parallel to chain_q
+    std::vector<std::vector<float>> chain_fk;  // the batch finder's fake score, parallel to chain_q
     if (chain_holes >= 0) {
       std::vector<std::pair<std::array<int, 4>, Quad>> cq;
-      std::vector<float> csc;
+      std::vector<float> csc, cfk;
       SeedCounters cnt;
       const auto s0 = clk::now();
       const auto &LM = layers.layer_map();
       if (chain_batch)
-        seeder.find(cq, cnt, &csc);
+        seeder.find(cq, cnt, &csc, &cfk);
       else {
         CH[0].run(LM, cq, cnt);
         CH[1].run(LM, cq, cnt);
@@ -700,13 +704,16 @@ int main(int argc, char *argv[]) {
           ip = pats.size() - 1;
         }
         if ((int)chain_q.size() <= ip)
-          chain_q.resize(pats.size()), chain_sc.resize(pats.size());
+          chain_q.resize(pats.size()), chain_sc.resize(pats.size()), chain_fk.resize(pats.size());
         chain_q[ip].push_back(e.second);
         if (!csc.empty())
           chain_sc[ip].push_back(csc[ie]);
+        if (!cfk.empty())
+          chain_fk[ip].push_back(cfk[ie]);
       }
       chain_q.resize(pats.size());
       chain_sc.resize(pats.size());
+      chain_fk.resize(pats.size());
       npat = pats.size();
 
       if (!margins_ref.empty()) {
@@ -891,6 +898,8 @@ int main(int argc, char *argv[]) {
         if (chain_holes >= 0 && chain_sc[ip].size() == quads.size()) {
           // the batch finder's own score, in float
           cands.push_back({ip, tru ? ls[0] : -1, b, pb, q, chain_sc[ip][&q - quads.data()], tru, fake});
+          if (chain_fk[ip].size() == quads.size())
+            cands.back().fk = chain_fk[ip][&q - quads.data()];
         } else {
           // the quad's quality, for the cleaning: its own c and d residuals over the windows, in double
           const SurfLayer *Ls[4] = {L[0], L[1], L[2], L[3]};
@@ -965,6 +974,7 @@ int main(int argc, char *argv[]) {
     }
     // the union over patterns, after the cleaning
     std::vector<char> keep_c(cands.size(), 1);
+    std::vector<int> amb_c(cands.size(), 0);  // per kept quad: the quads the cleaning dropped for sharing hits with it
     const auto tc0 = clk::now();
     if (dedup_n > 0) {
       // the quads in the order of cands, which breaks the cleaning's ties
@@ -973,7 +983,7 @@ int main(int argc, char *argv[]) {
       std::vector<float> cl_s(cands.size());
       for (size_t i = 0; i < cands.size(); ++i)
         cl_l[i] = pats[cands[i].ip].l, cl_q[i] = cands[i].q, cl_s[i] = (float)cands[i].score;
-      seeder.clean(ev.layerHits_, cl_l, cl_q, cl_s, dedup_n, keep_c);
+      seeder.clean(ev.layerHits_, cl_l, cl_q, cl_s, dedup_n, keep_c, &amb_c);
     }
     t_clean += secs(tc0, clk::now());
     if (attach_ot1 > 0) {
@@ -1028,8 +1038,8 @@ int main(int argc, char *argv[]) {
         if (keep_c[i]) {
           const Cand &c = cands[i];
           const auto &ll = pats[c.ip].l;
-          fprintf(fs, "%d %d %d %d %d %u %u %u %u %.6g\n", first_event + iev, ll[0], ll[1], ll[2], ll[3], c.q[0], c.q[1],
-                  c.q[2], c.q[3], c.score);
+          fprintf(fs, "%d %d %d %d %d %u %u %u %u %.6g %.6g %d\n", first_event + iev, ll[0], ll[1], ll[2], ll[3], c.q[0],
+                  c.q[1], c.q[2], c.q[3], c.score, c.fk, amb_c[i]);
         }
     Stats &su = SU;
     std::unordered_map<int, int> fd_any;

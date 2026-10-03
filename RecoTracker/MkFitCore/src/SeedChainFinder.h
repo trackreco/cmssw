@@ -343,6 +343,8 @@ namespace mkfit {
     long n_forwarded = 0, n_dropped = 0, n_c_cand = 0, n_d_cand = 0;
     // non-null: the cleaning score of each quad, parallel to the quads out (see take() in forward())
     std::vector<float> *score_out_ = nullptr;
+    // non-null: the fake score of each quad, the sum the fake cut (fk_score) is applied to, parallel to the quads out
+    std::vector<float> *fake_out_ = nullptr;
     double t_start = 0;
     unsigned long long cyc_c = 0, cyc_d = 0;
     bool phases = false;
@@ -548,7 +550,8 @@ namespace mkfit {
                          const std::map<int, const SeedLayerOfHits *> &L,
                          std::vector<std::pair<std::array<int, 4>, SeedQuad>> &out,
                          SeedCounters &cnt,
-                         std::vector<float> *scores = nullptr);
+                         std::vector<float> *scores = nullptr,
+                         std::vector<float> *fake_scores = nullptr);
 
     // The forward pass over the chain positions: stage c on the doublets queued at each, stage d on the
     // triplets.

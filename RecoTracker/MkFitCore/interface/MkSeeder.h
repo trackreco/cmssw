@@ -41,21 +41,26 @@ namespace mkfit {
     void fill(const std::vector<HitVec> &layer_hits, const BeamSpot &bs);
 
     // out: (layer ids, original hit indices) per quad, +z side first; scores, if given: the cleaning
-    // score of each quad, parallel to out
+    // score of each quad, parallel to out; fake_scores, if given: the fake score (the sum the fake cut
+    // is applied to), parallel to out
     void find(std::vector<std::pair<std::array<int, 4>, SeedQuad>> &out,
               SeedCounters &cnt,
-              std::vector<float> *scores = nullptr);
+              std::vector<float> *scores = nullptr,
+              std::vector<float> *fake_scores = nullptr);
 
     // Over all quads, keep a quad only if it shares fewer than min_shared hits with every better kept
     // quad; better = fewer outer-tracker layers, then the smaller score. The quads are given in the
     // caller's order, which breaks ties: layers[i], quads[i] and scores[i] describe quad i, and
-    // keep[i] is set to 0 for a dropped one, 1 otherwise.
+    // keep[i] is set to 0 for a dropped one, 1 otherwise. n_dropped, if given: per quad, how many
+    // quads were dropped for sharing hits with it (each dropped quad is charged to the first kept
+    // quad found sharing enough hits).
     void clean(const std::vector<HitVec> &layer_hits,
                const std::vector<std::array<int, 4>> &layers,
                const std::vector<SeedQuad> &quads,
                const std::vector<float> &scores,
                int min_shared,
-               std::vector<char> &keep);
+               std::vector<char> &keep,
+               std::vector<int> *n_dropped = nullptr);
 
   private:
     SeedEventOfHits m_hits;

@@ -22,8 +22,9 @@ namespace mkfit {
 
   void MkSeeder::find(std::vector<std::pair<std::array<int, 4>, SeedQuad>> &out,
                       SeedCounters &cnt,
-                      std::vector<float> *scores) {
-    SeedChainFinder::run_both(*m_finder[0], *m_finder[1], m_hits.layer_map(), out, cnt, scores);
+                      std::vector<float> *scores,
+                      std::vector<float> *fake_scores) {
+    SeedChainFinder::run_both(*m_finder[0], *m_finder[1], m_hits.layer_map(), out, cnt, scores, fake_scores);
   }
 
   void MkSeeder::clean(const std::vector<HitVec> &layer_hits,
@@ -31,9 +32,12 @@ namespace mkfit {
                        const std::vector<SeedQuad> &quads,
                        const std::vector<float> &scores,
                        int min_shared,
-                       std::vector<char> &keep) {
+                       std::vector<char> &keep,
+                       std::vector<int> *n_dropped) {
     const int nc = quads.size();
     keep.assign(nc, 1);
+    if (n_dropped)
+      n_dropped->assign(nc, 0);
     // the order: tier first (a pattern with an outer-tracker layer after every pure-pixel one: its
     // windows are several times wider, so its scores are not comparable), then the score, packed in
     // one 32-bit key for the (stable) radix sort: the tier in the top 3 bits, then the score's float
@@ -101,6 +105,8 @@ namespace mkfit {
               ns += g[a] == h[b];
           if (ns >= min_shared) {
             drop = true;
+            if (n_dropped)
+              ++(*n_dropped)[link[e].first];
             break;
           }
         }

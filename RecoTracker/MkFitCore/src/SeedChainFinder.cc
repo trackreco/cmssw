@@ -335,8 +335,10 @@ namespace mkfit {
                                  const std::map<int, const SeedLayerOfHits *> &L,
                                  std::vector<std::pair<std::array<int, 4>, SeedQuad>> &out,
                                  SeedCounters &cnt,
-                                 std::vector<float> *scores) {
+                                 std::vector<float> *scores,
+                                 std::vector<float> *fake_scores) {
     a.score_out_ = b.score_out_ = scores;
+    a.fake_out_ = b.fake_out_ = fake_scores;
     if (a.share_.empty())
       a.link(b);
     a.prepare(L), b.prepare(L);
@@ -581,9 +583,9 @@ namespace mkfit {
               // a hit that passed the cuts: the fake cuts, OT2-P, then the quad
               // s2: sin^2 of the d phi residual
               auto take = [&](unsigned int kd, float dq, float wq, float c2, float sn, float s2) {
+                const float rq = dq / wq, fk_d = rq * rq + c2 / sn;
                 if (fk_on) {
-                  const float rq = dq / wq;
-                  if (rq * rq + c2 / sn >= fkd || hsp[kd] < slo || hsp[kd] > shi)
+                  if (fk_d >= fkd || hsp[kd] < slo || hsp[kd] > shi)
                     return;
                 }
                 if (lay_ot2 && Ch.order[p] == 4) {
@@ -636,6 +638,8 @@ namespace mkfit {
                   __builtin_memcpy(&ub_, &sc, 4);
                   score_out_->push_back((ub_ & 0x7f800000u) != 0x7f800000u ? sc : 1e30f);
                 }
+                if (fake_out_)
+                  fake_out_->push_back(c.sc + fk_d);
               };
               // the q pre-filter (direct mode): q as a quadratic in qbar through the predictions at the two
               // edges and the middle, which K2c measured within 2 % of the window; a hit off it by more than
