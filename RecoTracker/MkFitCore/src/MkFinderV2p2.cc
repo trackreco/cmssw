@@ -700,6 +700,7 @@ namespace mkfit {
 
     MPlexQF phi(0.0f);
     MPlexQI chg(0);
+    MPlexQF bf(Config::Bfield);
 
     for (int i = 0; i < N_proc; ++i) {
       PrimTCandRep &ptc = * m_cand_queue[m_cand_queue_head++];
@@ -711,8 +712,10 @@ namespace mkfit {
       B.m_isp.copyIn_partial_track_state(i, tc.state());
       phi[i] = tc.momPhi();
       chg[i] = tc.charge();
+      if (Window::mini_prop_param_b == 1)
+        bf[i] = Config::bFieldFromZR(tc.z(), std::hypot(tc.x(), tc.y()));
     }
-    B.m_isp.init_momentum_vec_and_k(phi, chg);
+    B.m_isp.init_momentum_vec_and_k(phi, chg, bf);
     if (m_cand_queue_head == (int) m_cand_queue.size()) {
       m_cand_queue.clear();
       m_cand_queue_head = 0;

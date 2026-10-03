@@ -159,6 +159,8 @@ namespace mkfit::mini_propagators {
     }
 
     void init_momentum_vec_and_k(const MPF& phi, const MPI& chg, float bf = Config::Bfield);
+    // The same with a field value per lane, e.g. Config::bFieldFromZR() at each state.
+    void init_momentum_vec_and_k(const MPF& phi, const MPI& chg, const MPF& bf);
 
     int propagate_to_r(PropAlgo_e algo, const MPF& R, StatePlex& c, bool update_momentum, int N_proc = NN) const;
     int propagate_to_z(PropAlgo_e algo, const MPF& Z, StatePlex& c, bool update_momentum, int N_proc = NN) const;

@@ -205,6 +205,12 @@ namespace mkfit::mini_propagators {
     }
   }
 
+  void InitialStatePlex::init_momentum_vec_and_k(const MPF& phi, const MPI& chg, const MPF& bf) {
+    init_momentum_vec_and_k(phi, chg, 1.0f);
+    for (int i = 0; i < inv_k.kTotSize; ++i)
+      inv_k[i] *= bf[i];
+  }
+
   // propagate to radius; returns number of failed propagations
   int InitialStatePlex::propagate_to_r(
       PropAlgo_e algo, const MPF& R, StatePlex& c, bool update_momentum, int N_proc) const {
