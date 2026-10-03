@@ -242,6 +242,8 @@ namespace mkfit {
       // Local hit density per candidate, ln(hits / cm^2), over the bins walked;
       // for the likelihood score.
       int   n_scanned[NN] = {0};
+      float rho_dphi[NN] = {0.0f};  // Score::rho_region 2: the cut region's padding, max over sub-layers
+      float rho_dq[NN] = {0.0f};
       float log_rho[NN] = {0.0f};
 #ifdef MKFIT_TRACE
       int tr_layersearch_ids[NN];

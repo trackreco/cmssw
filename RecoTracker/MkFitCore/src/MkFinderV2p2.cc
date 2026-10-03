@@ -1004,6 +1004,22 @@ namespace mkfit {
           }
         }
 
+        // The region rho counts over and divides by (Score::rho_region), see the end of
+        // this function. Region 2 takes the cut's padding of this sub-layer, as the fetch.
+        float rho_dphi = B.m_dphi_track[i], rho_dq = B.m_dq_track[i];
+        if (Score::rho_region == 2) {
+          const float phi_hit_term = Window::phi_per_hit ? Window::dphi_hit_fac * L.max_hit_phi_half_extent()
+                                                         : Window::dphi_flat_rad;
+          rho_dphi = std::min(Window::dphi_trk_fac * B.m_dphi_track[i] + phi_hit_term, 3.14f);
+          rho_dq = Window::dq_trk_fac * B.m_dq_track[i] + Window::dq_hit_fac * L.max_hit_q_half_length();
+          b.rho_dphi[i] = std::max(b.rho_dphi[i], rho_dphi);
+          b.rho_dq[i] = std::max(b.rho_dq[i], rho_dq);
+        }
+        const float rho_phi_c = 0.5f * (B.m_phi_min[i] + B.m_phi_max[i]);
+        const float rho_phi_half = 0.5f * (B.m_phi_max[i] - B.m_phi_min[i]) + rho_dphi;
+        const float rho_q_lo = B.m_q_min[i] - rho_dq;
+        const float rho_q_hi = B.m_q_max[i] + rho_dq;
+
         for (bidx_t qi = BL.q1[i]; qi != BL.q2[i]; ++qi) {
           for (bidx_t pi = BL.p1[i]; pi != BL.p2[i]; pi = L.phiMaskApply(pi + 1)) {
 
@@ -1022,7 +1038,10 @@ namespace mkfit {
               dprintf(" %d: P_HIT %3u %4u %5u [%5u]  %6.3f %6.3f %6.3f\n",
                 i, pi, qi, hi, hi_orig, L.hit_phi(hi), L.hit_q(hi), L.hit_qbar(hi));
 
-              ++b.n_scanned[i];
+              if (Score::rho_region == 0 ||
+                  (std::abs(squashPhiGeneral(L.hit_phi(hi) - rho_phi_c)) < rho_phi_half &&
+                   L.hit_q(hi) > rho_q_lo && L.hit_q(hi) < rho_q_hi))
+                ++b.n_scanned[i];
 #ifdef MKFIT_TRACE
               ++mp_event->tr_layersearch(tr_layersearch_ids[i]).n_hits_scanned;
 #endif
@@ -1087,13 +1106,21 @@ namespace mkfit {
     // Local hit density, hits per cm^2, over the window that was actually walked.
     // The window rather than the pre-selected hits, so the estimate does not
     // depend on the cut it is about to feed. The phi extent becomes a length at
-    // the crossing radius.
+    // the crossing radius. Score::rho_region 0 counts every hit of the fetched bins
+    // (a larger region set by the fetch) over the window's area; 1 and 2 count over the
+    // same region they divide by, the window or the cut region.
     for (int i = 0; i < N_proc; ++i) {
       const float r = std::max(0.1f, std::hypot(B.m_sp2.x[i], B.m_sp2.y[i]));
-      const float w_phi = (B.m_phi_max[i] - B.m_phi_min[i]) + 2.0f * B.m_dphi_track[i];
-      const float w_q   = (B.m_q_max[i] - B.m_q_min[i]) + 2.0f * B.m_dq_track[i];
+      const bool cut_region = Score::rho_region == 2;
+      const float pad_phi = cut_region ? b.rho_dphi[i] : B.m_dphi_track[i];
+      const float pad_q   = cut_region ? b.rho_dq[i]   : B.m_dq_track[i];
+      const float w_phi = (B.m_phi_max[i] - B.m_phi_min[i]) + 2.0f * pad_phi;
+      const float w_q   = (B.m_q_max[i] - B.m_q_min[i]) + 2.0f * pad_q;
       const float area  = std::max(1e-4f, w_phi * r * w_q);
-      b.log_rho[i] = std::log(std::max(1e-6f, (float) b.n_scanned[i] / area));
+      // Over the window or the cut region the count can be 0 with a hit about to be
+      // scored, so the scored hit is counted too.
+      const float n_rho = Score::rho_region != 0 ? b.n_scanned[i] + 1.0f : (float) b.n_scanned[i];
+      b.log_rho[i] = std::log(std::max(1e-6f, n_rho / area));
       b.ptc[i]->m_log_rho = b.log_rho[i];
     }
   }
