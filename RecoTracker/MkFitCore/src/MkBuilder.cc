@@ -817,8 +817,59 @@ namespace mkfit {
     };
     FinalBeamDiag g_fbd[3];  // 0 all, 1 seed 1.7 <= |eta| < 2.7 pT < 0.9, 2 the same pT >= 0.9
 
+    // Truth-free features of a candidate, for "could anything at the final pick tell the clean
+    // candidate from the dirty one". Per-hit quantities over the non-seed found hits.
+    struct FbdFeat {
+      float nfound, chi2, chi2_per_hit, max_chi2, ot_chi2, nholes, score, n_ot;
+    };
+    constexpr int FBD_NF = 8;
+    const char *fbd_feat_name[FBD_NF] = {"found hits", "chi2", "chi2 / hit", "max hit chi2",
+                                         "mean OT hit chi2", "inside holes", "track_score_func", "OT hits"};
+    const bool fbd_feat_higher_better[FBD_NF] = {true, false, false, false, false, false, true, true};
+    float fbd_feat_get(const FbdFeat &f, int k) {
+      const float v[FBD_NF] = {f.nfound, f.chi2, f.chi2_per_hit, f.max_chi2, f.ot_chi2, f.nholes, f.score, f.n_ot};
+      return v[k];
+    }
+    // Pairwise: [population][A = dirty pick vs the first clean, B = clean pick vs the first dirty]
+    // per feature, how often it prefers the alternative (ties count half).
+    struct FbdPair {
+      long n = 0;
+      double prefer_alt[FBD_NF] = {};
+    };
+    FbdPair g_fbp[3][2];
+
+    // Expected background per (seed origin index, layer) of the forward search: the hits in the
+    // density region, averaged over the seed's candidates that searched the layer.
+    std::map<std::pair<int, int>, std::pair<double, int>> g_fbd_bg;
+    // Stop-rule emulation: stop a pick at the first layer whose expected background exceeds X.
+    // [population][X][0 dirty picks made clean, 1 dirty picks, 2 clean picks made dirty,
+    //  3 clean picks stopped, 4 clean picks, 5 found hits lost on clean picks, 6 OT hits lost]
+    constexpr int FBD_NX = 7;
+    const float fbd_x[FBD_NX] = {0.5f, 1.f, 2.f, 3.f, 5.f, 8.f, 12.f};
+    long g_fbs[3][FBD_NX][7];
+    // [population][background bin] first wrong hit of a dirty pick, and every OT hit of clean picks
+    constexpr int FBD_NB = 7;
+    const float fbd_bin[FBD_NB] = {0.5f, 1.f, 2.f, 3.f, 5.f, 8.f, 1e9f};
+    long g_fbh_wrong[3][FBD_NB], g_fbh_clean[3][FBD_NB];
+    // Seed purity: [population][0 seed all L, 1 seed with one wrong or unlinked hit, 2 worse]
+    // x [pick clean, pick dirty]; and where a dirty pick's first wrong hit sits: [0 seed, 1 pixel
+    // after the seed, 2 OT]
+    long g_fbseed[3][3][2], g_fbfirst[3][3];
+    int fbd_bin_of(float v) { int k = 0; while (v > fbd_bin[k]) ++k; return k; }
+    // Margins: [population][A/B][margin feature] the pick-minus-alternative difference, for a
+    // threshold scan (switch only when the pick is worse by more than t).
+    constexpr int FBD_NM = 4;
+    const char *fbd_margin_name[FBD_NM] = {"chi2", "chi2 / hit", "mean OT hit chi2", "chi2 per extra hit"};
+    std::vector<float> g_fbm[3][2][FBD_NM];
+
     bool fbd_is_ot(int l) { return (l >= 4 && l < 16) || (l >= 28 && l < 38) || l >= 50; }
   }  // namespace
+
+  void v2p2_final_beam_bg_record(int seed, int layer, float n_bg) {
+    auto &e = g_fbd_bg[{seed, layer}];
+    e.first += n_bg;
+    ++e.second;
+  }
 
   void v2p2_final_beam_diag(const Event *ev, const EventOfCombCandidates &eoccs) {
     auto label_of = [&](int lyr, int idx) {
@@ -842,7 +893,51 @@ namespace mkfit {
       int pop = -1;
       if (aeta >= 1.7f && aeta < 2.7f) pop = pt < 0.9f ? 1 : 2;
 
-      int first_clean = -1, pick_hits = 0, pick_ot = 0, clean_hits = 0, clean_ot = 0;
+      auto features = [&](const TrackCand &tc) {
+        FbdFeat f{};
+        f.nfound = tc.nFoundHits();
+        f.chi2 = tc.chi2();
+        f.nholes = tc.nInsideMinusOneHits();
+        f.score = tc.score();
+        std::vector<const HoTNode *> nodes;
+        int nh = tc.nTotalHits(), ch = tc.lastCcIndex();
+        while (--nh >= 0 && ch >= 0) {
+          const HoTNode &hn = cc.hot_node(ch);
+          nodes.push_back(&hn);
+          ch = hn.m_prev_idx;
+        }
+        // nodes run from the last hit back to the first; the seed's hits are the last ones.
+        const int n_seed = tc.getNSeedHits();
+        int nfs = 0, n_ot = 0;
+        float sum = 0, mx = 0, sum_ot = 0;
+        for (int j = 0; j < (int)nodes.size() - n_seed; ++j) {
+          const HoTNode &hn = *nodes[j];
+          if (hn.m_hot.index < 0) continue;
+          ++nfs; sum += hn.m_chi2; mx = std::max(mx, hn.m_chi2);
+          if (fbd_is_ot(hn.m_hot.layer)) { ++n_ot; sum_ot += hn.m_chi2; }
+        }
+        f.chi2_per_hit = nfs > 0 ? sum / nfs : 0.f;
+        f.max_chi2 = mx;
+        f.ot_chi2 = n_ot > 0 ? sum_ot / n_ot : 0.f;
+        f.n_ot = n_ot;
+        return f;
+      };
+      auto pair_fill = [&](int pop_k, int ab, const FbdFeat &pick, const FbdFeat &alt) {
+        FbdPair &p = g_fbp[pop_k][ab];
+        ++p.n;
+        const float dh = pick.nfound - alt.nfound;
+        const float m[FBD_NM] = {pick.chi2 - alt.chi2, pick.chi2_per_hit - alt.chi2_per_hit,
+                                 pick.ot_chi2 - alt.ot_chi2,
+                                 dh > 0 ? (pick.chi2 - alt.chi2) / dh : pick.chi2 - alt.chi2};
+        for (int k = 0; k < FBD_NM; ++k) g_fbm[pop_k][ab][k].push_back(m[k]);
+        for (int k = 0; k < FBD_NF; ++k) {
+          const float a = fbd_feat_get(alt, k), b = fbd_feat_get(pick, k);
+          if (a == b) p.prefer_alt[k] += 0.5;
+          else if ((a > b) == fbd_feat_higher_better[k]) p.prefer_alt[k] += 1.0;
+        }
+      };
+
+      int first_clean = -1, first_dirty = -1, pick_hits = 0, pick_ot = 0, clean_hits = 0, clean_ot = 0;
       for (int r = 0; r < (int)cc.size(); ++r) {
         const Track t = cc[r].exportTrack(true);
         int nf = 0, nl = 0, not_l = 0;
@@ -855,6 +950,89 @@ namespace mkfit {
         const bool clean = 4 * nl > 3 * nf;
         if (r == 0) { pick_hits = nf; pick_ot = not_l; }
         if (clean && first_clean < 0) { first_clean = r; clean_hits = nf; clean_ot = not_l; }
+        if (!clean && first_dirty < 0) first_dirty = r;
+      }
+      // Stop-rule emulation on the pick, and the background where hits were taken.
+      {
+        const TrackCand &pk = cc[0];
+        const int seed_idx = cc.seed_origin_index();
+        std::vector<const HoTNode *> nodes;
+        int nh = pk.nTotalHits(), ch = pk.lastCcIndex();
+        while (--nh >= 0 && ch >= 0) {
+          const HoTNode &hn = cc.hot_node(ch);
+          nodes.push_back(&hn);
+          ch = hn.m_prev_idx;
+        }
+        std::reverse(nodes.begin(), nodes.end());  // first hit first
+        const int n_seed = pk.getNSeedHits();
+        auto bg_at = [&](int layer) {
+          auto it = g_fbd_bg.find({seed_idx, layer});
+          return it == g_fbd_bg.end() ? -1.f : float(it->second.first / it->second.second);
+        };
+        const bool pick_clean = first_clean == 0;
+        {
+          int ns = 0, nsl = 0;
+          for (int j = 0; j < n_seed && j < (int)nodes.size(); ++j) {
+            const HoTNode &hn = *nodes[j];
+            if (hn.m_hot.index < 0) continue;
+            ++ns;
+            if (label_of(hn.m_hot.layer, hn.m_hot.index) == L) ++nsl;
+          }
+          const int sc = nsl == ns ? 0 : (nsl == ns - 1 ? 1 : 2);
+          int fw = -1;
+          for (int j = 0; j < (int)nodes.size() && fw < 0; ++j) {
+            const HoTNode &hn = *nodes[j];
+            if (hn.m_hot.index < 0) continue;
+            if (label_of(hn.m_hot.layer, hn.m_hot.index) != L)
+              fw = j < n_seed ? 0 : (fbd_is_ot(hn.m_hot.layer) ? 2 : 1);
+          }
+          for (int k : {0, pop}) {
+            if (k < 0) continue;
+            ++g_fbseed[k][sc][pick_clean ? 0 : 1];
+            if (!pick_clean && fw >= 0) ++g_fbfirst[k][fw];
+          }
+        }
+        bool seen_wrong = false;
+        for (int j = n_seed; j < (int)nodes.size(); ++j) {
+          const HoTNode &hn = *nodes[j];
+          if (hn.m_hot.index < 0) continue;
+          const float bg = bg_at(hn.m_hot.layer);
+          if (bg < 0) continue;
+          const bool right = label_of(hn.m_hot.layer, hn.m_hot.index) == L;
+          for (int k : {0, pop}) {
+            if (k < 0) continue;
+            if (!pick_clean && !right && !seen_wrong) ++g_fbh_wrong[k][fbd_bin_of(bg)];
+            if (pick_clean && fbd_is_ot(hn.m_hot.layer)) ++g_fbh_clean[k][fbd_bin_of(bg)];
+          }
+          if (!right) seen_wrong = true;
+        }
+        for (int xi = 0; xi < FBD_NX; ++xi) {
+          int stop = (int)nodes.size();
+          for (int j = n_seed; j < (int)nodes.size(); ++j) {
+            const float bg = bg_at(nodes[j]->m_hot.layer);
+            if (bg > fbd_x[xi]) { stop = j; break; }
+          }
+          int nf = 0, nl = 0, lost = 0, lost_ot = 0;
+          for (int j = 0; j < (int)nodes.size(); ++j) {
+            const HoTNode &hn = *nodes[j];
+            if (hn.m_hot.index < 0) continue;
+            if (j < stop) { ++nf; if (label_of(hn.m_hot.layer, hn.m_hot.index) == L) ++nl; }
+            else { ++lost; if (fbd_is_ot(hn.m_hot.layer)) ++lost_ot; }
+          }
+          const bool clean_after = 4 * nl > 3 * nf;
+          for (int k : {0, pop}) {
+            if (k < 0) continue;
+            long *c = g_fbs[k][xi];
+            if (!pick_clean) { ++c[1]; if (clean_after) ++c[0]; }
+            else { ++c[4]; if (!clean_after) ++c[2]; if (stop < (int)nodes.size()) ++c[3]; c[5] += lost; c[6] += lost_ot; }
+          }
+        }
+      }
+      if (first_clean > 0 || (first_clean == 0 && first_dirty > 0)) {
+        const int alt = first_clean > 0 ? first_clean : first_dirty;
+        const FbdFeat fp = features(cc[0]), fa = features(cc[alt]);
+        for (int k : {0, pop})
+          if (k >= 0) pair_fill(k, first_clean > 0 ? 0 : 1, fp, fa);
       }
       for (int k : {0, pop}) {
         if (k < 0) continue;
@@ -869,10 +1047,19 @@ namespace mkfit {
         } else ++d.none_clean;
       }
     }
+    g_fbd_bg.clear();
   }
 
   void v2p2_final_beam_diag_reset() {
     for (auto &d : g_fbd) d = FinalBeamDiag();
+    for (auto &pp : g_fbp) for (auto &p : pp) p = FbdPair();
+    for (auto &a : g_fbm) for (auto &b : a) for (auto &v : b) v.clear();
+    g_fbd_bg.clear();
+    std::memset(g_fbs, 0, sizeof(g_fbs));
+    std::memset(g_fbh_wrong, 0, sizeof(g_fbh_wrong));
+    std::memset(g_fbh_clean, 0, sizeof(g_fbh_clean));
+    std::memset(g_fbseed, 0, sizeof(g_fbseed));
+    std::memset(g_fbfirst, 0, sizeof(g_fbfirst));
   }
 
   void v2p2_final_beam_diag_report() {
@@ -888,6 +1075,78 @@ namespace mkfit {
              d.beam_size / n, 100. * d.pick_clean / n, 100. * d.other_clean / n, 100. * d.none_clean / n,
              d.sum_rank / o, d.sum_pick_hits / o, d.sum_clean_hits / o, d.sum_pick_ot / o, d.sum_clean_ot / o,
              100. * d.clean_more_ot / o);
+    }
+    printf("\nCOULD A FEATURE TELL THEM APART? Pairwise, pick against one alternative in the beam.\n"
+           "  A: pick dirty, alternative = the best-ranked clean candidate -- want 'prefers alt' HIGH.\n"
+           "  B: pick clean, alternative = the best-ranked dirty candidate -- want it LOW.\n"
+           "  net = n_A * A - n_B * B: seeds a pairwise switch on this feature alone would fix minus break.\n");
+    for (int k = 0; k < 3; ++k) {
+      const FbdPair &A = g_fbp[k][0], &B = g_fbp[k][1];
+      printf("  %s: n_A %ld, n_B %ld\n", pn[k], A.n, B.n);
+      printf("    %-18s %9s %9s %10s\n", "feature", "A alt", "B alt", "net");
+      for (int f = 0; f < FBD_NF; ++f) {
+        const double a = A.n ? A.prefer_alt[f] / A.n : 0, b = B.n ? B.prefer_alt[f] / B.n : 0;
+        printf("    %-18s %8.1f%% %8.1f%% %10.0f\n", fbd_feat_name[f], 100. * a, 100. * b,
+               A.prefer_alt[f] - B.prefer_alt[f]);
+      }
+    }
+    printf("\nEXPECTED BACKGROUND (hits in the density region of the layer step, seed average)\n"
+           "  where a DIRTY pick took its first wrong hit, and where CLEAN picks took their OT hits\n");
+    for (int k = 0; k < 3; ++k) {
+      long tw = 0, tc = 0;
+      for (int b = 0; b < FBD_NB; ++b) { tw += g_fbh_wrong[k][b]; tc += g_fbh_clean[k][b]; }
+      printf("  %-24s %-14s", pn[k], "bg <=");
+      for (int b = 0; b < FBD_NB; ++b) { if (b + 1 < FBD_NB) printf(" %6g", fbd_bin[b]); else printf("   more"); }
+      printf("\n  %-24s %-14s", "", "first wrong");
+      for (int b = 0; b < FBD_NB; ++b) printf(" %5.1f%%", 100. * g_fbh_wrong[k][b] / std::max(1L, tw));
+      printf("   (%ld)\n  %-24s %-14s", tw, "", "clean OT hits");
+      for (int b = 0; b < FBD_NB; ++b) printf(" %5.1f%%", 100. * g_fbh_clean[k][b] / std::max(1L, tc));
+      printf("   (%ld)\n", tc);
+    }
+    printf("\nSEED PURITY (seed hits of the seed's majority particle) against the pick, and where a\n"
+           "dirty pick's FIRST wrong hit is\n");
+    for (int k = 0; k < 3; ++k) {
+      const long (*q)[2] = g_fbseed[k];
+      const long d = q[0][1] + q[1][1] + q[2][1], c = q[0][0] + q[1][0] + q[2][0];
+      const long fw = g_fbfirst[k][0] + g_fbfirst[k][1] + g_fbfirst[k][2];
+      printf("  %-24s clean picks %7ld: seed pure %5.1f%%, one off %5.1f%%, worse %5.1f%% | dirty picks %6ld: "
+             "seed pure %5.1f%%, one off %5.1f%%, worse %5.1f%% | first wrong in seed %5.1f%%, pixel %5.1f%%, OT %5.1f%%\n",
+             pn[k], c, 100. * q[0][0] / std::max(1L, c), 100. * q[1][0] / std::max(1L, c), 100. * q[2][0] / std::max(1L, c),
+             d, 100. * q[0][1] / std::max(1L, d), 100. * q[1][1] / std::max(1L, d), 100. * q[2][1] / std::max(1L, d),
+             100. * g_fbfirst[k][0] / std::max(1L, fw), 100. * g_fbfirst[k][1] / std::max(1L, fw),
+             100. * g_fbfirst[k][2] / std::max(1L, fw));
+    }
+    printf("\nSTOP-RULE EMULATION on the pick: stop at the first layer after the seed whose expected\n"
+           "background exceeds X. dirty->clean of dirty picks; clean->dirty and stopped of clean\n"
+           "picks; found and OT hits lost per clean pick.\n");
+    for (int k = 0; k < 3; ++k) {
+      printf("  %s\n", pn[k]);
+      for (int xi = 0; xi < FBD_NX; ++xi) {
+        const long *c = g_fbs[k][xi];
+        const double nc = std::max(1L, c[4]);
+        printf("    X %4g: dirty->clean %5.1f%% (%5ld of %5ld)  clean->dirty %4.1f%%  clean stopped %5.1f%%"
+               "  lost/clean: hits %5.2f OT %5.2f\n",
+               fbd_x[xi], 100. * c[0] / std::max(1L, c[1]), c[0], c[1], 100. * c[2] / nc, 100. * c[3] / nc,
+               c[5] / nc, c[6] / nc);
+      }
+    }
+    printf("\nMARGIN SCAN: switch to the alternative only when pick - alt > t. Fraction above t in A (fix)\n"
+           "and B (break), and net = n_A * fA - n_B * fB.\n");
+    const float ts[] = {0.f, 2.f, 5.f, 10.f, 20.f, 40.f};
+    for (int k = 0; k < 3; ++k) {
+      printf("  %s\n", pn[k]);
+      for (int mi = 0; mi < FBD_NM; ++mi) {
+        const auto &va = g_fbm[k][0][mi], &vb = g_fbm[k][1][mi];
+        printf("    %-20s", fbd_margin_name[mi]);
+        for (float t : ts) {
+          long na = 0, nb = 0;
+          for (float v : va) na += v > t;
+          for (float v : vb) nb += v > t;
+          printf("  t=%-3g %5.1f%%/%4.1f%% %+6ld", t, 100. * na / std::max<size_t>(1, va.size()),
+                 100. * nb / std::max<size_t>(1, vb.size()), na - nb);
+        }
+        printf("\n");
+      }
     }
   }
 #endif

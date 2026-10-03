@@ -22,6 +22,9 @@
 namespace mkfit {
 
   using namespace Config::V2p2;
+#if defined(MKFIT_STANDALONE)
+  void v2p2_final_beam_bg_record(int seed, int layer, float n_bg);  // MkBuilder.cc
+#endif
 
 #if defined(MKFIT_STANDALONE)
   // Per-layer policy counters, see MkFinderV2p2.h.
@@ -1128,6 +1131,16 @@ namespace mkfit {
       const float n_rho = Score::rho_region != 0 ? b.n_scanned[i] + 1.0f : (float) b.n_scanned[i];
       b.log_rho[i] = std::log(std::max(1e-6f, n_rho / area));
       b.ptc[i]->m_log_rho = b.log_rho[i];
+#if defined(MKFIT_STANDALONE)
+      // Diag::final_beam_purity: hits in the density region, the expected background
+      // of this layer step, per (seed, layer), forward search only.
+      if (Diag::final_beam_purity && spi.type() == SteeringParams::IT_FwdSearch) {
+        const int seed = b.ptc[i]->ccand().seed_origin_index();
+        v2p2_final_beam_bg_record(seed, spi->m_layer, b.n_scanned[i]);
+        if (spi->m_layer_sec >= 0)
+          v2p2_final_beam_bg_record(seed, spi->m_layer_sec, b.n_scanned[i]);
+      }
+#endif
     }
   }
 
