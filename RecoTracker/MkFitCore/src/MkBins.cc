@@ -203,59 +203,6 @@ namespace mkfit {
 #endif
   }
 
-#if defined(MKFIT_STANDALONE)
-  //----------------------------------------------------------------------------
-  // surface_reference_dq() -- dq_track referenced to the layer surface (radial
-  // normal in the barrel, z in the endcap), evaluated at m_sp2 where cov_ex
-  // lives. Off by default (Diag::mkbins_surface_q); the per-hit version with the
-  // module normal is MkFinderV2p2::surface_referenced_dq(). See
-  // doc/MkFinderV2p2-DesignNotes.md, "Search window".
-  //----------------------------------------------------------------------------
-
-  void MkBins::surface_reference_dq(const MkBinTrackCovExtract &cov_ex) {
-    // Clamp on the amplification. g = cot(theta) for a radial barrel track, so 20
-    // is |eta| ~ 3.7, beyond the tracker.
-    constexpr float kMaxSlope = 20.0f;
-
-    for (int i = 0; i < m_n_proc; ++i) {
-      const float x = m_sp2.x[i], y = m_sp2.y[i];
-      const float r2 = x * x + y * y;
-      if (r2 <= 0.0f)
-        continue;
-      const float rinv = 1.0f / std::sqrt(r2);
-      const float nx = x * rinv, ny = y * rinv;   // radial unit vector
-
-      const float pr = nx * m_sp2.px[i] + ny * m_sp2.py[i];  // p . n_radial
-      const float pz = m_sp2.pz[i];
-
-      const float c00 = cov_ex.m_cov_0_0[i], c01 = cov_ex.m_cov_0_1[i];
-      const float c11 = cov_ex.m_cov_1_1[i], c22 = cov_ex.m_cov_2_2[i];
-      const float c02 = cov_ex.m_cov_0_2[i], c12 = cov_ex.m_cov_1_2[i];
-
-      float var;
-      if (m_is_barrel) {
-        // v = e_z - (p_z / (p.n)) * n ; note |p| cancels out of the ratio.
-        if (pr == 0.0f)
-          continue;
-        float g = pz / pr;
-        g = std::clamp(g, -kMaxSlope, kMaxSlope);
-        const float v0 = -g * nx, v1 = -g * ny;
-        var = v0 * v0 * c00 + v1 * v1 * c11 + c22 + 2.0f * (v0 * v1 * c01 + v0 * c02 + v1 * c12);
-      } else {
-        // w = r^ - ((r^.p) / p_z) * e_z
-        if (pz == 0.0f)
-          continue;
-        float ginv = pr / pz;
-        ginv = std::clamp(ginv, -kMaxSlope, kMaxSlope);
-        var = nx * nx * c00 + ny * ny * c11 + ginv * ginv * c22 +
-              2.0f * (nx * ny * c01 - ginv * nx * c02 - ginv * ny * c12);
-      }
-
-      if (var > 0.0f)
-        m_dq_track[i] = 3.0f * std::sqrt(var);
-    }
-  }
-#endif
 
   void MkBins::find_bin_ranges(const LayerOfHits &loh, MkBinLimits &bl) {
     for (int i = 0; i < NN; ++i) {
