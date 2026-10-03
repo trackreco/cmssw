@@ -91,6 +91,8 @@ namespace mkfit {
     m_min_ext_idx = std::numeric_limits<unsigned int>::max();
     m_max_ext_idx = std::numeric_limits<unsigned int>::min();
     m_n_hits = 0;
+    m_max_q_half_length = 0.0f;
+    m_max_phi_half_extent = 0.0f;
     m_binnor.reset_contents();
   }
 
