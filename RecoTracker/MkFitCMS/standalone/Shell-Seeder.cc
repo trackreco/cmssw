@@ -905,7 +905,14 @@ namespace mkfit {
     long g_qa_fake_wrong_mfound[2][kNReg];
     // tracks from TRUE quads, by the class of the seed the search actually started from (after the iteration's
     // seed cleaning, which merges the hits of the seeds it drops): [acc][found/fake][region][0 true, 1 undec, 2 fake, 3 none]
-    long g_qa_true_seedcls[2][2][kNReg][4];  // fakes from 3+1 wrong quads whose majority sim track another track found
+    long g_qa_true_seedcls[2][2][kNReg][4];
+    // the quad's score from the --seeds file (seedsurf's cleaning score), in log bins:
+    // per quad class [region][class][bin], and per track of the quad it grew from [acc][found/fake][region][bin]
+    constexpr int kQaNSc = 9;
+    const float kQaScEdge[kQaNSc] = {0.f, 0.01f, 0.03f, 0.1f, 0.3f, 1.f, 3.f, 10.f, 30.f};
+    const char *const kQaScName[kQaNSc] = {"<0.01", "0.01-0.03", "0.03-0.1", "0.1-0.3", "0.3-1", "1-3", "3-10", "10-30", ">30"};
+    long g_qa_sc[kNReg][QA_N][kQaNSc];
+    long g_qa_trk_sc[2][2][kNReg][kQaNSc];  // fakes from 3+1 wrong quads whose majority sim track another track found
     int g_qa_nev = 0;
   }  // namespace
 
@@ -922,6 +929,8 @@ namespace mkfit {
     memset(g_qa_fake_wrong_pos, 0, sizeof(g_qa_fake_wrong_pos));
     memset(g_qa_fake_wrong_mfound, 0, sizeof(g_qa_fake_wrong_mfound));
     memset(g_qa_true_seedcls, 0, sizeof(g_qa_true_seedcls));
+    memset(g_qa_sc, 0, sizeof(g_qa_sc));
+    memset(g_qa_trk_sc, 0, sizeof(g_qa_trk_sc));
     g_qa_nev = 0;
   }
 
@@ -1005,6 +1014,7 @@ namespace mkfit {
       const int reg = reg_of(ae);
       res[qi] = {cls, reg, pos, maj};
       ++g_qa_cls[reg][cls];
+      ++g_qa_sc[reg][cls][qa_bin(kQaScEdge, q.score)];
       if (cls == QA_True)
         ++g_qa_dens[0][reg][qa_dens_bin(density(q.l[3], q.h[3]))];
       if (cls == QA_Wrong) {
@@ -1094,6 +1104,8 @@ namespace mkfit {
         if (a == 1 && !r.acc)
           continue;
         ++g_qa_trk[a][r.fake][r.reg][cls];
+        if (r.qi >= 0)
+          ++g_qa_trk_sc[a][r.fake][r.reg][qa_bin(kQaScEdge, Q[r.qi].score)];
         if (cls == QA_True)
           ++g_qa_true_seedcls[a][r.fake][r.reg][r.scls];
         if (r.fake && cls == QA_Wrong) {
@@ -1123,6 +1135,19 @@ namespace mkfit {
     printf("\n");
     for (int r = 0; r < kNReg; ++r)
       row3(kRegName[r], g_qa_cls[r], QA_N);
+
+    printf("\n  QUADS by their score (seedsurf's cleaning score), per class\n  %-26s %8s |", "", "quads");
+    for (int b = 0; b < kQaNSc; ++b)
+      printf(" %14s |", kQaScName[b]);
+    printf("\n");
+    for (int r = 0; r < kNReg; ++r) {
+      printf("  %s\n", kRegName[r]);
+      for (int c = 0; c < QA_N; ++c) {
+        char name[64];
+        snprintf(name, sizeof(name), "   %s", kQaName[c]);
+        row3(name, g_qa_sc[r][c], kQaNSc);
+      }
+    }
 
     printf("\n  3+1 WRONG: the position of the wrong hit (0 = innermost), and how many of those have the majority track's"
            " own hit in that layer\n");
@@ -1186,6 +1211,16 @@ namespace mkfit {
         printf("  %-26s pos 0 %5ld | pos 1 %5ld | pos 2 %5ld | pos 3 %5ld | majority found elsewhere %5ld\n",
                kRegName[r], g_qa_fake_wrong_pos[a][r][0], g_qa_fake_wrong_pos[a][r][1], g_qa_fake_wrong_pos[a][r][2],
                g_qa_fake_wrong_pos[a][r][3], g_qa_fake_wrong_mfound[a][r]);
+      printf("  tracks by their quad's score (seedsurf's cleaning score)\n  %-26s %8s |", "", "tracks");
+      for (int b = 0; b < kQaNSc; ++b)
+        printf(" %14s |", kQaScName[b]);
+      printf("\n");
+      for (int f = 0; f < 2; ++f)
+        for (int r = 0; r < kNReg; ++r) {
+          char name[64];
+          snprintf(name, sizeof(name), "%s %s", f ? "fake " : "found", kRegName[r]);
+          row3(name, g_qa_trk_sc[a][f][r], kQaNSc);
+        }
       printf("  tracks from TRUE quads, by the seed the search started from (after the iteration's seed cleaning):"
              " true / undecidable / fake / none\n");
       for (int f = 0; f < 2; ++f)
