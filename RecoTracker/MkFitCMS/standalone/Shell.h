@@ -213,6 +213,17 @@ namespace mkfit {
     void SeederMissStudy() { SeederMissStudy(m_ctx); }
     void SeederDiagReport();
 
+    // Displaced tracks: the selected sim tracks (val_eff's MTV selection) by the transverse impact parameter of
+    // their production vertex and momentum to the beam spot, |d0|, and per bin how many the seeder's seeds are
+    // on, how many the event's candidateTracks_ found (call after ProcessEventSeeder() and, for the row like
+    // production's, SelectTracksCMSSW(1)), and how many production found, iteration by iteration
+    // (cumulative; needs a sample with every iteration's tracks). "Found" is val_eff's association (the track's
+    // seed by shared hits, TrackExtra::setMCTrackIDInfo over the non-seed hits).
+    void SeederDisplacedReset();
+    void SeederDisplacedStudy(EvCtx &ctx);
+    void SeederDisplacedStudy() { SeederDisplacedStudy(m_ctx); }
+    void SeederDisplacedReport();
+
     // CMSSW's MultiTrackSelector::select() with the phase-2 initialStepSelector parameter sets, on the
     // event's candidateTracks_, in place: level 1 loose (what the track merger keeps, so what
     // generalTracks holds), 2 tight, 3 highPurity, each applied after the ones below it as the

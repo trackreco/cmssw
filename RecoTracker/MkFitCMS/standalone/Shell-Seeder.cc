@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <cstdio>
 #include <map>
 #include <set>
@@ -712,6 +713,150 @@ namespace mkfit {
                g_ms_ot[pop][r][1][1], g_ms_ot[pop][r][1][0], g_ms_ot[pop][r][0][1], g_ms_ot[pop][r][0][0]);
       printf("  barrel, 3 pixel layers, the missing one: L0 %ld, L1 %ld, L2 %ld, L3 %ld\n", g_ms_missing[pop][0],
              g_ms_missing[pop][1], g_ms_missing[pop][2], g_ms_missing[pop][3]);
+    }
+  }
+
+  //===========================================================================
+  // Displaced tracks
+  //===========================================================================
+
+  namespace {
+    constexpr int kNDisp = 9;
+    const float kDispEdge[kNDisp + 1] = {0.f, 0.01f, 0.02f, 0.05f, 0.1f, 0.2f, 0.5f, 1.f, 2.f, 1e9f};
+    // production's iterations, in the order prod_iters.C adds them
+    constexpr int kNIter = 6;
+    const TrackBase::TrackAlgorithm kIterAlgo[kNIter] = {
+        TrackBase::TrackAlgorithm::initialStep,      TrackBase::TrackAlgorithm::highPtTripletStep,
+        TrackBase::TrackAlgorithm::lowPtQuadStep,    TrackBase::TrackAlgorithm::lowPtTripletStep,
+        TrackBase::TrackAlgorithm::detachedQuadStep, TrackBase::TrackAlgorithm::pixelPairStep};
+    const char *const kIterName[kNIter] = {"initial", "+highPtTr", "+lowPtQuad", "+lowPtTr", "+detQuad", "+pixPair"};
+    // [region 0-2, 3 = all][d0 bin]
+    long g_dp_sel[kNReg + 1][kNDisp], g_dp_seeded[kNReg + 1][kNDisp], g_dp_found[kNReg + 1][kNDisp];
+    long g_dp_prod[kNReg + 1][kNDisp][kNIter];
+    int g_dp_nev = 0;
+  }  // namespace
+
+  void Shell::SeederDisplacedReset() {
+    memset(g_dp_sel, 0, sizeof(g_dp_sel));
+    memset(g_dp_seeded, 0, sizeof(g_dp_seeded));
+    memset(g_dp_found, 0, sizeof(g_dp_found));
+    memset(g_dp_prod, 0, sizeof(g_dp_prod));
+    g_dp_nev = 0;
+  }
+
+  void Shell::SeederDisplacedStudy(EvCtx &ctx) {
+    const Event &ev = *ctx.ev;
+    const BeamSpot &bs = ev.beamSpot_;
+    std::set<int> seeded, found;
+    for (const Track &s : ctx.seeds) {
+      const auto si = ev.simInfoForTrack(s);
+      if (si.label >= 0)
+        seeded.insert(si.label);
+    }
+    // The association of val_eff (ValProp-Eff.cc ve_accumulate): the track's seed is the current seed sharing
+    // the most hits with it, and TrackExtra::setMCTrackIDInfo over the non-seed hits gives the sim track.
+    std::map<std::pair<int, int>, std::vector<int>> hit2seed;
+    for (int i = 0; i < (int)ctx.seeds.size(); ++i)
+      for (int h = 0; h < ctx.seeds[i].nTotalHits(); ++h) {
+        const HitOnTrack hot = ctx.seeds[i].getHitOnTrack(h);
+        if (hot.index >= 0 && hot.layer >= 0)
+          hit2seed[{hot.layer, hot.index}].push_back(i);
+      }
+    auto sim_of = [&](const Track &t) {
+      std::map<int, int> shared;
+      for (int h = 0; h < t.nTotalHits(); ++h) {
+        const HitOnTrack hot = t.getHitOnTrack(h);
+        if (hot.index < 0 || hot.layer < 0)
+          continue;
+        auto it = hit2seed.find({hot.layer, hot.index});
+        if (it != hit2seed.end())
+          for (int i : it->second)
+            ++shared[i];
+      }
+      int best = -1, bn = 0;
+      for (const auto &[i, n] : shared)
+        if (n > bn) {
+          bn = n;
+          best = i;
+        }
+      TrackExtra extra(t.label());
+      if (best >= 0)
+        extra.findMatchingSeedHits(t, ctx.seeds[best], ev.layerHits_);
+      extra.setMCTrackIDInfo(t, ev.layerHits_, ev.simHitsInfo_, ev.simTracks_, false, false);
+      return extra.mcTrackID();
+    };
+    for (const Track &t : ev.candidateTracks_) {
+      const int mc = sim_of(t);
+      if (mc >= 0)
+        found.insert(mc);
+    }
+    // the first iteration (index into kIterAlgo) that found each sim track
+    std::map<int, int> prod_first;
+    for (const Track &t : ev.cmsswTracks_) {
+      int it = -1;
+      for (int k = 0; k < kNIter; ++k)
+        if (t.algorithm() == kIterAlgo[k])
+          it = k;
+      if (it < 0)
+        continue;
+      const int mc = sim_of(t);
+      if (mc < 0)
+        continue;
+      auto f = prod_first.find(mc);
+      if (f == prod_first.end() || it < f->second)
+        prod_first[mc] = it;
+    }
+    for (int L = 0; L < (int)ev.simTracks_.size(); ++L) {
+      const Track &st = ev.simTracks_[L];
+      const float ae = std::abs(st.momEta()), pt = st.pT();
+      // val_eff's MTV selection
+      if (!st.isFindable() || std::hypot(st.x(), st.y()) > 3.5f || std::abs(st.z()) > 30.0f)
+        continue;
+      if (ae >= 2.5f || pt <= 0.9f || st.nUniqueLayers() < 4)
+        continue;
+      // |d0| to the beam spot, from the production vertex along the momentum's transverse direction (a straight
+      // line: at pT > 0.9 GeV the curvature changes it by < 1e-3 relative for d0 < 3.5 cm)
+      const float phi = st.momPhi();
+      const float d0 = std::abs((st.x() - bs.x) * std::sin(phi) - (st.y() - bs.y) * std::cos(phi));
+      int b = 0;
+      while (b < kNDisp - 1 && d0 >= kDispEdge[b + 1])
+        ++b;
+      const int reg = reg_of(ae);
+      for (int r : {reg, kNReg}) {
+        ++g_dp_sel[r][b];
+        g_dp_seeded[r][b] += seeded.count(L);
+        g_dp_found[r][b] += found.count(L);
+        auto f = prod_first.find(L);
+        if (f != prod_first.end())
+          for (int k = f->second; k < kNIter; ++k)
+            ++g_dp_prod[r][b][k];
+      }
+    }
+    ++g_dp_nev;
+  }
+
+  void Shell::SeederDisplacedReport() {
+    printf("\nShell::SeederDisplacedReport: %d events; selected sim tracks (MTV) by |d0| to the beam spot [cm]\n",
+           g_dp_nev);
+    printf("  seeded: a seeder seed is on it (after the seed cleaning); found: val_eff's association (2 mccount >="
+           " nCandHits over the non-seed hits); production cumulative by iteration\n");
+    for (int r = kNReg; r >= 0; --r) {
+      printf("\n  %s\n  %-12s %7s | %7s %7s |", r == kNReg ? "all regions" : kRegName[r], "|d0| [cm]", "sel",
+             "seeded", "found");
+      for (int k = 0; k < kNIter; ++k)
+        printf(" %9s", kIterName[k]);
+      printf("\n");
+      for (int b = 0; b < kNDisp; ++b) {
+        if (b < kNDisp - 1)
+          printf("  %5.2f-%-5.2f %7ld |", kDispEdge[b], kDispEdge[b + 1], g_dp_sel[r][b]);
+        else
+          printf("  %5.2f-      %7ld |", kDispEdge[b], g_dp_sel[r][b]);
+        const double n = std::max(1L, g_dp_sel[r][b]);
+        printf(" %6.1f%% %6.1f%% |", 100.0 * g_dp_seeded[r][b] / n, 100.0 * g_dp_found[r][b] / n);
+        for (int k = 0; k < kNIter; ++k)
+          printf(" %8.1f%%", 100.0 * g_dp_prod[r][b][k] / n);
+        printf("\n");
+      }
     }
   }
 
