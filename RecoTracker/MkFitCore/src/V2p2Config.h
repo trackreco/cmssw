@@ -36,6 +36,10 @@ namespace mkfit {
     float gap_penalty = 0.0f;    // crossing in an inactive region
     float stop_penalty = 8.0f;   // out of hole budget
     float hit_eff = 0.90f;       // per-layer hit efficiency, likelihood mode only
+    // Per layer group, likelihood mode only; a negative value takes hit_eff. Groups, see
+    // v2p2_hit_eff_group(): 0 pixel barrel, 1 pixel endcap, 2 strip barrel below layer 10
+    // (phase-2 TBPS), 3 strip barrel from layer 10 (TB2S), 4 strip endcap (TEDD).
+    float hit_eff_grp[5] = {-1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
   };
 
   namespace Config::V2p2 {

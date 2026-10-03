@@ -66,10 +66,23 @@ namespace mkfit {
   //   take hit j :  ln(eps/(1-eps)) - ln(2pi) - chi2_j/2 - ln(det V_j)/2 - ln rho
   //   take none  :  0
   // eps = hit_eff, V the 2x2 residual covariance, rho the local hit density.
+  // Layer group of V2p2ScoreParams::hit_eff_grp. The barrel strip split at layer 10 is the
+  // phase-2 TBPS / TB2S boundary (CLAUDE.md layer table); it means nothing for phase 1,
+  // where the groups default to hit_eff.
+  inline int v2p2_hit_eff_group(const LayerStepFeatures &f) {
+    if (f.is_pixel)
+      return f.is_barrel ? 0 : 1;
+    if (f.is_barrel)
+      return f.layer_to < 10 ? 2 : 3;
+    return 4;
+  }
+
   inline float v2p2_layer_step_loglh(const LayerStepFeatures &f, const V2p2ScoreParams &p) {
     if (f.n_hits == 0)
       return 0.0f;   // the reference hypothesis, whatever kind of hole it was
-    const float c_eps = std::log(p.hit_eff / (1.0f - p.hit_eff)) - 1.8378771f;  // ln(2pi)
+    const float eps_grp = p.hit_eff_grp[v2p2_hit_eff_group(f)];
+    const float eps = eps_grp >= 0.0f ? eps_grp : p.hit_eff;
+    const float c_eps = std::log(eps / (1.0f - eps)) - 1.8378771f;  // ln(2pi)
 #if defined(MKFIT_STANDALONE)
     namespace ss = Config::V2p2::ScoreStats;
     if (ss::accum) {
