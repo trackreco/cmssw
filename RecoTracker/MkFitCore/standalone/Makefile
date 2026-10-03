@@ -16,7 +16,11 @@ SRCS := $(wildcard ${CORE_DIR}/src/*.cc) \
 		$(wildcard ${SADIR}/*.cc)
 
 ifdef WITH_ROOT
-SRCS += $(wildcard ${SADIR}/RntDumper/*.cc) $(wildcard ${SADIR}/RdfTrace/*.cc)
+SRCS += $(wildcard ${SADIR}/RntDumper/*.cc)
+# The trace readers need the trace collections of Event, which exist with MKFIT_TRACE only.
+ifdef EVENT_RDF_TRACE
+SRCS += $(wildcard ${SADIR}/RdfTrace/*.cc)
+endif
 endif
 
 SRCB := $(notdir ${SRCS})

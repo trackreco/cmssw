@@ -49,6 +49,8 @@
 
 // RDF Trace etc
 
+#ifdef MKFIT_TRACE
+
 #pragma link C++ class mkfit::RdfSources - ;
 #pragma link C++ class mkfit::RdfVectorSources - ;
 #pragma link C++ class mkfit::RdfCtx - ;
@@ -61,3 +63,5 @@
 
 #pragma link C++ function np();
 #pragma link C++ function nc(int, int, const char *, const char *, const char *);
+
+#endif

@@ -17,7 +17,9 @@
 
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 
+#ifdef MKFIT_TRACE
 #include "RecoTracker/MkFitCore/standalone/RdfTrace/AnRun.h"
+#endif
 
 #include "TROOT.h"
 
@@ -421,6 +423,9 @@ namespace mkfit {
   #pragma region Tests etc
   //===========================================================================
 
+  // The trace drivers need the trace collections of Event: built with MKFIT_TRACE only.
+  #ifdef MKFIT_TRACE
+
   namespace {
     void export_AnRun(AnRun *ar) {
       char buf[256];
@@ -615,6 +620,8 @@ namespace mkfit {
     export_AnRun(ar);
   }
 
+  #endif  // MKFIT_TRACE
+
   #pragma endregion Tests etc
 
   //===========================================================================
@@ -752,6 +759,9 @@ namespace mkfit {
     printf("\n##### END Event %d ##### standard forward search\n\n", ctx.ev->evtID());
   }
 
+  // The trace drivers need the trace collections of Event: built with MKFIT_TRACE only.
+  #ifdef MKFIT_TRACE
+
   // Near-copy of collect_events_hlt() with ProcessEventStd() in place of
   // ProcessEventHlt(). See the comments there for why tbb::parallel_for and not
   // TBB_PARALLEL_FOR, and for what is and is not shared between slots.
@@ -885,6 +895,8 @@ namespace mkfit {
 
     export_AnRun(ar);
   }
+
+  #endif  // MKFIT_TRACE
 
   #pragma endregion Standard forward search, traced
 

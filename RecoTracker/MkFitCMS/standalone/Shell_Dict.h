@@ -7,7 +7,10 @@
 #include "RecoTracker/MkFitCMS/standalone/Shell.h"
 
 #include "RecoTracker/MkFitCore/standalone/RntDumper/RntDumper.h"
+// The trace readers are built with MKFIT_TRACE only.
+#ifdef MKFIT_TRACE
 #include "RecoTracker/MkFitCore/standalone/RdfTrace/RdfSources.h"
 #include "RecoTracker/MkFitCore/standalone/RdfTrace/RdfVectorSource.h"
 #include "RecoTracker/MkFitCore/standalone/RdfTrace/CanvasGroup.h"
 #include "RecoTracker/MkFitCore/standalone/RdfTrace/AnRun.h"
+#endif
