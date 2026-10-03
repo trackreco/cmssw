@@ -72,6 +72,11 @@ void val_dup_drth(float central, float obarrel, float forward) { mkfit::val_dup_
 void val_in_layer_comb(bool on) { mkfit::val_in_layer_comb(on); }
 void val_layer_policy(bool w, bool h, bool s) { mkfit::val_layer_policy(w, h, s); }
 void val_reserve_hole_slot(bool on) { mkfit::val_reserve_hole_slot(on); }
+void val_rho_in_window(bool on) { mkfit::val_rho_in_window(on); }
+void val_rho_region(int region) { mkfit::val_rho_region(region); }
+void val_mini_prop_param_b(int on) { mkfit::val_mini_prop_param_b(on); }
+void val_hit_eff_grp(float pb, float pe, float sps, float s2s, float se) { mkfit::val_hit_eff_grp(pb, pe, sps, s2s, se); }
+void val_hit_eff(float fwd, float bkw) { mkfit::val_hit_eff(fwd, bkw); }
 void val_score_mode(int m, float e) { mkfit::val_score_mode(m, e); }
 void val_score(float b, float c, float mf, float mb) { mkfit::val_score(b, c, mf, mb); }
 void val_search_lite(int mode) { mkfit::val_search_lite(mode); }

@@ -130,6 +130,11 @@ namespace mkfit {
   void val_dup_drth(float central, float obarrel, float forward);
   void val_reserve_hole_slot(bool on);
   void val_score_mode(int mode, float hit_eff);
+  void val_hit_eff(float fwd, float bkw);
+  void val_rho_in_window(bool on);
+  void val_rho_region(int region);
+  void val_mini_prop_param_b(int on);
+  void val_hit_eff_grp(float pix_brl, float pix_ec, float strip_brl_ps, float strip_brl_2s, float strip_ec);
   void val_score_terms(bool use_rho, float rho_const, bool use_detv, float detv_const);
   void val_score_term_stats(bool on);
   void val_score(float hit_bonus, float chi2_weight, float miss_fwd, float miss_bkw);

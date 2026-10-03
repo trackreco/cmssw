@@ -1549,6 +1549,33 @@ namespace mkfit {
     printf("val_reserve_hole_slot: V2p2::InLayer::reserve_hole_slot = %d\n", (int) on);
   }
 
+  void val_hit_eff(float fwd, float bkw) {
+    V2p2::Score::fwd.hit_eff = fwd;
+    V2p2::Score::bkw.hit_eff = bkw;
+    printf("val_hit_eff: hit_eff fwd %g, bkw %g\n", fwd, bkw);
+  }
+
+  void val_hit_eff_grp(float pix_brl, float pix_ec, float strip_brl_ps, float strip_brl_2s, float strip_ec) {
+    const float g[5] = {pix_brl, pix_ec, strip_brl_ps, strip_brl_2s, strip_ec};
+    for (int i = 0; i < 5; ++i)
+      V2p2::Score::fwd.hit_eff_grp[i] = g[i];
+    printf("val_hit_eff_grp: fwd hit_eff pixB %g pixE %g TBPS %g TB2S %g TEDD %g (negative = hit_eff %g)\n",
+           g[0], g[1], g[2], g[3], g[4], V2p2::Score::fwd.hit_eff);
+  }
+
+  void val_mini_prop_param_b(int on) {
+    V2p2::Window::mini_prop_param_b = on;
+    printf("val_mini_prop_param_b: %d (0 uniform Config::Bfield, 1 bFieldFromZR at each state)\n", on);
+  }
+
+  void val_rho_region(int region) {
+    V2p2::Score::rho_region = region;
+    static const char *nm[] = {"fetched bins over the window area", "the track window, (n+1)/area",
+                               "the cut region, (n+1)/area"};
+    printf("val_rho_region: %d, rho over %s\n", region, region >= 0 && region <= 2 ? nm[region] : "?");
+  }
+  void val_rho_in_window(bool on) { val_rho_region(on ? 1 : 0); }
+
   // Ablate one term of the log-likelihood at fixed eps. Passing the term's own
   // MEAN as the constant removes its variation and nothing else -- see the note
   // in V2p2Score.h for why that is the only comparison that can attribute a
