@@ -1565,7 +1565,7 @@ namespace mkfit {
 
   void val_mini_prop_param_b(int on) {
     V2p2::Window::mini_prop_param_b = on;
-    printf("val_mini_prop_param_b: %d (0 uniform Config::Bfield, 1 bFieldFromZR at each state)\n", on);
+    printf("val_mini_prop_param_b: %d (0 uniform Config::Bfield, 1 bFieldFromZR at each state, 2 as the Kalman)\n", on);
   }
 
   void val_rho_region(int region) {

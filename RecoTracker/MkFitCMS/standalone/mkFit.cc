@@ -639,7 +639,9 @@ int main(int argc, const char* argv[]) {
           "                           SEQUENCE of hits per layer instead of the single best one (def: %d)\n"
           "  --v2p2-score-mode <0|1>  MkFinderV2p2 score: 0 linear, 1 log-likelihood ratio (def: %d)\n"
           "  --v2p2-hit-eff <f>       MkFinderV2p2 score, likelihood mode: per-layer hit efficiency,\n"
-          "                           the only free number in it (def: %g)\n"
+          "                           for both directions and every layer group, which clears the\n"
+          "                           forward per-group values (def: fwd %g with per-group values,\n"
+          "                           bkw %g)\n"
           "  --v2p2-best-short <0|1>  MkFinderV2p2: move a stopped candidate out of the beam and\n"
           "                           keep the best of them per seed, outward only (def: %d)\n"
           "  --v2p2-reserve-hole-slot <0|1>  MkFinderV2p2: keep one beam slot for a continuation\n"
@@ -830,6 +832,7 @@ int main(int argc, const char* argv[]) {
           int(V2p2::InLayer::comb),
           V2p2::Score::mode,
           V2p2::Score::fwd.hit_eff,
+          V2p2::Score::bkw.hit_eff,
           int(V2p2::InLayer::best_short),
           int(V2p2::InLayer::reserve_hole_slot),
           int(V2p2::InLayer::early_select),
@@ -1091,6 +1094,8 @@ int main(int argc, const char* argv[]) {
     } else if (*i == "--v2p2-hit-eff") {
       next_arg_or_die(mArgs, i);
       V2p2::Score::fwd.hit_eff = V2p2::Score::bkw.hit_eff = atof(i->c_str());
+      for (float &e : V2p2::Score::fwd.hit_eff_grp)
+        e = -1.0f;
     } else if (*i == "--v2p2-best-short") {
       next_arg_or_die(mArgs, i);
       V2p2::InLayer::best_short = (bool)atoi(i->c_str());

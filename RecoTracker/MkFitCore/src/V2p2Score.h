@@ -68,7 +68,8 @@ namespace mkfit {
   // eps = hit_eff, V the 2x2 residual covariance, rho the local hit density.
   // Layer group of V2p2ScoreParams::hit_eff_grp. The barrel strip split at layer 10 is the
   // phase-2 TBPS / TB2S boundary (CLAUDE.md layer table); it means nothing for phase 1,
-  // where the groups default to hit_eff.
+  // where the forward defaults in V2p2Config.h, a phase-2 tuning, then apply to the
+  // TIB / TOB layers below and above layer 10.
   inline int v2p2_hit_eff_group(const LayerStepFeatures &f) {
     if (f.is_pixel)
       return f.is_barrel ? 0 : 1;

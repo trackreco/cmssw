@@ -54,8 +54,9 @@ namespace mkfit {
       // Field of the mini-propagators (window, edge states, Hermite path): 0 the uniform
       // Config::Bfield, 1 Config::bFieldFromZR() at each candidate's state, sampled once per
       // layer step at its start, as the Kalman propagation does with PF_use_param_b_field
-      // (PropagationMPlexPlane.cc). In TEDD the uniform field is 4-7 % above the parametrised.
-      MKFIT_V2P2_KNOB(int, mini_prop_param_b, 0);
+      // (PropagationMPlexPlane.cc), 2 as 1 when the Kalman's finding_inter_layer_pflags has
+      // use_param_b_field, else as 0. In TEDD the uniform field is 4-7 % above the parametrised.
+      MKFIT_V2P2_KNOB(int, mini_prop_param_b, 2);
       MKFIT_V2P2_KNOB(float, dq_trk_fac, 1.5f);  // on dq_track
       MKFIT_V2P2_KNOB(float, dq_hit_fac, 1.2f);  // on hit_q_half_length; 1.0 just contains the hit
       MKFIT_V2P2_KNOB(bool, surface_q, true);    // reference dq_track to the hit's module plane
@@ -162,7 +163,11 @@ namespace mkfit {
     // Layer-step score, design notes "Layer-step score".
     namespace Score {
       MKFIT_V2P2_KNOB(int, mode, 1);  // 0 linear, 1 log-likelihood ratio
-      MKFIT_V2P2_KNOB(V2p2ScoreParams, fwd, {});
+      // Forward: a phase-2 tuning (CMSSW MTV, initialStep with the offline seeds, cleaner and
+      // refit, 2026-10): eps 0.10, TBPS 0.14, TB2S 0.20. It will move with the seeds and the
+      // final fit. The initializer is parenthesised because its commas would split the macro.
+      MKFIT_V2P2_KNOB(V2p2ScoreParams, fwd,
+                      (V2p2ScoreParams{.hit_eff = 0.10f, .hit_eff_grp = {-1.0f, -1.0f, 0.14f, 0.20f, -1.0f}}));
       MKFIT_V2P2_KNOB(V2p2ScoreParams, bkw, {});
       // Term ablation of the likelihood: replace a term by a constant.
       MKFIT_V2P2_KNOB(bool, use_rho, true);
@@ -174,7 +179,7 @@ namespace mkfit {
       // bins, spare bins). 1: the track window for both, (n + 1) / area. 2: the cut region
       // for both, the window widened by the cut's track and largest-hit-extent terms as in
       // the fetch, without bin rounding or spare bins, (n + 1) / area.
-      MKFIT_V2P2_KNOB(int, rho_region, 0);
+      MKFIT_V2P2_KNOB(int, rho_region, 2);
     }  // namespace Score
 
 #if defined(MKFIT_STANDALONE)
