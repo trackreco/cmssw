@@ -800,6 +800,98 @@ namespace mkfit {
     }
   }
 
+#if defined(MKFIT_STANDALONE)
+  //==============================================================================
+  // Diag::final_beam_purity: each seed's beam at the end of the v2p2 forward search,
+  // after the final sort, against truth. The particle is the majority sim track of
+  // the seed's hits; a candidate is "clean" when more than 3/4 of its found hits are
+  // that particle's (the MTV rule). Per population: the pick (rank 0) is clean; it is
+  // not but a clean candidate is in the beam (its rank, hits, OT hits); or no clean
+  // candidate is left. Accumulated across events, single-threaded.
+  //==============================================================================
+  namespace {
+    struct FinalBeamDiag {
+      long n = 0, pick_clean = 0, other_clean = 0, none_clean = 0;
+      long sum_rank = 0, sum_pick_hits = 0, sum_clean_hits = 0, sum_pick_ot = 0, sum_clean_ot = 0;
+      long clean_more_ot = 0, beam_size = 0;
+    };
+    FinalBeamDiag g_fbd[3];  // 0 all, 1 seed 1.7 <= |eta| < 2.7 pT < 0.9, 2 the same pT >= 0.9
+
+    bool fbd_is_ot(int l) { return (l >= 4 && l < 16) || (l >= 28 && l < 38) || l >= 50; }
+  }  // namespace
+
+  void v2p2_final_beam_diag(const Event *ev, const EventOfCombCandidates &eoccs) {
+    auto label_of = [&](int lyr, int idx) {
+      if (idx < 0) return -1;
+      const int id = ev->layerHits_[lyr][idx].mcHitID();
+      return id >= 0 ? ev->simHitsInfo_[id].mcTrackID() : -1;
+    };
+    for (int i = 0; i < eoccs.size(); ++i) {
+      const CombCandidate &cc = eoccs[i];
+      if (cc.empty()) continue;
+      const Track &seed = ev->currentSeed(cc.seed_origin_index());
+      std::map<int, int> cnt;
+      for (int h = 0; h < seed.nTotalHits(); ++h) {
+        const int l = label_of(seed.getHitLyr(h), seed.getHitIdx(h));
+        if (l >= 0) ++cnt[l];
+      }
+      if (cnt.empty()) continue;
+      int L = -1, nL = 0;
+      for (auto &[l, c] : cnt) if (c > nL) { L = l; nL = c; }
+      const float aeta = std::abs(seed.momEta()), pt = seed.pT();
+      int pop = -1;
+      if (aeta >= 1.7f && aeta < 2.7f) pop = pt < 0.9f ? 1 : 2;
+
+      int first_clean = -1, pick_hits = 0, pick_ot = 0, clean_hits = 0, clean_ot = 0;
+      for (int r = 0; r < (int)cc.size(); ++r) {
+        const Track t = cc[r].exportTrack(true);
+        int nf = 0, nl = 0, not_l = 0;
+        for (int h = 0; h < t.nTotalHits(); ++h) {
+          const int idx = t.getHitIdx(h), lyr = t.getHitLyr(h);
+          if (idx < 0) continue;
+          ++nf;
+          if (label_of(lyr, idx) == L) { ++nl; if (fbd_is_ot(lyr)) ++not_l; }
+        }
+        const bool clean = 4 * nl > 3 * nf;
+        if (r == 0) { pick_hits = nf; pick_ot = not_l; }
+        if (clean && first_clean < 0) { first_clean = r; clean_hits = nf; clean_ot = not_l; }
+      }
+      for (int k : {0, pop}) {
+        if (k < 0) continue;
+        FinalBeamDiag &d = g_fbd[k];
+        ++d.n; d.beam_size += cc.size();
+        if (first_clean == 0) ++d.pick_clean;
+        else if (first_clean > 0) {
+          ++d.other_clean; d.sum_rank += first_clean;
+          d.sum_pick_hits += pick_hits; d.sum_clean_hits += clean_hits;
+          d.sum_pick_ot += pick_ot; d.sum_clean_ot += clean_ot;
+          if (clean_ot > pick_ot) ++d.clean_more_ot;
+        } else ++d.none_clean;
+      }
+    }
+  }
+
+  void v2p2_final_beam_diag_reset() {
+    for (auto &d : g_fbd) d = FinalBeamDiag();
+  }
+
+  void v2p2_final_beam_diag_report() {
+    const char *pn[3] = {"all seeds", "seed 1.7-2.7 pT < 0.9", "seed 1.7-2.7 pT >= 0.9"};
+    printf("\nFINAL BEAM PURITY, v2p2 forward search, after the final sort (clean = > 3/4 of the found\n"
+           "hits from the seed's majority particle)\n");
+    printf("%-24s %8s %6s %10s %10s %10s | %6s %7s %7s %7s %7s %10s\n", "population", "seeds", "beam",
+           "pick clean", "other cln", "none clean", "rank", "hits pk", "hits cl", "OT pk", "OT cl", "cl more OT");
+    for (int k = 0; k < 3; ++k) {
+      const FinalBeamDiag &d = g_fbd[k];
+      const double n = std::max(1L, d.n), o = std::max(1L, d.other_clean);
+      printf("%-24s %8ld %6.2f %9.1f%% %9.1f%% %9.1f%% | %6.2f %7.2f %7.2f %7.2f %7.2f %9.1f%%\n", pn[k], d.n,
+             d.beam_size / n, 100. * d.pick_clean / n, 100. * d.other_clean / n, 100. * d.none_clean / n,
+             d.sum_rank / o, d.sum_pick_hits / o, d.sum_clean_hits / o, d.sum_pick_ot / o, d.sum_clean_ot / o,
+             100. * d.clean_more_ot / o);
+    }
+  }
+#endif
+
   //------------------------------------------------------------------------------
   // findTracksStandardv2p2 -- thin-thick layers version
   //------------------------------------------------------------------------------
@@ -896,6 +988,11 @@ namespace mkfit {
         }
       });  // end parallel-for over chunk of seeds within region
     });    // end of parallel-for-each over eta regions
+
+#if defined(MKFIT_STANDALONE)
+    if (Config::V2p2::Diag::final_beam_purity && iteration_dir == SteeringParams::IT_FwdSearch)
+      v2p2_final_beam_diag(m_event, eoccs);
+#endif
 
   #ifdef MKFIT_TRACE
     for (int i = 0; i < eoccs.size(); ++i) {

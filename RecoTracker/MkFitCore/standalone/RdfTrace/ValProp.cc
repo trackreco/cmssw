@@ -1549,6 +1549,15 @@ namespace mkfit {
     printf("val_reserve_hole_slot: V2p2::InLayer::reserve_hole_slot = %d\n", (int) on);
   }
 
+  void v2p2_final_beam_diag_reset();
+  void v2p2_final_beam_diag_report();
+  void val_final_beam(bool on) {
+    V2p2::Diag::final_beam_purity = on;
+    v2p2_final_beam_diag_reset();
+    printf("val_final_beam: %d (end-of-search beam purity, reset)\n", (int) on);
+  }
+  void val_final_beam_report() { v2p2_final_beam_diag_report(); }
+
   void val_hit_eff(float fwd, float bkw) {
     V2p2::Score::fwd.hit_eff = fwd;
     V2p2::Score::bkw.hit_eff = bkw;

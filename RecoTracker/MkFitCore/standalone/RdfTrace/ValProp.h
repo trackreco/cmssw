@@ -130,6 +130,9 @@ namespace mkfit {
   void val_dup_drth(float central, float obarrel, float forward);
   void val_reserve_hole_slot(bool on);
   void val_score_mode(int mode, float hit_eff);
+  void val_eff_signal_only(bool on);
+  void val_final_beam(bool on);
+  void val_final_beam_report();
   void val_hit_eff(float fwd, float bkw);
   void val_rho_in_window(bool on);
   void val_rho_region(int region);

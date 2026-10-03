@@ -315,6 +315,15 @@ namespace mkfit {
     }
   }
 
+  // Signal-only denominator: only sim tracks with Track::ProdType::Signal (in-time, event 0),
+  // as CMSSW MTV's efficiency (signalOnly). The reco side, and so the fake rate, is unchanged.
+  static bool g_ve_signal_only = false;
+  void val_eff_signal_only(bool on) {
+    g_ve_signal_only = on;
+    printf("val_eff_signal_only: %d (efficiency denominator %s)\n", (int) on,
+           on ? "signal sim tracks only" : "every selected sim track");
+  }
+
   void val_eff_reset() { g_ve.clear(); g_ve_ref.clear(); }
   void val_eff_ref(const char *cfg) { g_ve_ref = cfg; }
   void val_eff_ref2(const char *cfg) { g_ve_ref2 = cfg; }
@@ -434,6 +443,7 @@ namespace mkfit {
       const Track &st = ev->simTracks_[L];
       const float ae = std::abs(st.momEta()), pt = st.pT();
       if (!st.isFindable()) continue;
+      if (g_ve_signal_only && st.prodType() != Track::ProdType::Signal) continue;
       if (std::hypot(st.x(), st.y()) > 3.5f || std::abs(st.z()) > 30.0f) continue;
       if (ae >= 3.0f || pt < ve_pt_edge[0]) continue;
       const int nlay = st.nUniqueLayers();

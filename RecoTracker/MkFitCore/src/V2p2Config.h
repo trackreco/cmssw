@@ -194,6 +194,9 @@ namespace mkfit {
       MKFIT_V2P2_KNOB(bool, mkbins_surface_q, false);
       // Rank above which TrackCand::m_rank_over_layer records the layer, MKFIT_TRACE.
       MKFIT_V2P2_KNOB(int, rank_over, 6);
+      // Standalone: classify each seed's beam at the end of the forward search by truth,
+      // MkBuilder::v2p2_final_beam_diag_*() (single-threaded accumulation).
+      MKFIT_V2P2_KNOB(bool, final_beam_purity, false);
     }  // namespace Diag
 
     // Running sums of the likelihood terms, for measuring the ablation
