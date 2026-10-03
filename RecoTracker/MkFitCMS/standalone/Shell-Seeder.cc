@@ -934,7 +934,13 @@ namespace mkfit {
     // and selected sim tracks (MTV selection) no longer found by any track
     constexpr int kQaK0 = 2, kQaNK = 6;  // K = 2 .. 7
     long g_qa_k_fake[2][kQaNK][kNReg + 1], g_qa_k_lost[2][kQaNK][kNReg + 1], g_qa_k_found_tracks[2][kQaNK][kNReg + 1];
-    long g_qa_k_fake_all[kNReg + 1], g_qa_k_found_all[kNReg + 1];  // fakes from 3+1 wrong quads whose majority sim track another track found
+    long g_qa_k_fake_all[kNReg + 1], g_qa_k_found_all[kNReg + 1];
+    // flag scan at K = 4 (hits beyond the seed the search started from): flagged = [var 0 cleaning score, 1 fake
+    // score] >= threshold t; fake tracks in acceptance removed, selected sim tracks lost [var][t][region]
+    constexpr int kQaNT = 10;
+    const float kQaT[2][kQaNT] = {{0.05f, 0.1f, 0.15f, 0.2f, 0.3f, 0.4f, 0.5f, 0.7f, 1.0f, 2.0f},
+                                  {0.05f, 0.1f, 0.15f, 0.2f, 0.25f, 0.3f, 0.35f, 0.4f, 0.5f, 0.6f}};
+    long g_qa_t_fake[2][kQaNT][kNReg + 1], g_qa_t_lost[2][kQaNT][kNReg + 1];  // fakes from 3+1 wrong quads whose majority sim track another track found
     int g_qa_nev = 0;
   }  // namespace
 
@@ -966,6 +972,8 @@ namespace mkfit {
     memset(g_qa_k_found_tracks, 0, sizeof(g_qa_k_found_tracks));
     memset(g_qa_k_fake_all, 0, sizeof(g_qa_k_fake_all));
     memset(g_qa_k_found_all, 0, sizeof(g_qa_k_found_all));
+    memset(g_qa_t_fake, 0, sizeof(g_qa_t_fake));
+    memset(g_qa_t_lost, 0, sizeof(g_qa_t_lost));
     g_qa_nev = 0;
   }
 
@@ -1260,6 +1268,26 @@ namespace mkfit {
             ++g_qa_k_lost[def][kk][sim_reg[L]], ++g_qa_k_lost[def][kk][kNReg];
         }
       }
+    for (int var = 0; var < 2; ++var)
+      for (int it = 0; it < kQaNT; ++it) {
+        const float t = kQaT[var][it];
+        auto removed = [&](const TrkRow &r) {
+          if (r.qi < 0)
+            return false;
+          const float v = var == 0 ? Q[r.qi].score : Q[r.qi].fake_score;
+          return v >= t && r.n_bey_seed < 4;
+        };
+        for (const TrkRow &r : rows)
+          if (r.acc && r.fake && removed(r))
+            ++g_qa_t_fake[var][it][r.reg], ++g_qa_t_fake[var][it][kNReg];
+        for (const auto &[L, idx] : finders) {
+          bool any = false;
+          for (int i : idx)
+            any |= !removed(rows[i]);
+          if (!any)
+            ++g_qa_t_lost[var][it][sim_reg[L]], ++g_qa_t_lost[var][it][kNReg];
+        }
+      }
     ++g_qa_nev;
   }
 
@@ -1377,6 +1405,19 @@ namespace mkfit {
         for (int r = 0; r <= kNReg; ++r)
           printf(" | -%5ld fake -%5ld trk -%4ld sim ", g_qa_k_fake[def][kk][r], g_qa_k_found_tracks[def][kk][r],
                  g_qa_k_lost[def][kk][r]);
+        printf("\n");
+      }
+    }
+    for (int var = 0; var < 2; ++var) {
+      printf("\n  FLAG SCAN at K = 4 (hits beyond the seed after the merge): flagged = %s >= t; fake tracks in acceptance"
+             " removed / selected sim tracks lost\n  %-8s", var ? "the FAKE score" : "the CLEANING score", "t");
+      for (int r = 0; r <= kNReg; ++r)
+        printf(" | %-24s", r == kNReg ? "all regions" : kRegName[r]);
+      printf("\n");
+      for (int it = 0; it < kQaNT; ++it) {
+        printf("  %-8.2f", kQaT[var][it]);
+        for (int r = 0; r <= kNReg; ++r)
+          printf(" | -%5ld fake -%4ld sim       ", g_qa_t_fake[var][it][r], g_qa_t_lost[var][it][r]);
         printf("\n");
       }
     }
