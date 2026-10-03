@@ -278,7 +278,9 @@ namespace mkfit {
   void Shell::ProcessEventSeeder(EvCtx &ctx, int mode) {
     printf("\n##### BEG Event %d ##### forward search on the seeder's quads\n\n", ctx.ev->evtID());
     ctx.ev->filterOutMislabeledHitsInSimTracks();
+    tm_mark();
     MakeSeederSeeds(ctx, mode);
+    tm_add(TM_SeedFit);
     ProcessEvent(ctx, SS_PreSet);
     ctx.ev->candidateTracks_ = ctx.tracks;
     {

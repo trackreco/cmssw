@@ -6,6 +6,7 @@
 #include "RecoTracker/MkFitCore/interface/DeadRegion.h"
 
 #include <map>
+#include <string>
 
 class TTree;
 
@@ -223,6 +224,16 @@ namespace mkfit {
     int SelectTracksCMSSW(EvCtx &ctx, int level);
     int SelectTracksCMSSW(int level) { return SelectTracksCMSSW(m_ctx, level); }
 
+    // ---- Stage timing, in Shell.cc ----------------------------------------
+    // Process CPU and wall time of the stages of ProcessEvent(), of MakeSeederSeeds() and of the hit
+    // loading in GoToEvent(), summed per row: TimingRow() names the row the following calls add to
+    // (an empty name stops the timing), TimingReport() prints ms per event, an event being one pass
+    // through the find stage of that row. The hit loading goes to its own row, "load hits".
+    enum TmStage_e { TM_SeedFit = 0, TM_SeedClean, TM_Find, TM_BkFit, TM_Final, TM_Load, TM_N };
+    void TimingReset();
+    void TimingRow(const char *row);
+    void TimingReport(const char *file = nullptr);
+
     // --------------------------------------------------------
     // Analysis helpers
 
@@ -337,6 +348,19 @@ namespace mkfit {
     using map_i = map_t::iterator;
 
     std::map<int, Track *> m_ckf_map, m_sim_map, m_seed_map, m_mkf_map;
+
+    // Stage timing: per row, CPU and wall seconds per stage and the number of events
+    struct TmRow {
+      double cpu[TM_N] = {0}, wall[TM_N] = {0};
+      int n_ev = 0;
+    };
+    std::map<std::string, TmRow> m_tm_rows;
+    std::vector<std::string> m_tm_order;
+    std::string m_tm_row;
+    double m_tm_t0[2] = {0, 0};
+    void tm_mark();
+    void tm_add(TmStage_e st, const std::string &row);
+    void tm_add(TmStage_e st) { tm_add(st, m_tm_row); }
 
     // LoadSeederQuads(): by event id (1-based, as GoToEvent())
     std::map<int, std::vector<SeederQuad>> m_seeder_quads;

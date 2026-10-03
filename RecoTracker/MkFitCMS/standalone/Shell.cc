@@ -38,6 +38,8 @@
 
 #include "oneapi/tbb/task_arena.h"
 
+#include <ctime>
+
 #include <vector>
 #include <set>
 
@@ -151,7 +153,9 @@ namespace mkfit {
     m_ctx.ev->resetCurrentSeedTracks(); // left after ProcessEvent() for debugging etc
     m_ctx.ev->reset(eid);
     m_ctx.ev->read_in(*m_data_file);
+    tm_mark();
     StdSeq::loadHitsAndBeamSpot(*m_ctx.ev, *m_ctx.eoh);
+    tm_add(TM_Load, "load hits");
     if (Config::useDeadModules) {
       StdSeq::loadDeads(*m_ctx.eoh, m_deadvectors);
     }
@@ -247,6 +251,7 @@ namespace mkfit {
 
       MkJob job({trackerInfo, itconf, eoh, eoh.refBeamSpot(), &it_mask_ifc});
 
+      tm_mark();
       builder.begin_event(&job, ctx.ev, __func__);
 
       // Seed cleaning not done on all iterations.
@@ -262,6 +267,7 @@ namespace mkfit {
       // Check nans in seeds -- this should not be needed when Slava fixes
       // the track parameter coordinate transformation.
       builder.seed_post_cleaning(seeds);
+      tm_add(TM_SeedClean);
 
       if (seed_select == SS_IndexPostCleaning) {
         int seed_size = (int) seeds.size();
@@ -305,6 +311,7 @@ namespace mkfit {
         builder.findTracksCloneEngine();
       }
 
+      tm_add(TM_Find);
       printf("Shell::ProcessEvent post fwd search: %d comb-cands\n", builder.ref_eocc().size());
 
       // Pre backward-fit filtering.
@@ -375,6 +382,7 @@ namespace mkfit {
 
       if (do_backward_fit && do_backward_search)
         builder.endBkwSearch();
+      tm_add(TM_BkFit);
 
       builder.export_best_comb_cands(out_tracks, true);
 
@@ -388,10 +396,83 @@ namespace mkfit {
       // ctx.ev->resetCurrentSeedTracks();
 
       builder.end_event();
+      tm_add(TM_Final);
     }
 
     printf("Shell::ProcessEvent found %d tracks, number of seeds at end %d\n",
            (int) ctx.tracks.size(), (int) ctx.seeds.size());
+  }
+
+  //===========================================================================
+  // Stage timing
+  //===========================================================================
+
+  namespace {
+    double tm_clock(clockid_t id) {
+      timespec t;
+      clock_gettime(id, &t);
+      return t.tv_sec + 1e-9 * t.tv_nsec;
+    }
+    const char *const s_tm_names[Shell::TM_N] = {"seed fit", "seed clean", "find", "bk fit", "final", "load"};
+  }  // namespace
+
+  void Shell::TimingReset() {
+    m_tm_rows.clear();
+    m_tm_order.clear();
+    m_tm_row.clear();
+  }
+
+  void Shell::TimingRow(const char *row) { m_tm_row = row ? row : ""; }
+
+  void Shell::tm_mark() {
+    m_tm_t0[0] = tm_clock(CLOCK_PROCESS_CPUTIME_ID);
+    m_tm_t0[1] = tm_clock(CLOCK_MONOTONIC);
+  }
+
+  // Adds the time since the last mark (or add) to stage st of the row, and marks again.
+  void Shell::tm_add(TmStage_e st, const std::string &row) {
+    if (m_tm_row.empty())
+      return;
+    double c = tm_clock(CLOCK_PROCESS_CPUTIME_ID), w = tm_clock(CLOCK_MONOTONIC);
+    auto it = m_tm_rows.find(row);
+    if (it == m_tm_rows.end()) {
+      it = m_tm_rows.emplace(row, TmRow()).first;
+      m_tm_order.push_back(row);
+    }
+    it->second.cpu[st] += c - m_tm_t0[0];
+    it->second.wall[st] += w - m_tm_t0[1];
+    if (st == TM_Find || st == TM_Load)
+      ++it->second.n_ev;
+    m_tm_t0[0] = c;
+    m_tm_t0[1] = w;
+  }
+
+  void Shell::TimingReport(const char *file) {
+    FILE *f = file ? fopen(file, "w") : stdout;
+    if (!f) {
+      fprintf(stderr, "Shell::TimingReport: cannot open %s\n", file);
+      return;
+    }
+    fprintf(f, "# Shell stage timing, ms per event, process CPU (wall in parentheses)\n");
+    fprintf(f, "%-24s %5s", "row", "nev");
+    for (int s = 0; s < TM_N; ++s)
+      fprintf(f, " %18s", s_tm_names[s]);
+    fprintf(f, " %18s\n", "sum");
+    for (const std::string &name : m_tm_order) {
+      const TmRow &r = m_tm_rows[name];
+      if (r.n_ev == 0)
+        continue;
+      double sc = 0, sw = 0;
+      fprintf(f, "%-24s %5d", name.c_str(), r.n_ev);
+      for (int s = 0; s < TM_N; ++s) {
+        fprintf(f, " %8.2f (%7.2f)", 1e3 * r.cpu[s] / r.n_ev, 1e3 * r.wall[s] / r.n_ev);
+        sc += r.cpu[s];
+        sw += r.wall[s];
+      }
+      fprintf(f, " %8.2f (%7.2f)\n", 1e3 * sc / r.n_ev, 1e3 * sw / r.n_ev);
+    }
+    if (file)
+      fclose(f);
   }
 
   #pragma endregion Event processing
