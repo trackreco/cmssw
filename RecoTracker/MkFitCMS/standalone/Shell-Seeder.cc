@@ -860,6 +860,343 @@ namespace mkfit {
     }
   }
 
+  //===========================================================================
+  // Quad anatomy
+  //===========================================================================
+
+  namespace {
+    // quad classes
+    enum QaCls { QA_True = 0, QA_Wrong, QA_Unl, QA_Worse, QA_N };
+    const char *const kQaName[QA_N] = {"true", "3+1 wrong", "3+1 unlinked", "2+2 and worse"};
+    // the hit-density window: hits in the same layer within these of the hit (q: z in the barrel, r in the discs)
+    constexpr float kQaDphi = 0.005f, kQaDq = 1.0f;
+    constexpr int kQaNDens = 7;
+    const int kQaDensEdge[kQaNDens] = {0, 1, 2, 3, 5, 9, 17};  // bins [0], [1], [2], [3,4], [5,8], [9,16], [17,..)
+    const char *const kQaDensName[kQaNDens] = {"0", "1", "2", "3-4", "5-8", "9-16", ">=17"};
+    int qa_dens_bin(int n) {
+      int b = 0;
+      while (b < kQaNDens - 1 && n >= kQaDensEdge[b + 1])
+        ++b;
+      return b;
+    }
+    constexpr int kQaNDphi = 6;
+    const float kQaDphiEdge[kQaNDphi] = {0.f, 0.0005f, 0.001f, 0.002f, 0.005f, 0.01f};
+    const char *const kQaDphiName[kQaNDphi] = {"<0.5", "0.5-1", "1-2", "2-5", "5-10", ">10"};
+    constexpr int kQaNDq = 5;
+    const float kQaDqEdge[kQaNDq] = {0.f, 0.05f, 0.2f, 1.f, 5.f};
+    const char *const kQaDqName[kQaNDq] = {"<0.05", "0.05-0.2", "0.2-1", "1-5", ">5"};
+    template <int N>
+    int qa_bin(const float (&edge)[N], float x) {
+      int b = 0;
+      while (b < N - 1 && x >= edge[b + 1])
+        ++b;
+      return b;
+    }
+
+    long g_qa_cls[kNReg][QA_N];
+    long g_qa_wrong_pos[kNReg][4], g_qa_wrong_comp[kNReg][4];  // 3+1 wrong: position; the majority track has a hit there
+    long g_qa_wrong_layer[64];
+    long g_qa_dens[2][kNReg][kQaNDens];  // [0: last hit of true quads, 1: the wrong hit of 3+1 wrong][region][bin]
+    long g_qa_dens_comp[kNReg][kQaNDens];  // the majority track's own hit, where it has one
+    long g_qa_dist_phi[kNReg][kQaNDphi], g_qa_dist_q[kNReg][kQaNDq];
+    // tracks by the class of their quad: [0 found, 1 fake][region][class, QA_N = no quad found]
+    long g_qa_trk[2][2][kNReg][QA_N + 1];  // [acceptance 0 all, 1 pT > 0.9 and |eta| < 2.5]
+    long g_qa_fake_wrong_pos[2][kNReg][4];
+    long g_qa_fake_wrong_mfound[2][kNReg];
+    // tracks from TRUE quads, by the class of the seed the search actually started from (after the iteration's
+    // seed cleaning, which merges the hits of the seeds it drops): [acc][found/fake][region][0 true, 1 undec, 2 fake, 3 none]
+    long g_qa_true_seedcls[2][2][kNReg][4];  // fakes from 3+1 wrong quads whose majority sim track another track found
+    int g_qa_nev = 0;
+  }  // namespace
+
+  void Shell::SeederQuadAnatomyReset() {
+    memset(g_qa_cls, 0, sizeof(g_qa_cls));
+    memset(g_qa_wrong_pos, 0, sizeof(g_qa_wrong_pos));
+    memset(g_qa_wrong_comp, 0, sizeof(g_qa_wrong_comp));
+    memset(g_qa_wrong_layer, 0, sizeof(g_qa_wrong_layer));
+    memset(g_qa_dens, 0, sizeof(g_qa_dens));
+    memset(g_qa_dens_comp, 0, sizeof(g_qa_dens_comp));
+    memset(g_qa_dist_phi, 0, sizeof(g_qa_dist_phi));
+    memset(g_qa_dist_q, 0, sizeof(g_qa_dist_q));
+    memset(g_qa_trk, 0, sizeof(g_qa_trk));
+    memset(g_qa_fake_wrong_pos, 0, sizeof(g_qa_fake_wrong_pos));
+    memset(g_qa_fake_wrong_mfound, 0, sizeof(g_qa_fake_wrong_mfound));
+    memset(g_qa_true_seedcls, 0, sizeof(g_qa_true_seedcls));
+    g_qa_nev = 0;
+  }
+
+  void Shell::SeederQuadAnatomy(EvCtx &ctx) {
+    const Event &ev = *ctx.ev;
+    auto qit = m_seeder_quads.find(ev.evtID());
+    if (qit == m_seeder_quads.end())
+      return;
+    const std::vector<SeederQuad> &Q = qit->second;
+    auto lab_of = [&](int l, int h) {
+      const int mcid = ev.layerHits_[l][h].mcHitID();
+      return mcid >= 0 ? ev.simHitsInfo_[mcid].mcTrackID() : -1;
+    };
+    auto q_of = [&](int l, const Hit &h) { return Config::TrkInfo[l].is_barrel() ? h.z() : h.r(); };
+    // per layer, the hits sorted in phi, built when first needed
+    std::map<int, std::vector<std::pair<float, float>>> by_phi;
+    auto density = [&](int l, int h) {
+      auto &v = by_phi[l];
+      if (v.empty()) {
+        for (const Hit &x : ev.layerHits_[l])
+          v.push_back({x.phi(), q_of(l, x)});
+        std::sort(v.begin(), v.end());
+      }
+      const Hit &x = ev.layerHits_[l][h];
+      const float phi = x.phi(), q = q_of(l, x);
+      int n = 0;
+      // the window, with the wrap at +-pi
+      for (float off : {0.f, 2.f * float(M_PI), -2.f * float(M_PI)}) {
+        auto lo = std::lower_bound(v.begin(), v.end(), std::make_pair(phi + off - kQaDphi, -1e9f));
+        for (auto it = lo; it != v.end() && it->first <= phi + off + kQaDphi; ++it)
+          n += std::abs(it->second - q) < kQaDq;
+      }
+      return n - 1;  // not counting the hit itself
+    };
+    // the majority track's own hit in a layer, if it has one
+    auto own_hit = [&](int L, int layer) {
+      const Track &st = ev.simTracks_[L];
+      for (int i = 0; i < st.nTotalHits(); ++i) {
+        const HitOnTrack hot = st.getHitOnTrack(i);
+        if (hot.layer == layer && hot.index >= 0)
+          return hot.index;
+      }
+      return -1;
+    };
+
+    struct QaRes {
+      int cls, reg, pos, maj;
+    };
+    std::vector<QaRes> res(Q.size());
+    std::map<std::pair<int, int>, std::vector<int>> hit2quad;  // keyed by the quad's first hit
+    for (int qi = 0; qi < (int)Q.size(); ++qi) {
+      const SeederQuad &q = Q[qi];
+      hit2quad[{q.l[0], q.h[0]}].push_back(qi);
+      int lab[4];
+      std::map<int, int> cnt;
+      int n_unl = 0;
+      for (int k = 0; k < 4; ++k) {
+        lab[k] = lab_of(q.l[k], q.h[k]);
+        if (lab[k] < 0)
+          ++n_unl;
+        else
+          ++cnt[lab[k]];
+      }
+      int maj = -1, nmaj = 0;
+      for (const auto &[l, n] : cnt)
+        if (n > nmaj) {
+          nmaj = n;
+          maj = l;
+        }
+      int cls = QA_Worse, pos = -1;
+      if (nmaj == 4)
+        cls = QA_True;
+      else if (nmaj == 3) {
+        for (int k = 0; k < 4; ++k)
+          if (lab[k] != maj)
+            pos = k;
+        cls = lab[pos] < 0 ? QA_Unl : QA_Wrong;
+      }
+      const Hit &h0 = ev.layerHits_[q.l[0]][q.h[0]], &h3 = ev.layerHits_[q.l[3]][q.h[3]];
+      const float ae = std::abs(std::asinh((h3.z() - h0.z()) / std::max(1e-3f, h3.r() - h0.r())));
+      const int reg = reg_of(ae);
+      res[qi] = {cls, reg, pos, maj};
+      ++g_qa_cls[reg][cls];
+      if (cls == QA_True)
+        ++g_qa_dens[0][reg][qa_dens_bin(density(q.l[3], q.h[3]))];
+      if (cls == QA_Wrong) {
+        ++g_qa_wrong_pos[reg][pos];
+        ++g_qa_wrong_layer[q.l[pos] & 63];
+        ++g_qa_dens[1][reg][qa_dens_bin(density(q.l[pos], q.h[pos]))];
+        const int own = maj >= 0 && maj < (int)ev.simTracks_.size() ? own_hit(maj, q.l[pos]) : -1;
+        if (own >= 0) {
+          ++g_qa_wrong_comp[reg][pos];
+          ++g_qa_dens_comp[reg][qa_dens_bin(density(q.l[pos], own))];
+          const Hit &a = ev.layerHits_[q.l[pos]][q.h[pos]], &b = ev.layerHits_[q.l[pos]][own];
+          float dphi = std::abs(a.phi() - b.phi());
+          if (dphi > float(M_PI))
+            dphi = 2.f * float(M_PI) - dphi;
+          ++g_qa_dist_phi[reg][qa_bin(kQaDphiEdge, dphi)];
+          ++g_qa_dist_q[reg][qa_bin(kQaDqEdge, std::abs(q_of(q.l[pos], a) - q_of(q.l[pos], b)))];
+        }
+      }
+    }
+
+    // the tracks: found or fake by val_eff's association, and the quad each grew from
+    const TrackVec &seeds = ctx.seeds;
+    std::map<std::pair<int, int>, std::vector<int>> hit2seed;
+    for (int i = 0; i < (int)seeds.size(); ++i)
+      for (int k = 0; k < seeds[i].nTotalHits(); ++k) {
+        const HitOnTrack hot = seeds[i].getHitOnTrack(k);
+        if (hot.index >= 0 && hot.layer >= 0)
+          hit2seed[{hot.layer, hot.index}].push_back(i);
+      }
+    std::set<int> found;
+    struct TrkRow {
+      bool fake, acc;
+      int qi, reg, scls;
+    };
+    std::vector<TrkRow> rows;
+    for (const Track &c : ev.candidateTracks_) {
+      std::set<std::pair<int, int>> th;
+      std::map<int, int> shared;
+      for (int k = 0; k < c.nTotalHits(); ++k) {
+        const HitOnTrack hot = c.getHitOnTrack(k);
+        if (hot.index < 0 || hot.layer < 0)
+          continue;
+        th.insert({hot.layer, hot.index});
+        auto it = hit2seed.find({hot.layer, hot.index});
+        if (it != hit2seed.end())
+          for (int i : it->second)
+            ++shared[i];
+      }
+      int si = -1, bn = 0;
+      for (const auto &[i, n] : shared)
+        if (n > bn) {
+          bn = n;
+          si = i;
+        }
+      TrackExtra extra(c.label());
+      if (si >= 0)
+        extra.findMatchingSeedHits(c, seeds[si], ev.layerHits_);
+      extra.setMCTrackIDInfo(c, ev.layerHits_, ev.simHitsInfo_, ev.simTracks_, false, false);
+      const int mc = extra.mcTrackID();
+      const bool fake = mc < 0 || mc >= (int)ev.simTracks_.size();
+      if (!fake)
+        found.insert(mc);
+      int qsel = -1;
+      for (const auto &h : th) {
+        auto it = hit2quad.find(h);
+        if (it == hit2quad.end())
+          continue;
+        for (int qi : it->second) {
+          const SeederQuad &q = Q[qi];
+          bool all = true;
+          for (int k = 1; k < 4 && all; ++k)
+            all = th.count({q.l[k], q.h[k]});
+          if (all) {
+            qsel = qi;
+            break;
+          }
+        }
+        if (qsel >= 0)
+          break;
+      }
+      const float ae = std::abs(c.momEta());
+      rows.push_back({fake, c.pT() > 0.9f && ae < 2.5f, qsel, reg_of(ae), si >= 0 ? seed_class(ev, seeds[si]) : 3});
+    }
+    for (const TrkRow &r : rows) {
+      const int cls = r.qi >= 0 ? res[r.qi].cls : QA_N;
+      for (int a = 0; a < 2; ++a) {
+        if (a == 1 && !r.acc)
+          continue;
+        ++g_qa_trk[a][r.fake][r.reg][cls];
+        if (cls == QA_True)
+          ++g_qa_true_seedcls[a][r.fake][r.reg][r.scls];
+        if (r.fake && cls == QA_Wrong) {
+          ++g_qa_fake_wrong_pos[a][r.reg][res[r.qi].pos];
+          g_qa_fake_wrong_mfound[a][r.reg] += found.count(res[r.qi].maj);
+        }
+      }
+    }
+    ++g_qa_nev;
+  }
+
+  void Shell::SeederQuadAnatomyReport() {
+    printf("\nShell::SeederQuadAnatomyReport: %d events; region by the line from the quad's first to its last hit\n",
+           g_qa_nev);
+    auto row3 = [](const char *name, const long *v, int n) {
+      long t = 0;
+      for (int i = 0; i < n; ++i)
+        t += v[i];
+      printf("  %-26s %8ld |", name, t);
+      for (int i = 0; i < n; ++i)
+        printf(" %7ld %5.1f%% |", v[i], 100.0 * v[i] / std::max(1L, t));
+      printf("\n");
+    };
+    printf("\n  QUADS by class\n  %-26s %8s |", "region", "quads");
+    for (int c = 0; c < QA_N; ++c)
+      printf(" %14s |", kQaName[c]);
+    printf("\n");
+    for (int r = 0; r < kNReg; ++r)
+      row3(kRegName[r], g_qa_cls[r], QA_N);
+
+    printf("\n  3+1 WRONG: the position of the wrong hit (0 = innermost), and how many of those have the majority track's"
+           " own hit in that layer\n");
+    for (int r = 0; r < kNReg; ++r) {
+      printf("  %-26s", kRegName[r]);
+      for (int p = 0; p < 4; ++p)
+        printf(" | pos %d: %6ld (own hit there %5.1f%%)", p, g_qa_wrong_pos[r][p],
+               100.0 * g_qa_wrong_comp[r][p] / std::max(1L, g_qa_wrong_pos[r][p]));
+      printf("\n");
+    }
+    printf("  the wrong hit's layer:");
+    for (int l = 0; l < 64; ++l)
+      if (g_qa_wrong_layer[l] > 0)
+        printf(" L%d %ld", l, g_qa_wrong_layer[l]);
+    printf("\n");
+
+    printf("\n  HIT DENSITY: other hits in the same layer within %.0f mrad and %.1f cm (z barrel, r disc) of the hit\n",
+           1e3 * kQaDphi, kQaDq);
+    printf("  %-26s %8s |", "", "hits");
+    for (int b = 0; b < kQaNDens; ++b)
+      printf(" %14s |", kQaDensName[b]);
+    printf("\n");
+    for (int r = 0; r < kNReg; ++r) {
+      printf("  %s\n", kRegName[r]);
+      row3("   last hit of true quads", g_qa_dens[0][r], kQaNDens);
+      row3("   wrong hit of 3+1 wrong", g_qa_dens[1][r], kQaNDens);
+      row3("   the majority's own hit", g_qa_dens_comp[r], kQaNDens);
+    }
+
+    printf("\n  3+1 WRONG with the majority track's own hit in the layer: the distance between the two hits\n");
+    for (int r = 0; r < kNReg; ++r) {
+      printf("  %s\n", kRegName[r]);
+      printf("  %-26s %8s |", "   |dphi| [mrad]", "");
+      for (int b = 0; b < kQaNDphi; ++b)
+        printf(" %14s |", kQaDphiName[b]);
+      printf("\n");
+      row3("", g_qa_dist_phi[r], kQaNDphi);
+      printf("  %-26s %8s |", "   |dq| [cm]", "");
+      for (int b = 0; b < kQaNDq; ++b)
+        printf(" %14s |", kQaDqName[b]);
+      printf("\n");
+      row3("", g_qa_dist_q[r], kQaNDq);
+    }
+
+    for (int a = 0; a < 2; ++a) {
+      printf("\n  TRACKS by the class of the quad they grew from (the quad whose four hits are on the track), %s\n",
+             a ? "pT > 0.9 and |eta| < 2.5" : "all");
+      printf("  %-26s %8s |", "", "tracks");
+      for (int c = 0; c < QA_N; ++c)
+        printf(" %14s |", kQaName[c]);
+      printf(" %14s |\n", "no quad");
+      for (int f = 0; f < 2; ++f)
+        for (int r = 0; r < kNReg; ++r) {
+          char name[64];
+          snprintf(name, sizeof(name), "%s %s", f ? "fake " : "found", kRegName[r]);
+          row3(name, g_qa_trk[a][f][r], QA_N + 1);
+        }
+      printf("  FAKE tracks from 3+1 wrong quads: the wrong hit's position; and how many have their majority sim track"
+             " found by another track\n");
+      for (int r = 0; r < kNReg; ++r)
+        printf("  %-26s pos 0 %5ld | pos 1 %5ld | pos 2 %5ld | pos 3 %5ld | majority found elsewhere %5ld\n",
+               kRegName[r], g_qa_fake_wrong_pos[a][r][0], g_qa_fake_wrong_pos[a][r][1], g_qa_fake_wrong_pos[a][r][2],
+               g_qa_fake_wrong_pos[a][r][3], g_qa_fake_wrong_mfound[a][r]);
+      printf("  tracks from TRUE quads, by the seed the search started from (after the iteration's seed cleaning):"
+             " true / undecidable / fake / none\n");
+      for (int f = 0; f < 2; ++f)
+        for (int r = 0; r < kNReg; ++r) {
+          char name[64];
+          snprintf(name, sizeof(name), "%s %s", f ? "fake " : "found", kRegName[r]);
+          row3(name, g_qa_true_seedcls[a][f][r], 4);
+        }
+    }
+  }
+
 }  // namespace mkfit
 
 //=============================================================================

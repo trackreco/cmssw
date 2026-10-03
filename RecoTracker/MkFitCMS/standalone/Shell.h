@@ -224,6 +224,18 @@ namespace mkfit {
     void SeederDisplacedStudy() { SeederDisplacedStudy(m_ctx); }
     void SeederDisplacedReport();
 
+    // The anatomy of the seeder's quads (the --seeds file, before the iteration's seed cleaning): per quad the sim
+    // track of each hit, the class (true; 3 + 1 wrong: one hit on another sim track; 3 + 1 unlinked; 2 + 2 and
+    // worse), for 3 + 1 wrong the position and layer of the wrong hit, whether the majority sim track has its own
+    // hit in that layer (a competitor lost), how far apart the two are, and the hit density around the wrong hit
+    // against that around the last hit of true quads. Then, per candidate track (call after ProcessEventSeeder()
+    // and SelectTracksCMSSW(1)), the class of the quad it grew from (the quad whose four hits are on it), for fake
+    // and for found tracks; found and fake by val_eff's association.
+    void SeederQuadAnatomyReset();
+    void SeederQuadAnatomy(EvCtx &ctx);
+    void SeederQuadAnatomy() { SeederQuadAnatomy(m_ctx); }
+    void SeederQuadAnatomyReport();
+
     // CMSSW's MultiTrackSelector::select() with the phase-2 initialStepSelector parameter sets, on the
     // event's candidateTracks_, in place: level 1 loose (what the track merger keeps, so what
     // generalTracks holds), 2 tight, 3 highPurity, each applied after the ones below it as the
