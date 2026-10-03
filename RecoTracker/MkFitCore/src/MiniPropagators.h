@@ -52,8 +52,8 @@ namespace mkfit::mini_propagators {
 
     InitialState() : State(), inv_pt(0), inv_k(0), theta(0) {}
 
-    InitialState(const MPlexLV& par, const MPlexQI& chg, int ti)
-        : InitialState(State(par, ti), chg.constAt(ti, 0, 0), par.constAt(ti, 3, 0), par.constAt(ti, 5, 0)) {}
+    InitialState(const MPlexLV& par, const MPlexQI& chg, int ti, float bf = Config::Bfield)
+        : InitialState(State(par, ti), chg.constAt(ti, 0, 0), par.constAt(ti, 3, 0), par.constAt(ti, 5, 0), bf) {}
 
     InitialState(const State &s, short charge, float ipt, float tht, float bf = Config::Bfield)
         : State(s), inv_pt(ipt), theta(tht) {
@@ -119,13 +119,24 @@ namespace mkfit::mini_propagators {
 
     InitialStatePlex() = default;
 
-    InitialStatePlex(const MPlexLV& par, const MPI& chg)
-        : InitialStatePlex(StatePlex(par), chg, par.ReduceFixedIJ(3, 0), par.ReduceFixedIJ(5, 0)) {}
+    InitialStatePlex(const MPlexLV& par, const MPI& chg, float bf = Config::Bfield)
+        : InitialStatePlex(StatePlex(par), chg, par.ReduceFixedIJ(3, 0), par.ReduceFixedIJ(5, 0), bf) {}
+
+    // The same with a field value per lane, e.g. Config::bFieldFromZR() at each state.
+    InitialStatePlex(const MPlexLV& par, const MPI& chg, const MPF& bf)
+        : InitialStatePlex(StatePlex(par), chg, par.ReduceFixedIJ(3, 0), par.ReduceFixedIJ(5, 0), bf) {}
 
     InitialStatePlex(const StatePlex &sp, MPI charge, MPF ipt, MPF tht, float bf = Config::Bfield)
         : StatePlex(sp), inv_pt(ipt), theta(tht) {
       for (int i = 0; i < inv_k.kTotSize; ++i) {
         inv_k[i] = ((charge[i] < 0) ? 0.01f : -0.01f) * Const::sol * bf;
+      }
+    }
+
+    InitialStatePlex(const StatePlex &sp, MPI charge, MPF ipt, MPF tht, const MPF& bf)
+        : StatePlex(sp), inv_pt(ipt), theta(tht) {
+      for (int i = 0; i < inv_k.kTotSize; ++i) {
+        inv_k[i] = ((charge[i] < 0) ? 0.01f : -0.01f) * Const::sol * bf[i];
       }
     }
 
