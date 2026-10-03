@@ -912,7 +912,20 @@ namespace mkfit {
     const float kQaScEdge[kQaNSc] = {0.f, 0.01f, 0.03f, 0.1f, 0.3f, 1.f, 3.f, 10.f, 30.f};
     const char *const kQaScName[kQaNSc] = {"<0.01", "0.01-0.03", "0.03-0.1", "0.1-0.3", "0.3-1", "1-3", "3-10", "10-30", ">30"};
     long g_qa_sc[kNReg][QA_N][kQaNSc];
-    long g_qa_trk_sc[2][2][kNReg][kQaNSc];  // fakes from 3+1 wrong quads whose majority sim track another track found
+    long g_qa_trk_sc[2][2][kNReg][kQaNSc];
+    // tracks in acceptance, [0 all quads, 1 flagged: quad score in [0.3, 1)][0 found, 1 fake]: hits beyond the quad's
+    // four (histogram, last bin 30+), and over the track's hits against its own majority particle: foreign hits
+    // among the quad's hits and among the added ones, unlinked hits, and whether the majority is one of the quad's
+    constexpr int kQaNBeyond = 31;
+    long g_qa_bey[2][2][kQaNBeyond], g_qa_bey_n[2][2];
+    long g_qa_for_seed[2][2], g_qa_for_add[2][2], g_qa_unl[2][2], g_qa_maj_in_quad[2][2];
+    long g_qa_for_only_seed[2][2], g_qa_for_none[2][2];
+    // K scan: tracks from flagged quads (score in [0.3, 1)) with fewer than K hits beyond [0 the quad's four, 1 the
+    // seed the search started from] produce no track. [def][K - kQaK0][region]: fake tracks in acceptance removed,
+    // and selected sim tracks (MTV selection) no longer found by any track
+    constexpr int kQaK0 = 2, kQaNK = 6;  // K = 2 .. 7
+    long g_qa_k_fake[2][kQaNK][kNReg + 1], g_qa_k_lost[2][kQaNK][kNReg + 1], g_qa_k_found_tracks[2][kQaNK][kNReg + 1];
+    long g_qa_k_fake_all[kNReg + 1], g_qa_k_found_all[kNReg + 1];  // fakes from 3+1 wrong quads whose majority sim track another track found
     int g_qa_nev = 0;
   }  // namespace
 
@@ -931,6 +944,19 @@ namespace mkfit {
     memset(g_qa_true_seedcls, 0, sizeof(g_qa_true_seedcls));
     memset(g_qa_sc, 0, sizeof(g_qa_sc));
     memset(g_qa_trk_sc, 0, sizeof(g_qa_trk_sc));
+    memset(g_qa_bey, 0, sizeof(g_qa_bey));
+    memset(g_qa_bey_n, 0, sizeof(g_qa_bey_n));
+    memset(g_qa_for_seed, 0, sizeof(g_qa_for_seed));
+    memset(g_qa_for_add, 0, sizeof(g_qa_for_add));
+    memset(g_qa_unl, 0, sizeof(g_qa_unl));
+    memset(g_qa_maj_in_quad, 0, sizeof(g_qa_maj_in_quad));
+    memset(g_qa_for_only_seed, 0, sizeof(g_qa_for_only_seed));
+    memset(g_qa_for_none, 0, sizeof(g_qa_for_none));
+    memset(g_qa_k_fake, 0, sizeof(g_qa_k_fake));
+    memset(g_qa_k_lost, 0, sizeof(g_qa_k_lost));
+    memset(g_qa_k_found_tracks, 0, sizeof(g_qa_k_found_tracks));
+    memset(g_qa_k_fake_all, 0, sizeof(g_qa_k_fake_all));
+    memset(g_qa_k_found_all, 0, sizeof(g_qa_k_found_all));
     g_qa_nev = 0;
   }
 
@@ -1048,6 +1074,9 @@ namespace mkfit {
     struct TrkRow {
       bool fake, acc;
       int qi, reg, scls;
+      int n_bey, f_seed, f_add, n_unl;
+      bool maj_in_quad;
+      int mc, n_bey_seed;
     };
     std::vector<TrkRow> rows;
     for (const Track &c : ev.candidateTracks_) {
@@ -1096,9 +1125,71 @@ namespace mkfit {
           break;
       }
       const float ae = std::abs(c.momEta());
-      rows.push_back({fake, c.pT() > 0.9f && ae < 2.5f, qsel, reg_of(ae), si >= 0 ? seed_class(ev, seeds[si]) : 3});
+      // the track's hits against its own majority particle, split into the quad's four and the added ones
+      int n_bey = 0, f_seed = 0, f_add = 0, n_unl = 0;
+      bool maj_in_quad = false;
+      if (qsel >= 0) {
+        const SeederQuad &q = Q[qsel];
+        std::set<std::pair<int, int>> qh;
+        for (int k = 0; k < 4; ++k)
+          qh.insert({q.l[k], q.h[k]});
+        std::map<int, int> votes;
+        std::vector<std::pair<int, bool>> hl;  // label, is a quad hit
+        for (const auto &h : th) {
+          const int lab = lab_of(h.first, h.second);
+          const bool inq = qh.count(h);
+          hl.push_back({lab, inq});
+          n_bey += !inq;
+          if (lab >= 0)
+            ++votes[lab];
+        }
+        int maj = -1, nv = 0;
+        for (const auto &[l, n] : votes)
+          if (n > nv) {
+            nv = n;
+            maj = l;
+          }
+        for (const auto &[lab, inq] : hl) {
+          if (lab < 0)
+            ++n_unl;
+          else if (lab != maj)
+            ++(inq ? f_seed : f_add);
+        }
+        for (int k = 0; k < 4; ++k)
+          maj_in_quad |= maj >= 0 && lab_of(q.l[k], q.h[k]) == maj;
+      }
+      // hits beyond the seed the search started from (after the iteration cleaner's merge)
+      int n_bey_seed = 0;
+      if (si >= 0) {
+        std::set<std::pair<int, int>> sh;
+        for (int k = 0; k < seeds[si].nTotalHits(); ++k) {
+          const HitOnTrack hot = seeds[si].getHitOnTrack(k);
+          if (hot.index >= 0 && hot.layer >= 0)
+            sh.insert({hot.layer, hot.index});
+        }
+        for (const auto &h : th)
+          n_bey_seed += !sh.count(h);
+      }
+      rows.push_back({fake, c.pT() > 0.9f && ae < 2.5f, qsel, reg_of(ae), si >= 0 ? seed_class(ev, seeds[si]) : 3,
+                      n_bey, f_seed, f_add, n_unl, maj_in_quad, fake ? -1 : mc, n_bey_seed});
     }
     for (const TrkRow &r : rows) {
+      if (r.acc && r.qi >= 0) {
+        const float sc = Q[r.qi].score;
+        for (int g = 0; g < 2; ++g) {
+          if (g == 1 && !(sc >= 0.3f && sc < 1.f))
+            continue;
+          const int f = r.fake;
+          ++g_qa_bey[g][f][std::min(r.n_bey, kQaNBeyond - 1)];
+          ++g_qa_bey_n[g][f];
+          g_qa_for_seed[g][f] += r.f_seed;
+          g_qa_for_add[g][f] += r.f_add;
+          g_qa_unl[g][f] += r.n_unl;
+          g_qa_maj_in_quad[g][f] += r.maj_in_quad;
+          g_qa_for_only_seed[g][f] += r.f_seed > 0 && r.f_add == 0;
+          g_qa_for_none[g][f] += r.f_seed == 0 && r.f_add == 0;
+        }
+      }
       const int cls = r.qi >= 0 ? res[r.qi].cls : QA_N;
       for (int a = 0; a < 2; ++a) {
         if (a == 1 && !r.acc)
@@ -1114,6 +1205,52 @@ namespace mkfit {
         }
       }
     }
+    // the K scan. The selected sim tracks (val_eff's MTV selection) and, per sim track, the tracks that find it.
+    std::map<int, int> sim_reg;
+    for (int L = 0; L < (int)ev.simTracks_.size(); ++L) {
+      const Track &st = ev.simTracks_[L];
+      const float ae = std::abs(st.momEta()), pt = st.pT();
+      if (!st.isFindable() || std::hypot(st.x(), st.y()) > 3.5f || std::abs(st.z()) > 30.0f)
+        continue;
+      if (ae >= 2.5f || pt <= 0.9f || st.nUniqueLayers() < 4)
+        continue;
+      sim_reg[L] = reg_of(ae);
+    }
+    std::map<int, std::vector<int>> finders;  // sim label -> rows that find it
+    for (int i = 0; i < (int)rows.size(); ++i)
+      if (!rows[i].fake && sim_reg.count(rows[i].mc))
+        finders[rows[i].mc].push_back(i);
+    for (const TrkRow &r : rows)
+      if (r.acc) {
+        if (r.fake)
+          ++g_qa_k_fake_all[r.reg], ++g_qa_k_fake_all[kNReg];
+        else
+          ++g_qa_k_found_all[r.reg], ++g_qa_k_found_all[kNReg];
+      }
+    for (int def = 0; def < 2; ++def)
+      for (int kk = 0; kk < kQaNK; ++kk) {
+        const int K = kQaK0 + kk;
+        auto removed = [&](const TrkRow &r) {
+          if (r.qi < 0)
+            return false;
+          const float sc = Q[r.qi].score;
+          return sc >= 0.3f && sc < 1.f && (def == 0 ? r.n_bey : r.n_bey_seed) < K;
+        };
+        for (const TrkRow &r : rows)
+          if (r.acc && removed(r)) {
+            if (r.fake)
+              ++g_qa_k_fake[def][kk][r.reg], ++g_qa_k_fake[def][kk][kNReg];
+            else
+              ++g_qa_k_found_tracks[def][kk][r.reg], ++g_qa_k_found_tracks[def][kk][kNReg];
+          }
+        for (const auto &[L, idx] : finders) {
+          bool any = false;
+          for (int i : idx)
+            any |= !removed(rows[i]);
+          if (!any)
+            ++g_qa_k_lost[def][kk][sim_reg[L]], ++g_qa_k_lost[def][kk][kNReg];
+        }
+      }
     ++g_qa_nev;
   }
 
@@ -1191,6 +1328,52 @@ namespace mkfit {
       printf("\n");
       row3("", g_qa_dist_q[r], kQaNDq);
     }
+
+    printf("\n  TRACKS in acceptance by their hits: beyond the quad's four, and against the track's majority particle\n");
+    printf("  %-30s %7s %7s %8s %8s | %9s %9s %9s | %10s %10s %10s\n", "", "tracks", "median", "beyond>=5", "beyond<5",
+           "for.seed", "for.added", "unlinked", "only seed", "no foreign", "maj in quad");
+    for (int g = 0; g < 2; ++g)
+      for (int f = 0; f < 2; ++f) {
+        const long n = g_qa_bey_n[g][f];
+        long acc = 0, ge5 = 0;
+        int med = -1;
+        for (int b = 0; b < kQaNBeyond; ++b) {
+          acc += g_qa_bey[g][f][b];
+          if (med < 0 && 2 * acc >= n)
+            med = b;
+          if (b >= 5)
+            ge5 += g_qa_bey[g][f][b];
+        }
+        const double d = std::max(1L, n);
+        printf("  %-30s %7ld %7d %7.1f%% %7.1f%% | %9.2f %9.2f %9.2f | %9.1f%% %9.1f%% %9.1f%%\n",
+               g ? (f ? "flagged quads, fake" : "flagged quads, found") : (f ? "all quads, fake" : "all quads, found"), n,
+               med, 100.0 * ge5 / d, 100.0 * (n - ge5) / d, g_qa_for_seed[g][f] / d, g_qa_for_add[g][f] / d,
+               g_qa_unl[g][f] / d, 100.0 * g_qa_for_only_seed[g][f] / d, 100.0 * g_qa_for_none[g][f] / d,
+               100.0 * g_qa_maj_in_quad[g][f] / d);
+      }
+    for (int def = 0; def < 2; ++def) {
+      printf("\n  K SCAN: a track from a flagged quad (score in [0.3, 1)) with fewer than K hits beyond %s is removed:\n"
+             "  fake tracks in acceptance removed / found tracks in acceptance removed / selected sim tracks no longer"
+             " found by any track\n",
+             def == 0 ? "the quad's four" : "the seed the search started from (after the iteration cleaner's merge)");
+      printf("  %-6s", "K");
+      for (int r = 0; r <= kNReg; ++r)
+        printf(" | %-32s", r == kNReg ? "all regions" : kRegName[r]);
+      printf("\n  %-6s", "total");
+      for (int r = 0; r <= kNReg; ++r)
+        printf(" | fakes %6ld found trk %6ld        ", g_qa_k_fake_all[r], g_qa_k_found_all[r]);
+      printf("\n");
+      for (int kk = 0; kk < kQaNK; ++kk) {
+        printf("  K=%-4d", kQaK0 + kk);
+        for (int r = 0; r <= kNReg; ++r)
+          printf(" | -%5ld fake -%5ld trk -%4ld sim ", g_qa_k_fake[def][kk][r], g_qa_k_found_tracks[def][kk][r],
+                 g_qa_k_lost[def][kk][r]);
+        printf("\n");
+      }
+    }
+    printf("  (flagged: the quad's score in [0.3, 1); for.seed / for.added: mean number of the track's hits on another"
+           " particle than its majority, among the quad's hits / the added hits; only seed: the foreign hits are all"
+           " seed hits)\n");
 
     for (int a = 0; a < 2; ++a) {
       printf("\n  TRACKS by the class of the quad they grew from (the quad whose four hits are on the track), %s\n",
