@@ -1576,6 +1576,25 @@ namespace mkfit {
   }
   void val_rho_in_window(bool on) { val_rho_region(on ? 1 : 0); }
 
+  void val_flagged_seeds(int min_added_hits, float score_lo, float score_hi, bool on_fake_score) {
+    V2p2::Policy::flagged_min_added_hits = min_added_hits;
+    V2p2::Policy::flag_score_lo = score_lo;
+    V2p2::Policy::flag_score_hi = score_hi;
+    V2p2::Policy::flag_on_fake_score = on_fake_score;
+    printf("val_flagged_seeds: %s score in [%g, %g) needs >= %d added hits (0 = off)\n",
+           on_fake_score ? "fake" : "cleaning", score_lo, score_hi, min_added_hits);
+  }
+
+  // Test helper: give every seed of the event with a label >= 0 the same quality,
+  // as if the seeder had labelled the seeds by quad index.
+  void val_seed_quality_all(Event *ev, float clean_score, float fake_score) {
+    int max_lbl = -1;
+    for (auto &s : ev->seedTracks_)
+      max_lbl = std::max(max_lbl, s.label());
+    ev->seedQualityByLabel_.assign(max_lbl + 1, SeedQuality{clean_score, fake_score, 0});
+    printf("val_seed_quality_all: %d seeds, labels 0 .. %d\n", (int)ev->seedTracks_.size(), max_lbl);
+  }
+
   // Ablate one term of the log-likelihood at fixed eps. Passing the term's own
   // MEAN as the constant removes its variation and nothing else -- see the note
   // in V2p2Score.h for why that is the only comparison that can attribute a

@@ -18,6 +18,7 @@
 #include "RecoTracker/MkFitCore/standalone/Event.h"
 
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
+#include "RecoTracker/MkFitCore/src/V2p2Config.h"
 
 #include "TROOT.h"
 #include "TRint.h"
@@ -391,6 +392,16 @@ namespace mkfit {
       }
 
       printf("Shell::ProcessEvent post remove-duplicates: %d comb-cands\n", (int) out_tracks.size());
+
+      {
+        namespace po = Config::V2p2::Policy;
+        const int n_rem = StdSeq::remove_flagged_seed_tracks(
+            out_tracks,
+            ctx.ev->seedQualityByLabel_,
+            {po::flagged_min_added_hits, po::flag_score_lo, po::flag_score_hi, po::flag_on_fake_score});
+        if (n_rem > 0)
+          printf("Shell::ProcessEvent removed %d tracks of flagged seeds\n", n_rem);
+      }
 
       // Do not clear ... useful for debugging / printouts!
       // ctx.ev->resetCurrentSeedTracks();

@@ -47,6 +47,7 @@ namespace mkfit {
     simTracksExtra_.clear();
     seedTracks_.clear();
     seedTracksExtra_.clear();
+    seedQualityByLabel_.clear();
     candidateTracks_.clear();
     candidateTracksExtra_.clear();
     fitTracks_.clear();

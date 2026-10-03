@@ -145,6 +145,18 @@ namespace mkfit {
       // the plain chi2 < 30 used before is hit_chi2_cut 30, chi2_trk_fac 1.
       MKFIT_V2P2_KNOB(float, hit_chi2_cut, 9.21f);
       MKFIT_V2P2_KNOB(float, chi2_trk_fac, 3.0f);
+      // Flagged seeds, standalone drivers only (Event::seedQualityByLabel_): the
+      // final track of a seed whose score is in [flag_score_lo, flag_score_hi) is
+      // removed, after the duplicate cleaner, unless it added at least
+      // flagged_min_added_hits found hits to the seed's. The score is the seeder's
+      // cleaning score, or its fake score with flag_on_fake_score. See
+      // StdSeq::remove_flagged_seed_tracks(). flagged_min_added_hits 0 = off.
+      MKFIT_V2P2_KNOB(int, flagged_min_added_hits, 0);
+      // The defaults are the seeding session's suggestion (fake score >= 0.35, K = 4
+      // to be set): at equal sim-track loss the fake score flags ~20 % more fakes.
+      MKFIT_V2P2_KNOB(float, flag_score_lo, 0.35f);
+      MKFIT_V2P2_KNOB(float, flag_score_hi, 1e30f);  // open
+      MKFIT_V2P2_KNOB(bool, flag_on_fake_score, true);
     }  // namespace Policy
 
     //--------------------------------------------------------------------------

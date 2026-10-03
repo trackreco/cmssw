@@ -1,6 +1,7 @@
 #include "RecoTracker/MkFitCMS/standalone/buildtestMPlex.h"
 #include "RecoTracker/MkFitCore/standalone/ConfigStandalone.h"
 #include "RecoTracker/MkFitCore/src/Matrix.h"
+#include "RecoTracker/MkFitCore/src/V2p2Config.h"
 #include "RecoTracker/MkFitCore/interface/MkBuilder.h"
 #include "RecoTracker/MkFitCMS/interface/MkStdSeqs.h"
 #include "RecoTracker/MkFitCMS/standalone/MkStandaloneSeqs.h"
@@ -421,6 +422,12 @@ namespace mkfit {
     constexpr unsigned int algorithms[] = {4, 22, 23, 5, 24, 7, 8, 9, 10, 6};  //9 iterations
   }
 
+  // The flagged-seed cut from the V2p2::Policy knobs, see StdSeq::remove_flagged_seed_tracks().
+  static StdSeq::SeedFlagCut seedFlagCutFromConfig() {
+    namespace po = Config::V2p2::Policy;
+    return {po::flagged_min_added_hits, po::flag_score_lo, po::flag_score_hi, po::flag_on_fake_score};
+  }
+
   std::vector<double> runBtpCe_MultiIter(Event &ev, const EventOfHits &eoh, MkBuilder &builder, int n) {
     std::vector<double> timevec;
     if (n <= 0)
@@ -525,6 +532,7 @@ namespace mkfit {
         builder.export_tracks(tmp_tvec);
         if (itconf.m_duplicate_cleaner)
           itconf.m_duplicate_cleaner(builder.ref_tracks_nc(), itconf);
+        StdSeq::remove_flagged_seed_tracks(tmp_tvec, ev.seedQualityByLabel_, seedFlagCutFromConfig());
         ev.candidateTracks_.reserve(ev.candidateTracks_.size() + tmp_tvec.size());
         for (auto &&t : tmp_tvec)
           ev.candidateTracks_.emplace_back(std::move(t));
@@ -575,6 +583,7 @@ namespace mkfit {
 
         if (itconf.m_duplicate_cleaner)
           itconf.m_duplicate_cleaner(builder.ref_tracks_nc(), itconf);
+        StdSeq::remove_flagged_seed_tracks(builder.ref_tracks_nc(), ev.seedQualityByLabel_, seedFlagCutFromConfig());
 
         builder.export_tracks(ev.fitTracks_);
       }

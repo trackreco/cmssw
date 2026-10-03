@@ -35,6 +35,19 @@ namespace mkfit {
     void clean_duplicates_sharedhits(TrackVec &tracks, const IterationConfig &itconf);
     void clean_duplicates_sharedhits_pixelseed(TrackVec &tracks, const IterationConfig &itconf);
 
+    // Removes the tracks of flagged seeds that added fewer than min_added_hits found
+    // hits to the seed's. A seed is flagged when its score, looked up by the track's
+    // label in q_by_label, is in [score_lo, score_hi); the score is the seeder's
+    // cleaning score, or its fake score with on_fake_score. Applied to the final
+    // tracks, after the duplicate cleaner. Returns the number of tracks removed.
+    struct SeedFlagCut {
+      int min_added_hits = 0;  // 0 = off
+      float score_lo = 0.35f;
+      float score_hi = 1e30f;
+      bool on_fake_score = true;
+    };
+    int remove_flagged_seed_tracks(TrackVec &tracks, const std::vector<SeedQuality> &q_by_label, const SeedFlagCut &cut);
+
     // Quality filters used directly (not through IterationConfig)
 
     template <class TRACK>

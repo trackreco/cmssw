@@ -183,6 +183,11 @@ namespace mkfit {
     // not a TrackState.
     SHSVec simHitStates_;
 
+    // Optional seed quality from the seeder, indexed by SEED LABEL: the seeder sets
+    // each seed's label to its quad index, and the label survives the iteration's
+    // seed cleaning while the seed's position does not. Cleared per event.
+    std::vector<SeedQuality> seedQualityByLabel_;
+
     const TrackVec *currentSeedTracks_ = nullptr;
     mutable std::vector<SimInfoFromHits> currentSeedSimFromHits_;
 

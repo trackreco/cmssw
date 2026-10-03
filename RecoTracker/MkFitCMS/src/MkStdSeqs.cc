@@ -351,6 +351,26 @@ namespace mkfit {
     // Duplicate cleaning
     //=========================================================================
 
+    int remove_flagged_seed_tracks(TrackVec &tracks, const std::vector<SeedQuality> &q_by_label, const SeedFlagCut &cut) {
+      if (cut.min_added_hits <= 0 || q_by_label.empty())
+        return 0;
+      const auto n_before = tracks.size();
+      tracks.erase(std::remove_if(tracks.begin(),
+                                  tracks.end(),
+                                  [&](const Track &t) {
+                                    const int l = t.label();
+                                    if (l < 0 || l >= (int)q_by_label.size())
+                                      return false;
+                                    const SeedQuality &q = q_by_label[l];
+                                    const float s = cut.on_fake_score ? q.fake_score : q.clean_score;
+                                    if (s < cut.score_lo || s >= cut.score_hi)
+                                      return false;
+                                    return t.nFoundHits() - t.getNSeedHits() < cut.min_added_hits;
+                                  }),
+                   tracks.end());
+      return n_before - tracks.size();
+    }
+
     void remove_duplicates(TrackVec &tracks) {
       tracks.erase(std::remove_if(tracks.begin(), tracks.end(), [](auto track) { return track.getDuplicateValue(); }),
                    tracks.end());

@@ -132,7 +132,7 @@ namespace mkfit {
 
   int Shell::MakeSeederSeeds(EvCtx &ctx, int mode) {
     ctx.seeds.clear();
-    m_seeder_seed_info.clear();
+    ctx.ev->seedQualityByLabel_.clear();
     const Event &ev = *ctx.ev;
     auto it = m_seeder_quads.find(ev.evtID());
     if (it == m_seeder_quads.end()) {
@@ -141,9 +141,9 @@ namespace mkfit {
     }
     const std::vector<SeederQuad> &Q = it->second;
     // the seed-quality field, by quad index: a seed's label is its quad's index (below)
-    m_seeder_seed_info.resize(Q.size());
+    ctx.ev->seedQualityByLabel_.resize(Q.size());
     for (size_t i = 0; i < Q.size(); ++i)
-      m_seeder_seed_info[i] = {Q[i].score, Q[i].fake_score, Q[i].n_amb};
+      ctx.ev->seedQualityByLabel_[i] = {Q[i].score, Q[i].fake_score, Q[i].n_amb};
     const IterationConfig &itconf = Config::ItrInfo[m_it_index];
     const TrackerInfo &ti = Config::TrkInfo;
     const PropagationFlags &pf = ti.prop_config().backward_fit_pflags;
