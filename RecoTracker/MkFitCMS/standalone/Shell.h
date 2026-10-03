@@ -176,12 +176,25 @@ namespace mkfit {
       int l[4];
       int h[4];
       float score;
+      float fake_score = -1;  // -1: not in the file
+      int n_amb = 0;
+    };
+    // The seed-quality field for the finder, one per quad of the current event and indexed by the quad's index in
+    // the event, which MakeSeederSeeds() makes the seed's label (the iteration's seed cleaner keeps labels while it
+    // erases and reorders seeds, so a seed is found by seeds[cand.seed_origin_index()].label()).
+    // clean_score: seedsurf's cleaning score; fake_score: the sum the fake cut applies to; n_amb: the quads the
+    // seeder's cleaning dropped for sharing hits with this one. The neutral values (-1, -1, 0) mean "not known".
+    struct SeederSeedInfo {
+      float clean_score = -1, fake_score = -1;
+      int n_amb = 0;
     };
     int LoadSeederQuads(const char *file);
     int MakeSeederSeeds(EvCtx &ctx, int mode = 1);
     int MakeSeederSeeds(int mode = 1) { return MakeSeederSeeds(m_ctx, mode); }
     void ProcessEventSeeder(EvCtx &ctx, int mode = 1);
     void ProcessEventSeeder(int mode = 1) { ProcessEventSeeder(m_ctx, mode); }
+    // filled by MakeSeederSeeds(), see SeederSeedInfo
+    const std::vector<SeederSeedInfo> &SeederSeedInfos() const { return m_seeder_seed_info; }
     // sigma of x, y, z [cm], 1/pT (relative to the helix's 1/pT), phi, theta [rad]
     static float s_seeder_prior_sigma[6];
     static float s_seeder_prior_scale;
@@ -387,6 +400,8 @@ namespace mkfit {
 
     // LoadSeederQuads(): by event id (1-based, as GoToEvent())
     std::map<int, std::vector<SeederQuad>> m_seeder_quads;
+    // MakeSeederSeeds(): the current event's seed-quality field, by quad index (= seed label)
+    std::vector<SeederSeedInfo> m_seeder_seed_info;
 
 #ifdef WITH_REVE
     ROOT::Experimental::REveManager *m_reve_mgr = nullptr;

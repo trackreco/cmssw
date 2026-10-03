@@ -56,9 +56,13 @@ namespace mkfit {
         continue;
       int ev;
       SeederQuad q;
-      if (sscanf(line, "%d %d %d %d %d %d %d %d %d %f", &ev, &q.l[0], &q.l[1], &q.l[2], &q.l[3], &q.h[0], &q.h[1],
-                 &q.h[2], &q.h[3], &q.score) != 10)
+      // 10 columns, or 12 with the fake score and the ambiguity count (files from before that keep the defaults)
+      const int nf = sscanf(line, "%d %d %d %d %d %d %d %d %d %f %f %d", &ev, &q.l[0], &q.l[1], &q.l[2], &q.l[3],
+                            &q.h[0], &q.h[1], &q.h[2], &q.h[3], &q.score, &q.fake_score, &q.n_amb);
+      if (nf != 10 && nf != 12)
         continue;
+      if (nf == 10)
+        q.fake_score = -1, q.n_amb = 0;
       // the file counts events from 0, GoToEvent() from 1
       m_seeder_quads[ev + 1].push_back(q);
       ++n;
@@ -128,6 +132,7 @@ namespace mkfit {
 
   int Shell::MakeSeederSeeds(EvCtx &ctx, int mode) {
     ctx.seeds.clear();
+    m_seeder_seed_info.clear();
     const Event &ev = *ctx.ev;
     auto it = m_seeder_quads.find(ev.evtID());
     if (it == m_seeder_quads.end()) {
@@ -135,6 +140,10 @@ namespace mkfit {
       return 0;
     }
     const std::vector<SeederQuad> &Q = it->second;
+    // the seed-quality field, by quad index: a seed's label is its quad's index (below)
+    m_seeder_seed_info.resize(Q.size());
+    for (size_t i = 0; i < Q.size(); ++i)
+      m_seeder_seed_info[i] = {Q[i].score, Q[i].fake_score, Q[i].n_amb};
     const IterationConfig &itconf = Config::ItrInfo[m_it_index];
     const TrackerInfo &ti = Config::TrkInfo;
     const PropagationFlags &pf = ti.prop_config().backward_fit_pflags;
