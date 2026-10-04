@@ -8,6 +8,8 @@
 
 #include "RecoTracker/MkFitCore/interface/binnor.h"
 
+#include <algorithm>
+
 namespace mkfit {
 
   namespace StdSeq {
@@ -352,7 +354,7 @@ namespace mkfit {
                    tracks.end());
     }
 
-    void clean_duplicates(TrackVec &tracks, const IterationConfig &, const TrackerInfo &) {
+    void clean_duplicates(TrackVec &tracks, const IterationConfig &, const TrackerInfo &, const BeamSpot &) {
       const auto ntracks = tracks.size();
       float eta1, phi1, pt1, deta, dphi, dr2;
 
@@ -438,7 +440,10 @@ namespace mkfit {
     // SHARED HITS DUPLICATE CLEANING
     //=========================================================================
 
-    void clean_duplicates_sharedhits(TrackVec &tracks, const IterationConfig &itconf, const TrackerInfo &) {
+    void clean_duplicates_sharedhits(TrackVec &tracks,
+                                     const IterationConfig &itconf,
+                                     const TrackerInfo &,
+                                     const BeamSpot &) {
       const float fraction = itconf.dc_fracSharedHits;
       const auto ntracks = tracks.size();
 
@@ -503,21 +508,35 @@ namespace mkfit {
     }
 
     // pixelPriority = false is the phase-1 pixelseed cleaner; true adds the pixel-priority rules.
-    template <bool pixelPriority>
+    // ptAdaptive adds the low-pT fraction for pairs consistent with one particle and the unique-hit keep rule.
+    template <bool pixelPriority, bool ptAdaptive>
     void clean_duplicates_sharedhits_pixelseed_impl(TrackVec &tracks,
                                                     const IterationConfig &itconf,
-                                                    const TrackerInfo &trk_inf) {
+                                                    const TrackerInfo &trk_inf,
+                                                    const BeamSpot &bspot) {
       const float fraction = itconf.dc_fracSharedHits;
       const float drth_central = itconf.dc_drth_central;
       const float drth_obarrel = itconf.dc_drth_obarrel;
       const float drth_forward = itconf.dc_drth_forward;
       const auto ntracks = tracks.size();
 
+      [[maybe_unused]] const bool lowPtFraction = ptAdaptive && itconf.dc_fracSharedHitsLowPt >= 0.f;
+      [[maybe_unused]] const float invptRampStart = 1.f / itconf.dc_lowPtRampStart;
+      [[maybe_unused]] const float invptRampEnd = 1.f / itconf.dc_lowPtRampEnd;
+      [[maybe_unused]] const float lowPtMaxRelDiffInvPt = itconf.dc_lowPtMaxRelDiffInvPt;
+      [[maybe_unused]] const float lowPtMaxD0 = itconf.dc_lowPtMaxD0;
+      // Eta regions of the direction-only duplicate test: Phase-2 tracker boundaries for the pT-adaptive cleaner.
+      const float maxcth_ob = ptAdaptive ? Config::maxcth_ob_p2 : Config::maxcth_ob;
+      const float maxcth_fw = ptAdaptive ? Config::maxcth_fw_p2 : Config::maxcth_fw;
+
       std::vector<float> ctheta(ntracks);
       std::vector<bool> hasPixel(pixelPriority ? ntracks : 0, false);
+      std::vector<float> absD0(lowPtFraction && lowPtMaxD0 > 0.f ? ntracks : 0);
       for (auto itrack = 0U; itrack < ntracks; itrack++) {
         auto &trk = tracks[itrack];
         ctheta[itrack] = 1.f / std::tan(trk.theta());
+        if (!absD0.empty())
+          absD0[itrack] = std::abs(trk.d0BeamSpot(bspot.x, bspot.y));
         if constexpr (pixelPriority) {
           int npix = 0;
           for (int i = 0; i < trk.nTotalHits(); ++i)
@@ -573,9 +592,9 @@ namespace mkfit {
           }
 
           float maxdRSquared = drth_central * drth_central;
-          if (std::abs(ctheta1) > Config::maxcth_fw)
+          if (std::abs(ctheta1) > maxcth_fw)
             maxdRSquared = drth_forward * drth_forward;
-          else if (std::abs(ctheta1) > Config::maxcth_ob)
+          else if (std::abs(ctheta1) > maxcth_ob)
             maxdRSquared = drth_obarrel * drth_obarrel;
           dr2 = dphi * dphi + dctheta * dctheta;
           if (dr2 < maxdRSquared) {
@@ -589,6 +608,20 @@ namespace mkfit {
 
           if (std::abs(track2.invpT() - invpt1) > Config::maxd1pt)
             continue;
+
+          float frac = fraction;
+          if constexpr (ptAdaptive) {
+            const float invpt2 = track2.invpT();
+            const bool sameParticle = (lowPtMaxRelDiffInvPt <= 0.f ||
+                                       std::abs(invpt1 - invpt2) <= lowPtMaxRelDiffInvPt * std::max(invpt1, invpt2)) &&
+                                      (absD0.empty() || (absD0[itrack] < lowPtMaxD0 && absD0[jtrack] < lowPtMaxD0));
+            if (lowPtFraction && sameParticle) {
+              // 1 below dc_lowPtRampStart, 0 above dc_lowPtRampEnd, linear in 1/pT of the harder track in between
+              const float lowPtScale =
+                  std::clamp((std::min(invpt1, invpt2) - invptRampEnd) / (invptRampStart - invptRampEnd), 0.f, 1.f);
+              frac = fraction + (itconf.dc_fracSharedHitsLowPt - fraction) * lowPtScale;
+            }
+          }
 
           auto sharedCount = 0;
           auto sharedFirst = 0;
@@ -611,16 +644,24 @@ namespace mkfit {
               if (j == 0 && i == 0 && a == c && b == d)
                 sharedFirst += 1;
 
-              if ((sharedCount - sharedFirst) >= ((minFoundHits - sharedFirst) * fraction))
+              if ((sharedCount - sharedFirst) >= ((minFoundHits - sharedFirst) * frac))
                 continue;
             }
-            if ((sharedCount - sharedFirst) >= ((minFoundHits - sharedFirst) * fraction))
+            if ((sharedCount - sharedFirst) >= ((minFoundHits - sharedFirst) * frac))
               continue;
           }
 
           //selection here - 11percent fraction of shared hits to label a duplicate
-          if ((sharedCount - sharedFirst) >= ((minFoundHits - sharedFirst) * fraction)) {
-            if (pixelOrScoreWins(itrack, jtrack))
+          if ((sharedCount - sharedFirst) >= ((minFoundHits - sharedFirst) * frac)) {
+            const bool iWins = pixelOrScoreWins(itrack, jtrack);
+            if constexpr (ptAdaptive) {
+              // Keep a high-pT would-be duplicate that still has many hits of its own (e.g. a nearby track in a jet).
+              const Track &loser = iWins ? track2 : trk;
+              if (itconf.dc_minUniqueHitsToKeep > 0 && loser.pT() >= itconf.dc_minPtUniqueHitsToKeep &&
+                  loser.nFoundHits() - sharedCount >= itconf.dc_minUniqueHitsToKeep)
+                continue;
+            }
+            if (iWins)
               track2.setDuplicateValue(true);
             else
               trk.setDuplicateValue(true);
@@ -633,14 +674,23 @@ namespace mkfit {
 
     void clean_duplicates_sharedhits_pixelseed(TrackVec &tracks,
                                                const IterationConfig &itconf,
-                                               const TrackerInfo &trk_inf) {
-      clean_duplicates_sharedhits_pixelseed_impl<false>(tracks, itconf, trk_inf);
+                                               const TrackerInfo &trk_inf,
+                                               const BeamSpot &bspot) {
+      clean_duplicates_sharedhits_pixelseed_impl<false, false>(tracks, itconf, trk_inf, bspot);
     }
 
     void clean_duplicates_sharedhits_pixelpriority(TrackVec &tracks,
                                                    const IterationConfig &itconf,
-                                                   const TrackerInfo &trk_inf) {
-      clean_duplicates_sharedhits_pixelseed_impl<true>(tracks, itconf, trk_inf);
+                                                   const TrackerInfo &trk_inf,
+                                                   const BeamSpot &bspot) {
+      clean_duplicates_sharedhits_pixelseed_impl<true, false>(tracks, itconf, trk_inf, bspot);
+    }
+
+    void clean_duplicates_sharedhits_pixelpriority_ptadaptive(TrackVec &tracks,
+                                                              const IterationConfig &itconf,
+                                                              const TrackerInfo &trk_inf,
+                                                              const BeamSpot &bspot) {
+      clean_duplicates_sharedhits_pixelseed_impl<true, true>(tracks, itconf, trk_inf, bspot);
     }
 
     namespace {
@@ -653,6 +703,8 @@ namespace mkfit {
                                                       clean_duplicates_sharedhits_pixelseed);
           IterationConfig::register_duplicate_cleaner("phase2:clean_duplicates_sharedhits_pixelpriority",
                                                       clean_duplicates_sharedhits_pixelpriority);
+          IterationConfig::register_duplicate_cleaner("phase2:clean_duplicates_sharedhits_pixelpriority_ptadaptive",
+                                                      clean_duplicates_sharedhits_pixelpriority_ptadaptive);
         }
       } rdc_instance;
     }  // namespace
