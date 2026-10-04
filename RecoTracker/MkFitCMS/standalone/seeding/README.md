@@ -10,7 +10,7 @@ checked against.
 | `SeedSurf.h` | the double-precision reference: `SurfChain` (the run on a `SeedChain`), the pattern finder, the ownership, `surf_eval()` |
 | `SeedSurfBatch.h` | the old name of `SeedChainFinder`, and the `--chain-fast-check` comparison |
 | `seedsurf-chain.sh` | the chosen configuration (2026-09-27): the chain, the window tables, cleaning N = 3; the reference of the identity checks |
-| `seedsurf-v2p2.sh` | seeding for v2p2 at a named working point, `WP=` a directory of `wp/` (default 2026-10-02: `seedsurf-chain.sh` plus holes into OT1-P, d0_max 0.5 mm, zv 15 cm, S < 0.5 at \|eta\| >= 1.7) |
+| `seedsurf-v2p2.sh` | seeding for v2p2 at a named working point, `WP=` a directory of `wp/` (default 2026-10-04: `seedsurf-chain.sh` plus holes into OT1-P, d0_max 0.5 mm, zv 15 cm, fake score S < 1.5, S < 0.5 at \|eta\| >= 1.7) |
 | `wp/` | the working points: the seeder's options and the finder settings each was measured with; `wp/README.md` |
 | `windows-D121/` | the window tables for D121, as command-line options; `ot1p-hole.txt` holds B2 B3 B4 + OT1-P, B1 B2 B4 + OT1-P and B1 B3 B4 + OT1-P (q95 of true quads, events 30-99), for `--chain 1 --chain-holes-ot 1 --chain-inner-ot-only`, which `seedsurf-chain.sh` does not set |
 | `truth2root.py` | `--truth` output into a ROOT file |

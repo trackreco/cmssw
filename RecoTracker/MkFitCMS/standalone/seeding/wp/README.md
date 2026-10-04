@@ -11,6 +11,8 @@ measured with. A working point is never edited once measured; a change makes a n
 
 A file that is absent means the plugin's default: no patch, no command.
 
+The default of `seedsurf-v2p2.sh` is 2026-10-04 (maintainer, 2026-10-04); it was 2026-10-02 before.
+
 ## 2026-10-02: agreed with the maintainer
 
 - Seeder: holes into OT1-P, d0_max 0.5 mm, beam region +-15 cm in z, fake score S < 0.75, S < 0.5 where |eta| >= 1.7.
@@ -18,7 +20,7 @@ A file that is absent means the plugin's default: no patch, no command.
 - Measured, default val_eff rule (2026-10-02): v2p2 + loose 82.74 %, 4675 fakes. Seeding 192.1 ms/ev and v2p2 on
   its quads 245.9 ms/ev on phi3 (`v2p2-seeds/time-phi3/v2p2/README.md`).
 
-## 2026-10-04: loosened, with the flagged-seed cut
+## 2026-10-04: loosened, with the flagged-seed cut (the default since 2026-10-04)
 
 - Seeder: as 2026-10-02 with S < 1.5 where |eta| < 1.7.
 - Finder: production's track scorer `phase1:default`; a final track whose seed has a fake score >= 0.35 is kept only
