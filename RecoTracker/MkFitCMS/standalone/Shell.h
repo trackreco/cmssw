@@ -182,6 +182,9 @@ namespace mkfit {
       int n_amb = 0;
     };
     int LoadSeederQuads(const char *file);
+    // A further quad set, e.g. the same seeding without the fake-score cut or without the dedup, into slot
+    // (0 or 1), for SeederGapStudy(); the main set stays the one LoadSeederQuads() read.
+    int LoadSeederQuadsAux(const char *file, int slot);
     int MakeSeederSeeds(EvCtx &ctx, int mode = 1);
     int MakeSeederSeeds(int mode = 1) { return MakeSeederSeeds(m_ctx, mode); }
     void ProcessEventSeeder(EvCtx &ctx, int mode = 1);
@@ -239,6 +242,17 @@ namespace mkfit {
     void SeederQuadAnatomy(EvCtx &ctx);
     void SeederQuadAnatomy() { SeederQuadAnatomy(m_ctx); }
     void SeederQuadAnatomyReport();
+
+    // Where the particles go: per selected sim track (val_eff's MTV selection), one line to the file opened by
+    // SeederGapOpen(): ev, label, region, pT, its distinct pixel layers, found by production's initialStep +
+    // highPtTripletStep and by the event's candidateTracks_ (val_eff's association, so with val_assoc_mtv(true) the
+    // MTV rule), the most hits of it in any quad of aux slot 0, aux slot 1 and the main set, the most in any seed
+    // after the iteration's cleaning (ctx.seeds), and the best hit fraction of it on a track it is the majority of.
+    // Call after ProcessEventSeeder() (and SelectTracksCMSSW(1)).
+    void SeederGapOpen(const char *file);
+    void SeederGapStudy(EvCtx &ctx);
+    void SeederGapStudy() { SeederGapStudy(m_ctx); }
+    void SeederGapClose();
 
     // CMSSW's MultiTrackSelector::select() with the phase-2 initialStepSelector parameter sets, on the
     // event's candidateTracks_, in place: level 1 loose (what the track merger keeps, so what
@@ -391,6 +405,8 @@ namespace mkfit {
 
     // LoadSeederQuads(): by event id (1-based, as GoToEvent())
     std::map<int, std::vector<SeederQuad>> m_seeder_quads;
+    std::map<int, std::vector<SeederQuad>> m_seeder_quads_aux[2];
+    FILE *m_gap_file = nullptr;
 
 #ifdef WITH_REVE
     ROOT::Experimental::REveManager *m_reve_mgr = nullptr;

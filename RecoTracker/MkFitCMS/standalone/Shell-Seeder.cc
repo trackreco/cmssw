@@ -42,6 +42,16 @@ namespace mkfit {
   // Reading the quads
   //===========================================================================
 
+  int Shell::LoadSeederQuadsAux(const char *file, int slot) {
+    if (slot < 0 || slot > 1)
+      return -1;
+    std::swap(m_seeder_quads, m_seeder_quads_aux[slot]);
+    m_seeder_quads.clear();
+    const int n = LoadSeederQuads(file);
+    std::swap(m_seeder_quads, m_seeder_quads_aux[slot]);
+    return n;
+  }
+
   int Shell::LoadSeederQuads(const char *file) {
     m_seeder_quads.clear();
     FILE *f = fopen(file, "r");
@@ -1462,6 +1472,155 @@ namespace mkfit {
           snprintf(name, sizeof(name), "%s %s", f ? "fake " : "found", kRegName[r]);
           row3(name, g_qa_true_seedcls[a][f][r], 4);
         }
+    }
+  }
+
+  //===========================================================================
+  // Where the particles go
+  //===========================================================================
+
+  void Shell::SeederGapOpen(const char *file) {
+    SeederGapClose();
+    m_gap_file = fopen(file, "w");
+    if (m_gap_file)
+      fprintf(m_gap_file,
+              "# ev label reg pt npixlay prod2_found our_found q_aux0 q_aux1 q_main seed_max best_frac\n"
+              "# q_*: the most hits of the sim track in any quad of that set; seed_max: in any seed after the iteration's"
+              " cleaning; best_frac: the best fraction of its hits on a track whose hit majority it is (-1: none)\n");
+  }
+
+  void Shell::SeederGapClose() {
+    if (m_gap_file)
+      fclose(m_gap_file);
+    m_gap_file = nullptr;
+  }
+
+  void Shell::SeederGapStudy(EvCtx &ctx) {
+    if (!m_gap_file)
+      return;
+    const Event &ev = *ctx.ev;
+    const int nsim = ev.simTracks_.size();
+    auto lab_of = [&](int l, int h) {
+      const int mcid = ev.layerHits_[l][h].mcHitID();
+      return mcid >= 0 ? ev.simHitsInfo_[mcid].mcTrackID() : -1;
+    };
+    // the most hits of each sim track in any quad of a set
+    auto quad_max = [&](const std::map<int, std::vector<SeederQuad>> &M, std::vector<int> &out) {
+      out.assign(nsim, 0);
+      auto it = M.find(ev.evtID());
+      if (it == M.end())
+        return;
+      for (const SeederQuad &q : it->second) {
+        int lab[4];
+        for (int k = 0; k < 4; ++k)
+          lab[k] = lab_of(q.l[k], q.h[k]);
+        for (int k = 0; k < 4; ++k) {
+          if (lab[k] < 0 || lab[k] >= nsim)
+            continue;
+          int n = 0;
+          for (int j = 0; j < 4; ++j)
+            n += lab[j] == lab[k];
+          out[lab[k]] = std::max(out[lab[k]], n);
+        }
+      }
+    };
+    std::vector<int> qa0, qa1, qm, smax(nsim, 0);
+    quad_max(m_seeder_quads_aux[0], qa0);
+    quad_max(m_seeder_quads_aux[1], qa1);
+    quad_max(m_seeder_quads, qm);
+    for (const Track &sd : ctx.seeds) {
+      std::map<int, int> cnt;
+      for (int k = 0; k < sd.nTotalHits(); ++k) {
+        const HitOnTrack hot = sd.getHitOnTrack(k);
+        if (hot.index >= 0 && hot.layer >= 0) {
+          const int l = lab_of(hot.layer, hot.index);
+          if (l >= 0 && l < nsim)
+            ++cnt[l];
+        }
+      }
+      for (const auto &[l, n] : cnt)
+        smax[l] = std::max(smax[l], n);
+    }
+    // the association of val_eff (as SeederDisplacedStudy)
+    std::map<std::pair<int, int>, std::vector<int>> hit2seed;
+    for (int i = 0; i < (int)ctx.seeds.size(); ++i)
+      for (int h = 0; h < ctx.seeds[i].nTotalHits(); ++h) {
+        const HitOnTrack hot = ctx.seeds[i].getHitOnTrack(h);
+        if (hot.index >= 0 && hot.layer >= 0)
+          hit2seed[{hot.layer, hot.index}].push_back(i);
+      }
+    auto sim_of = [&](const Track &t) {
+      std::map<int, int> shared;
+      for (int h = 0; h < t.nTotalHits(); ++h) {
+        const HitOnTrack hot = t.getHitOnTrack(h);
+        if (hot.index < 0 || hot.layer < 0)
+          continue;
+        auto it = hit2seed.find({hot.layer, hot.index});
+        if (it != hit2seed.end())
+          for (int i : it->second)
+            ++shared[i];
+      }
+      int best = -1, bn = 0;
+      for (const auto &[i, n] : shared)
+        if (n > bn) {
+          bn = n;
+          best = i;
+        }
+      TrackExtra extra(t.label());
+      if (best >= 0)
+        extra.findMatchingSeedHits(t, ctx.seeds[best], ev.layerHits_);
+      extra.setMCTrackIDInfo(t, ev.layerHits_, ev.simHitsInfo_, ev.simTracks_, false, false);
+      return extra.mcTrackID();
+    };
+    std::vector<char> ours(nsim, 0), prod(nsim, 0);
+    std::vector<float> best_frac(nsim, -1.f);
+    for (const Track &t : ev.candidateTracks_) {
+      const int mc = sim_of(t);
+      if (mc >= 0 && mc < nsim)
+        ours[mc] = 1;
+      std::map<int, int> votes;
+      int nv = 0;
+      for (int h = 0; h < t.nTotalHits(); ++h) {
+        const HitOnTrack hot = t.getHitOnTrack(h);
+        if (hot.index < 0 || hot.layer < 0)
+          continue;
+        ++nv;
+        const int l = lab_of(hot.layer, hot.index);
+        if (l >= 0 && l < nsim)
+          ++votes[l];
+      }
+      int maj = -1, nm = 0;
+      for (const auto &[l, n] : votes)
+        if (n > nm) {
+          nm = n;
+          maj = l;
+        }
+      if (maj >= 0 && nv > 0)
+        best_frac[maj] = std::max(best_frac[maj], float(nm) / nv);
+    }
+    for (const Track &t : ev.cmsswTracks_) {
+      if (t.algorithm() != TrackBase::TrackAlgorithm::initialStep &&
+          t.algorithm() != TrackBase::TrackAlgorithm::highPtTripletStep)
+        continue;
+      const int mc = sim_of(t);
+      if (mc >= 0 && mc < nsim)
+        prod[mc] = 1;
+    }
+    for (int L = 0; L < nsim; ++L) {
+      const Track &st = ev.simTracks_[L];
+      const float ae = std::abs(st.momEta()), pt = st.pT();
+      if (!st.isFindable() || std::hypot(st.x(), st.y()) > 3.5f || std::abs(st.z()) > 30.0f)
+        continue;
+      if (ae >= 2.5f || pt <= 0.9f || st.nUniqueLayers() < 4)
+        continue;
+      std::set<int> pix;
+      for (int i = 0; i < st.nTotalHits(); ++i) {
+        const HitOnTrack hot = st.getHitOnTrack(i);
+        if (hot.index >= 0 && hot.layer >= 0 && Config::TrkInfo[hot.layer].is_pixel())
+          pix.insert(hot.layer);
+      }
+      fprintf(m_gap_file, "%d %d %d %.4g %d %d %d %d %d %d %d %.3f\n", ev.evtID() - 1, L, reg_of(ae), pt, (int)pix.size(),
+              prod[L], ours[L], qa0[L], qa1[L], qm[L], smax[L], best_frac[L]);
     }
   }
 
