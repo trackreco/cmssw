@@ -30,3 +30,11 @@ The default of `seedsurf-v2p2.sh` is 2026-10-04 (maintainer, 2026-10-04); it was
   (`v2p2-seeds/loosen/README.md`).
 - Timed on phi3 (51 events, `v2p2-seeds/time-phi3/wp/README.md`): seeding 197.2 ms/ev, v2p2 on its quads 287.6 ms/ev;
   the seeds of 2026-10-02 191.4 and 270.2 ms/ev with this finder.
+
+## 2026-10-04-gapmap: candidate, not the default
+
+- Seeder: 2026-10-04 plus a start across B2 (B1 B3, `--chain-start-gap-barrel`) where the line crosses B2 in a gap
+  between modules (`--chain-gap-map 0.02`, SensorGapMap, margin 0.2 mm). Finder: as 2026-10-04.
+- Measured with CMSSW's loose selection, MTV rule, 30 events: 91.85 %, 832 fakes (barrel 93.89 %, production 94.08 %).
+- Timed on phi3: seeding 233.4 against 203.4 ms/ev for 2026-10-04 in the same job, v2p2 290.1 ms/ev
+  (`v2p2-seeds/time-phi3/wp/README.md`, third section; the study: `v2p2-seeds/adv/README.md`).
