@@ -26,3 +26,5 @@ A file that is absent means the plugin's default: no patch, no command.
 - Measured with CMSSW's loose selection after the finder, MTV rule, 30 events: 90.92 %, 829 fakes; the seeds of
   2026-10-02 with this finder 90.40 %, 840 fakes; production's initialStep + highPtTripletStep 92.90 %, 3665 fakes
   (`v2p2-seeds/loosen/README.md`).
+- Timed on phi3 (51 events, `v2p2-seeds/time-phi3/wp/README.md`): seeding 197.2 ms/ev, v2p2 on its quads 287.6 ms/ev;
+  the seeds of 2026-10-02 191.4 and 270.2 ms/ev with this finder.
