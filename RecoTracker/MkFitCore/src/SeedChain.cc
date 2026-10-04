@@ -18,7 +18,7 @@ namespace mkfit {
         if (o.env[e].id == order[p])
           env_of[p] = e;
     // start pairs: scan lines z0 in the beam region, |eta| 0-4.2 on this side
-    std::set<std::pair<int, int>> sp;
+    std::set<std::pair<int, int>> sp, gp;
     for (double z0 = P.bs_z - P.zv; z0 <= P.bs_z + P.zv + 1e-9; z0 += 0.5)
       for (double eta = 0; eta < 4.2; eta += 0.002) {
         const double cot = side * std::sinh(eta);
@@ -34,8 +34,19 @@ namespace mkfit {
         for (int i = 0; i <= hs && i < (int)seq.size(); ++i)
           for (int j = i + 1; j <= (lead_only ? i + 1 : i + 1 + hs - i) && j < (int)seq.size(); ++j)
             sp.insert({seq[i], seq[j]});
+        // start_gap: one crossing skipped between a and b, within the start's holes; with inner_ot_only the
+        // candidate must enter OT1-P, so also within the holes it may carry there
+        const int hg = inner_ot_only ? std::min(hs, max_holes_ot) : hs;
+        if (start_gap && lead_only)
+          for (int i = 0; i + 1 <= hg && i + 2 < (int)seq.size(); ++i)
+            if (start_gap == 1 || order[seq[i + 2]] < 4)
+              gp.insert({seq[i], seq[i + 2]});
       }
+    sp.insert(gp.begin(), gp.end());
     starts.assign(sp.begin(), sp.end());
+    start_gap_ok.assign(starts.size(), 0);
+    for (size_t si = 0; si < starts.size(); ++si)
+      start_gap_ok[si] = gp.count(starts[si]) > 0;
   }
 
   void SeedChain::build_params() {

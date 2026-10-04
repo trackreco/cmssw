@@ -45,6 +45,10 @@ namespace mkfit {
     const int ns = c.starts.size(), hs = c.start_holes < 0 ? c.max_holes : c.start_holes;
     std::vector<float> elo(ns, 1e30f), ehi(ns, -1e30f);
     std::vector<int> st(n);
+    int p_ot = -1;  // OT1-P's chain position, if present
+    for (int p = 0; p < n; ++p)
+      if (c.order[p] == 4)
+        p_ot = p;
     const float zlo = c.P.bs_z - c.P.zv, zhi = c.P.bs_z + c.P.zv;
     constexpr int kNz = 100, kNe = 2500;
     constexpr float kDe = 0.002f, kWiden = 0.02f;
@@ -64,7 +68,10 @@ namespace mkfit {
             const int d = st[h.first] == 2;
             holes += d, bt |= d & h.second;
           }
-          if ((c.lead_only && bt) || holes > hs)
+          if ((c.lead_only && bt && !c.start_gap_ok[si]) || holes > hs)
+            continue;
+          // a line across a start's gap carries a missed pixel hit: with inner_ot_only it must reach OT1-P
+          if (bt && c.inner_ot_only && (p_ot < 0 || st[p_ot] == 0 || holes > c.max_holes_ot))
             continue;
           bool next = false;
           for (int q = pb + 1; q < n && !next; ++q)
@@ -175,10 +182,15 @@ namespace mkfit {
     }
     states(env_[pa_], m, w_sa.data());
     states(env_[pb_], m, w_sb.data());
-    const int lead_only = Ch.lead_only;
+    // a start across a gap: a hole between a and b is allowed, and charged as a missed pixel hit (inner)
+    const int gap_ok = Ch.start_gap_ok[si];
+    const int lead_only = Ch.lead_only & !gap_ok;
+    int *__restrict inner = s;          // the states are consumed, reuse them
     int *__restrict shp = w_bt.data();  // bt is consumed here, reuse it
-    for (int i = 0; i < m; ++i)
+    for (int i = 0; i < m; ++i) {
+      inner[i] = gap_ok & bt[i];
       shp[i] = !(lead_only & bt[i]);
+    }
     if (shA || shB) {
       for (int i = 0; i < m; ++i) {
         const float ac = std::abs(w_cot[i]);
@@ -191,7 +203,8 @@ namespace mkfit {
     for (int i = 0; i < m; ++i) {
       const int good = shp[i] & (holes[i] <= hs) & (w_sa[i] > 0) & (w_sb[i] > 0);
       // compact the good lanes in place (g <= i)
-      w_z0[g] = w_z0[i], w_cot[g] = w_cot[i], holes[g] = holes[i], w_allow[g] = 0;
+      // inner moves to w_sa (read above for lane i, written for lane g <= i): route() takes w_s
+      w_z0[g] = w_z0[i], w_cot[g] = w_cot[i], holes[g] = holes[i], w_allow[g] = 0, w_sa[g] = inner[i];
       w_i0[g] = bka[i], w_i1[g] = bkb[i];
       g += good;
     }
@@ -200,7 +213,7 @@ namespace mkfit {
       Cand c;
       c.k[0] = w_i0[i], c.k[1] = w_i1[i], c.k[2] = 0;
       c.pos[0] = pa_, c.pos[1] = pb_, c.pos[2] = 0;
-      c.holes = w_holes[i], c.inner = 0;
+      c.holes = w_holes[i], c.inner = w_sa[i];
       c.z0 = w_z0[i], c.cot = w_cot[i], c.sc = 0;
       return c;
     });

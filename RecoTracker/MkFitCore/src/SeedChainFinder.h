@@ -406,7 +406,8 @@ namespace mkfit {
     }
     // The cot range of the lines each start pair can use: a scan of lines over the beam region (z0 in
     // steps of zv / 50, eta in steps of 0.002 up to 5) with the tests the flush and route() apply to a
-    // doublet -- a and b crossed, the holes before b, lead-only, and a pixel position after b crossed.
+    // doublet -- a and b crossed, the holes before b, lead-only, and a pixel position after b crossed;
+    // a line with a hole across a start's gap (SeedChain::start_gap) must also cross OT1-P with inner_ot_only.
     // The interval over the accepted lines is widened by 0.02 in eta; a range reaching eta 0 or 5 is
     // open there. A start pair no line can use gets an empty range and is skipped.
     void scan_starts();

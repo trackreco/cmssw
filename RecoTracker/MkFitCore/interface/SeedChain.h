@@ -276,11 +276,16 @@ namespace mkfit {
     int inner_ot_only = 0;  // 1: a candidate with a hole charged after its start (a missed pixel hit) may
                             // complete its quad only on an outer-tracker layer, so it needs OT1-P (and the
                             // OT2-P confirmation); the late starts are not affected. Batch finder only.
+    int start_gap = 0;  // 1: with lead_only, a start may also skip one crossed pixel layer between a and b
+                        // (B1 B3 for a missed B2); the skipped crossing counts as a missed pixel hit, as a
+                        // hole charged after the start, so inner_ot_only applies to it; 2: only where a and b
+                        // are both barrel pixel layers. Batch finder only.
     int side = 1;
     const SeedLayerEnvelopes *own = nullptr;
     std::vector<int> order;                   // mkFit layer ids, crossing order
     std::vector<int> env_of;                  // per chain position: index into own->env
     std::vector<std::pair<int, int>> starts;  // chain positions (a, b)
+    std::vector<char> start_gap_ok;           // per start: a and b may have a crossed pixel layer between them
     bool phases = false;                      // time the phases (costs a few % itself)
 
     static int mirror(int l) { return (l >= 16 && l <= 27) ? l + 22 : l; }
