@@ -1,0 +1,4 @@
+mkfit::Config::V2p2::Policy::flagged_min_added_hits = 4
+mkfit::Config::V2p2::Policy::flag_score_lo = 0.35f
+mkfit::Config::V2p2::Policy::flag_score_hi = 1e30f
+mkfit::Config::V2p2::Policy::flag_on_fake_score = true
