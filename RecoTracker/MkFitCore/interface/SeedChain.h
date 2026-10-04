@@ -33,6 +33,7 @@
 
 #include "RecoTracker/MkFitCore/interface/SeedStructures.h"
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
+#include "RecoTracker/MkFitCore/interface/SensorGapMap.h"
 
 #include <algorithm>
 #include <array>
@@ -280,6 +281,9 @@ namespace mkfit {
                         // (B1 B3 for a missed B2); the skipped crossing counts as a missed pixel hit, as a
                         // hole charged after the start, so inner_ot_only applies to it; 2: only where a and b
                         // are both barrel pixel layers. Batch finder only.
+    // with start_gap: where a lane of a gap start definitely crosses the skipped layer and the layer has a map,
+    // the segment between its two hits must cross that layer in a gap (SensorGapMap), or the lane is dropped
+    const SensorGapMap *gap_map = nullptr;
     int side = 1;
     const SeedLayerEnvelopes *own = nullptr;
     std::vector<int> order;                   // mkFit layer ids, crossing order

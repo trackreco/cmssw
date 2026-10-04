@@ -37,6 +37,19 @@ namespace mkfit {
           hole_pos_[si].push_back({q, q > c.starts[si].first});
     Q2_.assign(n, {});
     Q3_.assign(n, {});
+    // the gap map's skipped layer per gap start, where there is exactly one with a map
+    gap_lid_.assign(c.starts.size(), -1);
+    if (c.gap_map)
+      for (size_t si = 0; si < c.starts.size(); ++si) {
+        if (!c.start_gap_ok[si])
+          continue;
+        int nl = 0, lid = -1;
+        for (const auto &h : hole_pos_[si])
+          if (h.second && c.gap_map->has_map(c.order[h.first]))
+            ++nl, lid = c.order[h.first];
+        if (nl == 1)
+          gap_lid_[si] = lid;
+      }
     scan_starts();
   }
 
@@ -139,6 +152,20 @@ namespace mkfit {
         lay_[p] = it->second;
     auto it = L.find(6);
     lay_ot2_ = it == L.end() ? nullptr : it->second;
+    // the gap map's ray tables, in this event's beam frame
+    if (C->gap_map) {
+      const SeedLayerOfHits *any = nullptr;
+      for (const SeedLayerOfHits *l : lay_)
+        if (l && !any)
+          any = l;
+      if (any)
+        for (int lid : gap_lid_)
+          if (lid >= 0) {
+            GapRay &g = gap_ray_[lid];
+            // the ray's phi is the line's beam-frame phi at r_mid: +-0.02 cm of edge tolerance on top of the margin
+            C->gap_map->ray_table(lid, any->m_bs.x, any->m_bs.y, kGapNphi, C->gap_map->margin() + 0.02f, g.r1, g.r2, g.edge);
+          }
+    }
   }
 
   void SeedChainFinder::link(SeedChainFinder &m) {
@@ -182,6 +209,34 @@ namespace mkfit {
     }
     states(env_[pa_], m, w_sa.data());
     states(env_[pb_], m, w_sb.data());
+    // the gap map: a lane that definitely crosses a skipped layer with a map must cross it in a gap
+    int *__restrict gv = w_gv.data();
+    for (int i = 0; i < m; ++i)
+      gv[i] = 1;
+    if (Ch.start_gap_ok[si] && Ch.gap_map && gap_lid_[si] < 0) {
+      const BeamSpot &bs = A->m_bs;
+      int *__restrict sq = w_nq.data();  // route() sets w_nq later
+      for (const auto &h : hole_pos_[si]) {
+        const int lid = Ch.order[h.first];
+        if (!h.second || !Ch.gap_map->has_map(lid))
+          continue;
+        states(env_[h.first], m, sq);
+        for (int i = 0; i < m; ++i) {
+          if (sq[i] != 2 || !gv[i])
+            continue;
+          const unsigned ka = bka[i], kb = bkb[i];
+          const float za = A->m_z[ka], zb = B->m_z[kb];
+          const float a[3] = {A->m_x[ka] + bs.x + bs.dxdz * (za - bs.z), A->m_y[ka] + bs.y + bs.dydz * (za - bs.z), za};
+          const float b[3] = {B->m_x[kb] + bs.x + bs.dxdz * (zb - bs.z), B->m_y[kb] + bs.y + bs.dydz * (zb - bs.z), zb};
+          // the phi at the layer's r_mid from the hits' beam-line phi and r, linear in r
+          const float rm = Ch.gap_map->r_mid(lid), ra = A->m_r[ka], rb = B->m_r[kb];
+          const float pm = A->m_phi[ka] + SeedLayerOfHits::wrap(B->m_phi[kb] - A->m_phi[ka]) * (rm - ra) / (rb - ra);
+          ++n_gap_tested;
+          if (!Ch.gap_map->segment_in_gap(lid, a, b, SeedLayerOfHits::wrap(pm)))
+            gv[i] = 0, ++n_gap_veto;
+        }
+      }
+    }
     // a start across a gap: a hole between a and b is allowed, and charged as a missed pixel hit (inner)
     const int gap_ok = Ch.start_gap_ok[si];
     const int lead_only = Ch.lead_only & !gap_ok;
@@ -201,7 +256,7 @@ namespace mkfit {
     }
     int g = 0;
     for (int i = 0; i < m; ++i) {
-      const int good = shp[i] & (holes[i] <= hs) & (w_sa[i] > 0) & (w_sb[i] > 0);
+      const int good = shp[i] & gv[i] & (holes[i] <= hs) & (w_sa[i] > 0) & (w_sb[i] > 0);
       // compact the good lanes in place (g <= i)
       // inner moves to w_sa (read above for lane i, written for lane g <= i): route() takes w_s
       w_z0[g] = w_z0[i], w_cot[g] = w_cot[i], holes[g] = holes[i], w_allow[g] = 0, w_sa[g] = inner[i];
@@ -258,6 +313,18 @@ namespace mkfit {
       const float zlo = P.bs_z - P.zv, zhi = P.bs_z + P.zv, side = Ch.side;
       const float clo0 = clo[0], chi0 = chi[0], clo1 = clo[1], chi1 = chi[1];
       const float *bphi = B->m_phi.data(), *br = B->m_r.data(), *bz = B->m_z.data(), *bir = B->m_invr.data();
+      // the gap map of this start (the mirror's start skips the same barrel layer)
+      const int g_lid = gap_lid_.empty() ? -1 : gap_lid_[si];
+      const float *g_r1 = nullptr, *g_r2 = nullptr, g_pfac = kGapNphi / k2Pi;
+      const unsigned char *g_edge = nullptr, *g_zg = nullptr;
+      float g_rm = 0, g_z0 = 0, g_izc = 1.0f / SensorGapMap::c_dz;
+      int g_nz = 0;
+      if (g_lid >= 0) {
+        const GapRay &g = gap_ray_[g_lid];
+        g_r1 = g.r1.data(), g_r2 = g.r2.data(), g_edge = g.edge.data();
+        g_zg = Ch.gap_map->zgap(g_lid).data(), g_nz = Ch.gap_map->zgap(g_lid).size();
+        g_rm = Ch.gap_map->r_mid(g_lid), g_z0 = Ch.gap_map->zgap_z0(g_lid);
+      }
       for (unsigned int ka = 0; ka < A->n(); ++ka) {
         const seedchain::P3 ha = seedchain::p3(*A, ka);
         seedchain::BFetch fe;
@@ -289,6 +356,7 @@ namespace mkfit {
             fe.p = seedchain::phi_bins_d(*B, ha.phi(), seedchain::b_window(P, ha.r(), hi + 0.01f) + P.marg_b);
         }
         B->for_each_run(fe.p, fe.q, [&](unsigned int b, unsigned int e) {
+          // the gap map: a pair of a gap start must cross the skipped layer in a gap (vectorisable; see gap_lid_)
           for (unsigned int i0 = b; i0 < e; i0 += 64) {
             const unsigned int nk = std::min(64u, e - i0);
             if (nb[0] + (int)nk > kCap)
@@ -313,6 +381,28 @@ namespace mkfit {
               const int in0 = (cot >= clo0) & (cot <= chi0), in1 = (cot >= clo1) & (cot <= chi1);
               msk[j] = cut + ((cut & sd & in0) << 1) + ((cut & !sd & in1) << 2);
               lct[j] = cot, lz0[j] = za - cot * ra;
+            }
+            if (g_lid >= 0) {
+              int ndrop = 0;
+              for (unsigned int j = 0; j < nk; ++j) {
+                const unsigned int i = i0 + j;
+                const float dr = br[i] - ra;
+                float dp = bphi[i] - pa;
+                dp = dp > kPi ? dp - k2Pi : dp;
+                dp = dp < -kPi ? dp + k2Pi : dp;
+                float ph = pa + dp * (g_rm - ra) / (dr > 0.1f ? dr : 1.0f);
+                ph = ph > kPi ? ph - k2Pi : ph;
+                ph = ph < -kPi ? ph + k2Pi : ph;
+                int pbn = (int)((ph + kPi) * g_pfac);
+                pbn = pbn < 0 ? 0 : pbn >= kGapNphi ? kGapNphi - 1 : pbn;
+                const float z1 = za + lct[j] * (g_r1[pbn] - ra), z2 = za + lct[j] * (g_r2[pbn] - ra);
+                const int k1 = (int)std::floor((z1 - g_z0) * g_izc), k2 = (int)std::floor((z2 - g_z0) * g_izc);
+                const int in1g = (k1 < 0) | (k1 >= g_nz) || g_zg[k1], in2g = (k2 < 0) | (k2 >= g_nz) || g_zg[k2];
+                const int ok = g_edge[pbn] | in1g | in2g;
+                ndrop += (msk[j] & 1) & !ok;
+                msk[j] = ok ? msk[j] : 0;
+              }
+              n_gap_pre += ndrop;
             }
             int nd = 0, g0 = nb[0], g1 = nb[1];
             for (unsigned int j = 0; j < nk; ++j) {

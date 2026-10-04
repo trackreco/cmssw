@@ -18,13 +18,14 @@
 //                      better = fewer outer-tracker layers in the pattern, then smaller
 //                      (dq_c/q_c)^2 + (dphi_d/w_phi_d)^2 + (dq_d/w_q_d)^2
 //        [--bind CM]   labels bound to geometry: needs SimHitStates in the sample
-//        [--chain H] [--chain-holes-ot K] [--chain-hole-always] [--chain-any] [--chain-start-holes K] [--chain-lead-only] [--chain-inner-ot-only] [--chain-start-gap] [--chain-start-gap-barrel] [--chain-fast] [--chain-batch] [--chain-fast-check] [--chain-phases]   the feed-forward chain (SurfChain) in
+//        [--chain H] [--chain-holes-ot K] [--chain-hole-always] [--chain-any] [--chain-start-holes K] [--chain-lead-only] [--chain-inner-ot-only] [--chain-start-gap] [--chain-start-gap-barrel] [--chain-gap-map M] [--chain-fast] [--chain-batch] [--chain-fast-check] [--chain-phases]   the feed-forward chain (SurfChain) in
 //                      place of the pattern list; the patterns then give window tables and the denominator;
 //                      --chain-batch runs the batched float finder (SeedSurfBatch.h) on the same configuration;
 //                      --chain-batch-d N its stage d prediction: 0 direct from hit c, 1 one-point cubic, 2 two-point Hermite
 //                      --chain-start-gap (batch only, with --chain-lead-only): a start may also skip one crossed pixel
 //                      layer between a and b (B1 B3 for a missed B2), charged as a missed pixel hit;
-//                      --chain-start-gap-barrel only where a and b are both barrel pixel layers
+//                      --chain-start-gap-barrel only where a and b are both barrel pixel layers; --chain-gap-map M: a lane
+//                      of a gap start must cross the skipped layer in a gap between modules (SensorGapMap, margin M cm)
 //        [--beam-spot-origin]   x, y, r, phi from the origin instead of the sample's beam spot
 //        [--truth OUT.txt] [--resid OUT.txt] [--dump quads.txt] [--quad-dump OUT.txt] [--eta-max E]
 //        [--seeds OUT.txt]   the quads kept by the cleaning, as seeds for the track finding (Shell::LoadSeederQuads):
@@ -60,6 +61,7 @@
 
 #include "SeedSurf.h"
 #include "SeedSurfBatch.h"
+#include "RecoTracker/MkFitCore/interface/SensorGapMap.h"
 #include "RecoTracker/MkFitCore/interface/MkSeeder.h"
 
 #include "RecoTracker/MkFitCore/interface/Config.h"
@@ -166,6 +168,7 @@ int main(int argc, char *argv[]) {
   int chain_holes = -1;    // >= 0: the feed-forward chain (SurfChain) instead of the patterns, this many holes
   int chain_hole_always = 0, chain_holes_ot = 0, chain_any = 0, chain_start_holes = -1, chain_lead_only = 0;
   int chain_inner_ot_only = 0, chain_start_gap = 0;
+  float chain_gap_map = -1;  // the gap map's margin in cm; < 0: no map
   int chain_fast = 0;  // --chain-fast: the float kernels (K2) in the chain
   int chain_batch = 0; // --chain-batch: the batched float finder (SurfChainBatch)
   int chain_batch_d = 0; // --chain-batch-d: its stage d prediction (0 direct, 1 one-point cubic, 2 two-point Hermite)
@@ -298,6 +301,8 @@ int main(int argc, char *argv[]) {
       chain_start_gap = 1;
     else if (a == "--chain-start-gap-barrel")
       chain_start_gap = 2;
+    else if (a == "--chain-gap-map")
+      chain_gap_map = atof(next());
     else if (a == "--chain-fast")
       chain_fast = 1;
     else if (a == "--chain-batch")
@@ -401,6 +406,12 @@ int main(int argc, char *argv[]) {
   Config::geomPlugin = geom;
   execTrackerInfoCreatorPlugin(Config::geomPlugin, Config::TrkInfo, Config::ItrInfo);
   const TrackerInfo &ti = Config::TrkInfo;
+  SensorGapMap gap_map;
+  if (chain_gap_map >= 0) {
+    gap_map.build(ti, chain_gap_map);
+    printf("[seedsurf] GAP MAP: margin %.4f cm; ladders of the pixel barrel layers %d %d %d %d\n", chain_gap_map,
+           gap_map.n_ladders(0), gap_map.n_ladders(1), gap_map.n_ladders(2), gap_map.n_ladders(3));
+  }
   DataFile df;
   const int n_in_file = df.openRead(input, ti.n_layers(), ti.geom_version());
   if (first_event > 0) {
@@ -459,6 +470,7 @@ int main(int argc, char *argv[]) {
       C.lead_only = chain_lead_only;
       C.inner_ot_only = chain_inner_ot_only;
       C.start_gap = chain_start_gap;
+      C.gap_map = chain_gap_map >= 0 ? &gap_map : nullptr;
       C.fast = chain_fast;
       C.phases = chain_phases;
       C.setup(OWN, sd == 0 ? 1 : -1, have);
@@ -1212,6 +1224,11 @@ int main(int argc, char *argv[]) {
            " %.1f OT1-P-d quads tested on OT2-P of which %.1f cut\n", fk_score, fk_shape ? "on" : "off", fk_ot2,
            (CB[0]->n_fk_shape + CB[1]->n_fk_shape) / (double)n_events, (CB[0]->n_ot2_tested + CB[1]->n_ot2_tested) / (double)n_events,
            (CB[0]->n_fk_ot2 + CB[1]->n_fk_ot2) / (double)n_events);
+  if (chain_batch && chain_gap_map >= 0)
+    printf("[seedsurf] GAP MAP (batch): per event %.1f gap-start pairs dropped in the doublet loop; %.1f doublets tested in"
+           " flush_start, %.1f dropped (crossing on a module)\n",
+           (CB[0]->n_gap_pre + CB[1]->n_gap_pre) / (double)n_events, (CB[0]->n_gap_tested + CB[1]->n_gap_tested) / (double)n_events,
+           (CB[0]->n_gap_veto + CB[1]->n_gap_veto) / (double)n_events);
   if (attach_ot1 > 0)
     printf("[seedsurf] ATTACH OT1-P x%g: %.1f kept quads with a pixel d per event, %.1f in OT1-P acceptance, %.1f get a hit;"
            " of %.1f true ones that reach it %.3f get one, and it is the track's own in %.3f; %.3f ms/ev\n",

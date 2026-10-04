@@ -155,6 +155,8 @@ namespace mkfit {
     // with m_with_double; without it the finders take the float r and phi
     std::vector<double> m_pr, m_pphi;
     bool m_with_double = true;
+    // the beam spot of the last fill(): m_x, m_y are relative to the beam line at the hit's z
+    BeamSpot m_bs;
 
   private:
     static unsigned int nq(double lo, double hi, double bin);

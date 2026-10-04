@@ -30,6 +30,7 @@ namespace mkfit {
 
   void SeedLayerOfHits::fill(const HitVec &hits, const BeamSpot &bs) {
     m_n = hits.size();
+    m_bs = bs;
     // phi and r from the beam line at the hit's z, by Hit::phi()'s and Hit::r()'s own expressions, so a
     // beam spot at the origin with no slope gives exactly the hit's own phi and r
     m_tmp_phi.resize(m_n);

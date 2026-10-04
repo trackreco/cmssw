@@ -383,6 +383,17 @@ namespace mkfit {
     // and the q97 of true quads above 3 GeV is 1.31 mrad (events 0-39)
     float ot2_phimin = 1.31e-3f;
     long n_fk_shape = 0, n_fk_ot2 = 0, n_ot2_tested = 0;
+    long n_gap_tested = 0, n_gap_veto = 0;  // gap-start lanes tested on the gap map in flush_start(), and dropped
+    long n_gap_pre = 0;                      // gap-start pairs dropped by the gap map in the doublet loop
+    // The gap map in the doublet loop: per start, the one skipped layer with a map (else -1), and per such layer
+    // the event's ray table in the beam frame (SensorGapMap::ray_table())
+    std::vector<int> gap_lid_;
+    struct GapRay {
+      std::vector<float> r1, r2;
+      std::vector<unsigned char> edge;
+    };
+    std::map<int, GapRay> gap_ray_;
+    static constexpr int kGapNphi = 2048;
 
     // --chain-fast-check: called for every hit stage d predicts, with the candidate, the layers, the target's
     // kind and qbar, and the float prediction (ok, x, y, q) with its windows (wq, wphi); while it is set,
@@ -417,13 +428,13 @@ namespace mkfit {
     // so the crossing tests run over the lanes with no division and no branch.
     // Everything per lane is float or int32, which the vectorizer takes with -mavx.
     std::vector<float> w_z0, w_cot, w_ic, w_zr;
-    std::vector<int> w_allow, w_st, w_holes, w_bt, w_s, w_sa, w_sb, w_nq;
+    std::vector<int> w_allow, w_st, w_holes, w_bt, w_s, w_sa, w_sb, w_nq, w_gv;
     std::vector<unsigned int> w_i0, w_i1;  // per lane: hit or candidate indices (meaning per stage)
     void work(size_t m) {
       if (w_z0.size() < m) {
         for (auto *v : {&w_z0, &w_cot, &w_ic, &w_zr})
           v->resize(m);
-        for (auto *v : {&w_allow, &w_st, &w_holes, &w_bt, &w_s, &w_sa, &w_sb, &w_nq})
+        for (auto *v : {&w_allow, &w_st, &w_holes, &w_bt, &w_s, &w_sa, &w_sb, &w_nq, &w_gv})
           v->resize(m);
         w_i0.resize(m), w_i1.resize(m);
       }
