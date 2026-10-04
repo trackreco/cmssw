@@ -7,7 +7,7 @@ measured with. A working point is never edited once measured; a change makes a n
 |---|---|---|
 | `seedsurf.opts` | seedsurf options on top of `seedsurf-chain.sh`; a token `@path` is replaced by that file (relative to `seeding/`) | `seedsurf-v2p2.sh` (`WP=`), `wp/opts.sh` |
 | `finder.json` | the `--json-patch` of mkFit's iteration 0 | the drivers in `cmssw_20_mkseed/v2p2-seeds/` (`FWP=`) |
-| `finder.shell` | Shell commands, one per line, run before the first event | as above |
+| `finder.shell` | Shell commands, one per line, run before the first event; compiled Shell setters only, since cling does not resolve `Config::V2p2` | as above |
 
 A file that is absent means the plugin's default: no patch, no command.
 
@@ -23,5 +23,6 @@ A file that is absent means the plugin's default: no patch, no command.
 - Seeder: as 2026-10-02 with S < 1.5 where |eta| < 1.7.
 - Finder: production's track scorer `phase1:default`; a final track whose seed has a fake score >= 0.35 is kept only
   with >= 4 hits added to the seed's (`StdSeq::remove_flagged_seed_tracks`).
-- Measured, MTV rule, 30 events: 90.92 %, 829 fakes; the seeds of 2026-10-02 with this finder 90.40 %, 840 fakes;
-  production's initialStep + highPtTripletStep 92.90 %, 3665 fakes (`v2p2-seeds/loosen/README.md`).
+- Measured with CMSSW's loose selection after the finder, MTV rule, 30 events: 90.92 %, 829 fakes; the seeds of
+  2026-10-02 with this finder 90.40 %, 840 fakes; production's initialStep + highPtTripletStep 92.90 %, 3665 fakes
+  (`v2p2-seeds/loosen/README.md`).

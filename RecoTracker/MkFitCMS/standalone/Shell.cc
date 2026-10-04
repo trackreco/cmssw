@@ -542,6 +542,15 @@ namespace mkfit {
   void Shell::SetCleanSeeds(bool b) { m_clean_seeds = b; }
   void Shell::SetBackwardFit(bool b) { m_backward_fit = b; }
   void Shell::SetBackwardSearch(bool b) { m_backward_search = b; }
+  void Shell::SetFlaggedSeedCut(int min_added_hits, float score_lo, float score_hi, bool on_fake_score) {
+    namespace po = Config::V2p2::Policy;
+    po::flagged_min_added_hits = min_added_hits;
+    po::flag_score_lo = score_lo;
+    po::flag_score_hi = score_hi;
+    po::flag_on_fake_score = on_fake_score;
+    printf("Shell::SetFlaggedSeedCut: %s score in [%g, %g) needs >= %d added hits (0 = off)\n",
+           on_fake_score ? "fake" : "cleaning", score_lo, score_hi, min_added_hits);
+  }
   void Shell::SetRemoveDuplicates(bool b) { m_remove_duplicates = b; }
   void Shell::SetUseDeadModules(bool b) { Config::useDeadModules = b; }
   void Shell::SetUseV2p2(bool b) { Config::mimiUseV2p2 = b; }

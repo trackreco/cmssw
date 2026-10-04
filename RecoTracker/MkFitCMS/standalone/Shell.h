@@ -129,6 +129,9 @@ namespace mkfit {
     void SetCleanSeeds(bool b);
     void SetBackwardFit(bool b);
     void SetBackwardSearch(bool b);
+    // The flagged-seed cut (Config::V2p2::Policy, StdSeq::remove_flagged_seed_tracks): a final track whose seed's
+    // score is in [score_lo, score_hi) needs min_added_hits found hits beyond the seed's; 0 turns it off.
+    void SetFlaggedSeedCut(int min_added_hits, float score_lo, float score_hi, bool on_fake_score);
     void SetRemoveDuplicates(bool b);
     void SetUseDeadModules(bool b);
     void SetUseV2p2(bool b);
