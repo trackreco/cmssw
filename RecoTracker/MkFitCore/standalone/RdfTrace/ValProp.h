@@ -134,6 +134,9 @@ namespace mkfit {
   void val_eff_signal_only(bool on);
   void val_final_beam(bool on);
   void val_final_beam_report();
+  void val_dupclean(bool on);
+  void val_dupclean_event(const Event *ev);
+  void val_dupclean_report();
   void val_hit_eff(float fwd, float bkw);
   void val_rho_in_window(bool on);
   void val_rho_region(int region);

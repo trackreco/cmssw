@@ -100,6 +100,15 @@ namespace mkfit {
   void v2p2_final_beam_diag_reset();
   void v2p2_final_beam_diag_report();
 
+  // Diag::dupclean_pairs: each pair clean_duplicates_sharedhits_pixelseed() marks, kept
+  // and dropped track, by the dR rule (0) or the shared-hit rule (1). Recorded in the
+  // cleaner, classified by truth per event in v2p2_dupclean_diag().
+  class Track;
+  void v2p2_dupclean_record(const Track &kept, const Track &dropped, int rule);
+  void v2p2_dupclean_diag(const Event *ev);
+  void v2p2_dupclean_diag_reset();
+  void v2p2_dupclean_diag_report();
+
 }  // namespace mkfit
 
 #endif

@@ -8,6 +8,11 @@
 
 #include "RecoTracker/MkFitCore/interface/binnor.h"
 
+#if defined(MKFIT_STANDALONE)
+#include "RecoTracker/MkFitCore/src/V2p2Config.h"
+#include "RecoTracker/MkFitCore/standalone/V2p2Diag.h"
+#endif
+
 #include <algorithm>
 #include <cstdint>
 #include <vector>
@@ -592,6 +597,10 @@ namespace mkfit {
             track2.setDuplicateValue(true);
           else
             trk.setDuplicateValue(true);
+#if defined(MKFIT_STANDALONE)
+          if (Config::V2p2::Diag::dupclean_pairs)
+            trk.score() > track2.score() ? v2p2_dupclean_record(trk, track2, 0) : v2p2_dupclean_record(track2, trk, 0);
+#endif
           return;
         }
 
@@ -608,6 +617,10 @@ namespace mkfit {
             track2.setDuplicateValue(true);
           else
             trk.setDuplicateValue(true);
+#if defined(MKFIT_STANDALONE)
+          if (Config::V2p2::Diag::dupclean_pairs)
+            trk.score() > track2.score() ? v2p2_dupclean_record(trk, track2, 1) : v2p2_dupclean_record(track2, trk, 1);
+#endif
         }
       }
     }  // namespace

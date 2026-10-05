@@ -759,4 +759,142 @@ namespace mkfit {
     }
   }
 
+  //==============================================================================
+  // Diag::dupclean_pairs: the pixel-seed duplicate cleaner's decisions against truth
+  //==============================================================================
+
+  // Each pair the cleaner marks: the track it kept and the one it dropped. A track is
+  // clean when more than 3/4 of its found hits are one particle's (the MTV rule, all
+  // hits counted). When exactly one of the two is clean, the rules below say which one
+  // they would have kept, from what the cleaner can see on a Track.
+  namespace {
+    struct DcTrk {
+      std::vector<std::pair<int, int>> hits;  // (layer, index) of found hits
+      int nfound, nholes, ntail;
+      float chi2, pt, eta, score;
+    };
+    struct DcPair {
+      DcTrk kept, dropped;
+      int rule;
+    };
+    std::vector<DcPair> g_dc_pending;
+
+    constexpr int DC_NP = 3;  // populations by the kept track: all, 1.7-2.7 pT < 0.9, 1.7-2.7 pT >= 0.9
+    constexpr int DC_NC = 5;  // same particle, two particles, kept clean, kept dirty, both dirty
+    constexpr int DC_NR = 6;  // alternative rules, see dc_rule_names
+    const char *dc_class_names[DC_NC] = {
+        "both clean, same particle", "both clean, two particles", "kept clean, dropped dirty",
+        "kept dirty, dropped clean", "both dirty"};
+    const char *dc_rule_names[DC_NR] = {"score (the cleaner)",  "more found hits",
+                                        "fewer inside holes",   "lower chi2",
+                                        "lower chi2 / hit",     "more hits, then chi2"};
+    long g_dc_n[DC_NP][2][DC_NC] = {};      // [pop][rule dR / shared][class]
+    double g_dc_keep_clean[DC_NP][DC_NR] = {};  // on mixed pairs, ties count 0.5
+    long g_dc_mixed[DC_NP] = {};
+    long g_dc_events = 0;
+
+    // +1: the rule keeps a, -1: b, 0: tie.
+    int dc_rule(int r, const DcTrk &a, const DcTrk &b) {
+      auto cmp = [](float x, float y) { return x > y ? 1 : (x < y ? -1 : 0); };
+      const float ca = a.nfound > 0 ? a.chi2 / a.nfound : 0.f, cb = b.nfound > 0 ? b.chi2 / b.nfound : 0.f;
+      switch (r) {
+        case 0: return cmp(a.score, b.score);
+        case 1: return cmp(a.nfound, b.nfound);
+        case 2: return cmp(b.nholes, a.nholes);
+        case 3: return cmp(b.chi2, a.chi2);
+        case 4: return cmp(cb, ca);
+        default: {
+          const int c = cmp(a.nfound, b.nfound);
+          return c != 0 ? c : cmp(b.chi2, a.chi2);
+        }
+      }
+    }
+
+    DcTrk dc_trk(const Track &t) {
+      DcTrk d;
+      for (int h = 0; h < t.nTotalHits(); ++h)
+        if (t.getHitIdx(h) >= 0) d.hits.emplace_back(t.getHitLyr(h), t.getHitIdx(h));
+      d.nfound = t.nFoundHits();
+      d.nholes = t.nInsideMinusOneHits();
+      d.ntail = t.nTailMinusOneHits();
+      d.chi2 = t.chi2();
+      d.pt = t.pT();
+      d.eta = t.momEta();
+      d.score = t.score();
+      return d;
+    }
+  }  // namespace
+
+  void v2p2_dupclean_record(const Track &kept, const Track &dropped, int rule) {
+    g_dc_pending.push_back({dc_trk(kept), dc_trk(dropped), rule});
+  }
+
+  void v2p2_dupclean_diag(const Event *ev) {
+    auto label_of = [&](int lyr, int idx) {
+      const int id = ev->layerHits_[lyr][idx].mcHitID();
+      return id >= 0 ? ev->simHitsInfo_[id].mcTrackID() : -1;
+    };
+    // Majority particle and whether it holds more than 3/4 of the found hits.
+    auto truth = [&](const DcTrk &t, int &L) {
+      std::map<int, int> cnt;
+      for (auto &[l, i] : t.hits) {
+        const int lab = label_of(l, i);
+        if (lab >= 0) ++cnt[lab];
+      }
+      int nL = 0;
+      L = -1;
+      for (auto &[l, c] : cnt)
+        if (c > nL) { L = l; nL = c; }
+      return 4 * nL > 3 * (int)t.hits.size();
+    };
+    ++g_dc_events;
+    for (const DcPair &p : g_dc_pending) {
+      int lk, ld;
+      const bool ck = truth(p.kept, lk), cd = truth(p.dropped, ld);
+      const int cls = ck && cd ? (lk == ld ? 0 : 1) : ck ? 2 : cd ? 3 : 4;
+      const float aeta = std::abs(p.kept.eta);
+      const int pops[2] = {0, aeta >= 1.7f && aeta < 2.7f ? (p.kept.pt < 0.9f ? 1 : 2) : -1};
+      for (int k : pops) {
+        if (k < 0) continue;
+        ++g_dc_n[k][p.rule][cls];
+        if (cls == 2 || cls == 3) {
+          ++g_dc_mixed[k];
+          const DcTrk &cl = cls == 2 ? p.kept : p.dropped, &di = cls == 2 ? p.dropped : p.kept;
+          for (int r = 0; r < DC_NR; ++r) {
+            const int c = dc_rule(r, cl, di);
+            g_dc_keep_clean[k][r] += c > 0 ? 1.0 : (c == 0 ? 0.5 : 0.0);
+          }
+        }
+      }
+    }
+    g_dc_pending.clear();
+  }
+
+  void v2p2_dupclean_diag_reset() {
+    g_dc_pending.clear();
+    for (auto &a : g_dc_n) for (auto &b : a) for (auto &c : b) c = 0;
+    for (auto &a : g_dc_keep_clean) for (auto &b : a) b = 0;
+    for (auto &a : g_dc_mixed) a = 0;
+    g_dc_events = 0;
+  }
+
+  void v2p2_dupclean_diag_report() {
+    const char *pn[DC_NP] = {"all pairs", "kept 1.7-2.7 pT < 0.9", "kept 1.7-2.7 pT >= 0.9"};
+    printf("\nDUPLICATE CLEANER DECISIONS, clean_duplicates_sharedhits_pixelseed, %ld events (clean = > 3/4\n"
+           "of the found hits from one particle). Each marked pair, by the dR rule and the shared-hit rule;\n"
+           "on mixed pairs (one clean), how often each rule keeps the clean one (ties 0.5).\n",
+           g_dc_events);
+    for (int k = 0; k < DC_NP; ++k) {
+      long tot[2] = {0, 0};
+      for (int r = 0; r < 2; ++r) for (int c = 0; c < DC_NC; ++c) tot[r] += g_dc_n[k][r][c];
+      printf("  %-24s  pairs dR %ld, shared %ld\n", pn[k], tot[0], tot[1]);
+      for (int c = 0; c < DC_NC; ++c)
+        printf("    %-28s dR %7ld  shared %7ld\n", dc_class_names[c], g_dc_n[k][0][c], g_dc_n[k][1][c]);
+      printf("    mixed pairs %ld, kept the clean one:\n", g_dc_mixed[k]);
+      for (int r = 0; r < DC_NR; ++r)
+        printf("      %-24s %6.2f %%\n", dc_rule_names[r],
+               g_dc_mixed[k] > 0 ? 100.0 * g_dc_keep_clean[k][r] / g_dc_mixed[k] : 0.0);
+    }
+  }
+
 }  // namespace mkfit
