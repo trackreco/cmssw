@@ -155,7 +155,7 @@ namespace mkfit {
           trk.setCharge(m_Chg[i]);
           trk.setChi2(m_Chi2[i]);
           if (isFinite(trk.chi2())) {
-            trk.setScore(getScoreCand(m_steering_params->m_track_scorer, trk));
+            trk.setScore(getScoreCand(m_steering_params->m_post_bkfit_track_scorer, trk));
           }
         } else {
           // Prepare the next hit and module info.

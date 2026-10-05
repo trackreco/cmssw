@@ -66,6 +66,25 @@ namespace mkfit {
 
   CMS_SA_ALLOW ExecutionContext g_exe_ctx;
 
+  //==============================================================================
+  // Track scorers of MkFinderV2p2
+  //==============================================================================
+
+  namespace {
+    // For the final pick of the forward search, where score_in is the summed
+    // layer-step score of the search (V2p2Score.h). Compares candidates of one
+    // seed only: the score carries the seed's own score from importSeed().
+    float trackScoreV2p2Llh(const TrackScoreInput &in) {
+      namespace po = Config::V2p2::Policy;
+      return in.score_in - po::final_pick_hole_penalty * in.n_inside_holes -
+             po::final_pick_tail_penalty * in.n_tail_holes;
+    }
+
+    CMS_SA_ALLOW struct register_v2p2_track_scorers {
+      register_v2p2_track_scorers() { IterationConfig::register_track_scorer("v2p2:llh", trackScoreV2p2Llh); }
+    } rv2p2ts_instance;
+  }  // namespace
+
 }  // end namespace mkfit
 
 //------------------------------------------------------------------------------
@@ -898,25 +917,13 @@ namespace mkfit {
           if (Config::V2p2::Diag::final_beam_purity && iteration_dir == SteeringParams::IT_FwdSearch)
             v2p2_final_pick_record(eoccs[iseed]);
 #endif
-          if (Config::V2p2::Policy::final_pick_llh && iteration_dir == SteeringParams::IT_FwdSearch) {
-            // score() still holds the summed layer-step score of the search.
-            namespace po = Config::V2p2::Policy;
-            auto final_score = [](TrackCand &c) {
-              c.setScore(c.score() - po::final_pick_hole_penalty * c.nInsideMinusOneHits() -
-                         po::final_pick_tail_penalty * c.nTailMinusOneHits());
-            };
-            CombCandidate &cc = eoccs[iseed];
-            for (int ic = 0; ic < (int)cc.size(); ++ic)
-              final_score(cc[ic]);
-            if (cc.refBestShortCand().combCandidate()) {
-              TrackCand bs = cc.refBestShortCand();
-              final_score(bs);
-              cc.setBestShortCand(bs);
-            }
-            cc.mergeCandsAndBestShortOne(m_job->params(), st_par.m_track_scorer, false, true);
-          } else {
-            eoccs[iseed].mergeCandsAndBestShortOne(m_job->params(), st_par.m_track_scorer, true, true);
-          }
+          // score() still holds the summed layer-step score of the search, which a
+          // final-pick scorer sees as TrackScoreInput::score_in (e.g. "v2p2:llh").
+          eoccs[iseed].mergeCandsAndBestShortOne(
+              m_job->params(),
+              iteration_dir == SteeringParams::IT_FwdSearch ? st_par.m_final_pick_track_scorer : st_par.m_track_scorer,
+              true,
+              true);
         }
       });  // end parallel-for over chunk of seeds within region
     });    // end of parallel-for-each over eta regions
@@ -1142,8 +1149,10 @@ namespace mkfit {
         mkfndr->release();
 
         // final sorting
+        const track_score_func &final_scorer =
+            iteration_dir == SteeringParams::IT_FwdSearch ? st_par.m_final_pick_track_scorer : st_par.m_track_scorer;
         for (int iseed = start_seed; iseed < end_seed; ++iseed) {
-          eoccs[iseed].mergeCandsAndBestShortOne(m_job->params(), st_par.m_track_scorer, true, true);
+          eoccs[iseed].mergeCandsAndBestShortOne(m_job->params(), final_scorer, true, true);
         }
       });  // end parallel-for over chunk of seeds within region
     });    // end of parallel-for-each over eta regions
@@ -1428,8 +1437,10 @@ namespace mkfit {
     cloner.end_eta_bin();
 
     // final sorting
+    const track_score_func &final_scorer =
+        iteration_dir == SteeringParams::IT_FwdSearch ? st_par.m_final_pick_track_scorer : st_par.m_track_scorer;
     for (int iseed = start_seed; iseed < end_seed; ++iseed) {
-      eoccs[iseed].mergeCandsAndBestShortOne(m_job->params(), st_par.m_track_scorer, true, true);
+      eoccs[iseed].mergeCandsAndBestShortOne(m_job->params(), final_scorer, true, true);
     }
   }
 

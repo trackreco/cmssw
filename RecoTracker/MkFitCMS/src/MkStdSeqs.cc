@@ -810,34 +810,24 @@ namespace mkfit {
     // Track scoring
     //=========================================================================
 
-    float trackScoreDefault(const int nfoundhits,
-                            const int ntailholes,
-                            const int noverlaphits,
-                            const int nmisshits,
-                            const float chi2,
-                            const float pt,
-                            const bool inFindCandidates) {
+    float trackScoreDefault(const TrackScoreInput &in) {
+      const int ntailholes = in.penalize_tail_holes ? in.n_tail_holes : 0;
       float maxBonus = 8.0;
-      float bonus = Config::validHitSlope_ * nfoundhits + Config::validHitBonus_;
+      float bonus = Config::validHitSlope_ * in.n_found_hits + Config::validHitBonus_;
       float penalty = Config::missingHitPenalty_;
       float tailPenalty = Config::tailMissingHitPenalty_;
       float overlapBonus = Config::overlapHitBonus_;
-      if (pt < 0.9) {
-        penalty *= inFindCandidates ? 1.7f : 1.5f;
-        bonus = std::min(bonus * (inFindCandidates ? 0.9f : 1.0f), maxBonus);
+      if (in.pt < 0.9) {
+        penalty *= in.in_find_candidates ? 1.7f : 1.5f;
+        bonus = std::min(bonus * (in.in_find_candidates ? 0.9f : 1.0f), maxBonus);
       }
-      float score =
-          bonus * nfoundhits + overlapBonus * noverlaphits - penalty * nmisshits - tailPenalty * ntailholes - chi2;
+      float score = bonus * in.n_found_hits + overlapBonus * in.n_overlap_hits - penalty * in.n_inside_holes -
+                    tailPenalty * ntailholes - in.chi2;
       return score;
     }
 
-    float trackScoreLstIntoPixels(const int nfoundhits,
-                                  const int ntailholes,
-                                  const int noverlaphits,
-                                  const int nmisshits,
-                                  const float chi2,
-                                  const float pt,
-                                  const bool inFindCandidates) {
+    float trackScoreLstIntoPixels(const TrackScoreInput &in) {
+      const int ntailholes = in.penalize_tail_holes ? in.n_tail_holes : 0;
       float bonus = 30;
       // Max chi2 is 30 -- having a hit is always better
       // We keep penalty the same for inner hits ... this is for T5 into pix!
@@ -846,9 +836,13 @@ namespace mkfit {
       float penalty = Config::missingHitPenalty_;
       float tailPenalty = Config::missingHitPenalty_; // !!! not tailMissingHitPenalty_ !!!!
       // float overlapBonus = 0; // Config::overlapHitBonus_;
-      float score = bonus * nfoundhits - penalty * nmisshits - tailPenalty * ntailholes - chi2;
+      float score = bonus * in.n_found_hits - penalty * in.n_inside_holes - tailPenalty * ntailholes - in.chi2;
       return score;
     }
+
+    // Keeps the score the track carries. For a task scorer (final pick, after the
+    // backward fit, before the duplicate cleaner) that should not re-score.
+    float trackScoreKeep(const TrackScoreInput &in) { return in.score_in; }
 
     namespace {
       CMS_SA_ALLOW struct register_track_scorers {
@@ -856,6 +850,7 @@ namespace mkfit {
           IterationConfig::register_track_scorer("default", trackScoreDefault);
           IterationConfig::register_track_scorer("phase1:default", trackScoreDefault);
           IterationConfig::register_track_scorer("phase2:LstIntoPix", trackScoreLstIntoPixels);
+          IterationConfig::register_track_scorer("keep", trackScoreKeep);
         }
       } rts_instance;
     }  // namespace

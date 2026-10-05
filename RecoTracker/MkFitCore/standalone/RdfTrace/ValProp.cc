@@ -1371,6 +1371,29 @@ namespace mkfit {
     printf("val_track_scorer: %s for %d iteration configs\n", name, ni);
   }
 
+  // Per-task track scorer of every iteration config, by registered name; task is
+  // "final_pick", "post_bkfit" or "duplicate_cleaner", and "" restores the fallback
+  // (the search scorer, or no re-scoring before the duplicate cleaner).
+  void val_track_scorer_task(const char *task, const char *name) {
+    const std::string t(task);
+    const int ni = Config::ItrInfo.size();
+    for (int i = 0; i < ni; ++i) {
+      auto &ic = Config::ItrInfo[i];
+      if (t == "final_pick")
+        ic.m_final_pick_track_scorer_name = name;
+      else if (t == "post_bkfit")
+        ic.m_post_bkfit_track_scorer_name = name;
+      else if (t == "duplicate_cleaner")
+        ic.m_duplicate_cleaner_track_scorer_name = name;
+      else {
+        printf("val_track_scorer_task: unknown task '%s'\n", task);
+        return;
+      }
+      ic.setupStandardFunctionsFromNames();
+    }
+    printf("val_track_scorer_task: %s = '%s' for %d iteration configs\n", task, name, ni);
+  }
+
   // Backward-search pickup of iteration 0, as a PLAN INDEX per region (the
   // form the JSON stores; the plugin derives it from a layer). -1 keeps it.
   void val_bkw_pickups(int r0, int r1, int r2, int r3, int r4) {
@@ -1573,10 +1596,11 @@ namespace mkfit {
            g[0], g[1], g[2], g[3], g[4], V2p2::Score::fwd.hit_eff);
   }
 
+  // Final pick by "v2p2:llh" (on) or by the search scorer (off), with its two penalties.
   void val_final_pick_llh(bool on, float hole_penalty, float tail_penalty) {
-    V2p2::Policy::final_pick_llh = on;
     V2p2::Policy::final_pick_hole_penalty = hole_penalty;
     V2p2::Policy::final_pick_tail_penalty = tail_penalty;
+    val_track_scorer_task("final_pick", on ? "v2p2:llh" : "");
     printf("val_final_pick_llh: %d, layer-step score - %g per inside hole - %g per tail hole\n", (int) on,
            hole_penalty, tail_penalty);
   }

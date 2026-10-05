@@ -130,11 +130,10 @@ namespace mkfit {
       MKFIT_V2P2_KNOB(float, wsr_n_sigma, 5.0f);  // WSR edge fuzz, in sigma of the track's q error
       MKFIT_V2P2_KNOB(bool, use_hole_limits, true);  // maxHolesPerCand / maxConsecHoles
       MKFIT_V2P2_KNOB(bool, use_stop_cuts, true);    // minPtCut and the looper stop
-      // The final pick of each seed at the end of the forward search (the sort in
-      // CombCandidate::mergeCandsAndBestShortOne()) by the summed layer-step score of
-      // the search, minus final_pick_hole_penalty per inside hole and
-      // final_pick_tail_penalty per tail hole, instead of track_score_func.
-      MKFIT_V2P2_KNOB(bool, final_pick_llh, false);
+      // The track scorer "v2p2:llh", for the final pick of each seed at the end of the
+      // forward search (IterationConfig::m_final_pick_track_scorer_name): the summed
+      // layer-step score of the search, minus final_pick_hole_penalty per inside hole
+      // and final_pick_tail_penalty per tail hole.
       MKFIT_V2P2_KNOB(float, final_pick_hole_penalty, 8.0f);
       MKFIT_V2P2_KNOB(float, final_pick_tail_penalty, 3.0f);
       // Looper stop, forward search only: transverse angle between position and

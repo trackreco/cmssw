@@ -538,29 +538,33 @@ namespace mkfit {
                             const Track& cand1,
                             bool penalizeTailMissHits = false,
                             bool inFindCandidates = false) {
-    int nfoundhits = cand1.nFoundHits();
-    int noverlaphits = cand1.nOverlapHits();
-    int nmisshits = cand1.nInsideMinusOneHits();
-    float ntailmisshits = penalizeTailMissHits ? cand1.nTailMinusOneHits() : 0;
-    float pt = cand1.pT();
-    float chi2 = cand1.chi2();
+    TrackScoreInput in;
+    in.n_found_hits = cand1.nFoundHits();
+    in.n_tail_holes = cand1.nTailMinusOneHits();
+    in.n_overlap_hits = cand1.nOverlapHits();
+    in.n_inside_holes = cand1.nInsideMinusOneHits();
+    in.n_seed_hits = cand1.getNSeedHits();
     // Do not allow for chi2<0 in score calculation
-    if (chi2 < 0)
-      chi2 = 0.f;
-    return score_func(nfoundhits, ntailmisshits, noverlaphits, nmisshits, chi2, pt, inFindCandidates);
+    in.chi2 = std::max(cand1.chi2(), 0.f);
+    in.pt = cand1.pT();
+    in.score_in = cand1.score();
+    in.penalize_tail_holes = penalizeTailMissHits;
+    in.in_find_candidates = inFindCandidates;
+    return score_func(in);
   }
 
   inline float getScoreStruct(const track_score_func& score_func, const IdxChi2List& cand1) {
-    int nfoundhits = cand1.nhits;
-    int ntailholes = cand1.ntailholes;
-    int noverlaphits = cand1.noverlaps;
-    int nmisshits = cand1.nholes;
-    float pt = cand1.pt;
-    float chi2 = cand1.chi2;
+    TrackScoreInput in;
+    in.n_found_hits = cand1.nhits;
+    in.n_tail_holes = cand1.ntailholes;
+    in.n_overlap_hits = cand1.noverlaps;
+    in.n_inside_holes = cand1.nholes;
     // Do not allow for chi2<0 in score calculation
-    if (chi2 < 0)
-      chi2 = 0.f;
-    return score_func(nfoundhits, ntailholes, noverlaphits, nmisshits, chi2, pt, true /*inFindCandidates*/);
+    in.chi2 = std::max(cand1.chi2, 0.f);
+    in.pt = cand1.pt;
+    in.penalize_tail_holes = true;
+    in.in_find_candidates = true;
+    return score_func(in);
   }
 
   template <typename Vector>

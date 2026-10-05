@@ -287,16 +287,19 @@ namespace mkfit {
                             const TrackCand& cand1,
                             bool penalizeTailMissHits = false,
                             bool inFindCandidates = false) {
-    int nfoundhits = cand1.nFoundHits();
-    int noverlaphits = cand1.nOverlapHits();
-    int nmisshits = cand1.nInsideMinusOneHits();
-    int ntailmisshits = penalizeTailMissHits ? cand1.nTailMinusOneHits() : 0;
-    float pt = cand1.pT();
-    float chi2 = cand1.chi2();
+    TrackScoreInput in;
+    in.n_found_hits = cand1.nFoundHits();
+    in.n_tail_holes = cand1.nTailMinusOneHits();
+    in.n_overlap_hits = cand1.nOverlapHits();
+    in.n_inside_holes = cand1.nInsideMinusOneHits();
+    in.n_seed_hits = cand1.getNSeedHits();
     // Do not allow for chi2<0 in score calculation
-    if (chi2 < 0)
-      chi2 = 0.f;
-    return score_func(nfoundhits, ntailmisshits, noverlaphits, nmisshits, chi2, pt, inFindCandidates);
+    in.chi2 = std::max(cand1.chi2(), 0.f);
+    in.pt = cand1.pT();
+    in.score_in = cand1.score();
+    in.penalize_tail_holes = penalizeTailMissHits;
+    in.in_find_candidates = inFindCandidates;
+    return score_func(in);
   }
 
   // CombCandidate -- a set of candidates from a given seed.

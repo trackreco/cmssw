@@ -122,6 +122,9 @@ namespace mkfit {
     std::vector<LayerControl> m_layer_plan;
     track_score_func m_track_scorer;
     std::string m_track_scorer_name;
+    // Resolved from IterationConfig's per-task names, m_track_scorer where none is given.
+    track_score_func m_final_pick_track_scorer;
+    track_score_func m_post_bkfit_track_scorer;
 
     int m_region;
 
