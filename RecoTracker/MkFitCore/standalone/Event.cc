@@ -783,7 +783,7 @@ namespace mkfit {
     // Convert from per-hit uint64_t to per layer bool-vectors for given
     // iteration.
 
-    uint64_t iter_mask = 1 << track_algo;
+    uint64_t iter_mask = uint64_t(1) << track_algo;
 
     const int n_lay = (int)layerHits_.size();
     layer_masks.resize(n_lay);
@@ -805,7 +805,7 @@ namespace mkfit {
 
     uint64_t iter_mask = 0;
     for (auto ta : track_algo_vec)
-      iter_mask |= 1 << ta;
+      iter_mask |= uint64_t(1) << ta;
 
     const int n_lay = (int)layerHits_.size();
     layer_masks.resize(n_lay);
