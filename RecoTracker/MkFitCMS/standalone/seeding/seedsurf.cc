@@ -18,7 +18,7 @@
 //                      better = fewer outer-tracker layers in the pattern, then smaller
 //                      (dq_c/q_c)^2 + (dphi_d/w_phi_d)^2 + (dq_d/w_q_d)^2
 //        [--bind CM]   labels bound to geometry: needs SimHitStates in the sample
-//        [--chain H] [--chain-holes-ot K] [--chain-hole-always] [--chain-any] [--chain-start-holes K] [--chain-lead-only] [--chain-inner-ot-only] [--chain-start-gap] [--chain-start-gap-barrel] [--chain-gap-map M] [--test-indexed-hits] [--chain-fast] [--chain-batch] [--chain-fast-check] [--chain-phases]   the feed-forward chain (SurfChain) in
+//        [--chain H] [--chain-holes-ot K] [--chain-hole-always] [--chain-any] [--chain-start-holes K] [--chain-lead-only] [--chain-inner-ot-only] [--chain-start-gap] [--chain-start-gap-barrel] [--chain-gap-map M] [--test-indexed-hits] [--write-config F] [--config F] [--chain-fast] [--chain-batch] [--chain-fast-check] [--chain-phases]   the feed-forward chain (SurfChain) in
 //                      place of the pattern list; the patterns then give window tables and the denominator;
 //                      --chain-batch runs the batched float finder (SeedSurfBatch.h) on the same configuration;
 //                      --chain-batch-d N its stage d prediction: 0 direct from hit c, 1 one-point cubic, 2 two-point Hermite
@@ -27,7 +27,9 @@
 //                      --chain-start-gap-barrel only where a and b are both barrel pixel layers; --chain-gap-map M: a lane
 //                      of a gap start must cross the skipped layer in a gap between modules (SensorGapMap, margin M cm);
 //                      --test-indexed-hits: each event again with the hits by index into one HitVec per subdetector
-//                      (as in CMSSW), compared with the per-layer run
+//                      (as in CMSSW), compared with the per-layer run; --write-config F: the SeederConfig of these
+//                      options as JSON; --config F: the seeder from that JSON alone (MkSeeder::configure, seed: the
+//                      CMSSW path), the kept quads to --seeds
 //        [--beam-spot-origin]   x, y, r, phi from the origin instead of the sample's beam spot
 //        [--truth OUT.txt] [--resid OUT.txt] [--dump quads.txt] [--quad-dump OUT.txt] [--eta-max E]
 //        [--seeds OUT.txt]   the quads kept by the cleaning, as seeds for the track finding (Shell::LoadSeederQuads):
@@ -65,6 +67,7 @@
 #include "SeedSurfBatch.h"
 #include "RecoTracker/MkFitCore/interface/SensorGapMap.h"
 #include "RecoTracker/MkFitCore/interface/MkSeeder.h"
+#include "RecoTracker/MkFitCore/interface/SeederConfig.h"
 
 #include "RecoTracker/MkFitCore/interface/Config.h"
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
@@ -172,6 +175,8 @@ int main(int argc, char *argv[]) {
   int chain_inner_ot_only = 0, chain_start_gap = 0;
   float chain_gap_map = -1;  // the gap map's margin in cm; < 0: no map
   int test_indexed = 0;      // --test-indexed-hits
+  std::string write_config, read_config;  // --write-config, --config
+  float shape_bw[4] = {0, 0, 0, 0};       // --shape-win bin widths, as given
   long ti_events = 0, ti_bad_find = 0, ti_bad_clean = 0;
   int chain_fast = 0;  // --chain-fast: the float kernels (K2) in the chain
   int chain_batch = 0; // --chain-batch: the batched float finder (SurfChainBatch)
@@ -309,6 +314,10 @@ int main(int argc, char *argv[]) {
       chain_gap_map = atof(next());
     else if (a == "--test-indexed-hits")
       test_indexed = 1;
+    else if (a == "--write-config")
+      write_config = next();
+    else if (a == "--config")
+      read_config = next();
     else if (a == "--chain-fast")
       chain_fast = 1;
     else if (a == "--chain-batch")
@@ -351,6 +360,7 @@ int main(int argc, char *argv[]) {
       }
       SurfChainBatch::ShapeTab &T = shape_tab[l];
       T.inv_bw = 1.0f / bw;
+      shape_bw[l] = bw;
       T.lo.resize(nb), T.hi.resize(nb);
       for (int b = 0; b < nb; ++b)
         T.lo[b] = atoi(next()), T.hi[b] = atoi(next());
@@ -385,7 +395,50 @@ int main(int argc, char *argv[]) {
       return 1;
     }
   }
-  if (input.empty() || pats.empty()) {
+  // --write-config: the SeederConfig these options describe (the batched chain only), before the patterns
+  // are mirrored here: MkSeeder::configure() mirrors them itself
+  if (!write_config.empty()) {
+    if (chain_holes < 0 || !chain_batch || P.no_cut || own_delta >= 0 && chain_holes < 0) {
+      printf("--write-config: only for the batched chain (--chain H --chain-batch), without --no-cut\n");
+      return 1;
+    }
+    SeederConfig cfg;
+    cfg.pt_min = P.pt_min, cfg.d0_max = P.d0_max, cfg.zv = P.zv, cfg.marg_b = P.marg_b;
+    cfg.phi_c = P.phi_c, cfg.q_c = P.q_c, cfg.phi_d = P.phi_d, cfg.q_d = P.q_d;
+    cfg.win_scale = win_scale;
+    for (const Pattern &pt : pats) {
+      SeederConfig::Pattern cp;
+      cp.layers = pt.l;
+      for (int k = 0; k < 4; ++k)
+        cp.win[k] = pt.win[k];
+      cp.bwin = {pt.bwin[0], pt.bwin[1]};
+      cp.sref = pt.sref;
+      for (const auto &w : pt.eta_win)
+        cp.eta_win.push_back({w.lo, w.hi, w.aphi, w.bphi, w.aq, w.bq});
+      cfg.patterns.push_back(cp);
+    }
+    cfg.max_holes = chain_holes, cfg.max_holes_ot = chain_holes_ot, cfg.hole_always = chain_hole_always;
+    cfg.any_combination = chain_any, cfg.start_holes = chain_start_holes, cfg.lead_only = chain_lead_only;
+    cfg.inner_ot_only = chain_inner_ot_only, cfg.start_gap = chain_start_gap;
+    cfg.crossing_margin = own_delta < 0 ? 0.2 : own_delta;
+    cfg.gap_map_margin = chain_gap_map;
+    cfg.d_mode = chain_batch_d;
+    cfg.fk_score = fk_score, cfg.fk_score_fwd = fk_score_fwd, cfg.fk_eta_fwd = fk_eta_fwd, cfg.fk_shape = fk_shape;
+    for (int l = 0; l < 4; ++l)
+      if (shape_tab[l].ok())
+        cfg.shape_win.push_back({l, shape_bw[l], shape_tab[l].lo, shape_tab[l].hi});
+    cfg.fk_ot2 = fk_ot2;
+    cfg.ot2_win = {ot2_win[0], ot2_win[1], ot2_win[2], ot2_win[3]};
+    cfg.ot2_phimin = ot2_phimin;
+    cfg.dedup = dedup_n;
+    cfg.save(write_config);
+    printf("[seedsurf] wrote the seeder configuration to %s\n", write_config.c_str());
+  }
+  if (!read_config.empty() && !pats.empty()) {
+    printf("--config takes the whole seeder configuration from the file: no --pattern options with it\n");
+    return 1;
+  }
+  if (input.empty() || (pats.empty() && read_config.empty())) {
     printf("need --input-file and at least one --pattern\n");
     return 1;
   }
@@ -425,6 +478,43 @@ int main(int argc, char *argv[]) {
     printf("[seedsurf] skipped the first %d events\n", first_event);
   }
   n_events = std::min(n_events, n_in_file - first_event);
+
+  // --config: the seeder built from a SeederConfig and run through MkSeeder::seed(), the CMSSW path; the
+  // kept quads to --seeds, nothing else
+  if (!read_config.empty()) {
+    SeederConfig cfg;
+    cfg.load(read_config);
+    MkSeeder sd;
+    sd.configure(cfg, ti);
+    FILE *fs = seeds_out.empty() ? nullptr : fopen(seeds_out.c_str(), "w");
+    if (fs)
+      fprintf(fs, "# seedsurf --seeds: per quad kept after the cleaning: ev l0 l1 l2 l3 h0 h1 h2 h3 score fake_score n_amb\n"
+                  "# ev: the event in the file, 0-based; l: mkFit layers; h: hit indices in layerHits_[l]\n"
+                  "# score: the cleaning score; fake_score: the sum the fake cut applies to (-1: not known); n_amb: the\n"
+                  "# quads the cleaning (--dedup) dropped for sharing hits with this one\n");
+    double t_seed = 0;
+    long n_out = 0;
+    SeedCounters cnt;
+    std::vector<SeederQuad> out;
+    for (int iev = 0; iev < n_events; ++iev) {
+      Event ev(iev, ti.n_layers());
+      ev.read_in(df);
+      const BeamSpot bsv = bs_origin ? BeamSpot() : ev.beamSpot_;
+      const auto t0 = clk::now();
+      sd.seed(seed_hit_source(ev.layerHits_), bsv, out, cnt);
+      t_seed += secs(t0, clk::now());
+      n_out += out.size();
+      if (fs)
+        for (const SeederQuad &q : out)
+          fprintf(fs, "%d %d %d %d %d %u %u %u %u %.6g %.6g %d\n", first_event + iev, q.layers[0], q.layers[1], q.layers[2],
+                  q.layers[3], q.hits[0], q.hits[1], q.hits[2], q.hits[3], q.score, q.fake_score, q.n_amb);
+    }
+    if (fs)
+      fclose(fs);
+    printf("[seedsurf] CONFIG %s: %d events, %.1f quads found and %.1f kept per event, %.3f ms/ev (fill, find, clean)\n",
+           read_config.c_str(), n_events, cnt.quads / (double)n_events, n_out / (double)n_events, 1e3 * t_seed / n_events);
+    return 0;
+  }
 
   SurfOwnership OWN;
   {

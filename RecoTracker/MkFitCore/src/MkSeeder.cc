@@ -1,8 +1,13 @@
 #include "RecoTracker/MkFitCore/interface/MkSeeder.h"
 #include "RecoTracker/MkFitCore/interface/SeedChain.h"
+#include "RecoTracker/MkFitCore/interface/SensorGapMap.h"
+#include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 #include "RecoTracker/MkFitCore/src/SeedChainFinder.h"
 
 #include <algorithm>
+#include <cmath>
+#include <set>
+#include <stdexcept>
 
 namespace mkfit {
 
@@ -16,6 +21,159 @@ namespace mkfit {
   void MkSeeder::setup(SeedChain &plus, SeedChain &minus) {
     m_finder[0]->setup(plus);
     m_finder[1]->setup(minus);
+  }
+
+  void MkSeeder::configure(const SeederConfig &cfg, const TrackerInfo &ti) {
+    m_cfg = cfg;
+    // the patterns, each followed by its mirror if it has +z discs; the mirror keeps the windows
+    std::vector<SeederConfig::Pattern> pats;
+    for (const SeederConfig::Pattern &p : cfg.patterns) {
+      pats.push_back(p);
+      SeederConfig::Pattern m = p;
+      bool has = false;
+      for (int &l : m.layers)
+        if (l >= 16 && l <= 27)
+          l += 22, has = true;
+      if (has)
+        pats.push_back(m);
+    }
+    m_patterns.clear();
+    m_pat_index.clear();
+    for (const SeederConfig::Pattern &p : pats) {
+      m_pat_index.insert({p.layers, (int)m_patterns.size()});
+      m_patterns.push_back(p.layers);
+    }
+    // the layers: the patterns', then every one the chain can visit; OT1-P and OT2-P for the OT2 check
+    for (const SeederConfig::Pattern &p : pats)
+      for (int l : p.layers)
+        m_hits.add_layer(l, ti[l], ti[l].is_barrel() ? 2.0 : 1.0);
+    std::set<int> have;
+    for (const SeederConfig::Pattern &p : pats)
+      for (int l : p.layers)
+        have.insert(l);
+    for (int l : {0, 1, 2, 3})
+      have.insert(l);
+    for (int l = 16; l <= 27; ++l)
+      have.insert(l), have.insert(l + 22);
+    for (int l : have)
+      m_hits.add_layer(l, ti[l], ti[l].is_barrel() ? 2.0 : 1.0);
+    if (cfg.fk_ot2 > 0)
+      for (int l : {4, 6})
+        m_hits.add_layer(l, ti[l], 2.0);
+    m_hits.set_with_double(false);  // the batched finder is float
+    // the envelopes and the gap map
+    m_env = std::make_unique<SeedLayerEnvelopes>();
+    m_env->setup(ti, have);
+    m_env->delta = cfg.crossing_margin;
+    m_gap.reset();
+    if (cfg.gap_map_margin >= 0) {
+      m_gap = std::make_unique<SensorGapMap>();
+      m_gap->build(ti, cfg.gap_map_margin);
+    }
+    // the two chains: the parameters, the options, the window tables
+    SeedingParams P;
+    P.pt_min = cfg.pt_min, P.d0_max = cfg.d0_max, P.zv = cfg.zv, P.marg_b = cfg.marg_b;
+    P.phi_c = cfg.phi_c, P.q_c = cfg.q_c, P.phi_d = cfg.phi_d, P.q_d = cfg.q_d;
+    const double ws = cfg.win_scale;
+    auto params_of = [&](const SeederConfig::Pattern &p) {
+      SeedingParams Q = P;
+      if (p.win[0] >= 0)
+        Q.phi_c = p.win[0], Q.q_c = p.win[1], Q.phi_d = p.win[2], Q.q_d = p.win[3];
+      Q.b_phi_d = p.bwin[0], Q.b_q_d = p.bwin[1];
+      Q.s_ref = p.sref;
+      for (const SeederConfig::EtaWin &e : p.eta_win) {
+        SeedingParams::EtaWin w{e.lo, e.hi, e.aphi, e.bphi, e.aq, e.bq};
+        w.aphi *= ws, w.bphi *= ws, w.aq *= ws, w.bq *= ws;
+        Q.add_eta_win(w);
+      }
+      Q.phi_c *= ws, Q.q_c *= ws, Q.phi_d *= ws, Q.q_d *= ws;
+      Q.b_phi_d *= ws, Q.b_q_d *= ws;
+      return Q;
+    };
+    for (int sd = 0; sd < 2; ++sd) {
+      m_chain[sd] = std::make_unique<SeedChain>();
+      SeedChain &C = *m_chain[sd];
+      C.P = P;
+      C.P.phi_c *= ws, C.P.q_c *= ws, C.P.phi_d *= ws, C.P.q_d *= ws;
+      C.max_holes = cfg.max_holes;
+      C.hole_always = cfg.hole_always;
+      C.max_holes_ot = cfg.max_holes_ot;
+      C.known_only = !cfg.any_combination;
+      C.start_holes = cfg.start_holes;
+      C.lead_only = cfg.lead_only;
+      C.inner_ot_only = cfg.inner_ot_only;
+      C.start_gap = cfg.start_gap;
+      C.gap_map = m_gap.get();
+      C.setup(*m_env, sd == 0 ? 1 : -1, have);
+    }
+    for (const SeederConfig::Pattern &p : pats) {
+      const SeedingParams Q = params_of(p);
+      for (auto &chain : m_chain) {
+        SeedChain &C = *chain;
+        auto &wc = C.win_c[{p.layers[0], p.layers[1], p.layers[2]}];
+        wc.first = std::max(wc.first, (float)Q.phi_c), wc.second = std::max(wc.second, (float)Q.q_c);
+        C.win_d[p.layers] = {(float)Q.phi_d,
+                             (float)Q.b_phi_d,
+                             (float)Q.q_d,
+                             (float)Q.b_q_d,
+                             Q.s_ref,
+                             std::vector<SeedingParams::EtaWin>(Q.eta_win, Q.eta_win + Q.n_eta_win),
+                             (float)Q.q_c};
+      }
+    }
+    // the finders, and their fake cuts
+    setup(*m_chain[0], *m_chain[1]);
+    for (auto &f : m_finder) {
+      SeedChainFinder &B = *f;
+      B.d_mode = cfg.d_mode;
+      B.fk_score = cfg.fk_score, B.fk_shape = cfg.fk_shape, B.fk_ot2 = cfg.fk_ot2;
+      B.fk_score_fwd = cfg.fk_score_fwd, B.fk_cot_fwd = std::sinh(cfg.fk_eta_fwd);
+      B.ot2_aphi = cfg.ot2_win[0], B.ot2_bphi = cfg.ot2_win[1], B.ot2_aq = cfg.ot2_win[2], B.ot2_bq = cfg.ot2_win[3];
+      B.ot2_phimin = cfg.ot2_phimin;
+      for (const SeederConfig::ShapeWin &w : cfg.shape_win) {
+        if (w.layer < 0 || w.layer > 3 || w.bin_width <= 0 || w.lo.empty() || w.lo.size() != w.hi.size())
+          throw std::invalid_argument("MkSeeder::configure: bad shape_win for layer " + std::to_string(w.layer));
+        SeedChainFinder::ShapeTab &T = B.shape_[w.layer];
+        T.inv_bw = 1.0f / w.bin_width;
+        T.lo = w.lo, T.hi = w.hi;
+      }
+    }
+  }
+
+  void MkSeeder::seed(const SeedHitSource &src, const BeamSpot &bs, std::vector<SeederQuad> &out, SeedCounters &cnt) {
+    out.clear();
+    fill(src, bs);
+    std::vector<std::pair<std::array<int, 4>, SeedQuad>> cq;
+    std::vector<float> sc, fk;
+    find(cq, cnt, &sc, &fk);
+    // by pattern, in the configured order; a combination no pattern lists (only with any_combination) after
+    // them, in the order first found in this event; within a pattern as found
+    const int np = m_patterns.size();
+    std::map<std::array<int, 4>, int> extra;
+    std::vector<int> pi(cq.size());
+    for (size_t i = 0; i < cq.size(); ++i) {
+      auto it = m_pat_index.find(cq[i].first);
+      if (it != m_pat_index.end())
+        pi[i] = it->second;
+      else
+        pi[i] = np + extra.insert({cq[i].first, (int)extra.size()}).first->second;
+    }
+    std::vector<int> order(cq.size());
+    for (size_t i = 0; i < cq.size(); ++i)
+      order[i] = i;
+    std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return pi[a] < pi[b]; });
+    std::vector<std::array<int, 4>> ll(cq.size());
+    std::vector<SeedQuad> qq(cq.size());
+    std::vector<float> ss(cq.size());
+    for (size_t i = 0; i < cq.size(); ++i)
+      ll[i] = cq[order[i]].first, qq[i] = cq[order[i]].second, ss[i] = sc[order[i]];
+    std::vector<char> keep(cq.size(), 1);
+    std::vector<int> amb(cq.size(), 0);
+    if (m_cfg.dedup > 0)
+      clean(src, ll, qq, ss, m_cfg.dedup, keep, &amb);
+    for (size_t i = 0; i < cq.size(); ++i)
+      if (keep[i])
+        out.push_back({ll[i], qq[i], ss[i], fk[order[i]], amb[i]});
   }
 
   void MkSeeder::fill(const std::vector<HitVec> &layer_hits, const BeamSpot &bs) { m_hits.fill(layer_hits, bs); }

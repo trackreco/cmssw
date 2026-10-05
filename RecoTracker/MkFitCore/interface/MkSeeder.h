@@ -6,14 +6,19 @@
 // both z sides (find) and removes quads that share hits with a better one
 // (clean).
 //
-// The configuration of the two passes, one SeedChain per z side, is set up by
-// the caller and handed to setup(); so are the finders' fake cuts, through
-// finder(). The layers are added by the caller through hits().
+// Two ways to set it up. configure() builds everything from a SeederConfig (the
+// two SeedChains, the layers, the envelopes, the gap map, the finders' fake cuts)
+// and seed() then runs a whole event: this is the path CMSSW takes. Or the caller
+// sets up the two passes itself and hands them to setup(), the finders' fake cuts
+// through finder() and the layers through hits(), and calls fill(), find() and
+// clean() (the standalone research driver).
 
 #include "RecoTracker/MkFitCore/interface/SeedStructures.h"
+#include "RecoTracker/MkFitCore/interface/SeederConfig.h"
 #include "RecoTracker/MkFitCore/interface/radix_sort.h"
 
 #include <array>
+#include <map>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -22,6 +27,18 @@ namespace mkfit {
 
   struct SeedChain;
   class SeedChainFinder;
+  class SeedLayerEnvelopes;
+  class SensorGapMap;
+  class TrackerInfo;
+
+  // One quad kept by MkSeeder::seed(): its layers and hit indices (into the HitVec each layer's hits come
+  // from), the cleaning score, the fake score, and the quads the cleaning dropped for sharing hits with it.
+  struct SeederQuad {
+    std::array<int, 4> layers;
+    SeedQuad hits;
+    float score, fake_score;
+    int n_amb;
+  };
 
   class MkSeeder {
   public:
@@ -30,6 +47,17 @@ namespace mkfit {
 
     // the two passes: plus for the +z side, minus for the -z side
     void setup(SeedChain &plus, SeedChain &minus);
+
+    // Builds the seeder from cfg, as seedsurf builds it from its options: the patterns (+z disc ones also
+    // mirrored to -z), the layers they and the chain use, the envelopes, the two chains with the patterns'
+    // window tables, the gap map, and the finders' fake cuts. ti must outlive the seeder.
+    void configure(const SeederConfig &cfg, const TrackerInfo &ti);
+    const SeederConfig &config() const { return m_cfg; }
+
+    // A whole event, after configure(): fill, find, the quads ordered by pattern (the configured order, each
+    // pattern followed by its mirror; within a pattern as found), the cleaning with cfg.dedup, and the kept
+    // quads in that order.
+    void seed(const SeedHitSource &src, const BeamSpot &bs, std::vector<SeederQuad> &out, SeedCounters &cnt);
 
     SeedEventOfHits &hits() { return m_hits; }
     const SeedEventOfHits &hits() const { return m_hits; }
@@ -75,6 +103,14 @@ namespace mkfit {
   private:
     SeedEventOfHits m_hits;
     std::unique_ptr<SeedChainFinder> m_finder[2];
+
+    // configure()'s own configuration objects
+    SeederConfig m_cfg;
+    std::unique_ptr<SeedLayerEnvelopes> m_env;
+    std::unique_ptr<SensorGapMap> m_gap;
+    std::unique_ptr<SeedChain> m_chain[2];
+    std::vector<std::array<int, 4>> m_patterns;     // as used: each configured one, then its mirror
+    std::map<std::array<int, 4>, int> m_pat_index;  // layers -> position in m_patterns
 
     // the cleaning's buffers, kept across events: allocated afresh, their first touch cost as much as
     // the cleaning itself. m_cl_hl: per global hit (layer offset + hit), the list of kept quads using it

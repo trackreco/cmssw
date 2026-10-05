@@ -6,10 +6,15 @@ measured with. A working point is never edited once measured; a change makes a n
 | file | what | used by |
 |---|---|---|
 | `seedsurf.opts` | seedsurf options on top of `seedsurf-chain.sh`; a token `@path` is replaced by that file (relative to `seeding/`) | `seedsurf-v2p2.sh` (`WP=`), `wp/opts.sh` |
+| `seeder.json` | the same seeder as a `SeederConfig` (MkFitCore), written by `seedsurf --write-config` from `seedsurf.opts`; `seedsurf --config` and CMSSW build the seeder from it alone | `MkSeeder::configure()` |
 | `finder.json` | the `--json-patch` of mkFit's iteration 0 | the drivers in `cmssw_20_mkseed/v2p2-seeds/` (`FWP=`) |
 | `finder.shell` | Shell commands, one per line, run before the first event; compiled Shell setters only, since cling does not resolve `Config::V2p2` | as above |
 
 A file that is absent means the plugin's default: no patch, no command.
+
+`seeder.json` reproduces `seedsurf.opts` byte for byte (2026-10-04: the kept quads of `seedsurf --config seeder.json` against
+the options' on 30 events, 5 for 2026-10-02). After a change to `seedsurf.opts`, write it again:
+`WP=<wp> seedsurf-v2p2.sh --write-config wp/<wp>/seeder.json --num-events 1`.
 
 The default of `seedsurf-v2p2.sh` is 2026-10-04 (maintainer, 2026-10-04); it was 2026-10-02 before.
 
