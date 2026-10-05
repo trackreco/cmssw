@@ -8,10 +8,11 @@
 #   usage:  v2p2-eff-v2-vs-v2p2.sh [n_events] [sample] [out_prefix]
 #   ASSOC=mtv associates by MTV's rule (> 75 % of all hits true) instead of
 #   quality-val's (>= 50 % of the non-seed hits).
-#   ITCONF=cmssw sets the three things in which the CMSSW release's
+#   ITCONF=cmssw sets the things in which the CMSSW release's
 #   mkfit-phase2-initialStep.json (data-RecoTracker-MkFit V00-20-00) differs
 #   from the plugin: maxCandsPerSeed 6 (plugin 3), the phase1:default track
-#   scorer (plugin phase2:LstIntoPix), backward-search pickups at plan index
+#   scorer (the plugin's default too since 2026-10-04; it was phase2:LstIntoPix
+#   before), backward-search pickups at plan index
 #   5 15 7 15 5 (plugin 7 27 10 27 7). Found by diffing --json-save-iterations
 #   against the release file. It also runs the backward search with v2p2 for
 #   the v2p2 configuration (Shell::SetBkwSearchV2p2), as run_OneIteration()

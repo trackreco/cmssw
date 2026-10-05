@@ -274,6 +274,19 @@ namespace mkfit {
 
     printf("Shell::RunLSTintoPix running over %d seeds\n", (int) ctx.seeds.size());
 
+    // The track scorer decides the final pick of each seed, the score after the
+    // backward fit and the duplicate cleaner's ranking. For this search it is
+    // whatever the iteration config names; none of them was made for it.
+    static std::once_flag s_scorer_warning;
+    std::call_once(s_scorer_warning, [&]() {
+      const SteeringParams &sp = itconf.m_steering_params[0];
+      const std::string &name =
+          sp.m_track_scorer_name.empty() ? itconf.m_default_track_scorer_name : sp.m_track_scorer_name;
+      printf("WARNING Shell::RunLSTintoPix: track scorer '%s' -- the track score for the LST-into-pixels "
+             "search needs work.\n",
+             name.c_str());
+    });
+
     for (int is = 0; auto &s : ctx.seeds) {
       // Chomp off pixels, pretending we have T5s
       // s.sortHitsByR(ctx.ev->layerHits_);
