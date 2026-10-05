@@ -94,6 +94,8 @@ namespace mkfit {
   // against truth. Called from MkFinderV2p2 (bg_record) and from
   // MkBuilder::findTracksStandardv2p2() (diag), single-threaded accumulation.
   void v2p2_final_beam_bg_record(int seed, int layer, float n_bg);
+  class CombCandidate;
+  void v2p2_final_pick_record(const CombCandidate &cc);
   void v2p2_final_beam_diag(const Event *ev, const EventOfCombCandidates &eoccs);
   void v2p2_final_beam_diag_reset();
   void v2p2_final_beam_diag_report();

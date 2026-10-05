@@ -4,16 +4,21 @@
 
 #include "RecoTracker/MkFitCore/standalone/V2p2Diag.h"
 
+#include "RecoTracker/MkFitCore/interface/IterationConfig.h"
 #include "RecoTracker/MkFitCore/interface/TrackStructures.h"
+#include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 #include "RecoTracker/MkFitCore/src/MkBins.h"
 #include "RecoTracker/MkFitCore/src/MkFinderV2p2.h"
 #include "RecoTracker/MkFitCore/src/V2p2Config.h"
+#include "RecoTracker/MkFitCore/standalone/ConfigStandalone.h"
 #include "RecoTracker/MkFitCore/standalone/Event.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <map>
+#include <mutex>
 #include <vector>
 
 namespace mkfit {
@@ -306,6 +311,58 @@ namespace mkfit {
     ++e.second;
   }
 
+  //==============================================================================
+  // Final-pick scorers. v2p2_final_pick_record() keeps each seed's candidates as they
+  // stand before mergeCandsAndBestShortOne(), the best short one included, while
+  // score() still holds the summed v2p2 layer-step likelihood. v2p2_final_beam_diag()
+  // then asks, per seed, which candidate each scorer of a family would pick and
+  // whether it is clean (the MTV 3/4 rule over its found hits):
+  //   0  phase1:default, as the final sort uses it
+  //   1  the likelihood as accumulated in the search
+  //   2+ the likelihood with every non-seed hit re-weighted to one hit efficiency
+  //      eps, minus h per inside hole and t per tail hole.
+  // The merge itself can drop a candidate, so the set is taken before it.
+  //==============================================================================
+  namespace {
+    std::mutex g_fpr_mutex;
+    std::map<int, std::vector<TrackCand>> g_fpr;  // seed_origin_index -> candidates
+    // eps < 0: the search's own per-group efficiencies, no re-weighting.
+    constexpr int FPR_NE = 6, FPR_NH = 5, FPR_NT = 4;
+    const float fpr_eps[FPR_NE] = {-1.f, 0.03f, 0.05f, 0.10f, 0.20f, 0.30f};
+    const float fpr_hole[FPR_NH] = {0.f, 4.f, 8.f, 12.f, 16.f};
+    const float fpr_tail[FPR_NT] = {0.f, 3.f, 6.f, 9.f};
+    constexpr int FPR_NS = 2 + FPR_NE * FPR_NH * FPR_NT;
+    // [population][scorer]; population as g_fbd: 0 all, 1 / 2 the forward low / high pT.
+    long g_fpr_n[3] = {}, g_fpr_any[3] = {}, g_fpr_p1_same[3] = {};
+    long g_fpr_clean[3][FPR_NS] = {}, g_fpr_gain[3][FPR_NS] = {}, g_fpr_loss[3][FPR_NS] = {};
+
+    int fpr_group(int layer) {
+      const LayerInfo &li = Config::TrkInfo[layer];
+      if (li.is_pixel())
+        return li.is_barrel() ? 0 : 1;
+      if (li.is_barrel())
+        return layer < 10 ? 2 : 3;
+      return 4;
+    }
+    float fpr_logit(float e) { return std::log(e / (1.0f - e)); }
+    void fpr_grid(int s, float &eps, float &h, float &t) {
+      const int g = s - 2;
+      eps = fpr_eps[g / (FPR_NH * FPR_NT)];
+      h = fpr_hole[(g / FPR_NT) % FPR_NH];
+      t = fpr_tail[g % FPR_NT];
+    }
+  }  // namespace
+
+  void v2p2_final_pick_record(const CombCandidate &cc) {
+    std::lock_guard<std::mutex> lk(g_fpr_mutex);
+    auto &v = g_fpr[cc.seed_origin_index()];
+    v.clear();
+    for (int j = 0; j < (int)cc.size(); ++j)
+      v.push_back(cc[j]);
+    if (cc.refBestShortCand().combCandidate())
+      v.push_back(cc.refBestShortCand());
+  }
+
   void v2p2_final_beam_diag(const Event *ev, const EventOfCombCandidates &eoccs) {
     auto label_of = [&](int lyr, int idx) {
       if (idx < 0) return -1;
@@ -469,6 +526,82 @@ namespace mkfit {
         for (int k : {0, pop})
           if (k >= 0) pair_fill(k, first_clean > 0 ? 0 : 1, fp, fa);
       }
+      // Final-pick scorers on the candidates as they stood before the merge.
+      if (auto it = g_fpr.find(cc.seed_origin_index()); it != g_fpr.end() && !it->second.empty()) {
+        static const track_score_func p1 = IterationConfig::get_track_scorer("phase1:default");
+        const auto &cands = it->second;
+        const int nc = cands.size();
+        std::vector<char> cl(nc);
+        std::vector<float> s_p1(nc), s_l(nc);
+        std::vector<int> nin(nc), ntail(nc);
+        std::vector<std::array<int, 5>> ng(nc);
+        bool any = false;
+        for (int j = 0; j < nc; ++j) {
+          const TrackCand &tc = cands[j];
+          const Track t = tc.exportTrack(true);
+          int nf = 0, nl = 0;
+          for (int h = 0; h < t.nTotalHits(); ++h) {
+            const int idx = t.getHitIdx(h), lyr = t.getHitLyr(h);
+            if (idx < 0) continue;
+            ++nf;
+            if (label_of(lyr, idx) == L) ++nl;
+          }
+          cl[j] = 4 * nl > 3 * nf;
+          any |= cl[j];
+          s_p1[j] = getScoreCand(p1, tc);
+          s_l[j] = tc.score();
+          nin[j] = tc.nInsideMinusOneHits();
+          ntail[j] = tc.nTailMinusOneHits();
+          ng[j] = {0, 0, 0, 0, 0};
+          int nh = tc.nTotalHits(), ch = tc.lastCcIndex();
+          int n_walk = nh - tc.getNSeedHits();  // the chain runs from the last hit back; seed hits last
+          while (--nh >= 0 && ch >= 0 && n_walk-- > 0) {
+            const HoTNode &hn = tc.combCandidate()->hot_node(ch);
+            if (hn.m_hot.index >= 0)
+              ++ng[j][fpr_group(hn.m_hot.layer)];
+            ch = hn.m_prev_idx;
+          }
+        }
+        const auto &fp = Config::V2p2::Score::fwd;
+        float le[5];
+        for (int g = 0; g < 5; ++g)
+          le[g] = fpr_logit(fp.hit_eff_grp[g] >= 0.f ? fp.hit_eff_grp[g] : fp.hit_eff);
+        auto score_of = [&](int s, int j) -> float {
+          if (s == 0) return s_p1[j];
+          if (s == 1) return s_l[j];
+          float eps, h, t;
+          fpr_grid(s, eps, h, t);
+          const float l = eps > 0.f ? fpr_logit(eps) : 0.f;
+          float v = s_l[j] - h * nin[j] - t * ntail[j];
+          if (eps > 0.f)
+            for (int g = 0; g < 5; ++g) v += ng[j][g] * (l - le[g]);
+          return v;
+        };
+        auto pick_of = [&](int s) {
+          int b = 0;
+          for (int j = 1; j < nc; ++j)
+            if (score_of(s, j) > score_of(s, b)) b = j;
+          return b;
+        };
+        const int p1_pick = pick_of(0);
+        const bool p1_same = cands[p1_pick].lastCcIndex() == cc[0].lastCcIndex();
+        for (int k : {0, pop}) {
+          if (k < 0) continue;
+          ++g_fpr_n[k];
+          if (any) ++g_fpr_any[k];
+          if (p1_same) ++g_fpr_p1_same[k];
+        }
+        for (int s = 0; s < FPR_NS; ++s) {
+          const bool c = cl[pick_of(s)], c1 = cl[p1_pick];
+          for (int k : {0, pop}) {
+            if (k < 0) continue;
+            if (c) ++g_fpr_clean[k][s];
+            if (c && !c1) ++g_fpr_gain[k][s];
+            if (!c && c1) ++g_fpr_loss[k][s];
+          }
+        }
+      }
+
       for (int k : {0, pop}) {
         if (k < 0) continue;
         FinalBeamDiag &d = g_fbd[k];
@@ -483,6 +616,7 @@ namespace mkfit {
       }
     }
     g_fbd_bg.clear();
+    g_fpr.clear();
   }
 
   void v2p2_final_beam_diag_reset() {
@@ -495,6 +629,13 @@ namespace mkfit {
     std::memset(g_fbh_clean, 0, sizeof(g_fbh_clean));
     std::memset(g_fbseed, 0, sizeof(g_fbseed));
     std::memset(g_fbfirst, 0, sizeof(g_fbfirst));
+    g_fpr.clear();
+    std::memset(g_fpr_n, 0, sizeof(g_fpr_n));
+    std::memset(g_fpr_any, 0, sizeof(g_fpr_any));
+    std::memset(g_fpr_p1_same, 0, sizeof(g_fpr_p1_same));
+    std::memset(g_fpr_clean, 0, sizeof(g_fpr_clean));
+    std::memset(g_fpr_gain, 0, sizeof(g_fpr_gain));
+    std::memset(g_fpr_loss, 0, sizeof(g_fpr_loss));
   }
 
   void v2p2_final_beam_diag_report() {
@@ -581,6 +722,39 @@ namespace mkfit {
                  100. * nb / std::max<size_t>(1, vb.size()), na - nb);
         }
         printf("\n");
+      }
+    }
+
+    printf("\nFINAL-PICK SCORERS on each seed's candidates before the final sort: clean picks (MTV 3/4),\n"
+           "and against phase1:default the seeds a scorer turns clean (gain) or dirty (loss). Grid:\n"
+           "the likelihood with every non-seed hit at one hit efficiency eps, minus h per inside hole\n"
+           "and t per tail hole. The top grid scorers by net.\n");
+    const char *fpn[3] = {"all seeds", "seed 1.7-2.7 pT < 0.9", "seed 1.7-2.7 pT >= 0.9"};
+    for (int k = 0; k < 3; ++k) {
+      const double n = std::max(1L, g_fpr_n[k]);
+      printf("  %-24s seeds %7ld, some candidate clean %5.1f%%, phase1 re-pick = actual pick %5.1f%%\n", fpn[k],
+             g_fpr_n[k], 100. * g_fpr_any[k] / n, 100. * g_fpr_p1_same[k] / n);
+      auto line = [&](int s, const char *name) {
+        printf("    %-34s clean %6.2f%%  gain %6ld  loss %6ld  net %+6ld\n", name, 100. * g_fpr_clean[k][s] / n,
+               g_fpr_gain[k][s], g_fpr_loss[k][s], g_fpr_gain[k][s] - g_fpr_loss[k][s]);
+      };
+      line(0, "phase1:default");
+      line(1, "likelihood as in the search");
+      line(2 + 2 * FPR_NT + 1, "llh eps search, h 8, t 3 (always)");
+      std::vector<int> ord;
+      for (int s = 2; s < FPR_NS; ++s) ord.push_back(s);
+      std::sort(ord.begin(), ord.end(), [&](int a, int b) {
+        return g_fpr_gain[k][a] - g_fpr_loss[k][a] > g_fpr_gain[k][b] - g_fpr_loss[k][b];
+      });
+      for (int i = 0; i < 10 && i < (int)ord.size(); ++i) {
+        float eps, h, t;
+        fpr_grid(ord[i], eps, h, t);
+        char nm[64];
+        if (eps > 0.f)
+          snprintf(nm, sizeof(nm), "llh eps %.2f, h %g, t %g", eps, h, t);
+        else
+          snprintf(nm, sizeof(nm), "llh eps search, h %g, t %g", h, t);
+        line(ord[i], nm);
       }
     }
   }

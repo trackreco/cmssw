@@ -77,6 +77,7 @@ void val_rho_region(int region) { mkfit::val_rho_region(region); }
 void val_mini_prop_param_b(int on) { mkfit::val_mini_prop_param_b(on); }
 void val_hit_eff_grp(float pb, float pe, float sps, float s2s, float se) { mkfit::val_hit_eff_grp(pb, pe, sps, s2s, se); }
 void val_hit_eff(float fwd, float bkw) { mkfit::val_hit_eff(fwd, bkw); }
+void val_final_pick_llh(bool on, float h, float t) { mkfit::val_final_pick_llh(on, h, t); }
 void val_eff_signal_only(bool on) { mkfit::val_eff_signal_only(on); }
 void val_final_beam(bool on) { mkfit::val_final_beam(on); }
 void val_final_beam_report() { mkfit::val_final_beam_report(); }

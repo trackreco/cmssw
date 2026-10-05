@@ -1359,8 +1359,9 @@ namespace mkfit {
   }
 
   // Default track scorer of every iteration config, by registered name (e.g.
-  // "phase1:default", which the CMSSW phase-2 initialStep JSON names, against
-  // the plugin's "phase2:LstIntoPix"). Re-resolves the function pointers.
+  // "phase1:default", which the CMSSW phase-2 initialStep JSON and, since
+  // 2026-10-04, the phase-2 plugin name, or "phase2:LstIntoPix", the plugin's
+  // earlier default). Re-resolves the function pointers.
   void val_track_scorer(const char *name) {
     const int ni = Config::ItrInfo.size();
     for (int i = 0; i < ni; ++i) {
@@ -1570,6 +1571,14 @@ namespace mkfit {
       V2p2::Score::fwd.hit_eff_grp[i] = g[i];
     printf("val_hit_eff_grp: fwd hit_eff pixB %g pixE %g TBPS %g TB2S %g TEDD %g (negative = hit_eff %g)\n",
            g[0], g[1], g[2], g[3], g[4], V2p2::Score::fwd.hit_eff);
+  }
+
+  void val_final_pick_llh(bool on, float hole_penalty, float tail_penalty) {
+    V2p2::Policy::final_pick_llh = on;
+    V2p2::Policy::final_pick_hole_penalty = hole_penalty;
+    V2p2::Policy::final_pick_tail_penalty = tail_penalty;
+    printf("val_final_pick_llh: %d, layer-step score - %g per inside hole - %g per tail hole\n", (int) on,
+           hole_penalty, tail_penalty);
   }
 
   void val_mini_prop_param_b(int on) {

@@ -894,7 +894,29 @@ namespace mkfit {
 
         // final sorting
         for (int iseed = start_seed; iseed < end_seed; ++iseed) {
-          eoccs[iseed].mergeCandsAndBestShortOne(m_job->params(), st_par.m_track_scorer, true, true);
+#if defined(MKFIT_STANDALONE)
+          if (Config::V2p2::Diag::final_beam_purity && iteration_dir == SteeringParams::IT_FwdSearch)
+            v2p2_final_pick_record(eoccs[iseed]);
+#endif
+          if (Config::V2p2::Policy::final_pick_llh && iteration_dir == SteeringParams::IT_FwdSearch) {
+            // score() still holds the summed layer-step score of the search.
+            namespace po = Config::V2p2::Policy;
+            auto final_score = [](TrackCand &c) {
+              c.setScore(c.score() - po::final_pick_hole_penalty * c.nInsideMinusOneHits() -
+                         po::final_pick_tail_penalty * c.nTailMinusOneHits());
+            };
+            CombCandidate &cc = eoccs[iseed];
+            for (int ic = 0; ic < (int)cc.size(); ++ic)
+              final_score(cc[ic]);
+            if (cc.refBestShortCand().combCandidate()) {
+              TrackCand bs = cc.refBestShortCand();
+              final_score(bs);
+              cc.setBestShortCand(bs);
+            }
+            cc.mergeCandsAndBestShortOne(m_job->params(), st_par.m_track_scorer, false, true);
+          } else {
+            eoccs[iseed].mergeCandsAndBestShortOne(m_job->params(), st_par.m_track_scorer, true, true);
+          }
         }
       });  // end parallel-for over chunk of seeds within region
     });    // end of parallel-for-each over eta regions
