@@ -28,6 +28,7 @@ namespace mkfit {
   SEEDCONF_DEFINE_TYPE_NON_INTRUSIVE(SeederConfig::EtaWin, lo, hi, aphi, bphi, aq, bq)
   SEEDCONF_DEFINE_TYPE_NON_INTRUSIVE(SeederConfig::Pattern, layers, win, bwin, sref, eta_win)
   SEEDCONF_DEFINE_TYPE_NON_INTRUSIVE(SeederConfig::ShapeWin, layer, bin_width, lo, hi)
+  SEEDCONF_DEFINE_TYPE_NON_INTRUSIVE(SeederConfig::Fit, mode, prior_sigma, prior_scale, pos_from_hit0, fake_sigma)
   SEEDCONF_DEFINE_TYPE_NON_INTRUSIVE(SeederConfig,
                                      pt_min,
                                      d0_max,
@@ -58,7 +59,8 @@ namespace mkfit {
                                      fk_ot2,
                                      ot2_win,
                                      ot2_phimin,
-                                     dedup)
+                                     dedup,
+                                     fit)
 
   void SeederConfig::load(const std::string &json_file) {
     std::ifstream ifs(json_file);

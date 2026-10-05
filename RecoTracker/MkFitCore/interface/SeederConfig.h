@@ -72,6 +72,21 @@ namespace mkfit {
     // the cleaning: drop a quad sharing >= dedup hits with a better kept one; 0: off
     int dedup = 0;
 
+    // The seed fit (seeder_make_seeds(), MkSeeder.h): the state and covariance of a seed from its quad.
+    // mode 1: the helix through the first, a middle and the last hit, at the first hit, with the prior
+    //   prior_sigma (times prior_scale; sigma(1/pT) relative to the helix's own 1/pT), then the Kalman update
+    //   with each of the four hits on its module plane, with material; the state ends at the last hit.
+    //   pos_from_hit0: the position at hit 0 is the hit's own, with its covariance, and not updated with it.
+    // mode 0: the helix at the last hit with the fixed diagonal covariance fake_sigma, no update.
+    struct Fit {
+      int mode = 1;
+      std::array<float, 6> prior_sigma = {1.0f, 1.0f, 1.0f, 1.0f, 0.03f, 0.03f};
+      float prior_scale = 1.0f;
+      int pos_from_hit0 = 0;
+      std::array<float, 6> fake_sigma = {0.002f, 0.002f, 0.002f, 0.03f, 0.0015f, 0.0008f};
+    };
+    Fit fit;
+
     void load(const std::string &json_file);
     void save(const std::string &json_file) const;
     std::string dump() const;  // the JSON, for printouts

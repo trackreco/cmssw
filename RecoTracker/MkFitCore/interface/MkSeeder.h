@@ -15,6 +15,7 @@
 
 #include "RecoTracker/MkFitCore/interface/SeedStructures.h"
 #include "RecoTracker/MkFitCore/interface/SeederConfig.h"
+#include "RecoTracker/MkFitCore/interface/Track.h"
 #include "RecoTracker/MkFitCore/interface/radix_sort.h"
 
 #include <array>
@@ -39,6 +40,26 @@ namespace mkfit {
     float score, fake_score;
     int n_amb;
   };
+
+  // The seed fit's failures, per call of seeder_make_seeds()
+  struct SeedFitCounters {
+    int n_bad_helix = 0;  // no helix through the quad
+    int n_fail = 0;       // a failed propagation or update, or a non-finite or negative variance
+    int n_neg_pos = 0;    // position variances in [-1e-6, 0] cm^2 at the last hit: float rounding, kept
+  };
+
+  // The seeds of the quads (SeederConfig::Fit): per quad a Track with the fitted state at its last hit, its
+  // four hits, the quad's index as the label and track_algo as the algorithm. A quad without a helix or
+  // with a failed fit gets no seed, so the labels can have gaps. quality, if given: per quad, i.e. by
+  // label, the SeedQuality (Track.h). The hits are looked up in src as the seeder took them.
+  void seeder_make_seeds(const SeederConfig::Fit &fit,
+                         const std::vector<SeederQuad> &quads,
+                         const SeedHitSource &src,
+                         const TrackerInfo &ti,
+                         int track_algo,
+                         TrackVec &out,
+                         std::vector<SeedQuality> *quality = nullptr,
+                         SeedFitCounters *counters = nullptr);
 
   class MkSeeder {
   public:

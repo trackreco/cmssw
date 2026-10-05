@@ -9,6 +9,7 @@
 #include "RecoTracker/MkFitCore/interface/Config.h"
 #include "RecoTracker/MkFitCore/interface/HitStructures.h"
 #include "RecoTracker/MkFitCore/interface/IterationConfig.h"
+#include "RecoTracker/MkFitCore/interface/MkSeeder.h"
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 #include "RecoTracker/MkFitCore/interface/cms_common_macros.h"
 #include "RecoTracker/MkFitCore/src/KalmanUtilsMPlex.h"
@@ -86,60 +87,6 @@ namespace mkfit {
   // The seed state
   //===========================================================================
 
-  namespace {
-    // The circle through three points in the transverse plane and the line in (arc length, z) through
-    // all four hits. k: signed curvature, > 0 counter-clockwise from a to d.
-    struct SeedHelix {
-      float cx = 0, cy = 0, R = 0;  // centre and radius; R = 0 for a straight line
-      int turn = 0;                 // +1 counter-clockwise, -1 clockwise, 0 straight
-      float cot = 0;
-
-      bool make(const Hit *H[4]) {
-        const float ax = H[0]->x(), ay = H[0]->y(), dx = H[3]->x(), dy = H[3]->y();
-        // the middle point: whichever of hits 1, 2 lies nearer the middle of a-d in r
-        const float rm = 0.5f * (H[0]->r() + H[3]->r());
-        const Hit &M = std::abs(H[1]->r() - rm) < std::abs(H[2]->r() - rm) ? *H[1] : *H[2];
-        const float bx = M.x() - ax, by = M.y() - ay, ex = dx - ax, ey = dy - ay;
-        const float dd = 2.f * (bx * ey - by * ex);
-        const float b2 = bx * bx + by * by, e2 = ex * ex + ey * ey;
-        if (std::abs(dd) < 1e-9f * e2)
-          return false;
-        const float ux = (ey * b2 - by * e2) / dd, uy = (bx * e2 - ex * b2) / dd;
-        cx = ax + ux, cy = ay + uy, R = std::hypot(ux, uy);
-        turn = dd > 0 ? 1 : -1;
-        // z = z0 + cot * s, least squares over the four hits, s the arc length from hit 0
-        float S = 0, Z = 0, SS = 0, SZ = 0;
-        for (int k = 0; k < 4; ++k) {
-          const float chord = std::hypot(H[k]->x() - ax, H[k]->y() - ay);
-          const float s = 2.f * R * std::asin(std::min(1.f, chord / (2.f * R)));
-          S += s, Z += H[k]->z(), SS += s * s, SZ += s * H[k]->z();
-        }
-        const float den = 4.f * SS - S * S;
-        if (den <= 0)
-          return false;
-        cot = (4.f * SZ - S * Z) / den;
-        return std::isfinite(cot) && std::isfinite(R);
-      }
-
-      // the state at hit h, moving away from hit 0. B along +z turns a positive charge clockwise.
-      void state(const Hit &h, TrackState &ts) const {
-        const float rx = h.x() - cx, ry = h.y() - cy;
-        const float tx = turn > 0 ? -ry : ry, ty = turn > 0 ? rx : -rx;
-        ts.charge = turn > 0 ? -1 : 1;
-        const float pt = Const::sol_over_100 * Config::Bfield * R;
-        ts.parameters = SVector6(h.x(), h.y(), h.z(), 1.f / pt, std::atan2(ty, tx), Const::PIOver2 - std::atan(cot));
-      }
-    };
-
-    void diag_errors(SMatrixSym66 &e, const float *sig, float scale) {
-      for (int a = 0; a < 6; ++a)
-        for (int b = 0; b <= a; ++b)
-          e(a, b) = 0.f;
-      for (int a = 0; a < 6; ++a)
-        e(a, a) = (scale * sig[a]) * (scale * sig[a]);
-    }
-  }  // namespace
-
   int Shell::MakeSeederSeeds(EvCtx &ctx, int mode) {
     ctx.seeds.clear();
     ctx.ev->seedQualityByLabel_.clear();
@@ -149,150 +96,36 @@ namespace mkfit {
       printf("Shell::MakeSeederSeeds: no quads for event %d\n", ev.evtID());
       return 0;
     }
-    const std::vector<SeederQuad> &Q = it->second;
-    // the seed-quality field, by quad index: a seed's label is its quad's index (below)
-    ctx.ev->seedQualityByLabel_.resize(Q.size());
-    for (size_t i = 0; i < Q.size(); ++i)
-      ctx.ev->seedQualityByLabel_[i] = {Q[i].score, Q[i].fake_score, Q[i].n_amb};
+    // the fit is MkFitCore's (seeder_make_seeds(), as CMSSW runs it), with the Shell's knobs
+    std::vector<mkfit::SeederQuad> Q;
+    Q.reserve(it->second.size());
+    for (const SeederQuad &q : it->second)
+      Q.push_back({{q.l[0], q.l[1], q.l[2], q.l[3]},
+                   {(unsigned int)q.h[0], (unsigned int)q.h[1], (unsigned int)q.h[2], (unsigned int)q.h[3]},
+                   q.score,
+                   q.fake_score,
+                   q.n_amb});
+    SeederConfig::Fit fit;
+    fit.mode = mode;
+    for (int i = 0; i < 6; ++i)
+      fit.prior_sigma[i] = s_seeder_prior_sigma[i], fit.fake_sigma[i] = s_seeder_fake_sigma[i];
+    fit.prior_scale = s_seeder_prior_scale;
+    fit.pos_from_hit0 = s_seeder_pos_from_hit0;
     const IterationConfig &itconf = Config::ItrInfo[m_it_index];
-    const TrackerInfo &ti = Config::TrkInfo;
-    const PropagationFlags &pf = ti.prop_config().backward_fit_pflags;
-
-    int n_bad_helix = 0, n_fail = 0, n_neg_pos = 0;
-    TrackVec &out = ctx.seeds;
-    out.reserve(Q.size());
-
-    for (int b0 = 0; b0 < (int)Q.size(); b0 += NN) {
-      const int N = std::min(NN, (int)Q.size() - b0);
-      TrackState ts[NN];
-      bool ok[NN];
-      for (int i = 0; i < N; ++i) {
-        const SeederQuad &q = Q[b0 + i];
-        const Hit *H[4];
-        for (int k = 0; k < 4; ++k)
-          H[k] = &ev.layerHits_[q.l[k]][q.h[k]];
-        SeedHelix hx;
-        ok[i] = hx.make(H);
-        if (!ok[i]) {
-          ++n_bad_helix;
-          continue;
-        }
-        if (mode == 0) {
-          hx.state(*H[3], ts[i]);
-          diag_errors(ts[i].errors, s_seeder_fake_sigma, 1.f);
-        } else {
-          hx.state(*H[0], ts[i]);
-          diag_errors(ts[i].errors, s_seeder_prior_sigma, s_seeder_prior_scale);
-          ts[i].errors(3, 3) *= ts[i].parameters[3] * ts[i].parameters[3];
-          if (s_seeder_pos_from_hit0) {
-            // the position is hit 0's: its own covariance, and no update with it below
-            const SMatrixSym33 &he = H[0]->error();
-            for (int a = 0; a < 3; ++a)
-              for (int b = 0; b <= a; ++b)
-                ts[i].errors(a, b) = he(a, b);
-          }
-        }
-      }
-      float chi2[NN] = {0};
-      if (mode == 1) {
-        MPlexLS err_in, err_out;
-        MPlexLV par_in, par_out;
-        MPlexQI chg, fail;
-        MPlexQF chi2_k;
-        MPlexHS msErr;
-        MPlexHV msPar, plNrm, plDir, plPnt;
-        // lanes beyond N and lanes without a helix repeat the first good lane, so that every lane
-        // computes on sane numbers
-        int i_good = 0;
-        while (i_good < N && !ok[i_good])
-          ++i_good;
-        if (i_good == N)
-          continue;
-        for (int i = 0; i < NN; ++i) {
-          const int j = (i < N && ok[i]) ? i : i_good;
-          err_in.copyIn(i, ts[j].errors.Array());
-          par_in.copyIn(i, ts[j].parameters.Array());
-          chg(i, 0, 0) = ts[j].charge;
-        }
-        int failed[NN] = {0};
-        for (int k = s_seeder_pos_from_hit0 ? 1 : 0; k < 4; ++k) {
-          for (int i = 0; i < NN; ++i) {
-            const int j = (i < N && ok[i]) ? i : i_good;
-            const SeederQuad &q = Q[b0 + j];
-            const LayerInfo &li = ti[q.l[k]];
-            const Hit &h = ev.layerHits_[q.l[k]][q.h[k]];
-            const ModuleInfo &mi = li.module_info(h.detIDinLayer());
-            msErr.copyIn(i, h.errArray());
-            msPar.copyIn(i, h.posArray());
-            plNrm.copyIn(i, mi.zdir.Array());
-            plDir.copyIn(i, mi.xdir.Array());
-            plPnt.copyIn(i, mi.pos.Array());
-          }
-          fail.setVal(0);
-          kalmanPropagateAndUpdateAndChi2Plane(err_in, par_in, chg, msErr, msPar, plNrm, plDir, plPnt, err_out, par_out,
-                                               fail, chi2_k, NN, pf, true);
-          for (int i = 0; i < N; ++i) {
-            bool bad = fail(i, 0, 0) != 0;
-            int why = fail(i, 0, 0) != 0 ? 1 : 0;
-            for (int d = 0; d < 6; ++d) {
-              if (!isFinite(par_out(i, d, 0)))
-                why |= 2;
-              if (!isFinite(err_out(i, d, d)))
-                why |= 4;
-              else if (d >= 3 ? !(err_out(i, d, d) > 0.f) : err_out(i, d, d) < -1e-6f)
-                why |= 8;
-            }
-            // the state lies on the module plane, so the position covariance has a zero direction along
-            // its normal; float rounding leaves that diagonal at about -1e-9 cm^2, which is not a failure
-            for (int d = 0; d < 3; ++d)
-              n_neg_pos += k == 3 && err_out(i, d, d) <= 0.f && err_out(i, d, d) >= -1e-6f;
-            bad = why != 0;
-            if (bad && !failed[i] && s_seeder_debug > 0) {
-              --s_seeder_debug;
-              const SeederQuad &q = Q[b0 + i];
-              printf("[seedfit] fail at k %d why %d layers %d %d %d %d  in: pt %.3f phi %.3f th %.3f | err diag",
-                     k, why, q.l[0], q.l[1], q.l[2], q.l[3], 1.f / par_in(i, 3, 0), par_in(i, 4, 0), par_in(i, 5, 0));
-              for (int d = 0; d < 6; ++d)
-                printf(" %.3g", err_in(i, d, d));
-              printf(" | out diag");
-              for (int d = 0; d < 6; ++d)
-                printf(" %.3g", err_out(i, d, d));
-              printf("\n");
-            }
-            failed[i] |= bad;
-            chi2[i] += chi2_k(i, 0, 0);
-          }
-          err_in = err_out;
-          par_in = par_out;
-        }
-        for (int i = 0; i < N; ++i) {
-          if (!ok[i])
-            continue;
-          if (failed[i]) {
-            ok[i] = false;
-            ++n_fail;
-            continue;
-          }
-          err_in.copyOut(i, ts[i].errors.Array());
-          par_in.copyOut(i, ts[i].parameters.Array());
-          ts[i].charge = chg(i, 0, 0);
-        }
-      }
-      for (int i = 0; i < N; ++i) {
-        if (!ok[i])
-          continue;
-        const SeederQuad &q = Q[b0 + i];
-        Track seed(ts[i], chi2[i], b0 + i, 0, nullptr);
-        for (int k = 0; k < 4; ++k)
-          seed.addHitIdx(q.h[k], q.l[k], 0.f);
-        seed.setAlgorithm(TrackBase::TrackAlgorithm(itconf.m_track_algorithm));
-        out.push_back(seed);
-      }
-    }
+    SeedFitCounters cnt;
+    // the seed-quality field, by quad index: a seed's label is its quad's index
+    seeder_make_seeds(fit,
+                      Q,
+                      seed_hit_source(ev.layerHits_),
+                      Config::TrkInfo,
+                      itconf.m_track_algorithm,
+                      ctx.seeds,
+                      &ctx.ev->seedQualityByLabel_,
+                      &cnt);
     printf("Shell::MakeSeederSeeds: event %d, mode %d: %d seeds from %d quads (%d without a helix, %d failed fits;"
            " %d position variances in [-1e-6, 0] cm^2 at the last hit)\n",
-           ev.evtID(), mode, (int)out.size(), (int)Q.size(), n_bad_helix, n_fail, n_neg_pos);
-    return (int)out.size();
+           ev.evtID(), mode, (int)ctx.seeds.size(), (int)Q.size(), cnt.n_bad_helix, cnt.n_fail, cnt.n_neg_pos);
+    return (int)ctx.seeds.size();
   }
 
   void Shell::ProcessEventSeeder(EvCtx &ctx, int mode) {
