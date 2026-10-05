@@ -28,8 +28,18 @@ namespace mkfit {
         m_ax_q((float)m_q_lo, (float)m_q_hi, nq(m_q_lo, m_q_hi, qbin)),
         m_binnor(m_ax_phi, m_ax_q, true, false) {}
 
-  void SeedLayerOfHits::fill(const HitVec &hits, const BeamSpot &bs) {
-    m_n = hits.size();
+  void SeedLayerOfHits::fill(const SeedLayerHits &src, const BeamSpot &bs) {
+    // With an index list the layer's hits are first copied into a HitVec of their own, so that everything
+    // below runs exactly as for a layer that has one: the compiler vectorises the phi and r loop over a
+    // contiguous HitVec, and a scalar atan2 would differ from the vectorised one by an ULP, which changes
+    // the quads. m_orig keeps the external index.
+    if (src.idx) {
+      m_gather.resize(src.n);
+      for (unsigned int k = 0; k < src.n; ++k)
+        m_gather[k] = (*src.hits)[src.idx[k]];
+    }
+    const HitVec &hits = src.idx ? m_gather : *src.hits;
+    m_n = src.n;
     m_bs = bs;
     // phi and r from the beam line at the hit's z, by Hit::phi()'s and Hit::r()'s own expressions, so a
     // beam spot at the origin with no slope gives exactly the hit's own phi and r
@@ -57,7 +67,7 @@ namespace mkfit {
     m_y.resize(m_n);
     m_orig.resize(m_n);
     for (unsigned int i = 0; i < m_n; ++i) {
-      const unsigned int j = m_binnor.m_ranks[i];
+      const unsigned int j = m_binnor.m_ranks[i];  // the position in hits
       const Hit &h = hits[j];
       m_phi[i] = m_tmp_phi[j];
       m_z[i] = h.z();
@@ -68,6 +78,7 @@ namespace mkfit {
       m_y[i] = m_r[i] * std::sin(m_phi[i]);
       m_orig[i] = j;
     }
+    // the span below reads hits by position; m_orig becomes the external index after it
 
     const unsigned int nb = n_phi_bins() * n_q_bins();
     m_start.assign(nb + 1, 0);
@@ -89,6 +100,9 @@ namespace mkfit {
       m_qbar_lo = std::min(m_qbar_lo, u), m_qbar_hi = std::max(m_qbar_hi, u);
       m_q_lo = std::min(m_q_lo, v), m_q_hi = std::max(m_q_hi, v);
     }
+    if (src.idx)
+      for (unsigned int k = 0; k < m_n; ++k)
+        m_orig[k] = src.idx[m_orig[k]];
   }
 
   //==============================================================================
@@ -107,9 +121,9 @@ namespace mkfit {
       kv.second->m_with_double = wd;
   }
 
-  void SeedEventOfHits::fill(const std::vector<HitVec> &layer_hits, const BeamSpot &bs) {
+  void SeedEventOfHits::fill(const SeedHitSource &src, const BeamSpot &bs) {
     for (auto &kv : m_layers)
-      kv.second->fill(layer_hits[kv.first], bs);
+      kv.second->fill(src[kv.first], bs);
   }
 
 }  // namespace mkfit

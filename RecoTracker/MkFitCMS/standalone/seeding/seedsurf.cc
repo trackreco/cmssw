@@ -18,14 +18,16 @@
 //                      better = fewer outer-tracker layers in the pattern, then smaller
 //                      (dq_c/q_c)^2 + (dphi_d/w_phi_d)^2 + (dq_d/w_q_d)^2
 //        [--bind CM]   labels bound to geometry: needs SimHitStates in the sample
-//        [--chain H] [--chain-holes-ot K] [--chain-hole-always] [--chain-any] [--chain-start-holes K] [--chain-lead-only] [--chain-inner-ot-only] [--chain-start-gap] [--chain-start-gap-barrel] [--chain-gap-map M] [--chain-fast] [--chain-batch] [--chain-fast-check] [--chain-phases]   the feed-forward chain (SurfChain) in
+//        [--chain H] [--chain-holes-ot K] [--chain-hole-always] [--chain-any] [--chain-start-holes K] [--chain-lead-only] [--chain-inner-ot-only] [--chain-start-gap] [--chain-start-gap-barrel] [--chain-gap-map M] [--test-indexed-hits] [--chain-fast] [--chain-batch] [--chain-fast-check] [--chain-phases]   the feed-forward chain (SurfChain) in
 //                      place of the pattern list; the patterns then give window tables and the denominator;
 //                      --chain-batch runs the batched float finder (SeedSurfBatch.h) on the same configuration;
 //                      --chain-batch-d N its stage d prediction: 0 direct from hit c, 1 one-point cubic, 2 two-point Hermite
 //                      --chain-start-gap (batch only, with --chain-lead-only): a start may also skip one crossed pixel
 //                      layer between a and b (B1 B3 for a missed B2), charged as a missed pixel hit;
 //                      --chain-start-gap-barrel only where a and b are both barrel pixel layers; --chain-gap-map M: a lane
-//                      of a gap start must cross the skipped layer in a gap between modules (SensorGapMap, margin M cm)
+//                      of a gap start must cross the skipped layer in a gap between modules (SensorGapMap, margin M cm);
+//                      --test-indexed-hits: each event again with the hits by index into one HitVec per subdetector
+//                      (as in CMSSW), compared with the per-layer run
 //        [--beam-spot-origin]   x, y, r, phi from the origin instead of the sample's beam spot
 //        [--truth OUT.txt] [--resid OUT.txt] [--dump quads.txt] [--quad-dump OUT.txt] [--eta-max E]
 //        [--seeds OUT.txt]   the quads kept by the cleaning, as seeds for the track finding (Shell::LoadSeederQuads):
@@ -169,6 +171,8 @@ int main(int argc, char *argv[]) {
   int chain_hole_always = 0, chain_holes_ot = 0, chain_any = 0, chain_start_holes = -1, chain_lead_only = 0;
   int chain_inner_ot_only = 0, chain_start_gap = 0;
   float chain_gap_map = -1;  // the gap map's margin in cm; < 0: no map
+  int test_indexed = 0;      // --test-indexed-hits
+  long ti_events = 0, ti_bad_find = 0, ti_bad_clean = 0;
   int chain_fast = 0;  // --chain-fast: the float kernels (K2) in the chain
   int chain_batch = 0; // --chain-batch: the batched float finder (SurfChainBatch)
   int chain_batch_d = 0; // --chain-batch-d: its stage d prediction (0 direct, 1 one-point cubic, 2 two-point Hermite)
@@ -303,6 +307,8 @@ int main(int argc, char *argv[]) {
       chain_start_gap = 2;
     else if (a == "--chain-gap-map")
       chain_gap_map = atof(next());
+    else if (a == "--test-indexed-hits")
+      test_indexed = 1;
     else if (a == "--chain-fast")
       chain_fast = 1;
     else if (a == "--chain-batch")
@@ -697,7 +703,49 @@ int main(int argc, char *argv[]) {
       const auto &LM = layers.layer_map();
       if (chain_batch)
         seeder.find(cq, cnt, &csc, &cfk);
-      else {
+      if (chain_batch && test_indexed) {
+        // --test-indexed-hits: the event again with the hits laid out as in CMSSW, one HitVec for the pixel
+        // layers and one for the others, each layer an index list into it; the quads mapped back to per-layer
+        // indices must equal the per-layer run's, and so must the cleaning
+        HitVec hv[2];
+        std::vector<std::vector<unsigned int>> idx(ev.layerHits_.size());
+        std::vector<unsigned int> base(ev.layerHits_.size(), 0);
+        SeedHitSource src(ev.layerHits_.size());
+        for (size_t l = 0; l < ev.layerHits_.size(); ++l) {
+          HitVec &v = hv[ti[l].is_pixel() ? 0 : 1];
+          base[l] = v.size();
+          for (unsigned int k = 0; k < ev.layerHits_[l].size(); ++k)
+            idx[l].push_back(v.size()), v.push_back(ev.layerHits_[l][k]);
+        }
+        for (size_t l = 0; l < ev.layerHits_.size(); ++l)
+          src[l] = {&hv[ti[l].is_pixel() ? 0 : 1], idx[l].data(), (unsigned int)idx[l].size()};
+        seeder.fill(src, bsv);
+        std::vector<std::pair<std::array<int, 4>, Quad>> cq2;
+        std::vector<float> csc2, cfk2;
+        SeedCounters cnt2;
+        seeder.find(cq2, cnt2, &csc2, &cfk2);
+        bool bad = cq2.size() != cq.size() || csc2 != csc || cfk2 != cfk;
+        for (size_t i = 0; i < cq2.size() && !bad; ++i) {
+          bad |= cq2[i].first != cq[i].first;
+          for (int k = 0; k < 4 && !bad; ++k)
+            bad |= cq2[i].second[k] - base[cq2[i].first[k]] != cq[i].second[k];
+        }
+        ti_bad_find += bad;
+        if (dedup_n > 0 && !bad) {
+          std::vector<std::array<int, 4>> ll(cq.size());
+          std::vector<Quad> q1(cq.size()), q2(cq.size());
+          for (size_t i = 0; i < cq.size(); ++i)
+            ll[i] = cq[i].first, q1[i] = cq[i].second, q2[i] = cq2[i].second;
+          std::vector<char> k1, k2;
+          std::vector<int> a1, a2;
+          seeder.clean(ev.layerHits_, ll, q1, csc, dedup_n, k1, &a1);
+          seeder.clean(src, ll, q2, csc, dedup_n, k2, &a2);
+          ti_bad_clean += k1 != k2 || a1 != a2;
+        }
+        ++ti_events;
+        seeder.fill(ev.layerHits_, bsv);  // back to the per-layer layout for everything below
+      }
+      if (!chain_batch) {
         CH[0].run(LM, cq, cnt);
         CH[1].run(LM, cq, cnt);
       }
@@ -1224,6 +1272,9 @@ int main(int argc, char *argv[]) {
            " %.1f OT1-P-d quads tested on OT2-P of which %.1f cut\n", fk_score, fk_shape ? "on" : "off", fk_ot2,
            (CB[0]->n_fk_shape + CB[1]->n_fk_shape) / (double)n_events, (CB[0]->n_ot2_tested + CB[1]->n_ot2_tested) / (double)n_events,
            (CB[0]->n_fk_ot2 + CB[1]->n_fk_ot2) / (double)n_events);
+  if (test_indexed)
+    printf("[seedsurf] TEST INDEXED HITS: %ld events; find differs in %ld, the cleaning in %ld\n", ti_events, ti_bad_find,
+           ti_bad_clean);
   if (chain_batch && chain_gap_map >= 0)
     printf("[seedsurf] GAP MAP (batch): per event %.1f gap-start pairs dropped in the doublet loop; %.1f doublets tested in"
            " flush_start, %.1f dropped (crossing on a module)\n",

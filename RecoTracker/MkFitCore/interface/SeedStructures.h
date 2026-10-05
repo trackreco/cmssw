@@ -50,8 +50,28 @@ namespace mkfit {
     }
   };
 
-  // (ia, ib, ic, id): ORIGINAL hit indices within each layer's HitVec.
+  // (ia, ib, ic, id): ORIGINAL hit indices, into the HitVec each layer's hits come from (SeedLayerHits).
   using SeedQuad = std::array<unsigned int, 4>;
+
+  // The hits of one layer, as the seeder takes them: n indices into an external HitVec. In the standalone
+  // build every layer has its own HitVec and idx is null (hit k is index k); in CMSSW the pixel and the
+  // outer-tracker hits are one HitVec each, indexed by cluster, and idx lists the layer's clusters, so
+  // that a quad carries cluster indices, as every mkFit seed and track in CMSSW does.
+  struct SeedLayerHits {
+    const HitVec *hits = nullptr;
+    const unsigned int *idx = nullptr;
+    unsigned int n = 0;
+    unsigned int index(unsigned int k) const { return idx ? idx[k] : k; }
+  };
+  // by mkFit layer id; a layer the seeder does not use may be left empty
+  using SeedHitSource = std::vector<SeedLayerHits>;
+  // one HitVec per layer, every hit of it (the standalone layout)
+  inline SeedHitSource seed_hit_source(const std::vector<HitVec> &layer_hits) {
+    SeedHitSource s(layer_hits.size());
+    for (size_t l = 0; l < layer_hits.size(); ++l)
+      s[l] = {&layer_hits[l], nullptr, (unsigned int)layer_hits[l].size()};
+    return s;
+  }
 
   //==============================================================================
   // SeedLayerOfHits
@@ -68,7 +88,8 @@ namespace mkfit {
     // qbin: the q bin width in cm
     SeedLayerOfHits(int id_, const LayerInfo &li, double qbin);
 
-    void fill(const HitVec &hits, const BeamSpot &bs);
+    void fill(const SeedLayerHits &src, const BeamSpot &bs);
+    void fill(const HitVec &hits, const BeamSpot &bs) { fill(SeedLayerHits{&hits, nullptr, (unsigned int)hits.size()}, bs); }
 
     // the hit's own qbar and q
     double qbar(unsigned int k) const { return m_disc ? m_z[k] : m_r[k]; }
@@ -168,6 +189,8 @@ namespace mkfit {
     unsigned int m_n = 0;
     // the hits' beam-relative phi and r in their HitVec's order, for the registration
     std::vector<float> m_tmp_phi, m_tmp_r;
+    // the layer's hits, copied, when they come by index into a shared HitVec (fill())
+    HitVec m_gather;
   };
 
   //==============================================================================
@@ -189,7 +212,8 @@ namespace mkfit {
 
     void set_with_double(bool wd);
     // layer_hits: the event's HitVecs, indexed by mkFit layer id
-    void fill(const std::vector<HitVec> &layer_hits, const BeamSpot &bs);
+    void fill(const SeedHitSource &src, const BeamSpot &bs);
+    void fill(const std::vector<HitVec> &layer_hits, const BeamSpot &bs) { fill(seed_hit_source(layer_hits), bs); }
 
   private:
     std::map<int, std::unique_ptr<SeedLayerOfHits>> m_layers;

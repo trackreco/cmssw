@@ -39,6 +39,8 @@ namespace mkfit {
     // layer_hits: the event's HitVecs, indexed by mkFit layer id; bs: the event's beam spot, the origin
     // of the seeder's transverse coordinates
     void fill(const std::vector<HitVec> &layer_hits, const BeamSpot &bs);
+    // the same with each layer's hits by index into an external HitVec (SeedLayerHits; CMSSW)
+    void fill(const SeedHitSource &src, const BeamSpot &bs);
 
     // out: (layer ids, original hit indices) per quad, +z side first; scores, if given: the cleaning
     // score of each quad, parallel to out; fake_scores, if given: the fake score (the sum the fake cut
@@ -61,6 +63,14 @@ namespace mkfit {
                int min_shared,
                std::vector<char> &keep,
                std::vector<int> *n_dropped = nullptr);
+    // the same with the hits as fill() took them
+    void clean(const SeedHitSource &src,
+               const std::vector<std::array<int, 4>> &layers,
+               const std::vector<SeedQuad> &quads,
+               const std::vector<float> &scores,
+               int min_shared,
+               std::vector<char> &keep,
+               std::vector<int> *n_dropped = nullptr);
 
   private:
     SeedEventOfHits m_hits;
@@ -77,6 +87,7 @@ namespace mkfit {
     std::vector<unsigned int> m_cl_key, m_cl_rank;
     radix_sort<unsigned int, unsigned int> m_cl_sort;
     std::vector<std::array<unsigned int, 4>> m_cl_gh;
+    std::vector<unsigned int> m_cl_pos;  // the position within its layer of each external hit index (indexed input)
   };
 
 }  // namespace mkfit

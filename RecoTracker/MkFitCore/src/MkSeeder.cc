@@ -20,6 +20,8 @@ namespace mkfit {
 
   void MkSeeder::fill(const std::vector<HitVec> &layer_hits, const BeamSpot &bs) { m_hits.fill(layer_hits, bs); }
 
+  void MkSeeder::fill(const SeedHitSource &src, const BeamSpot &bs) { m_hits.fill(src, bs); }
+
   void MkSeeder::find(std::vector<std::pair<std::array<int, 4>, SeedQuad>> &out,
                       SeedCounters &cnt,
                       std::vector<float> *scores,
@@ -28,6 +30,16 @@ namespace mkfit {
   }
 
   void MkSeeder::clean(const std::vector<HitVec> &layer_hits,
+                       const std::vector<std::array<int, 4>> &layers,
+                       const std::vector<SeedQuad> &quads,
+                       const std::vector<float> &scores,
+                       int min_shared,
+                       std::vector<char> &keep,
+                       std::vector<int> *n_dropped) {
+    clean(seed_hit_source(layer_hits), layers, quads, scores, min_shared, keep, n_dropped);
+  }
+
+  void MkSeeder::clean(const SeedHitSource &src,
                        const std::vector<std::array<int, 4>> &layers,
                        const std::vector<SeedQuad> &quads,
                        const std::vector<float> &scores,
@@ -54,17 +66,45 @@ namespace mkfit {
       key[i] = (unsigned int)t << 29 | sb >> 3;
     }
     m_cl_sort.sort(key, rank);
-    // each quad's hits as sorted global indices (layer offset + hit)
-    const int nl = layer_hits.size();
+    // each quad's hits as sorted global indices: the layer's offset + the hit's position within the layer.
+    // Which quads are kept does not depend on the numbering, but which kept quad a dropped one is charged
+    // to (n_dropped) does, through ties; so a layer given by index (SeedLayerHits::idx) is numbered by
+    // position too, as if it had a HitVec of its own. m_cl_pos: the position of each external index.
+    const int nl = src.size();
     std::vector<unsigned int> off(nl + 1, 0);
     for (int l = 0; l < nl; ++l)
-      off[l + 1] = off[l] + layer_hits[l].size();
+      off[l + 1] = off[l] + src[l].n;
+    std::vector<const unsigned int *> pos_of(nl, nullptr);
+    {
+      std::vector<std::pair<const HitVec *, size_t>> base;  // per shared HitVec: its start in m_cl_pos
+      size_t total = 0;
+      for (int l = 0; l < nl; ++l)
+        if (src[l].idx) {
+          bool found = false;
+          for (const auto &b : base)
+            found |= b.first == src[l].hits;
+          if (!found)
+            base.push_back({src[l].hits, total}), total += src[l].hits->size();
+        }
+      m_cl_pos.resize(total);
+      for (int l = 0; l < nl; ++l)
+        if (src[l].idx) {
+          size_t b0 = 0;
+          for (const auto &b : base)
+            if (b.first == src[l].hits)
+              b0 = b.second;
+          unsigned int *p = m_cl_pos.data() + b0;
+          for (unsigned int k = 0; k < src[l].n; ++k)
+            p[src[l].idx[k]] = k;
+          pos_of[l] = p;
+        }
+    }
     std::vector<std::array<unsigned int, 4>> &gh = m_cl_gh;
     gh.resize(nc);
     for (int i = 0; i < nc; ++i) {
       const auto &ll = layers[i];
       for (int k = 0; k < 4; ++k)
-        gh[i][k] = off[ll[k]] + quads[i][k];
+        gh[i][k] = off[ll[k]] + (pos_of[ll[k]] ? pos_of[ll[k]][quads[i][k]] : quads[i][k]);
       std::sort(gh[i].begin(), gh[i].end());
     }
     std::vector<CleanHL> &hl = m_cl_hl;
