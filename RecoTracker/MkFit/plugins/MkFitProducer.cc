@@ -3,6 +3,7 @@
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/ESHandle.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 
 #include "DataFormats/Common/interface/ContainerMask.h"
@@ -21,6 +22,7 @@
 
 // mkFit includes
 #include "RecoTracker/MkFitCMS/interface/LayerNumberConverter.h"
+#include "RecoTracker/MkFitCMS/interface/MkStdSeqs.h"
 #include "RecoTracker/MkFitCMS/interface/runFunctions.h"
 #include "RecoTracker/MkFitCore/interface/IterationConfig.h"
 #include "RecoTracker/MkFitCore/interface/MkBuilderWrapper.h"
@@ -62,6 +64,7 @@ private:
   const bool removeDuplicates_;
   const bool mkFitSilent_;
   const bool limitConcurrency_;
+  mkfit::StdSeq::SeedFlagCut seedFlagCut_;
 };
 
 MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
@@ -80,6 +83,12 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
       removeDuplicates_{iConfig.getParameter<bool>("removeDuplicates")},
       mkFitSilent_{iConfig.getUntrackedParameter<bool>("mkFitSilent")},
       limitConcurrency_{iConfig.getUntrackedParameter<bool>("limitConcurrency")} {
+  const auto& flagCut = iConfig.getParameter<edm::ParameterSet>("flaggedSeedCut");
+  seedFlagCut_.min_added_hits = flagCut.getParameter<int>("minAddedHits");
+  seedFlagCut_.score_lo = flagCut.getParameter<double>("scoreMin");
+  seedFlagCut_.score_hi = flagCut.getParameter<double>("scoreMax");
+  seedFlagCut_.on_fake_score = flagCut.getParameter<bool>("onFakeScore");
+
   const auto clustersToSkip = iConfig.getParameter<edm::InputTag>("clustersToSkip");
   if (not clustersToSkip.label().empty()) {
     pixelMaskToken_ = consumes(clustersToSkip);
@@ -132,6 +141,21 @@ void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& description
   edm::ParameterSetDescription descCCC;
   descCCC.add<double>("value", -999.);
   desc.add("minGoodStripCharge", descCCC);
+
+  edm::ParameterSetDescription descFlag;
+  descFlag.add<int>("minAddedHits", 0)
+      ->setComment(
+          "A track of a flagged seed is removed unless it has at least this many found hits besides the "
+          "seed's; 0 turns the cut off");
+  descFlag.add<double>("scoreMin", 0.35)->setComment("A seed is flagged when its score is in [scoreMin, scoreMax)");
+  descFlag.add<double>("scoreMax", 1e30);
+  descFlag.add<bool>("onFakeScore", true)
+      ->setComment("The score is the mkFit seeder's fake score (true) or its cleaning score (false)");
+  desc.add("flaggedSeedCut", descFlag)
+      ->setComment(
+          "Removes, after the duplicate removal, the tracks of seeds the mkFit seeder flagged as likely fakes "
+          "(mkfit::StdSeq::remove_flagged_seed_tracks); needs seeds with the seeder's quality "
+          "(MkFitTrajectorySeedConverter)");
 
   descriptions.add("mkFitProducerDefault", desc);
 }
@@ -214,6 +238,17 @@ void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::Ev
     arena.execute(std::move(lambda));
   } else {
     tbb::this_task_arena::isolate(std::move(lambda));
+  }
+
+  // the track's label is its seed's index, by which the seed quality is ordered
+  if (seedFlagCut_.min_added_hits > 0) {
+    const auto& quality = seeds.quality();
+    if (quality.size() != seeds.seeds().size())
+      throw cms::Exception("Configuration")
+          << "MkFitProducer: flaggedSeedCut needs the mkFit seeder's quality for every seed, got " << quality.size()
+          << " for " << seeds.seeds().size() << " seeds; the seeds must come from MkFitTrajectorySeedConverter";
+    const int nRemoved = mkfit::StdSeq::remove_flagged_seed_tracks(tracks, quality, seedFlagCut_);
+    LogDebug("MkFitProducer") << "removed " << nRemoved << " tracks of flagged seeds";
   }
 
   iEvent.emplace(putToken_, std::move(tracks), not backwardFitInCMSSW_);

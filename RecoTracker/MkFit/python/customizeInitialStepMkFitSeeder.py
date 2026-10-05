@@ -10,6 +10,10 @@ def customizeInitialStepMkFitSeeder(process, config = 'RecoTracker/MkFit/data/mk
     take. The tracks keep the algorithm initialStep, from the seeds' label. The CMSSW seeding modules of
     initialStep and the MkFitSeedConverter are no longer consumed, so they do not run.
 
+    MkFitProducer's flagged-seed cut is switched on as in the seeder's working point 2026-10-04
+    (RecoTracker/MkFitCMS/standalone/seeding/wp/2026-10-04/finder.shell): a track of a seed with a fake score
+    >= 0.35 is removed unless it has at least 4 found hits besides the seed's.
+
     config: the seeder's configuration (mkfit::SeederConfig JSON, `seedsurf --write-config`)."""
     from RecoTracker.MkFit.mkFitSeederConfigESProducer_cfi import mkFitSeederConfigESProducer as _config
     from RecoTracker.MkFit.mkFitSeederProducer_cfi import mkFitSeederProducer as _seeder
@@ -33,5 +37,11 @@ def customizeInitialStepMkFitSeeder(process, config = 'RecoTracker/MkFit/data/mk
     process.InitialStepTask.add(process.initialStepMkFitSeeder)
 
     process.initialStepTrackCandidatesMkFit.seeds = 'initialStepSeeds'
+    process.initialStepTrackCandidatesMkFit.flaggedSeedCut = cms.PSet(
+        minAddedHits = cms.int32(4),
+        scoreMin = cms.double(0.35),
+        scoreMax = cms.double(1e30),
+        onFakeScore = cms.bool(True),
+    )
     process.initialStepTrackCandidates.mkFitSeeds = 'initialStepSeeds'
     return process
