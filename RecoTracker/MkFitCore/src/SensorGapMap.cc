@@ -89,7 +89,8 @@ namespace mkfit {
         if (hi - lo > M_PI)
           std::swap(lo, hi), hi += 2 * M_PI;
         lo -= 0.05f, hi += 0.05f;
-        const int b0 = (int)std::floor((lo + M_PI) / (2 * M_PI) * c_nphi), b1 = (int)std::floor((hi + M_PI) / (2 * M_PI) * c_nphi);
+        const int b0 = (int)std::floor((lo + M_PI) / (2 * M_PI) * c_nphi),
+                  b1 = (int)std::floor((hi + M_PI) / (2 * M_PI) * c_nphi);
         for (int b = b0; b <= b1; ++b)
           bins[((b % c_nphi) + c_nphi) % c_nphi].push_back(k);
       }

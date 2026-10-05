@@ -163,7 +163,8 @@ namespace mkfit {
           if (lid >= 0) {
             GapRay &g = gap_ray_[lid];
             // the ray's phi is the line's beam-frame phi at r_mid: +-0.02 cm of edge tolerance on top of the margin
-            C->gap_map->ray_table(lid, any->m_bs.x, any->m_bs.y, kGapNphi, C->gap_map->margin() + 0.02f, g.r1, g.r2, g.edge);
+            C->gap_map->ray_table(
+                lid, any->m_bs.x, any->m_bs.y, kGapNphi, C->gap_map->margin() + 0.02f, g.r1, g.r2, g.edge);
           }
     }
   }

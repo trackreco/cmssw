@@ -312,8 +312,8 @@ namespace mkfit {
     unsigned int k[3];
     unsigned char pos[3], holes, st;
     unsigned char inner;  // holes charged after the start, in extension
-    float z0, cot;  // the r-z line through its first and last hit
-    float sc;       // a triplet: the stage c part of the residual score (fk_score)
+    float z0, cot;        // the r-z line through its first and last hit
+    float sc;             // a triplet: the stage c part of the residual score (fk_score)
   };
 
   class SeedChainFinder {
@@ -384,7 +384,7 @@ namespace mkfit {
     float ot2_phimin = 1.31e-3f;
     long n_fk_shape = 0, n_fk_ot2 = 0, n_ot2_tested = 0;
     long n_gap_tested = 0, n_gap_veto = 0;  // gap-start lanes tested on the gap map in flush_start(), and dropped
-    long n_gap_pre = 0;                      // gap-start pairs dropped by the gap map in the doublet loop
+    long n_gap_pre = 0;                     // gap-start pairs dropped by the gap map in the doublet loop
     // The gap map in the doublet loop: per start, the one skipped layer with a map (else -1), and per such layer
     // the event's ray table in the beam frame (SensorGapMap::ray_table())
     std::vector<int> gap_lid_;

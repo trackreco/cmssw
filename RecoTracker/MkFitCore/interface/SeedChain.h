@@ -268,19 +268,19 @@ namespace mkfit {
     std::map<std::array<int, 4>, DW> win_d;
     SeedingParams P;
     int max_holes = 1;
-    int hole_always = 0;   // 1: also forward a candidate that found hits (a hole in competition)
-    int start_holes = -1;  // holes allowed in the start doublet (< 0: max_holes); 0 = start on the first two crossed
-    int lead_only = 0;     // 1: the start's holes may only LEAD (a later start), a and b consecutive crossings
-    int known_only = 1;    // search a target only for a layer combination with a window table; else move on
-    int max_holes_ot = 0;  // holes a candidate may carry into an outer-tracker layer: 0 = OT1-P only
-                           // where the pixels have a geometric gap, not after a missed hit
+    int hole_always = 0;    // 1: also forward a candidate that found hits (a hole in competition)
+    int start_holes = -1;   // holes allowed in the start doublet (< 0: max_holes); 0 = start on the first two crossed
+    int lead_only = 0;      // 1: the start's holes may only LEAD (a later start), a and b consecutive crossings
+    int known_only = 1;     // search a target only for a layer combination with a window table; else move on
+    int max_holes_ot = 0;   // holes a candidate may carry into an outer-tracker layer: 0 = OT1-P only
+                            // where the pixels have a geometric gap, not after a missed hit
     int inner_ot_only = 0;  // 1: a candidate with a hole charged after its start (a missed pixel hit) may
                             // complete its quad only on an outer-tracker layer, so it needs OT1-P (and the
                             // OT2-P confirmation); the late starts are not affected. Batch finder only.
-    int start_gap = 0;  // 1: with lead_only, a start may also skip one crossed pixel layer between a and b
-                        // (B1 B3 for a missed B2); the skipped crossing counts as a missed pixel hit, as a
-                        // hole charged after the start, so inner_ot_only applies to it; 2: only where a and b
-                        // are both barrel pixel layers. Batch finder only.
+    int start_gap = 0;      // 1: with lead_only, a start may also skip one crossed pixel layer between a and b
+                            // (B1 B3 for a missed B2); the skipped crossing counts as a missed pixel hit, as a
+                            // hole charged after the start, so inner_ot_only applies to it; 2: only where a and b
+                            // are both barrel pixel layers. Batch finder only.
     // with start_gap: where a lane of a gap start definitely crosses the skipped layer and the layer has a map,
     // the segment between its two hits must cross that layer in a gap (SensorGapMap), or the lane is dropped
     const SensorGapMap *gap_map = nullptr;

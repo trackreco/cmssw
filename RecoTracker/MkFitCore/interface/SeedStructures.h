@@ -89,7 +89,9 @@ namespace mkfit {
     SeedLayerOfHits(int id_, const LayerInfo &li, double qbin);
 
     void fill(const SeedLayerHits &src, const BeamSpot &bs);
-    void fill(const HitVec &hits, const BeamSpot &bs) { fill(SeedLayerHits{&hits, nullptr, (unsigned int)hits.size()}, bs); }
+    void fill(const HitVec &hits, const BeamSpot &bs) {
+      fill(SeedLayerHits{&hits, nullptr, (unsigned int)hits.size()}, bs);
+    }
 
     // the hit's own qbar and q
     double qbar(unsigned int k) const { return m_disc ? m_z[k] : m_r[k]; }

@@ -51,7 +51,13 @@ namespace mkfit {
     //    r1 or at r2 is in a gap cell; a segment through an edge bin is taken as in a gap.
     const std::vector<unsigned char> &zgap(int layer) const { return m_layers[layer].zgap; }
     float zgap_z0(int layer) const { return m_layers[layer].zg0; }
-    void ray_table(int layer, float bx, float by, int nphi, float tol_u, std::vector<float> &r1, std::vector<float> &r2,
+    void ray_table(int layer,
+                   float bx,
+                   float by,
+                   int nphi,
+                   float tol_u,
+                   std::vector<float> &r1,
+                   std::vector<float> &r2,
                    std::vector<unsigned char> &edge) const;
     static constexpr float c_dz = 0.005f;  // the z cell of the covered bitmap and of zgap(), cm
 
