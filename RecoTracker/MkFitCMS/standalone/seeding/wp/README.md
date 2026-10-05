@@ -18,6 +18,10 @@ the options' on 30 events, 5 for 2026-10-02). After a change to `seedsurf.opts`,
 
 The default of `seedsurf-v2p2.sh` is 2026-10-04 (maintainer, 2026-10-04); it was 2026-10-02 before.
 
+CMSSW's default seeder configuration, `RecoTracker/MkFit/data/mkfit-phase2-seeder.json`, is 2026-10-04-gapmap since
+2026-10-05 (maintainer); it was 2026-10-04 before. Measured in CMSSW (100 events, MTV, the seeder as the only iteration):
+high purity 84.57 -> 85.35 %, 44.9 -> 45.0 fakes per event; MkFitSeederProducer +26 to +36 ms/ev on phi3.
+
 ## 2026-10-02: agreed with the maintainer
 
 - Seeder: holes into OT1-P, d0_max 0.5 mm, beam region +-15 cm in z, fake score S < 0.75, S < 0.5 where |eta| >= 1.7.

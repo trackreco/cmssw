@@ -14,7 +14,13 @@ def customizeInitialStepMkFitSeeder(process, config = 'RecoTracker/MkFit/data/mk
     (RecoTracker/MkFitCMS/standalone/seeding/wp/2026-10-04/finder.shell): a track of a seed with a fake score
     >= 0.35 is removed unless it has at least 4 found hits besides the seed's.
 
-    config: the seeder's configuration (mkfit::SeederConfig JSON, `seedsurf --write-config`)."""
+    initialStep's high-purity selection loses its |eta| < 4.1 cut. The cut is there because no production
+    iteration seeds beyond FPix8; the mkFit seeder does, and with the cut high purity dropped about 40 true
+    tracks per event at |eta| > 4.1 (CMSSW MTV, ttbar PU200 D121).
+
+    config: the seeder's configuration (mkfit::SeederConfig JSON, `seedsurf --write-config`). The default is
+    the working point 2026-10-04-gapmap: 2026-10-04 plus a seed start across a pixel barrel layer where the line
+    crosses that layer in a gap between modules (RecoTracker/MkFitCMS/standalone/seeding/wp/)."""
     from RecoTracker.MkFit.mkFitSeederConfigESProducer_cfi import mkFitSeederConfigESProducer as _config
     from RecoTracker.MkFit.mkFitSeederProducer_cfi import mkFitSeederProducer as _seeder
     from RecoTracker.MkFit.mkFitTrajectorySeedConverter_cfi import mkFitTrajectorySeedConverter as _converter
@@ -44,4 +50,10 @@ def customizeInitialStepMkFitSeeder(process, config = 'RecoTracker/MkFit/data/mk
         onFakeScore = cms.bool(True),
     )
     process.initialStepTrackCandidates.mkFitSeeds = 'initialStepSeeds'
+
+    if hasattr(process, 'initialStepSelector') and hasattr(process.initialStepSelector, 'trackSelectors'):
+        for sel in process.initialStepSelector.trackSelectors:
+            if hasattr(sel, 'max_eta'):
+                sel.max_eta = 9999.0
+                sel.min_eta = -9999.0
     return process
