@@ -88,6 +88,10 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
   seedFlagCut_.score_lo = flagCut.getParameter<double>("scoreMin");
   seedFlagCut_.score_hi = flagCut.getParameter<double>("scoreMax");
   seedFlagCut_.on_fake_score = flagCut.getParameter<bool>("onFakeScore");
+  seedFlagCut_.pt_ref = flagCut.getParameter<double>("ptRef");
+  seedFlagCut_.eta_lo = flagCut.getParameter<double>("etaMin");
+  seedFlagCut_.eta_hi = flagCut.getParameter<double>("etaMax");
+  seedFlagCut_.eta_fac = flagCut.getParameter<double>("etaFactor");
 
   const auto clustersToSkip = iConfig.getParameter<edm::InputTag>("clustersToSkip");
   if (not clustersToSkip.label().empty()) {
@@ -151,6 +155,11 @@ void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& description
   descFlag.add<double>("scoreMax", 1e30);
   descFlag.add<bool>("onFakeScore", true)
       ->setComment("The score is the mkFit seeder's fake score (true) or its cleaning score (false)");
+  descFlag.add<double>("ptRef", 0.)
+      ->setComment("scoreMin is multiplied by max(1, ptRef / pT) with the track's pT; 0 turns this off");
+  descFlag.add<double>("etaMin", 0.)->setComment("scoreMin is multiplied by etaFactor where etaMin <= |eta| < etaMax");
+  descFlag.add<double>("etaMax", 0.);
+  descFlag.add<double>("etaFactor", 1.);
   desc.add("flaggedSeedCut", descFlag)
       ->setComment(
           "Removes, after the duplicate removal, the tracks of seeds the mkFit seeder flagged as likely fakes "

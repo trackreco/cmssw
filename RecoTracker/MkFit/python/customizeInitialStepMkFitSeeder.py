@@ -48,6 +48,10 @@ def customizeInitialStepMkFitSeeder(process, config = 'RecoTracker/MkFit/data/mk
         scoreMin = cms.double(0.35),
         scoreMax = cms.double(1e30),
         onFakeScore = cms.bool(True),
+        ptRef = cms.double(0.),
+        etaMin = cms.double(0.),
+        etaMax = cms.double(0.),
+        etaFactor = cms.double(1.),
     )
     process.initialStepTrackCandidates.mkFitSeeds = 'initialStepSeeds'
 

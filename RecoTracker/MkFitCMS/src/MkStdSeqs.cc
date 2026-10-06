@@ -9,6 +9,7 @@
 #include "RecoTracker/MkFitCore/interface/binnor.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -363,7 +364,13 @@ namespace mkfit {
                                       return false;
                                     const SeedQuality &q = q_by_label[l];
                                     const float s = cut.on_fake_score ? q.fake_score : q.clean_score;
-                                    if (s < cut.score_lo || s >= cut.score_hi)
+                                    float lo = cut.score_lo;
+                                    if (cut.pt_ref > 0)
+                                      lo *= std::max(1.0f, cut.pt_ref / t.pT());
+                                    const float aeta = std::abs(t.momEta());
+                                    if (aeta >= cut.eta_lo && aeta < cut.eta_hi)
+                                      lo *= cut.eta_fac;
+                                    if (s < lo || s >= cut.score_hi)
                                       return false;
                                     return t.nFoundHits() - t.getNSeedHits() < cut.min_added_hits;
                                   }),

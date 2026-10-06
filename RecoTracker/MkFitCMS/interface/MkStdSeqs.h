@@ -45,6 +45,10 @@ namespace mkfit {
       float score_lo = 0.35f;
       float score_hi = 1e30f;
       bool on_fake_score = true;
+      // score_lo grows at low pT and in an |eta| band, where true seeds score higher (multiple scattering):
+      // score_lo * max(1, pt_ref / pT) * (eta_fac if eta_lo <= |eta| < eta_hi); the track's pT and eta
+      float pt_ref = 0;  // 0 = no pT dependence
+      float eta_lo = 0, eta_hi = 0, eta_fac = 1;
     };
     int remove_flagged_seed_tracks(TrackVec &tracks, const std::vector<SeedQuality> &q_by_label, const SeedFlagCut &cut);
 
