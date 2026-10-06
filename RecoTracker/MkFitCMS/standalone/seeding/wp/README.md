@@ -18,8 +18,8 @@ the options' on 30 events, 5 for 2026-10-02). After a change to `seedsurf.opts`,
 
 The default of `seedsurf-v2p2.sh` is 2026-10-04 (maintainer, 2026-10-04); it was 2026-10-02 before.
 
-CMSSW's default seeder configuration, `RecoTracker/MkFit/data/mkfit-phase2-seeder.json`, is 2026-10-04-gapmap since
-2026-10-05 (maintainer); it was 2026-10-04 before. Measured in CMSSW (100 events, MTV, the seeder as the only iteration):
+CMSSW's default seeder configuration, `RecoTracker/MkFit/data/mkfit-phase2-seeder.json`, is 2026-10-06-transwin since
+2026-10-06 (maintainer); it was 2026-10-04-gapmap from 2026-10-05, and 2026-10-04 before. Measured in CMSSW (100 events, MTV, the seeder as the only iteration):
 high purity 84.57 -> 85.35 %, 44.9 -> 45.0 fakes per event; MkFitSeederProducer +26 to +36 ms/ev on phi3.
 
 ## 2026-10-02: agreed with the maintainer
@@ -48,7 +48,7 @@ high purity 84.57 -> 85.35 %, 44.9 -> 45.0 fakes per event; MkFitSeederProducer 
 - Timed on phi3: seeding 233.4 against 203.4 ms/ev for 2026-10-04 in the same job, v2p2 290.1 ms/ev
   (`v2p2-seeds/time-phi3/wp/README.md`, third section; the study: `v2p2-seeds/adv/README.md`).
 
-## 2026-10-06-transwin and 2026-10-06-trans: candidates, not the default
+## 2026-10-06-transwin (CMSSW's default since 2026-10-06) and 2026-10-06-trans (a candidate)
 
 - Seeder: 2026-10-04-gapmap plus windows for the transition's hole patterns into OT1-P (B2 B3 F1, B2 F1 F2, B1 B3 F1;
   `windows-D121/transition-hole.txt`, from true-quad residuals of events 30-99). `-trans` also uses gap-start mode 3

@@ -19,8 +19,9 @@ def customizeInitialStepMkFitSeeder(process, config = 'RecoTracker/MkFit/data/mk
     tracks per event at |eta| > 4.1 (CMSSW MTV, ttbar PU200 D121).
 
     config: the seeder's configuration (mkfit::SeederConfig JSON, `seedsurf --write-config`). The default is
-    the working point 2026-10-04-gapmap: 2026-10-04 plus a seed start across a pixel barrel layer where the line
-    crosses that layer in a gap between modules (RecoTracker/MkFitCMS/standalone/seeding/wp/)."""
+    the working point 2026-10-06-transwin: 2026-10-04 plus a seed start across a pixel barrel layer where the line
+    crosses that layer in a gap between modules, and windows for the hole patterns of the barrel-endcap transition
+    (RecoTracker/MkFitCMS/standalone/seeding/wp/)."""
     from RecoTracker.MkFit.mkFitSeederConfigESProducer_cfi import mkFitSeederConfigESProducer as _config
     from RecoTracker.MkFit.mkFitSeederProducer_cfi import mkFitSeederProducer as _seeder
     from RecoTracker.MkFit.mkFitTrajectorySeedConverter_cfi import mkFitTrajectorySeedConverter as _converter
