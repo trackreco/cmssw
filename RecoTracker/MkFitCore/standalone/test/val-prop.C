@@ -51,6 +51,7 @@ void val_ho_ev(const mkfit::Event *e, const char *c) { mkfit::val_hitorder_event
 void val_ho_report() { mkfit::val_hitorder_report(); }
 void val_track_scorer(const char *n) { mkfit::val_track_scorer(n); }
 void val_track_scorer_task(const char *t, const char *n) { mkfit::val_track_scorer_task(t, n); }
+void val_dupl_drth(float c, float o, float f) { mkfit::val_dupl_drth(c, o, f); }
 void val_bkw_pickups(int a, int b, int c, int d, int e) { mkfit::val_bkw_pickups(a, b, c, d, e); }
 void val_qpc_reset() { mkfit::val_qprecut_reset(); }
 void val_qpc_ev(const mkfit::Event *e) { mkfit::val_qprecut_event(e); }

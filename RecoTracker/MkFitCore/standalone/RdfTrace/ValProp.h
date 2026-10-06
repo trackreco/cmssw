@@ -115,6 +115,7 @@ namespace mkfit {
   void val_hitorder_report();
   void val_track_scorer(const char *name);
   void val_track_scorer_task(const char *task, const char *name);
+  void val_dupl_drth(float central, float obarrel, float forward);
   void val_bkw_pickups(int r0, int r1, int r2, int r3, int r4);
   void val_qprecut_reset();
   void val_qprecut_event(const Event *ev);

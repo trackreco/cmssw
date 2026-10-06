@@ -1374,6 +1374,20 @@ namespace mkfit {
   // Per-task track scorer of every iteration config, by registered name; task is
   // "final_pick", "post_bkfit" or "duplicate_cleaner", and "" restores the fallback
   // (the search scorer, or no re-scoring before the duplicate cleaner).
+  // The duplicate cleaner's dR rule thresholds of every iteration config (dc_drth_central /
+  // _obarrel / _forward, as set_dupl_params()); 0 switches the rule off. The shared-hit rule
+  // is not touched.
+  void val_dupl_drth(float central, float obarrel, float forward) {
+    const int ni = Config::ItrInfo.size();
+    for (int i = 0; i < ni; ++i) {
+      Config::ItrInfo[i].dc_drth_central = central;
+      Config::ItrInfo[i].dc_drth_obarrel = obarrel;
+      Config::ItrInfo[i].dc_drth_forward = forward;
+    }
+    printf("val_dupl_drth: dR rule thresholds %g / %g / %g for %d iteration configs\n", central, obarrel, forward,
+           ni);
+  }
+
   void val_track_scorer_task(const char *task, const char *name) {
     const std::string t(task);
     const int ni = Config::ItrInfo.size();
