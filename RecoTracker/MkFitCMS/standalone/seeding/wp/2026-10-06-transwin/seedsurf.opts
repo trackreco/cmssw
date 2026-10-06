@@ -1,0 +1,4 @@
+--chain-batch --fk-score 1.5 --fk-score-fwd 0.5 1.7 --fk-ot2 1.5 --fk-shape
+@windows-D121/ot1p-hole.txt @windows-D121/transition-hole.txt --chain 1 --chain-holes-ot 1 --chain-inner-ot-only
+--d0-max 0.05 --zv 15
+--chain-start-gap-barrel --chain-gap-map 0.02

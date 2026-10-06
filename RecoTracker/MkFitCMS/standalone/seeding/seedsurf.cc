@@ -18,13 +18,14 @@
 //                      better = fewer outer-tracker layers in the pattern, then smaller
 //                      (dq_c/q_c)^2 + (dphi_d/w_phi_d)^2 + (dq_d/w_q_d)^2
 //        [--bind CM]   labels bound to geometry: needs SimHitStates in the sample
-//        [--chain H] [--chain-holes-ot K] [--chain-hole-always] [--chain-any] [--chain-start-holes K] [--chain-lead-only] [--chain-inner-ot-only] [--chain-start-gap] [--chain-start-gap-barrel] [--chain-gap-map M] [--test-indexed-hits] [--write-config F] [--config F] [--chain-fast] [--chain-batch] [--chain-fast-check] [--chain-phases]   the feed-forward chain (SurfChain) in
+//        [--chain H] [--chain-holes-ot K] [--chain-hole-always] [--chain-any] [--chain-start-holes K] [--chain-lead-only] [--chain-inner-ot-only] [--chain-start-gap] [--chain-start-gap-barrel] [--chain-start-gap-skip-barrel] [--chain-gap-map M] [--test-indexed-hits] [--write-config F] [--config F] [--chain-fast] [--chain-batch] [--chain-fast-check] [--chain-phases]   the feed-forward chain (SurfChain) in
 //                      place of the pattern list; the patterns then give window tables and the denominator;
 //                      --chain-batch runs the batched float finder (SeedSurfBatch.h) on the same configuration;
 //                      --chain-batch-d N its stage d prediction: 0 direct from hit c, 1 one-point cubic, 2 two-point Hermite
 //                      --chain-start-gap (batch only, with --chain-lead-only): a start may also skip one crossed pixel
 //                      layer between a and b (B1 B3 for a missed B2), charged as a missed pixel hit;
-//                      --chain-start-gap-barrel only where a and b are both barrel pixel layers; --chain-gap-map M: a lane
+//                      --chain-start-gap-barrel only where a and b are both barrel pixel layers;
+//                      --chain-start-gap-skip-barrel only where the skipped layer is a barrel pixel layer; --chain-gap-map M: a lane
 //                      of a gap start must cross the skipped layer in a gap between modules (SensorGapMap, margin M cm);
 //                      --test-indexed-hits: each event again with the hits by index into one HitVec per subdetector
 //                      (as in CMSSW), compared with the per-layer run; --write-config F: the SeederConfig of these
@@ -310,6 +311,8 @@ int main(int argc, char *argv[]) {
       chain_start_gap = 1;
     else if (a == "--chain-start-gap-barrel")
       chain_start_gap = 2;
+    else if (a == "--chain-start-gap-skip-barrel")
+      chain_start_gap = 3;
     else if (a == "--chain-gap-map")
       chain_gap_map = atof(next());
     else if (a == "--test-indexed-hits")

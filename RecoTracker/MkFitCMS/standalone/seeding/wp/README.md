@@ -47,3 +47,13 @@ high purity 84.57 -> 85.35 %, 44.9 -> 45.0 fakes per event; MkFitSeederProducer 
 - Measured with CMSSW's loose selection, MTV rule, 30 events: 91.85 %, 832 fakes (barrel 93.89 %, production 94.08 %).
 - Timed on phi3: seeding 233.4 against 203.4 ms/ev for 2026-10-04 in the same job, v2p2 290.1 ms/ev
   (`v2p2-seeds/time-phi3/wp/README.md`, third section; the study: `v2p2-seeds/adv/README.md`).
+
+## 2026-10-06-transwin and 2026-10-06-trans: candidates, not the default
+
+- Seeder: 2026-10-04-gapmap plus windows for the transition's hole patterns into OT1-P (B2 B3 F1, B2 F1 F2, B1 B3 F1;
+  `windows-D121/transition-hole.txt`, from true-quad residuals of events 30-99). `-trans` also uses gap-start mode 3
+  (`--chain-start-gap-skip-barrel`: a start may skip a crossed barrel pixel layer, so B1 -> F1 across B2, with the gap map).
+  Finder: as 2026-10-04.
+- Measured in CMSSW (MTV, 100 events, the seeder alone, high purity): 85.75 % (2026-10-04-gapmap) -> 86.49 % (-transwin)
+  -> 86.55 % (-trans); 1.2 < |eta| < 1.5: 79.91 -> 84.30 -> 84.46 %; fakes 45.4 -> 45.6 -> 45.6 per event
+  (`cmssw_20_mkseed/cmssw-mtv/README.md`, "(1) The transition windows").

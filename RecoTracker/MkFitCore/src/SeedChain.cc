@@ -39,7 +39,8 @@ namespace mkfit {
         const int hg = inner_ot_only ? std::min(hs, max_holes_ot) : hs;
         if (start_gap && lead_only)
           for (int i = 0; i + 1 <= hg && i + 2 < (int)seq.size(); ++i)
-            if (start_gap == 1 || order[seq[i + 2]] < 4)
+            if (start_gap == 1 || (start_gap == 2 && order[seq[i + 2]] < 4) ||
+                (start_gap == 3 && order[seq[i + 1]] < 4))
               gp.insert({seq[i], seq[i + 2]});
       }
     sp.insert(gp.begin(), gp.end());

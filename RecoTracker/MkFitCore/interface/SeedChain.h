@@ -280,7 +280,8 @@ namespace mkfit {
     int start_gap = 0;      // 1: with lead_only, a start may also skip one crossed pixel layer between a and b
                             // (B1 B3 for a missed B2); the skipped crossing counts as a missed pixel hit, as a
                             // hole charged after the start, so inner_ot_only applies to it; 2: only where a and b
-                            // are both barrel pixel layers. Batch finder only.
+                            // are both barrel pixel layers; 3: only where the skipped layer is a barrel pixel
+                            // layer (B1 F1 for a missed B2, too), the layers the gap map covers. Batch finder only.
     // with start_gap: where a lane of a gap start definitely crosses the skipped layer and the layer has a map,
     // the segment between its two hits must cross that layer in a gap (SensorGapMap), or the lane is dropped
     const SensorGapMap *gap_map = nullptr;
