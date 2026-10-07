@@ -670,6 +670,25 @@ std::unique_ptr<MkFitGeometry> MkFitGeometryESProducer::produce(const TrackerRec
   aggregateMaterialInfo(*trackerInfo, material_histogram);
   fillLayers(*trackerInfo);
 
+  // Safety net: every module must resolve to non-zero material through the very same
+  // lookup the propagator uses.  A zero here is silent in reco -- applyMaterialEffects()
+  // simply skips the hit -- so make it loud at geometry-build time instead.
+  {
+    unsigned int n_zero = 0;
+    for (const auto &det : trackerGeom_->dets()) {
+      const auto &mp = det->surface().mediumProperties();
+      if (!mp.isValid() || mp.xi() <= 0.f)
+        continue;
+      const auto &p = det->position();
+      if (trackerInfo->material_checked(std::abs(p.z()), p.perp()).bbxi <= 0.f)
+        ++n_zero;
+    }
+    if (n_zero > 0)
+      edm::LogError("MkFitGeometryESProducer")
+          << n_zero << " modules with material resolve to zero in the mkFit material grid; "
+          << "tracks through them will get no energy loss and no multiple scattering.";
+  }
+
   // Propagation configuration
   {
     using namespace mkfit;
