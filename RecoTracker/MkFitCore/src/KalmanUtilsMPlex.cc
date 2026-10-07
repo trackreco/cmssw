@@ -946,12 +946,8 @@ namespace mkfit {
       kalmanOperation(
           KFO_Update_Params | KFO_Local_Cov, psErr, psPar, msErr, msPar, outErr, outPar, dummy_chi2, N_proc);
     }
-    for (int n = 0; n < NN; ++n) {
-      if (n < N_proc && outPar.At(n, 3, 0) < 0) {
-        Chg.At(n, 0, 0) = -Chg.At(n, 0, 0);
-        outPar.At(n, 3, 0) = -outPar.At(n, 3, 0);
-      }
-    }
+
+    kalmanCheckChargeFlip(outPar, Chg, N_proc);
   }
 
   //------------------------------------------------------------------------------
@@ -1286,12 +1282,8 @@ namespace mkfit {
                                 dummy_chi2,
                                 N_proc);
     }
-    for (int n = 0; n < NN; ++n) {
-      if (outPar.At(n, 3, 0) < 0) {
-        Chg.At(n, 0, 0) = -Chg.At(n, 0, 0);
-        outPar.At(n, 3, 0) = -outPar.At(n, 3, 0);
-      }
-    }
+
+    kalmanCheckChargeFlip(outPar, Chg, N_proc);
   }
 
   //------------------------------------------------------------------------------
@@ -2244,12 +2236,8 @@ namespace mkfit {
     } else {
       kalmanOperationEndcap(KFO_Update_Params, psErr, psPar, msErr, msPar, outErr, outPar, dummy_chi2, N_proc);
     }
-    for (int n = 0; n < NN; ++n) {
-      if (n < N_proc && outPar.At(n, 3, 0) < 0) {
-        Chg.At(n, 0, 0) = -Chg.At(n, 0, 0);
-        outPar.At(n, 3, 0) = -outPar.At(n, 3, 0);
-      }
-    }
+
+    kalmanCheckChargeFlip(outPar, Chg, N_proc);
   }
 
   //------------------------------------------------------------------------------

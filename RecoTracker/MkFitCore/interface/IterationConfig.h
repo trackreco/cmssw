@@ -170,6 +170,10 @@ namespace mkfit {
     clean_duplicates_func m_duplicate_cleaner;
     // - default track scoring function, can be overriden in SteeringParams for each eta region.
     track_score_func m_default_track_scorer;
+    // - track scorers per task. The final-pick and post-backward-fit ones are resolved into
+    //   each SteeringParams and default to its search scorer. The duplicate-cleaner one, when
+    //   named, re-scores the tracks just before m_duplicate_cleaner runs (wrapped into it).
+    track_score_func m_duplicate_cleaner_track_scorer;
 
     // Names for Standard functions that get saved to / loaded from JSON.
     std::string m_seed_cleaner_name;
@@ -177,6 +181,11 @@ namespace mkfit {
     std::string m_pre_bkfit_filter_name, m_post_bkfit_filter_name;
     std::string m_duplicate_cleaner_name;
     std::string m_default_track_scorer_name = "default";
+    // Per-task track scorers; empty means the search scorer (final pick, post-backward-fit)
+    // or no re-scoring (duplicate cleaner).
+    std::string m_final_pick_track_scorer_name;
+    std::string m_post_bkfit_track_scorer_name;
+    std::string m_duplicate_cleaner_track_scorer_name;
 
     //----------------------------------------------------------------------------
 
@@ -211,6 +220,9 @@ namespace mkfit {
       m_post_bkfit_filter_name = o.m_post_bkfit_filter_name;
       m_duplicate_cleaner_name = o.m_duplicate_cleaner_name;
       m_default_track_scorer_name = o.m_default_track_scorer_name;
+      m_final_pick_track_scorer_name = o.m_final_pick_track_scorer_name;
+      m_post_bkfit_track_scorer_name = o.m_post_bkfit_track_scorer_name;
+      m_duplicate_cleaner_track_scorer_name = o.m_duplicate_cleaner_track_scorer_name;
     }
 
     void set_iteration_index_and_track_algorithm(int idx, int trk_alg) {
