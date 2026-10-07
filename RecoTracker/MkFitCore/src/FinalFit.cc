@@ -280,9 +280,9 @@ namespace mkfit::final_fit {
                  MPlexLV& outPar,
                  MPlexQI& outFailFlag,
                  const int N_proc,
-                 const PropagationFlags& pflags,
-                 const FinalFitFlags& ffflags,
+                 const Pass& pass,
                  const MPlexQI* noMatEffPtr) {
+    const PropagationFlags& pflags = pass.pflags;
     const TrackRef in{inPar, inChg, N_proc};
     const PlaneRef pl{plPnt, plNrm};
 
@@ -290,14 +290,17 @@ namespace mkfit::final_fit {
     MPlexQF s{0.0f};
     outFailFlag.setVal(0.f);
 
-    step_to_plane(in, pl, pflags, ffflags, outPar, s, &errorProp);
+    step_to_plane(in, pl, pflags, pass.ffflags, outPar, s, &errorProp);
 
     transport_cov(errorProp, inErr, outErr);
 
     if (pflags.apply_material) {
       MaterialAt m;
       material_grid(*pflags.tracker_info, outPar, noMatEffPtr, N_proc, m);
-      eloss_sign_from_path(s, noMatEffPtr, N_proc, m);
+      if (pass.ffflags.eloss_sign_from_pass)
+        eloss_sign_of_pass(pass.outward, noMatEffPtr, N_proc, m);
+      else
+        eloss_sign_from_path(s, noMatEffPtr, N_proc, m);
       apply_material(m, plNrm, outErr, outPar, N_proc);
     }
 
@@ -317,8 +320,7 @@ namespace mkfit::final_fit {
                         MPlexQI& outFailFlag,
                         MPlexQF& outChi2,
                         const int N_proc,
-                        const PropagationFlags& pflags,
-                        const FinalFitFlags& ffflags,
+                        const Pass& pass,
                         const bool propToHit,
                         const MPlexQI* noMatEffPtr,
                         const MPlexQI* doCPE,
@@ -326,7 +328,7 @@ namespace mkfit::final_fit {
     if (propToHit) {
       MPlexLS propErr;
       MPlexLV propPar;
-      propagate(psErr, psPar, Chg, plPnt, plNrm, propErr, propPar, outFailFlag, N_proc, pflags, ffflags, noMatEffPtr);
+      propagate(psErr, psPar, Chg, plPnt, plNrm, propErr, propPar, outFailFlag, N_proc, pass, noMatEffPtr);
       update_on_plane(propErr,
                       propPar,
                       Chg,
@@ -339,7 +341,7 @@ namespace mkfit::final_fit {
                       outPar,
                       outChi2,
                       N_proc,
-                      pflags,
+                      pass.pflags,
                       doCPE,
                       cpe_corr_func);
     } else {
@@ -355,7 +357,7 @@ namespace mkfit::final_fit {
                       outPar,
                       outChi2,
                       N_proc,
-                      pflags,
+                      pass.pflags,
                       doCPE,
                       cpe_corr_func);
     }
