@@ -334,7 +334,8 @@ namespace mkfit::final_fit {
                          const int N_proc,
                          const PropagationFlags& pflags,
                          const MPlexQI* doCPE,
-                         cpe_func cpe_corr_func) {
+                         cpe_func cpe_corr_func,
+                         const LocalStatesOut* localStates) {
       const TrackRef pred{psPar, inChg, N_proc};
       const PlaneRef pl{plPnt, plNrm};
 
@@ -355,6 +356,18 @@ namespace mkfit::final_fit {
 
       LocalUpd U;
       update(L, R, U);
+      if (localStates) {
+        if (localStates->predPar)
+          *localStates->predPar = L.lp;
+        if (localStates->predErr)
+          *localStates->predErr = L.err;
+        if (localStates->updPar)
+          *localStates->updPar = U.lp;
+        if (localStates->updErr)
+          *localStates->updErr = U.err;
+        if (localStates->pzSign)
+          *localStates->pzSign = L.pz_sign;
+      }
       to_global(U, L, pl, inChg, bFld, outPar, outErr);
     }
 
@@ -455,7 +468,8 @@ namespace mkfit::final_fit {
                         const MPlexQI* noMatEffPtr,
                         const MPlexQI* doCPE,
                         cpe_func cpe_corr_func,
-                        const ModuleMaterial* modMat) {
+                        const ModuleMaterial* modMat,
+                        const LocalStatesOut* localStates) {
     // Sub-steps for the lanes not yet on their plane.
     bool split[NN] = {false};
     bool any_split = false;
@@ -502,7 +516,8 @@ namespace mkfit::final_fit {
                       N_proc,
                       pass.pflags,
                       doCPE,
-                      cpe_corr_func);
+                      cpe_corr_func,
+                      localStates);
     } else if (propToHit) {
       MPlexLS propErr;
       MPlexLV propPar;
@@ -521,7 +536,8 @@ namespace mkfit::final_fit {
                       N_proc,
                       pass.pflags,
                       doCPE,
-                      cpe_corr_func);
+                      cpe_corr_func,
+                      localStates);
     } else {
       update_on_plane(psErr,
                       psPar,
@@ -537,7 +553,8 @@ namespace mkfit::final_fit {
                       N_proc,
                       pass.pflags,
                       doCPE,
-                      cpe_corr_func);
+                      cpe_corr_func,
+                      localStates);
     }
     for (int n = 0; n < NN; ++n) {
       if (outPar.At(n, 3, 0) < 0) {
@@ -547,4 +564,120 @@ namespace mkfit::final_fit {
     }
   }
 
+  //==============================================================================
+  // Per-hit states of the final fit: two-filter smoother on a module plane
+  //==============================================================================
+
+  void smooth_local_states(const MPlex5V& xf,
+                           const MPlex5S& cf,
+                           const MPlex5V& xb,
+                           const MPlex5S& cb,
+                           MPlex5V& xs,
+                           MPlex5S& cs,
+                           MPlexQI& ok,
+                           const int N_proc) {
+    // S = Cf + Cb = L L^T (Cholesky).  With Yf = L^-1 Cf, Yb = L^-1 Cb and z = L^-1 (xb - xf):
+    //   xs = xf + Cf S^-1 (xb - xf) = xf + Yf^T z,   Cs = Cf S^-1 Cb = Yf^T Yb.
+    // Only forward substitutions; Cs as a product, not Cf - Cf S^-1 Cf, so no cancellation when Cb << Cf.
+    // Single precision: Cholesky does not care about the scales of the five parameters.  Only a strongly ill-conditioned
+    // combination loses digits (at PU200 about one state in a few million, by a few tenths of its sigma).
+    // Every innermost loop runs over the NN lanes (vectorised); the 5x5 index loops are outside.
+    constexpr int D = 5;
+    float l[D][D][NN], ld[D][NN], a[NN];
+#pragma omp simd
+    for (int n = 0; n < NN; ++n)
+      ok(n, 0, 0) = 1;
+    for (int j = 0; j < D; ++j) {
+#pragma omp simd
+      for (int n = 0; n < NN; ++n)
+        a[n] = cf.constAt(n, j, j) + cb.constAt(n, j, j);
+      for (int k = 0; k < j; ++k)
+#pragma omp simd
+        for (int n = 0; n < NN; ++n)
+          a[n] -= l[j][k][n] * l[j][k][n];
+#pragma omp simd
+      for (int n = 0; n < NN; ++n) {
+        ok(n, 0, 0) &= a[n] > 0.f;
+        a[n] = a[n] > 1.e-30f ? a[n] : 1.e-30f;
+      }
+      // (a separate loop: with the select in it, the sqrt and division would not vectorise under trapping math)
+#pragma omp simd
+      for (int n = 0; n < NN; ++n) {
+        l[j][j][n] = std::sqrt(a[n]);
+        ld[j][n] = 1.f / l[j][j][n];
+      }
+      for (int i = j + 1; i < D; ++i) {
+#pragma omp simd
+        for (int n = 0; n < NN; ++n)
+          a[n] = cf.constAt(n, i, j) + cb.constAt(n, i, j);
+        for (int k = 0; k < j; ++k)
+#pragma omp simd
+          for (int n = 0; n < NN; ++n)
+            a[n] -= l[i][k][n] * l[j][k][n];
+#pragma omp simd
+        for (int n = 0; n < NN; ++n)
+          l[i][j][n] = a[n] * ld[j][n];
+      }
+    }
+
+    // forward substitution L y = b for b = xb - xf and the five columns of Cf and of Cb
+    float z[D][NN], yf[D][D][NN], yb[D][D][NN];
+    for (int i = 0; i < D; ++i) {
+#pragma omp simd
+      for (int n = 0; n < NN; ++n)
+        z[i][n] = xb.constAt(n, i, 0) - xf.constAt(n, i, 0);
+      for (int k = 0; k < i; ++k)
+#pragma omp simd
+        for (int n = 0; n < NN; ++n)
+          z[i][n] -= l[i][k][n] * z[k][n];
+#pragma omp simd
+      for (int n = 0; n < NN; ++n)
+        z[i][n] *= ld[i][n];
+    }
+    for (int c = 0; c < D; ++c)
+      for (int i = 0; i < D; ++i) {
+#pragma omp simd
+        for (int n = 0; n < NN; ++n) {
+          yf[i][c][n] = cf.constAt(n, i, c);
+          yb[i][c][n] = cb.constAt(n, i, c);
+        }
+        for (int k = 0; k < i; ++k)
+#pragma omp simd
+          for (int n = 0; n < NN; ++n) {
+            yf[i][c][n] -= l[i][k][n] * yf[k][c][n];
+            yb[i][c][n] -= l[i][k][n] * yb[k][c][n];
+          }
+#pragma omp simd
+        for (int n = 0; n < NN; ++n) {
+          yf[i][c][n] *= ld[i][n];
+          yb[i][c][n] *= ld[i][n];
+        }
+      }
+
+    for (int i = 0; i < D; ++i) {
+#pragma omp simd
+      for (int n = 0; n < NN; ++n)
+        a[n] = xf.constAt(n, i, 0);
+      for (int k = 0; k < D; ++k)
+#pragma omp simd
+        for (int n = 0; n < NN; ++n)
+          a[n] += yf[k][i][n] * z[k][n];
+#pragma omp simd
+      for (int n = 0; n < NN; ++n)
+        xs(n, i, 0) = a[n];
+    }
+    for (int i = 0; i < D; ++i)
+      for (int j = 0; j <= i; ++j) {
+#pragma omp simd
+        for (int n = 0; n < NN; ++n)
+          a[n] = yf[0][i][n] * yb[0][j][n];
+        for (int k = 1; k < D; ++k)
+#pragma omp simd
+          for (int n = 0; n < NN; ++n)
+            a[n] += yf[k][i][n] * yb[k][j][n];
+#pragma omp simd
+        for (int n = 0; n < NN; ++n)
+          cs(n, i, j) = a[n];
+      }
+  }
 }  // namespace mkfit::final_fit
