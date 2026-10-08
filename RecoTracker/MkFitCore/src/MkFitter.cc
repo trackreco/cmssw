@@ -267,7 +267,9 @@ namespace mkfit {
 #endif
       no_mat_effs.setVal(0);
       do_cpe.setVal(-1);
-      bool propHit = h == 0 ? false : true;  // just update when the position is already at the hit
+      // each pass propagates to its first hit too (without material there, below): its start state need not lie on
+      // that hit's plane (the built track, or the previous fit of a track refitted after outlier removal)
+      const bool propHit = true;
 
       for (int i = 0; i < N_proc; ++i)  //loop over tracks in group
       {
@@ -464,8 +466,10 @@ namespace mkfit {
 #endif
       no_mat_effs.setVal(0);
       do_cpe.setVal(-1);
-      bool propHit = h == 0 ? false : true;  // just update when the position is already at the hit
-      int bkHot[NN];                         // HitOnTrack position of each lane's hit (per-hit states)
+      // each pass propagates to its first hit too (without material there, below): its start state need not lie on
+      // that hit's plane (the built track, or the previous fit of a track refitted after outlier removal)
+      const bool propHit = true;
+      int bkHot[NN];  // HitOnTrack position of each lane's hit (per-hit states)
 
       for (int i = 0; i < N_proc; ++i)  //loop over tracks in group
       {
