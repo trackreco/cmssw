@@ -3,6 +3,7 @@
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Utilities/interface/do_nothing_deleter.h"
+#include "FWCore/Utilities/interface/isFinite.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 
 #include "Geometry/CommonTopologies/interface/GeomDetEnumerators.h"
@@ -458,6 +459,12 @@ void MkFitOutputTrackConverter::convertCandidates(const MkFitOutputWrapper& mkFi
             qualityMaxPosErrSq_) {
       edm::LogInfo("MkFitOutputTrackConverter")
           << "Candidate " << candIndex << " failed state quality checks" << cand.state().parameters;
+      continue;
+    }
+    // a fit with a non-finite or negative chi2 has failed, as KFFittingSmoother treats it
+    if (edm::isNotFinite(cand.chi2()) || cand.chi2() < 0.f) {
+      edm::LogInfo("MkFitOutputTrackConverter")
+          << "Candidate " << candIndex << " has a non-finite or negative chi2 " << cand.chi2() << ", ignored";
       continue;
     }
 
