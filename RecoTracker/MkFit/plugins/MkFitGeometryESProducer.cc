@@ -20,6 +20,7 @@
 #include "RecoTracker/MkFitCore/interface/IterationConfig.h"
 #include "RecoTracker/MkFitCMS/interface/LayerNumberConverter.h"
 #include "RecoTracker/MkFitCore/interface/Config.h"
+#include "MagneticField/Portable/interface/ParabolicMagneticField.h"
 
 #include <list>
 #include <vector>
@@ -170,10 +171,11 @@ MkFitGeometryESProducer::MkFitGeometryESProducer(const edm::ParameterSet &iConfi
 
 void MkFitGeometryESProducer::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
   edm::ParameterSetDescription desc;
-  desc.add<std::vector<double>>("bFieldParams", {3.81036, -2.03767e-06, 7.34495e-06, 3.01291e-07})
+  using parabolic = portableParabolicMagneticField::Parameters;
+  desc.add<std::vector<double>>("bFieldParams", {parabolic::c1, parabolic::b0, parabolic::b1, parabolic::a})
       ->setComment(
-          "{c1, b0, b1, a} of mkFit's parametrised Bz = (b0 z^2 + b1 z + c1)(a r^2 + 1), fitted to the CMS field "
-          "map over the tracker volume (0.03 % rms)");
+          "{c1, b0, b1, a} of mkFit's parametrised Bz = (b0 z^2 + b1 z + c1)(a r^2 + 1); default: those of "
+          "portableParabolicMagneticField");
   desc.add<bool>("refitBFieldAtMid", true)
       ->setComment(
           "refit only: sample B at the chord midpoint of each propagate-to-plane step rather than at its start, "
