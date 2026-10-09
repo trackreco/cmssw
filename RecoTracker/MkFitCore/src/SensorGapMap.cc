@@ -41,7 +41,7 @@ namespace mkfit {
           }
         }
         if (!lad) {
-          Y.ladders.push_back({nx, ny, d, ux, uy, u0, sh.dx1, {}});
+          Y.ladders.push_back({nx, ny, d, ux, uy, u0, sh.dx1, {}, 0, 0, {}});
           lad = &Y.ladders.back();
         }
         lad->z.push_back(mi.pos[2] - sh.dy);
