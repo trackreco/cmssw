@@ -68,6 +68,7 @@
 #include "RecoTracker/MeasurementDet/interface/MeasurementTrackerEvent.h"
 #include "TrackingTools/KalmanUpdators/interface/Chi2MeasurementEstimator.h"
 
+#include <algorithm>
 #include <limits>
 #include <unordered_map>
 
@@ -682,6 +683,38 @@ void MkFitOutputTrackConverter::convertCandidates(const MkFitOutputWrapper& mkFi
 
     //use negative sigma=-3.0 in order to use a more conservative definition of isInside() for Bounds classes.
     Chi2MeasurementEstimator estimator(30., -3.0, 0.5, 2.0, 0.5, 1.e12);  // same as defauts....
+
+    // Lost hits between the innermost and the outermost hit (beyond them, the navigation below finds the missing
+    // ones): the hits the final fit removed as outliers, recorded as the CMSSW fit records its outliers. The module is
+    // the one the track crosses on that layer, from the final-fit state at the nearest hit inside it (the innermost
+    // state without per-hit states). They follow the valid hits, so the track hits of the hit pattern stay in step
+    // with the rec hits.
+    {
+      const bool haveStates = !mkFitOutput.hitStates().empty();
+      const auto [firstPos, lastPos] = std::minmax_element(hot.begin(), hot.end());
+      for (int pos = *firstPos + 1; pos < *lastPos; ++pos) {
+        const auto& lostHoT = cand.getHitOnTrack(pos);
+        if (lostHoT.index != mkfit::Hit::kHitFitOutlierIdx)
+          continue;
+        const auto* lostLayer = detLayers.at(lostHoT.layer);
+        if (lostLayer == nullptr || lostLayer->basicComponents().empty())
+          continue;
+        int kIn = -1;  // the nearest hit inside (there is one: pos is after the first hit)
+        for (int k = 0; k < (int)hot.size(); ++k)
+          if (hot[k] < pos && (kIn < 0 || hot[k] > hot[kIn]))
+            kIn = k;
+        const auto fromTsos =
+            haveStates ? toTSOS(mkFitOutput.hitStates()[candIndex][hot[kIn]], *recHits[kIn].det(), mf) : tsosState;
+        auto const& detWithState = lostLayer->compatibleDets(fromTsos, propagatorAlong, estimator);
+        if (detWithState.empty())
+          continue;
+        MeasurementDetWithData const& measDet = measTk.idToDet(detWithState.front().first->geographicalId());
+        const bool active = measDet.isActive() && !measDet.hasBadComponents(detWithState.front().second);
+        InvalidTrackingRecHit tmpHit(*detWithState.front().first,
+                                     active ? TrackingRecHit::missing : TrackingRecHit::inactive);
+        trk.appendHitPattern(tmpHit, tTopo);
+      }
+    }
 
     //inner
     for (auto it : innerCompLayers) {
