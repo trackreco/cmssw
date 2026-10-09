@@ -7,4 +7,5 @@
 </library>
 
 <test name="testDumpMkFitGeometry" command="testDumpMkFitGeometry.sh"/>
+<test name="testMkFitSeeder" command="testMkFitSeeder.sh"/>
 
