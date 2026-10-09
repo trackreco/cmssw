@@ -311,7 +311,7 @@ namespace mkfit {
         nb[k] = 0;
       };
       const float inv2R = 0.003f * 3.8f / (2.0f * P.pt_min), d0 = P.d0_max, marg = P.marg_b;
-      const float zlo = P.bs_z - P.zv, zhi = P.bs_z + P.zv, side = Ch.side;
+      const float zlo = A->m_bs.z - P.zv, zhi = A->m_bs.z + P.zv, side = Ch.side;
       const float clo0 = clo[0], chi0 = chi[0], clo1 = clo[1], chi1 = chi[1];
       const float *bphi = B->m_phi.data(), *br = B->m_r.data(), *bz = B->m_z.data(), *bir = B->m_invr.data();
       // the gap map of this start (the mirror's start skips the same barrel layer)

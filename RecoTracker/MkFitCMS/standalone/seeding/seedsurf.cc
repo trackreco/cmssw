@@ -32,6 +32,7 @@
 //                      options as JSON; --config F: the seeder from that JSON alone (MkSeeder::configure, seed: the
 //                      CMSSW path), the kept quads to --seeds
 //        [--beam-spot-origin]   x, y, r, phi from the origin instead of the sample's beam spot
+//        [--beam-spot-dz DZ]    the beam spot the seeder is given moved by DZ cm in z (a test of stage b's window)
 //        [--truth OUT.txt] [--resid OUT.txt] [--dump quads.txt] [--quad-dump OUT.txt] [--eta-max E]
 //        [--seeds OUT.txt]   the quads kept by the cleaning, as seeds for the track finding (Shell::LoadSeederQuads):
 //                      'ev l0 l1 l2 l3 h0 h1 h2 h3 score', ev the file's event, 0-based; h the hit indices in layerHits_
@@ -184,6 +185,7 @@ int main(int argc, char *argv[]) {
   int chain_batch_d = 0; // --chain-batch-d: its stage d prediction (0 direct, 1 one-point cubic, 2 two-point Hermite)
   int chain_phases = 0;  // --chain-phases: time the chain's phases
   bool bs_origin = false;  // --beam-spot-origin: the seeder's coordinates from (0, 0, 0), not the sample's beam spot
+  float bs_dz = 0;         // --beam-spot-dz: the seeder's beam spot moved in z
   float fk_score = 0, fk_ot2 = 0, fk_score_fwd = 0, fk_eta_fwd = 99;
   float ot2_win[4] = {-8.1e-4f, 5.92e-3f, 0.3084f, 0.0909f};  // q97 of true quads, events 0-39
   float ot2_phimin = 1.31e-3f;  // --ot2-phimin: the floor of its phi term, the q97 above 3 GeV
@@ -331,6 +333,8 @@ int main(int argc, char *argv[]) {
       g_surf_fast_check.on = true;
     else if (a == "--beam-spot-origin")
       bs_origin = true;
+    else if (a == "--beam-spot-dz")
+      bs_dz = atof(next());
     else if (a == "--chain-phases")
       chain_phases = 1;
     else if (a == "--fk-score")
@@ -502,7 +506,8 @@ int main(int argc, char *argv[]) {
     for (int iev = 0; iev < n_events; ++iev) {
       Event ev(iev, ti.n_layers());
       ev.read_in(df);
-      const BeamSpot bsv = bs_origin ? BeamSpot() : ev.beamSpot_;
+      BeamSpot bsv = bs_origin ? BeamSpot() : ev.beamSpot_;
+      bsv.z += bs_dz;
       const auto t0 = clk::now();
       sd.seed(seed_hit_source(ev.layerHits_), bsv, out, cnt);
       t_seed += secs(t0, clk::now());
@@ -732,7 +737,8 @@ int main(int argc, char *argv[]) {
     ev.read_in(df);
     const auto t0 = clk::now();
     // the origin of the seeder's transverse coordinates, for the fill and every point made here from a hit
-    const BeamSpot bsv = bs_origin ? BeamSpot() : ev.beamSpot_;
+    BeamSpot bsv = bs_origin ? BeamSpot() : ev.beamSpot_;
+    bsv.z += bs_dz;
     seeder.fill(ev.layerHits_, bsv);
     t_fill += secs(t0, clk::now());
 

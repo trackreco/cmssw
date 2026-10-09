@@ -53,7 +53,9 @@ namespace mkfit {
     float pt_min = 0.9f;    // GeV
     float d0_max = 0.1f;    // cm
     float zv = 25.0f;       // cm, |z0 - z_beamspot| of the a-b line
-    float bs_z = 0.0f;      // cm
+    // cm, the centre in z of the beam region from which the start pairs and the start cot ranges are derived at
+    // setup; per event, stage b takes z_beamspot from the event's beam spot (SeedLayerOfHits::m_bs)
+    float bs_z = 0.0f;
     float marg_b = 0.002f;  // rad
     float phi_c = 0.004f;   // rad
     float q_c = 0.10f;      // cm
@@ -220,7 +222,7 @@ namespace mkfit {
       SeedLayerOfHits::AxQ::I_pair q;
     };
     inline bool b_fetch(const SeedingParams &P, const P3 &ha, const SeedLayerOfHits &Bl, BFetch &fe) {
-      const double zlo = P.bs_z - P.zv, zhi = P.bs_z + P.zv;
+      const double zlo = Bl.m_bs.z - P.zv, zhi = Bl.m_bs.z + P.zv;
       const double ra = ha.r(), pa = ha.phi();
       // phi from the geometric bound at the layer's largest r; q from the beam-line window
       const double rbmax = Bl.m_disc ? Bl.m_q_hi : Bl.m_qbar_hi;

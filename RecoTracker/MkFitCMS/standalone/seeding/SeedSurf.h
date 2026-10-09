@@ -297,7 +297,7 @@ namespace mkfit::seeding {
     SurfFetch fe;
     if (!surf_b_fetch(P, ha, Bl, fe))
       return;
-    const double zlo = P.bs_z - P.zv, zhi = P.bs_z + P.zv;
+    const double zlo = Bl.m_bs.z - P.zv, zhi = Bl.m_bs.z + P.zv;
     const double ra = ha.r(), pa = ha.phi();
     Bl.for_each_in(fe.p, fe.q, [&](unsigned int kb) {
       const P3 hb = surf_p3(Bl, kb);
@@ -327,7 +327,7 @@ namespace mkfit::seeding {
     constexpr float kPi = 3.14159265358979f, k2Pi = 6.28318530717959f;
     const float ra = ha.r(), pa = ha.phi(), za = ha.z, inva = 1.0f / ra;
     const float inv2R = 0.003f * 3.8f / (2.0f * P.pt_min), d0 = P.d0_max, marg = P.marg_b;
-    const float zlo = P.bs_z - P.zv, zhi = P.bs_z + P.zv;
+    const float zlo = Bl.m_bs.z - P.zv, zhi = Bl.m_bs.z + P.zv;
     const float *phi = Bl.m_phi.data(), *r = Bl.m_r.data(), *z = Bl.m_z.data(), *ir = Bl.m_invr.data();
     Bl.for_each_run(fe.p, fe.q, [&](unsigned int b, unsigned int e) {
       for (unsigned int i0 = b; i0 < e; i0 += 64) {
