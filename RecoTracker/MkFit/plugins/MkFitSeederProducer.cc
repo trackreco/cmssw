@@ -60,6 +60,8 @@ private:
   const edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
   const edm::ESGetToken<mkfit::SeederConfig, TrackerRecoGeometryRecord> seederConfigToken_;
   const edm::EDPutTokenT<MkFitSeedWrapper> putToken_;
+  const bool beamlineSeeds_;
+  edm::EDPutTokenT<MkFitSeedWrapper> beamlinePutToken_;
   const int algo_;
   const unsigned int maxNSeeds_;
 };
@@ -73,8 +75,11 @@ MkFitSeederProducer::MkFitSeederProducer(edm::ParameterSet const& iConfig)
       mkFitGeomToken_{esConsumes()},
       seederConfigToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("config"))},
       putToken_{produces<MkFitSeedWrapper>()},
+      beamlineSeeds_{iConfig.getParameter<bool>("beamlineSeeds")},
       algo_{reco::TrackBase::algoByName(iConfig.getParameter<std::string>("algorithm"))},
       maxNSeeds_{iConfig.getParameter<unsigned int>("maxNSeeds")} {
+  if (beamlineSeeds_)
+    beamlinePutToken_ = produces<MkFitSeedWrapper>("beamline");
   if (algo_ <= reco::TrackBase::undefAlgorithm)
     throw cms::Exception("Configuration")
         << "MkFitSeederProducer: unknown algorithm '" << iConfig.getParameter<std::string>("algorithm") << "'";
@@ -91,6 +96,9 @@ void MkFitSeederProducer::fillDescriptions(edm::ConfigurationDescriptions& descr
   desc.add<edm::ESInputTag>("config", edm::ESInputTag{"", "mkFitSeederConfig"})
       ->setComment("The seeder's configuration (mkfit::SeederConfig, MkFitSeederConfigESProducer)");
   desc.add<std::string>("algorithm", "initialStep")->setComment("The track algorithm the seeds are given");
+  desc.add<bool>("beamlineSeeds", false)
+      ->setComment("Also put out ('beamline') the same seeds, in the same order, with the state of the inward fit "
+                   "(mkfit::seeder_beamline_states()): for consumers that take the seed's state to the beam line");
   desc.add("maxNSeeds", 500000U)->setComment("An event with more seeds gets none, with an error message");
   descriptions.addWithDefaultLabel(desc);
 }
@@ -155,14 +163,25 @@ void MkFitSeederProducer::produce(edm::StreamID iID, edm::Event& iEvent, const e
   std::vector<mkfit::SeedQuality> qualityByQuad;
   mkfit::SeedFitCounters fitCounters;
   mkfit::seeder_make_seeds(seederConfig.fit, cache.quads, src, trackerInfo, algo_, seeds, &qualityByQuad, &fitCounters);
+  int nMerged = 0;
+  const int nDup = mkfit::seeder_clean_duplicates(seederConfig, src, trackerInfo, seeds, qualityByQuad, &nMerged);
+  int nExtHits = 0;
+  const int nExt = mkfit::seeder_extend_seeds(seederConfig, src, trackerInfo, seeds, &nExtHits);
+  // a test for the phase-2 HLT, off by default: states that consumers can take to the beam line (SeederConfig::Fit)
+  mkfit::SeedFitCounters blCounters;
+  mkfit::seeder_beamline_states(seederConfig.fit, src, trackerInfo, seeds, &blCounters);
   LogDebug("MkFitSeederProducer") << counters.quads << " quads found, " << cache.quads.size() << " kept, "
                                   << seeds.size() << " seeds; " << fitCounters.n_bad_helix << " without a helix, "
-                                  << fitCounters.n_fail << " failed fits";
+                                  << fitCounters.n_fail << " failed fits, " << nDup << " duplicates removed, " << nMerged << " seeds merged, " << nExt
+                                  << " seeds extended by " << nExtHits << " hits, " << blCounters.n_fail
+                                  << " failed beam-line states";
 
   if (seeds.size() > maxNSeeds_) {
     edm::LogError("TooManySeeds") << "Exceeded maximum number of seeds! maxNSeeds=" << maxNSeeds_
                                   << " nSeed=" << seeds.size();
     iEvent.emplace(putToken_, mkfit::TrackVec(), std::vector<mkfit::SeedQuality>());
+    if (beamlineSeeds_)
+      iEvent.emplace(beamlinePutToken_, mkfit::TrackVec(), std::vector<mkfit::SeedQuality>());
     return;
   }
   // the seeds labelled by their position, the quality with them (the fit labels by quad and skips failures)
@@ -170,6 +189,13 @@ void MkFitSeederProducer::produce(edm::StreamID iID, edm::Event& iEvent, const e
   for (unsigned int i = 0; i < seeds.size(); ++i) {
     quality[i] = qualityByQuad[seeds[i].label()];
     seeds[i].setLabel(i);
+  }
+  if (beamlineSeeds_) {
+    mkfit::TrackVec beamline = seeds;
+    mkfit::SeederConfig::Fit fit = seederConfig.fit;
+    fit.beamline_state = 1;
+    mkfit::seeder_beamline_states(fit, src, trackerInfo, beamline);
+    iEvent.emplace(beamlinePutToken_, std::move(beamline), quality);
   }
   iEvent.emplace(putToken_, std::move(seeds), std::move(quality));
 }

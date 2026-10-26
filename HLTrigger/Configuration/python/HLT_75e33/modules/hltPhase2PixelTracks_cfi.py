@@ -22,3 +22,14 @@ _hltPhase2PixelTracksLegacy = cms.EDProducer("PixelTrackProducer",
     passLabel = cms.string('hltPhase2PixelTracks')
 )
 hltPhase2LegacyTracking.toReplaceWith(hltPhase2PixelTracks, _hltPhase2PixelTracksLegacy)
+
+# phase2MkSeeder: the "pixel tracks" are the mkFit seeder's seeds that pass the seed classifier, as tracks; the pixel
+# vertices and the MTV hltPhase2Pixel folder use them, and the pixel CA does not run. They are the 'beamline' copies,
+# whose state comes from the inward fit, so that taken back to the beam line it is the fit of all the seed's hits
+_hltPhase2PixelTracksMkSeeder = cms.EDProducer("TrackFromSeedProducer",
+    src = cms.InputTag("hltMkFitSeederSeedsClassified", "beamline"),
+    beamSpot = cms.InputTag("hltOnlineBeamSpot"),
+    TTRHBuilder = cms.string("hltESPTTRHBuilderWithoutRefit")
+)
+from Configuration.ProcessModifiers.phase2MkSeeder_cff import phase2MkSeeder
+phase2MkSeeder.toReplaceWith(hltPhase2PixelTracks, _hltPhase2PixelTracksMkSeeder)
