@@ -55,6 +55,7 @@ private:
   void produce(edm::Event& iEvent, const edm::EventSetup& iSetup) override;
 
   const edm::EDGetTokenT<TrajectorySeedCollection> seedToken_;
+  edm::EDGetTokenT<TrajectorySeedCollection> beamlineSeedToken_;
   const edm::EDGetTokenT<MkFitSeedWrapper> mkFitSeedToken_;
   const edm::EDGetTokenT<reco::BeamSpot> beamSpotToken_;
   const edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> geomToken_;
@@ -65,6 +66,7 @@ private:
   const edm::EDPutTokenT<TrajectorySeedCollection> seedPutToken_;
   const edm::EDPutTokenT<std::vector<float>> scorePutToken_;
   edm::EDPutTokenT<std::vector<float>> featurePutToken_;
+  edm::EDPutTokenT<TrajectorySeedCollection> beamlineSeedPutToken_;
 };
 
 std::unique_ptr<mkfitseedclf::XGBoostEvaluator> MkFitSeedClassifier::initializeGlobalCache(const edm::ParameterSet& iConfig) {
@@ -92,6 +94,11 @@ MkFitSeedClassifier::MkFitSeedClassifier(const edm::ParameterSet& iConfig, const
       scorePutToken_{produces<std::vector<float>>("scores")} {
   if (saveFeatures_)
     featurePutToken_ = produces<std::vector<float>>("features");
+  const auto& beamline = iConfig.getParameter<edm::InputTag>("beamlineSeeds");
+  if (!beamline.label().empty()) {
+    beamlineSeedToken_ = consumes(beamline);
+    beamlineSeedPutToken_ = produces<TrajectorySeedCollection>("beamline");
+  }
 }
 
 void MkFitSeedClassifier::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -104,6 +111,9 @@ void MkFitSeedClassifier::fillDescriptions(edm::ConfigurationDescriptions& descr
   desc.add<std::string>("model", "")
       ->setComment("The xgboost model, Booster.save_model() JSON: a file path, or a path relative to the CMSSW search "
                    "path");
+  desc.add<edm::InputTag>("beamlineSeeds", edm::InputTag{})
+      ->setComment("If set: seeds one to one with 'seeds' (MkFitTrajectorySeedConverter 'beamline'), of which the same "
+                   "ones are put out ('beamline'). The scores are computed from 'seeds' only.");
   desc.add<double>("threshold", 0.)->setComment("A seed is kept when its score >= threshold; 0 keeps all");
   desc.add<bool>("saveFeatures", false)
       ->setComment("Also put out the model's inputs, 41 per input seed, row by row ('features')");
@@ -140,6 +150,18 @@ void MkFitSeedClassifier::produce(edm::Event& iEvent, const edm::EventSetup& iSe
       selected.push_back(seeds[i]);
     if (saveFeatures_)
       std::copy(x, x + mkfitseedclf::kNModelFeatures, &features[static_cast<size_t>(i) * mkfitseedclf::kNModelFeatures]);
+  }
+  if (!beamlineSeedToken_.isUninitialized()) {
+    const auto& beamlineSeeds = iEvent.get(beamlineSeedToken_);
+    if (beamlineSeeds.size() != nSeeds)
+      throw cms::Exception("LogicError") << "MkFitSeedClassifier: " << beamlineSeeds.size() << " beam-line seeds for "
+                                         << nSeeds << " seeds";
+    TrajectorySeedCollection selectedBeamline;
+    selectedBeamline.reserve(selected.size());
+    for (unsigned int i = 0; i < nSeeds; ++i)
+      if (scores[i] >= threshold_)
+        selectedBeamline.push_back(beamlineSeeds[i]);
+    iEvent.emplace(beamlineSeedPutToken_, std::move(selectedBeamline));
   }
   LogDebug("MkFitSeedClassifier") << nSeeds << " seeds, " << selected.size() << " kept at score >= " << threshold_;
 
