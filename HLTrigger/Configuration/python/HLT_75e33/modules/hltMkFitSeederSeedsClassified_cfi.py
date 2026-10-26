@@ -4,6 +4,7 @@ import FWCore.ParameterSet.Config as cms
 hltMkFitSeederSeedsClassified = cms.EDProducer("MkFitSeedClassifier",
     seeds = cms.InputTag("hltMkFitSeederSeeds"),
     mkFitSeeds = cms.InputTag("hltMkFitSeederSeeds"),
+    beamlineSeeds = cms.InputTag("hltMkFitSeederSeeds", "beamline"),
     beamSpot = cms.InputTag("hltOnlineBeamSpot"),
     model = cms.string("RecoTracker/MkFit/data/mkfit-phase2-seed-classifier.json"),
     threshold = cms.double(0.63),
