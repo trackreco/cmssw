@@ -4,8 +4,10 @@
 #include "RecoTracker/MkFitCore/interface/MatrixSTypes.h"
 #include "RecoTracker/MkFitCore/interface/PropagationConfig.h"
 #include "RecoTracker/MkFitCore/interface/Config.h"
+#include <algorithm>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 #include <unordered_map>
 
@@ -112,14 +114,23 @@ namespace mkfit {
     int subdet() const { return m_subdet; }
     bool is_barrel() const { return m_layer_type == Barrel; }
     bool is_pixel() const { return m_is_pixel; }
+    bool is_strip() const { return !m_is_pixel; }
     bool is_stereo() const { return m_is_stereo; }
     bool has_charge() const { return m_has_charge; }
+    // One of the two sensor layers of a module pair, and the other one; set by
+    // TrackerInfo::setup_double_layers().
+    bool is_double_layer() const { return m_is_double_layer; }
+    int double_layer_partner() const { return m_double_layer_partner; }
 
     bool is_within_z_limits(float z) const { return z > m_zmin && z < m_zmax; }
     bool is_within_r_limits(float r) const { return r > m_rin && r < m_rout; }
     bool is_within_q_limits(float q) const { return is_barrel() ? is_within_z_limits(q) : is_within_r_limits(q); }
 
     bool is_in_r_hole(float r) const { return m_has_r_range_hole ? is_in_r_hole_no_check(r) : false; }
+
+    bool has_r_range_hole() const { return m_has_r_range_hole; }
+    float hole_r_min() const { return m_hole_r_min; }
+    float hole_r_max() const { return m_hole_r_max; }
 
     WSR_Result is_within_z_sensitive_region(float z, float dz) const {
       if (z > m_zmax + dz || z < m_zmin - dz)
@@ -187,6 +198,10 @@ namespace mkfit {
     // NOTE: offset of the last element is used in write/read_bin file.
     bool m_final_member_for_streaming = false;
 
+    // Not streamed: derived by TrackerInfo::setup_double_layers().
+    bool m_is_double_layer = false;
+    int m_double_layer_partner = -1;
+
     std::unordered_map<unsigned int, unsigned int> m_detid2sid;
     std::vector<ModuleInfo> m_modules;
     std::vector<ModuleShape> m_shapes;
@@ -252,6 +267,16 @@ namespace mkfit {
 
     int n_layers() const { return m_layers.size(); }
     const LayerInfo& layer(int l) const { return m_layers[l]; }
+    // Double layers: in phase 2 the two sensor layers of an outer-tracker module pair are two
+    // adjacent mkFit layers of the same kind, the stereo (P) sensor first (LayerNumberConverter).
+    // setup_double_layers() marks them; call it once the layers are complete.
+    void setup_double_layers();
+    bool is_double_layer(int l) const { return m_layers[l].is_double_layer(); }
+    // The pair a layer belongs to, lower id first; (l, l) for a single layer.
+    std::pair<int, int> get_double_layers(int l) const {
+      const int p = m_layers[l].double_layer_partner();
+      return p < 0 ? std::make_pair(l, l) : std::make_pair(std::min(l, p), std::max(l, p));
+    }
     LayerInfo& layer_nc(int l) { return m_layers[l]; }
 
     int n_total_modules() const;
