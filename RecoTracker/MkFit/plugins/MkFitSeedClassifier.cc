@@ -133,23 +133,23 @@ void MkFitSeedClassifier::produce(edm::Event& iEvent, const edm::EventSetup& iSe
   mkfitseedclf::SeedFeatureCalc calc(geom, topo, mf, bs, &mk);
   calc.setSeeds(seeds);
 
+  // the model's inputs of every seed, row by row, then the trees over all of them (in batches, the evaluator)
   const unsigned int nSeeds = seeds.size();
-  std::vector<float> scores(nSeeds);
-  std::vector<float> features;
-  if (saveFeatures_)
-    features.resize(static_cast<size_t>(nSeeds) * mkfitseedclf::kNModelFeatures);
-  TrajectorySeedCollection selected;
-  selected.reserve(nSeeds);
+  std::vector<float> features(static_cast<size_t>(nSeeds) * mkfitseedclf::kNModelFeatures);
   mkfitseedclf::SeedFeatures f;
-  float x[mkfitseedclf::kNModelFeatures];
   for (unsigned int i = 0; i < nSeeds; ++i) {
     calc.compute(i, f);
-    mkfitseedclf::modelInputs(f, x);
-    scores[i] = model.predict(x);
+    mkfitseedclf::modelInputs(f, &features[static_cast<size_t>(i) * mkfitseedclf::kNModelFeatures]);
+  }
+  std::vector<double> prob(nSeeds);
+  model.predict(features.data(), nSeeds, prob.data());
+  std::vector<float> scores(nSeeds);
+  TrajectorySeedCollection selected;
+  selected.reserve(nSeeds);
+  for (unsigned int i = 0; i < nSeeds; ++i) {
+    scores[i] = prob[i];
     if (scores[i] >= threshold_)
       selected.push_back(seeds[i]);
-    if (saveFeatures_)
-      std::copy(x, x + mkfitseedclf::kNModelFeatures, &features[static_cast<size_t>(i) * mkfitseedclf::kNModelFeatures]);
   }
   if (!beamlineSeedToken_.isUninitialized()) {
     const auto& beamlineSeeds = iEvent.get(beamlineSeedToken_);

@@ -4,7 +4,10 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <fstream>
+#include <limits>
+#include <utility>
 
 namespace {
   using json = nlohmann::json;
@@ -28,6 +31,60 @@ namespace {
 }  // namespace
 
 namespace mkfitseedclf {
+
+  // The trees padded to the depth of the deepest one, in heap order (the header). Called by load() on the nodes as
+  // read and checked there; children come after their parent, so every walk ends at a leaf.
+  void XGBoostEvaluator::build(const std::vector<Node>& nodes, const std::vector<int>& roots, const std::string& path) {
+    nTrees_ = roots.size();
+    depth_ = 0;
+    std::vector<std::pair<int, int>> stack;  // (node, depth)
+    for (const int root : roots) {
+      stack.assign(1, {root, 0});
+      while (!stack.empty()) {
+        const auto [k, d] = stack.back();
+        stack.pop_back();
+        depth_ = std::max(depth_, d);
+        if (nodes[k].left >= 0) {
+          stack.push_back({nodes[k].left, d + 1});
+          stack.push_back({nodes[k].right, d + 1});
+        }
+      }
+    }
+    if (depth_ > kMaxDepth)
+      throw cms::Exception("XGBoostEvaluator")
+          << path << ": trees of depth " << depth_ << ", at most " << kMaxDepth << " are supported";
+    nSplits_ = (1 << depth_) - 1;
+    nLeaves_ = 1 << depth_;
+    threshold_.assign(size_t(nTrees_) * nSplits_, 0.f);
+    feature_.assign(size_t(nTrees_) * nSplits_, 0);
+    nanRight_.assign(size_t(nTrees_) * nSplits_, 0);
+    leaf_.assign(size_t(nTrees_) * nLeaves_, 0.f);
+    // (tree, model node, heap position, level)
+    struct Item {
+      int t, k, h, level;
+    };
+    std::vector<Item> todo;
+    for (int t = 0; t < nTrees_; ++t) {
+      todo.assign(1, {t, roots[t], 0, 0});
+      while (!todo.empty()) {
+        const Item it = todo.back();
+        todo.pop_back();
+        const Node& nd = nodes[it.k];
+        if (it.level == depth_) {  // a leaf of the model, at full depth or below a padding split
+          leaf_[size_t(it.t) * nLeaves_ + it.h - nSplits_] = nd.value;
+          continue;
+        }
+        const size_t s = size_t(it.t) * nSplits_ + it.h;
+        const bool leaf = nd.left < 0;
+        // a padding split goes left for every value but +inf, and both of its subtrees end in the same leaf
+        threshold_[s] = leaf ? std::numeric_limits<float>::infinity() : nd.value;
+        feature_[s] = leaf ? 0 : nd.feature;
+        nanRight_[s] = leaf ? 0 : !nd.defaultLeft;
+        todo.push_back({it.t, leaf ? it.k : nd.left, 2 * it.h + 1, it.level + 1});
+        todo.push_back({it.t, leaf ? it.k : nd.right, 2 * it.h + 2, it.level + 1});
+      }
+    }
+  }
 
   void XGBoostEvaluator::load(const std::string& path) {
     std::ifstream in(path);
@@ -62,8 +119,8 @@ namespace mkfitseedclf {
         throw cms::Exception("XGBoostEvaluator") << path << ": booster " << gbName << ", only gbtree is supported";
       const json& trees = at(at(gb, "model", "gradient_booster"), "trees", "model");
 
-      nodes_.clear();
-      roots_.clear();
+      std::vector<Node> nodes;
+      std::vector<int> roots;
       for (const json& t : trees) {
         const json& si = at(t, "split_indices", "tree");
         const json& sc = at(t, "split_conditions", "tree");
@@ -72,13 +129,13 @@ namespace mkfitseedclf {
         const json& dl = at(t, "default_left", "tree");
         const size_t n = lc.size();
         if (si.size() != n || sc.size() != n || rc.size() != n || dl.size() != n || n == 0)
-          throw cms::Exception("XGBoostEvaluator") << path << ": inconsistent node arrays in tree " << roots_.size();
+          throw cms::Exception("XGBoostEvaluator") << path << ": inconsistent node arrays in tree " << roots.size();
         if (t.contains("split_type"))
           for (const json& s : t["split_type"])
             if (asLong(s) != 0)
               throw cms::Exception("XGBoostEvaluator") << path << ": categorical splits are not supported";
-        const int base = nodes_.size();
-        roots_.push_back(base);
+        const int base = nodes.size();
+        roots.push_back(base);
         for (size_t k = 0; k < n; ++k) {
           Node nd;
           nd.value = static_cast<float>(sc[k].get<double>());
@@ -91,10 +148,11 @@ namespace mkfitseedclf {
           // children come after their parent in xgboost's trees, which also rules out a cycle
           if (!leaf && (l <= long(k) || l >= long(n) || r <= long(k) || r >= long(n) || nd.feature < 0 ||
                         nd.feature >= numFeature_))
-            throw cms::Exception("XGBoostEvaluator") << path << ": bad node " << k << " in tree " << roots_.size() - 1;
-          nodes_.push_back(nd);
+            throw cms::Exception("XGBoostEvaluator") << path << ": bad node " << k << " in tree " << roots.size() - 1;
+          nodes.push_back(nd);
         }
       }
+      build(nodes, roots, path);
     } catch (const json::exception& e) {
       throw cms::Exception("XGBoostEvaluator") << "unexpected content in " << path << ": " << e.what();
     }
