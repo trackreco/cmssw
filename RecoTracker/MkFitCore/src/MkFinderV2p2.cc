@@ -269,18 +269,7 @@ namespace mkfit {
     m_batch_mgr.m_n_finding -= count;
 
     // One rewind for the whole layer, keeping capacity: after a few layers the
-    // arena is at high water and stops allocating. Its size here is this layer's
-    // high water, since slots are reused but the vector never shrinks.
-#if defined(MKFIT_STANDALONE)
-    {
-      const long hw = (long)m_node_arena.size();
-      V2P2_COUNT(n_arena_layers);
-      V2P2_COUNT_ADD(n_arena_hw_sum, hw);
-      long mx = g_v2p2_policy_counters.n_arena_hw_max.load();
-      while (hw > mx && !g_v2p2_policy_counters.n_arena_hw_max.compare_exchange_weak(mx, hw)) {
-      }
-    }
-#endif
+    // arena is at high water and stops allocating.
     m_node_arena.clear();
     m_node_free.clear();
 
@@ -676,22 +665,6 @@ namespace mkfit {
       }
 
       cand_ptrs[i]->m_wsr = w;
-
-      switch (w.m_wsr) {
-        case WSR_Inside:
-          V2P2_COUNT(n_wsr_inside);
-          break;
-        case WSR_Edge:
-          V2P2_COUNT(n_wsr_edge);
-          break;
-        case WSR_Outside:
-          V2P2_COUNT(n_wsr_outside);
-          break;
-        default:
-          break;
-      }
-      if (w.m_in_gap)
-        V2P2_COUNT(n_wsr_in_gap);
 
       // clang-format off
       dprintf("%d: WSR %d in_gap %d  (q %.3f - %.3f vs layer %.3f - %.3f, dq3 %.4f, fail %d/%d)\n",
@@ -1357,7 +1330,6 @@ namespace mkfit {
         return;
       select_and_materialise(ccrep);
       ccrep.m_selected = true;
-      V2P2_COUNT(n_early_selections);
       for (const int ni : ccrep.m_nodes)
         m_node_free.push_back(ni);
       ccrep.m_nodes.clear();
@@ -1390,7 +1362,6 @@ namespace mkfit {
       // adds exactly 0, whatever its kind; hole penalties apply in the final pick.
       // WSR_Outside is not a hole: the candidate competes unchanged.
       if (Policy::use_wsr && cand.m_wsr.m_wsr == WSR_Outside) {
-        V2P2_COUNT(n_layer_skipped);
         m_sel.push_back({cand.m_origin_tcand_index, -1, 0, false, tc.score()});
       } else {
         const int fake = fake_hit_index(tc, cand.m_wsr);
@@ -1456,10 +1427,6 @@ namespace mkfit {
         }
       }
     }
-
-#if defined(MKFIT_STANDALONE)
-    count_dominated_kept(ccand, n_keep);
-#endif
 
     // Build the survivors as copies BEFORE touching the CombCandidate: several
     // winners can descend from the same TrackCand -- that is what branching is --

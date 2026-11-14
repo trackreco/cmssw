@@ -152,9 +152,6 @@ namespace mkfit {
       // v2p2_final_beam_diag() and its _reset() / _report(), standalone/V2p2Diag.h
       // (single-threaded accumulation).
       MKFIT_V2P2_KNOB(bool, final_beam_purity, false);
-      // Standalone: record each pair the pixel-seed duplicate cleaner decides, for
-      // v2p2_dupclean_diag() to classify by truth (single-threaded accumulation).
-      MKFIT_V2P2_KNOB(bool, dupclean_pairs, false);
     }  // namespace Diag
 
     // Running sums of the likelihood terms, for measuring the constants the term

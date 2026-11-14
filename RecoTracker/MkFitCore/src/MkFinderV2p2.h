@@ -219,9 +219,6 @@ namespace mkfit {
     void select_and_materialise(CCandRep& ccrep);
     void drop_sister_dominated_holes(const CombCandidate& ccand);
     void offer_best_short(CombCandidate& ccand, const TrackCand& tc) const;
-#if defined(MKFIT_STANDALONE)
-    void count_dominated_kept(const CombCandidate& ccand, int n_keep) const;
-#endif
 
     //==========================================================================
     // Data
