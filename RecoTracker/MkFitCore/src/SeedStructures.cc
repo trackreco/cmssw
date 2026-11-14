@@ -34,7 +34,7 @@ namespace mkfit {
     // contiguous HitVec, and a scalar atan2 would differ from the vectorised one by an ULP, which changes
     // the quads. m_orig keeps the external index.
     if (src.idx) {
-      m_gather.resize(src.n);
+      seedmem::resize(m_gather, src.n);
       for (unsigned int k = 0; k < src.n; ++k)
         m_gather[k] = (*src.hits)[src.idx[k]];
     }
@@ -43,8 +43,8 @@ namespace mkfit {
     m_bs = bs;
     // phi and r from the beam line at the hit's z, by Hit::phi()'s and Hit::r()'s own expressions, so a
     // beam spot at the origin with no slope gives exactly the hit's own phi and r
-    m_tmp_phi.resize(m_n);
-    m_tmp_r.resize(m_n);
+    seedmem::resize(m_tmp_phi, m_n);
+    seedmem::resize(m_tmp_r, m_n);
     for (unsigned int i = 0; i < m_n; ++i) {
       const Hit &h = hits[i];
       const float dz = h.z() - bs.z;
@@ -59,13 +59,13 @@ namespace mkfit {
       m_binnor.register_entry_safe(m_tmp_phi[i], m_disc ? m_tmp_r[i] : hits[i].z());
     m_binnor.finalize_registration();
 
-    m_phi.resize(m_n);
-    m_z.resize(m_n);
-    m_r.resize(m_n);
-    m_invr.resize(m_n);
-    m_x.resize(m_n);
-    m_y.resize(m_n);
-    m_orig.resize(m_n);
+    seedmem::resize(m_phi, m_n);
+    seedmem::resize(m_z, m_n);
+    seedmem::resize(m_r, m_n);
+    seedmem::resize(m_invr, m_n);
+    seedmem::resize(m_x, m_n);
+    seedmem::resize(m_y, m_n);
+    seedmem::resize(m_orig, m_n);
     for (unsigned int i = 0; i < m_n; ++i) {
       const unsigned int j = m_binnor.m_ranks[i];  // the position in hits
       const Hit &h = hits[j];
@@ -85,9 +85,9 @@ namespace mkfit {
     for (unsigned int k = 0; k < nb; ++k)
       m_start[k + 1] = m_start[k] + m_binnor.m_bins[k].count;
 
-    m_pr.resize(m_with_double ? m_n : 0);
-    m_pphi.resize(m_with_double ? m_n : 0);
-    m_span.resize(m_n);
+    seedmem::resize(m_pr, m_with_double ? m_n : 0);
+    seedmem::resize(m_pphi, m_with_double ? m_n : 0);
+    seedmem::resize(m_span, m_n);
     m_qbar_lo = m_qbar_lo_nom, m_qbar_hi = m_qbar_hi_nom, m_q_lo = m_q_lo_nom, m_q_hi = m_q_hi_nom;
     if (m_with_double)
       for (unsigned int k = 0; k < m_n; ++k) {

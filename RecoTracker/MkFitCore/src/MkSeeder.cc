@@ -217,7 +217,7 @@ namespace mkfit {
     // one 32-bit key for the (stable) radix sort: the tier in the top 3 bits, then the score's float
     // bits without their 3 lowest (the score is >= 0, so its bits sort as the value; relative 1e-6)
     std::vector<unsigned int> &key = m_cl_key, &rank = m_cl_rank;
-    key.resize(nc);
+    seedmem::resize(key, nc);
     for (int i = 0; i < nc; ++i) {
       int t = 0;
       for (int l : layers[i])
@@ -248,7 +248,7 @@ namespace mkfit {
           if (!found)
             base.push_back({src[l].hits, total}), total += src[l].hits->size();
         }
-      m_cl_pos.resize(total);
+      seedmem::resize(m_cl_pos, total);
       for (int l = 0; l < nl; ++l)
         if (src[l].idx) {
           size_t b0 = 0;
@@ -262,7 +262,7 @@ namespace mkfit {
         }
     }
     std::vector<std::array<unsigned int, 4>> &gh = m_cl_gh;
-    gh.resize(nc);
+    seedmem::resize(gh, nc);
     for (int i = 0; i < nc; ++i) {
       const auto &ll = layers[i];
       for (int k = 0; k < 4; ++k)
@@ -271,7 +271,7 @@ namespace mkfit {
     }
     std::vector<CleanHL> &hl = m_cl_hl;
     if (hl.size() < off[nl])
-      hl.resize(off[nl]);
+      seedmem::resize(hl, off[nl]);
     std::vector<std::pair<int, int>> &link = m_cl_link;
     link.clear();
     // a kept quad sharing >= N of the 4 hits holds at least one of any 5 - N of them: walk the

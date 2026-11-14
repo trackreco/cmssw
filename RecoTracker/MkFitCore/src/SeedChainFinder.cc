@@ -37,6 +37,8 @@ namespace mkfit {
           hole_pos_[si].push_back({q, q > c.starts[si].first});
     Q2_.assign(n, {});
     Q3_.assign(n, {});
+    last2_.assign(n, 0);
+    last3_.assign(n, 0);
     // the gap map's skipped layer per gap start, where there is exactly one with a map
     gap_lid_.assign(c.starts.size(), -1);
     if (c.gap_map)
@@ -150,6 +152,12 @@ namespace mkfit {
     for (int p = 0; p < n; ++p)
       if (auto it = L.find(C->order[p]); it != L.end())
         lay_[p] = it->second;
+    // the queues, empty between events, at the size each reached in the previous event (forward() consumes position
+    // p's queues only after every push to them: candidates are routed to later positions only)
+    for (int p = 0; p < n; ++p) {
+      seedmem::reserve_expected(Q2_[p], last2_[p]);
+      seedmem::reserve_expected(Q3_[p], last3_[p]);
+    }
     auto it = L.find(6);
     lay_ot2_ = it == L.end() ? nullptr : it->second;
     it = L.find(4);
@@ -476,7 +484,7 @@ namespace mkfit {
         }
         Cand c = make(i);
         c.st = w_st[i];
-        Q[q].push_back(c);
+        seedmem::push_back(Q[q], c);
       }
     };
 
@@ -610,6 +618,7 @@ namespace mkfit {
         if (phases)
           cyc_c += seedchain::cycles() - tc0;
       }
+      last2_[p] = Qd.size();
       Qd.clear();
 
       // -- stage d: the triplets queued at p
@@ -881,6 +890,7 @@ namespace mkfit {
         if (phases)
           cyc_d += seedchain::cycles() - td0;
       }
+      last3_[p] = Qt.size();
       Qt.clear();
     }
     cnt.c_touched += n_ct, cnt.triplets += n_tr, cnt.d_touched += n_dt, cnt.quads += n_qd;

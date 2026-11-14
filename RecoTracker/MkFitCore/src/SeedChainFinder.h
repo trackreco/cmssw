@@ -339,6 +339,8 @@ namespace mkfit {
     std::vector<std::vector<std::pair<int, int>>> hole_pos_;  // per start pair: (position, between a and b)
     std::vector<std::pair<float, float>> start_cot_;          // per start pair: the cot range it can use; lo > hi: none
     std::vector<std::vector<Cand>> Q2_, Q3_;                  // doublets, triplets, per target position
+    // per target position: the size its queue reached in the previous event, for its start (seedmem::reserve_expected)
+    std::vector<std::size_t> last2_, last3_;
 
     long n_forwarded = 0, n_dropped = 0, n_c_cand = 0, n_d_cand = 0;
     // non-null: the cleaning score of each quad, parallel to the quads out (see take() in forward())
@@ -538,7 +540,7 @@ namespace mkfit {
         }
         Cand c = make(i);
         c.st = w_st[i];
-        Q[q].push_back(c);
+        seedmem::push_back(Q[q], c);
       }
     }
 
