@@ -956,6 +956,21 @@ namespace mkfit {
     h3d.evaluate(h3dop.m_T, h3_state);
     // h3_state.dalpha is interpolated per hit below.
 
+    // cos^2 of the incidence on each hit's module, for the grazing cut. See
+    // doc/MkFinderV2p2-DesignNotes.md, "Grazing incidence".
+    MPlexQF cos2_inc(1.0f);
+    if (Window::min_cos_incidence > 0.0f) {
+#pragma omp simd
+      for (int h = 0; h < NN; ++h) {
+        const float pn = h3_state.px[h] * module_norm(h, 0, 0) + h3_state.py[h] * module_norm(h, 1, 0) +
+                         h3_state.pz[h] * module_norm(h, 2, 0);
+        const float p2 = h3_state.px[h] * h3_state.px[h] + h3_state.py[h] * h3_state.py[h] +
+                         h3_state.pz[h] * h3_state.pz[h];
+        cos2_inc[h] = pn * pn / p2;
+      }
+    }
+    const float min_cos2_inc = Window::min_cos_incidence * Window::min_cos_incidence;
+
     // Post-process hits into the per-candidate queues. The cut is taken on
     // h3_state, the cubic solved onto the hit's module plane.
     for (int h = 0; h < N_proc_hits; ++h) {
@@ -1021,6 +1036,8 @@ namespace mkfit {
 #endif
 
       if (!dqdphi_presel)
+        continue;
+      if (cos2_inc[h] < min_cos2_inc)
         continue;
 
       // The reduction is PER SUB-LAYER, so each sensor keeps its own budget. A full
@@ -1256,7 +1273,9 @@ namespace mkfit {
   void MkFinderV2p2::harvest_nodes() {
     m_nodes_harvested.clear();
     for (const auto& o : m_kalman_out) {
-      if (!(o.chi2_acc < mp_job->v2p2().hit_chi2_cut))  // also rejects NaN
+      // Also rejects NaN. A negative chi2 means the predicted covariance is broken
+      // (design notes, "Grazing incidence"); the score would reward it.
+      if (!(o.chi2_acc < mp_job->v2p2().hit_chi2_cut && o.chi2_acc >= 0.0f && o.chi2 >= 0.0f))
         continue;
       CandNode n;
       n.m_cand = o.cand;

@@ -77,14 +77,15 @@ Contents:
 11. [Reduction and hit ordering](#reduction-and-hit-ordering)
 12. [In-layer combinatorial search](#in-layer-combinatorial-search)
 13. [Kalman hit acceptance](#kalman-hit-acceptance)
-14. [End-of-layer selection](#end-of-layer-selection)
-15. [Layer-step score](#layer-step-score)
-16. [Backward fit](#backward-fit)
-17. [V2 compatibility](#v2-compatibility)
-18. [Open items](#open-items)
-19. [Transport of the position
+14. [Grazing incidence](#grazing-incidence)
+15. [End-of-layer selection](#end-of-layer-selection)
+16. [Layer-step score](#layer-step-score)
+17. [Backward fit](#backward-fit)
+18. [V2 compatibility](#v2-compatibility)
+19. [Open items](#open-items)
+20. [Transport of the position
     covariance](#appendix-transport-of-the-position-covariance)
-20. [History](#appendix-history)
+21. [History](#appendix-history)
 
 ## Samples and how numbers are quoted
 
@@ -721,6 +722,108 @@ pre-cut.
 
 f = 3 is a compensation and should come down when the track covariance is
 fixed, as `Window::dphi_trk_fac` should.
+
+## Grazing incidence
+
+**Code:** `Window::min_cos_incidence` (`src/V2p2Config.h`) and its cut in
+`preselect_hit_batch()`; the chi2 >= 0 test in `harvest_nodes()`; the covariance
+update in `plane::update()` (`src/PlaneSteps.h`).
+
+**Why.** In float, the Kalman update breaks the track covariance when the
+track's local variance across the strip is much larger than the hit's.
+`plane::update()` forms I - KH and takes (I - KH) C. Across the strip K is close
+to 1, and 1 - K keeps only what float precision leaves of that subtraction.
+Above a ratio C/V of about 1e6 between the track's and the hit's local variance,
+the updated variance across the strip has a random sign. Such ratios come from
+grazing incidence: the track's transverse position error projects onto the
+module plane as 1/cos^2 of the incidence angle. The next hit of the same layer,
+on the neighbouring module, then starts from a covariance that is not positive
+semi-definite. Its residual covariance is not positive definite, and its chi2 is
+negative. Before this section's changes a negative chi2 passed the acceptance
+cut and raised the layer-step score, which subtracts chi2 / 2, so the most
+broken path won. The rounding of a partially filled batch decides the last
+digits, so the same seed could end on different hits depending on how the seeds
+were chunked.
+
+Measured on 20 D121 PU200 events, 10.98 M search updates, each replayed bit for
+bit in float and redone in long double (`mkfit-results/core/2026-11-16/negchi2/`
+in the maintainer's records):
+
+- 45 updates have chi2 < 0, from 12 seeds in 9 events. 44 are forward, on 2S in
+  layers 12, 13 and 15; 1 is in the backward search, on pixel layer 1. Each is
+  the second or a later hit of a path in its layer.
+- In 48 of 50 (two seed-loop grains), the covariance was broken by the update of
+  the previous hit of the same layer. Propagation and material never broke a
+  positive semi-definite covariance, and the chi2 and the 2x2 inverse were right
+  on every valid prediction.
+- 2S updates on a valid prediction that leave a covariance that is not positive
+  semi-definite, by |cos| of the incidence:
+
+| \|cos\| | updates | broken by the update |
+|---|---|---|
+| < 0.1 | 1513 | 301 |
+| 0.1 - 0.3 | 22804 | 51 |
+| >= 0.3 | 1.56 M | 0 |
+
+- The relative error of the updated variance across the strip grows about
+  tenfold per decade of C/V: 1e-6 at 10, 7e-4 at 1e4, 0.2 at 1e6.
+
+**The cut.** A hit is not taken when the track crosses its module at |cos| of
+the incidence below `Window::min_cos_incidence`, which is 0 (off) by default; at 0
+the |cos| computation is skipped. |cos| is |p.n| / |p|, from the
+Hermite state on the module plane and the module normal. The cut also has a
+reason of its own: by geometry, a 2S strip hit at |cos| 0.1 spreads over about
+3 mm across the strips (sensor thickness ~0.3 mm times tan of the angle), some 30
+strips, while its error is the pitch over sqrt(12). The same code runs inward
+and outward, so the cut applies to both. Separately, `harvest_nodes()` rejects
+every update with chi2 < 0 or chi2_acc < 0, whatever the cause. The backward
+search also breaks covariances on the TFPX discs at |cos| 0.5 - 0.66, from a poor
+prediction (24 in the 20 events, with no negative chi2 following), and the
+incidence cut does not reach those.
+
+**Measured, 100 events** (D121 PU200, MTV association, paired by event against
+the code without this section's changes; `mkfit-results/core/2026-11-16/grazing-cut/`
+in the maintainer's records):
+
+- The chi2 < 0 rejection alone finds 22 sim tracks more, all low-pT barrel
+  tracks (|eta| < 0.79, pT 0.49 - 0.65 GeV) that no reco track matched before:
+  +20 +- 4 at pT 0.5 - 0.9. Efficiency at pT > 0.9, fakes, duplicates, hits per
+  track and the pT resolution do not change.
+- The cut at 0.05 or 0.1 adds nothing measurable on top of the rejection. At 0.1
+  the updates with a negative chi2 go from 224 to 24, all rejected, and the cut
+  takes 0.24 % of the forward 2S hits and 0.9 % of the backward search's
+  pixel-barrel hits.
+- At 0.2 and 0.3 the cut takes 72 % and 99.6 % of the backward search's
+  pixel-barrel hits. On a flat barrel module |cos| is at most sin(theta), 0.16 at
+  |eta| 2.5, so a cut on the total incidence removes the pixel-barrel hits of
+  every track above |eta| of about 2.3, however straight it crosses in phi.
+  Endcap tracks lose 0.07 and 0.18 hits each, duplicates rise by 0.09 and 0.35
+  points, low-pT fakes by 23 and 30 tracks.
+- Hence the default 0: the rejection stays, the cut is off. A cut on the
+  across-strip component of the incidence, or on strip layers only, would leave
+  the pixel barrel alone; not built.
+
+**Loopers.** A looper meets grazing incidence where it turns: at its turning
+radius its momentum is perpendicular to the radius. One of the broken updates
+above is such a turn, at r = 109.6 cm, within 1.3 - 1.8 degrees. The cut takes
+those hits away, and a looper's candidate collects holes at its turn, which can
+stop it. What a looper needs at a grazing encounter is to pass through with its
+state changed as little as possible: the hit acknowledged as present, the energy
+loss of the crossing applied, and no position update. That needs a hit index
+code of its own next to `kHitMissIdx` and the others in `Hit.h`, for a hit that
+is present, not used in the update, and not counted as a hole. Not built.
+
+**The update itself.** The fix of the update is the Joseph form,
+C' = (I - KH) C (I - KH)^T + K V K^T, which is symmetric and positive
+semi-definite by construction. In the replay (float, written in the replay
+macro, not library code) it kept every updated variance positive, with relative
+error below 1e-5 up to C/V of 1e6 and a median of 1e-5 at 1e7. The final fit
+already updates in this form, vectorised (`update_joseph()` in `FinalFit.cc`).
+`plane::update()` is shared: `kalmanOperationPlaneLocal()` calls it for the clone
+engine, V2 and the backward fits. Switching it to the Joseph form changes those
+too, so it is not done here. With it, the incidence cut would be about the hit's
+quality alone. The fix has two parts: this stable form, and the processing of a
+grazing hit described under "Loopers".
 
 ## End-of-layer selection
 

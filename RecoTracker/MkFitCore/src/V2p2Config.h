@@ -53,6 +53,10 @@ namespace mkfit {
       MKFIT_V2P2_KNOB(float, dphi_hit_fac, 3.0f);             // on hit_phi_half_extent
       MKFIT_V2P2_KNOB(float, dphi_flat_rad, 2.0f * 0.0123f);  // flat hit term [rad] when phi_per_hit is off
       MKFIT_V2P2_KNOB(int, phi_extra_bins, 0);                // spare phi bins in the fetch
+
+      // Hits whose module the track crosses at |cos(incidence)| below this are not taken;
+      // 0 takes all. Design notes, "Grazing incidence".
+      MKFIT_V2P2_KNOB(float, min_cos_incidence, 0.0f);
     }  // namespace Window
 
     //--------------------------------------------------------------------------
