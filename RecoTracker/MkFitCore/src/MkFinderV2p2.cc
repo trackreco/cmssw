@@ -451,7 +451,8 @@ namespace mkfit {
     CandIncoming** cand_ptrs = b.cand;
 
     const int N_proc = b.N_proc = std::min(NN, cand_queue_size());
-    B.m_n_proc = N_proc;
+    // MkBins computes at full width, see pad_free_lanes().
+    B.m_n_proc = NN;
 
     dprintf("MkFinderV2p2::process_layer_batch work queue is %d, would process %d of them (NN=%d)\n",
             cand_queue_size(),
@@ -478,6 +479,9 @@ namespace mkfit {
       if (param_b)
         bf[i] = Config::bFieldFromZR(tc.z(), std::hypot(tc.x(), tc.y()));
     }
+    for (int i = N_proc; i < NN; ++i)
+      B.m_isp.copyIn_partial_track_state(i, cand_ptrs[0]->tcand().state());
+    pad_free_lanes(N_proc, phi, chg, bf);
     B.m_isp.init_momentum_vec_and_k(phi, chg, bf);
     if (m_cand_queue_head == (int)m_cand_queue.size()) {
       m_cand_queue.clear();

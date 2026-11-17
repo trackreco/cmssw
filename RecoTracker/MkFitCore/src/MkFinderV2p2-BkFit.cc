@@ -187,6 +187,9 @@ namespace mkfit {
     MPlexHV plDir{0.0f};  // ""
     MPlexHV plPnt{0.0f};  // ""
 
+    // Computed at full width, see pad_free_lanes(); only the first N_proc lanes are read out.
+    pad_free_lanes(N_proc, m_Par[iC], m_Err[iC], m_Chg);
+
 #if defined(DEBUG_PROP_UPDATE)
     const int DSLOT = 0;
     int DSLOT_layer;
@@ -333,6 +336,8 @@ namespace mkfit {
       if (here_count == 0)
         continue;
 
+      pad_free_lanes(N_proc, m_msErr, m_msPar, plNrm, plDir, plPnt);
+
       clearFailFlag();
 
       // PROP-FAIL-ENABLE We do not check for pfailed propagation here
@@ -342,11 +347,11 @@ namespace mkfit {
       const MPlexQI chg_prev = m_Chg;
       propagateHelixToPlaneMPlex(m_Err[iC], m_Par[iC], m_Chg, plPnt, plNrm,
                                  m_Err[iP], m_Par[iP], m_FailFlag,
-                                 N_proc, m_prop_config->backward_fit_pflags, nullptr);
+                                 NN, m_prop_config->backward_fit_pflags, nullptr);
       kalmanOperationPlaneLocal(KFO_Calculate_Chi2 | KFO_Update_Params | KFO_Local_Cov,
                                 m_Err[iP], m_Par[iP], m_Chg, m_msErr, m_msPar, plNrm, plDir, plPnt,
-                                m_Err[iC], m_Par[iC], tmp_chi2, N_proc);
-      kalmanCheckChargeFlip(m_Par[iC], m_Chg, N_proc);
+                                m_Err[iC], m_Par[iC], tmp_chi2, NN);
+      kalmanCheckChargeFlip(m_Par[iC], m_Chg, NN);
 
       // Outlier rejection: the hit becomes a missing hit and
       // the propagated state is kept. The negated comparison leaves a NaN chi2 alone.

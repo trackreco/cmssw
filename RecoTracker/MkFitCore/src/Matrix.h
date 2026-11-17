@@ -73,6 +73,16 @@ namespace mkfit {
 
   typedef Matriplex::Matriplex<bool, 1, 1, NN> MPlexQB;
 
+  // Copies lane 0 into the lanes from n_filled up, so that a partial batch can be computed at full
+  // width: a loop over the fill compiles into a vector body and a remainder that round differently,
+  // so an item's result would depend on how many items its batch held. The free lanes then hold
+  // valid inputs (material lookup, no NaN, no uninitialised reads); their results are not used.
+  template <typename... MP>
+  void pad_free_lanes(int n_filled, MP&... mp) {
+    for (int i = n_filled; i < NN; ++i)
+      (mp.copy(i, 0), ...);
+  }
+
 }  // end namespace mkfit
 
 #endif

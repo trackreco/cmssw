@@ -20,9 +20,12 @@ namespace mkfit {
     // and supplies the transverse path length sPerp, so only the covariance is transported.
     using namespace plane;
 
+    // Computed at full width, see pad_free_lanes(); only the first N_filled lanes are read out.
+    pad_free_lanes(N_filled, tsPar, tsErr, tsChg, sPerp, propPar, msErr, msPar, plNrm, plDir, plPnt);
+
     const PropagationFlags& pf =
         m_solve_plane ? prop_config->finding_intra_layer_pflags : prop_config->finding_inter_layer_pflags;
-    const TrackRef in{tsPar, tsChg, N_filled};
+    const TrackRef in{tsPar, tsChg, NN};
     const PlaneRef pl{plPnt, plNrm};
 
     FieldAt f;
@@ -43,9 +46,9 @@ namespace mkfit {
     transport_cov(J, tsErr, propErr);
     if (pf.apply_material) {
       MaterialAt m;
-      material_grid(*pf.tracker_info, propPar, nullptr, N_filled, m);
-      eloss_sign_from_path(s, nullptr, N_filled, m);
-      apply_material(m, plNrm, propErr, propPar, N_filled);
+      material_grid(*pf.tracker_info, propPar, nullptr, NN, m);
+      eloss_sign_from_path(s, nullptr, NN, m);
+      apply_material(m, plNrm, propErr, propPar, NN);
     }
     outFailFlag.setVal(0);
     finish(in, tsErr, outFailFlag, propPar, propErr);
@@ -62,7 +65,7 @@ namespace mkfit {
     const float acc_scale2 = m_chi2_trk_fac * m_chi2_trk_fac;
     const bool acc_separate = acc_scale2 != 1.0f;
 
-    const TrackRef pred{propPar, tsChg, N_filled};
+    const TrackRef pred{propPar, tsChg, NN};
     MPlexQF bFld;
     local_field(pred, false, bFld);
     LocalPred L;
@@ -81,7 +84,7 @@ namespace mkfit {
     LocalUpd U;
     update(L, R, U);
     to_global(U, L, pl, tsChg, bFld, tsPar, tsErr);
-    kalmanCheckChargeFlip(tsPar, tsChg, N_filled);
+    kalmanCheckChargeFlip(tsPar, tsChg, NN);
 
     for (int i = 0; i < N_filled; ++i) {
 #ifdef MKFIT_TRACE
