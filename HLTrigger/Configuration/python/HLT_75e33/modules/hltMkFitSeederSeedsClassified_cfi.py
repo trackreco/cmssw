@@ -7,7 +7,7 @@ hltMkFitSeederSeedsClassified = cms.EDProducer("MkFitSeedClassifier",
     beamlineSeeds = cms.InputTag("hltMkFitSeederSeeds", "beamline"),
     beamSpot = cms.InputTag("hltOnlineBeamSpot"),
     model = cms.string("RecoTracker/MkFit/data/mkfit-phase2-seed-classifier.json"),
-    threshold = cms.double(0.63),
+    threshold = cms.double(0.6369),
     saveFeatures = cms.bool(False),
     mightGet = cms.optional.untracked.vstring
 )
