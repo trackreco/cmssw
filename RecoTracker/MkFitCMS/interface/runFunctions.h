@@ -21,7 +21,8 @@ namespace mkfit {
                         bool do_seed_clean,
                         bool do_backward_fit,
                         bool do_remove_duplicates,
-                        bool use_v2p2);
+                        bool use_v2p2,
+                        bool keep_missing_hits = false);
 
   void run_MkFitFit(const TrackerInfo &trackerInfo,
                     const IterationConfig &itconf,

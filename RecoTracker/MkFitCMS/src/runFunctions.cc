@@ -34,7 +34,8 @@ namespace mkfit {
                         bool do_seed_clean,
                         bool do_backward_fit,
                         bool do_remove_duplicates,
-                        bool use_v2p2) {
+                        bool use_v2p2,
+                        bool keep_missing_hits) {
     const MkBuilder::FindTracks_foo FindTracks =
         use_v2p2 ? &MkBuilder::findTracksStandardv2p2 : &MkBuilder::findTracksCloneEngine;
 
@@ -106,7 +107,9 @@ namespace mkfit {
     if (do_backward_fit && itconf.m_backward_search)
       builder.endBkwSearch();
 
-    builder.export_best_comb_cands(out_tracks, true);
+    // keep_missing_hits: the layers the candidate crossed without a hit stay on the exported tracks, so that the
+    // converters can record them as lost hits
+    builder.export_best_comb_cands(out_tracks, !keep_missing_hits);
 
     if (do_remove_duplicates && itconf.m_duplicate_cleaner) {
       itconf.m_duplicate_cleaner(out_tracks, itconf, trackerInfo, eoh.refBeamSpot());
