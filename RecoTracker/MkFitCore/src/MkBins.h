@@ -40,6 +40,7 @@ namespace mkfit {
     // m_sp1 the near one, m_sp2 the far one. See prop_to_limits_in_order().
     mini_propagators::StatePlex m_sp1, m_sp2;
 
+    MPlexQF m_phi1, m_phi2;  // phi at m_sp1 and m_sp2, from determine_bin_windows()
     MPlexQF m_phi_min, m_phi_max, m_phi_center, m_phi_delta;
     MPlexQF m_q_min, m_q_max;
 

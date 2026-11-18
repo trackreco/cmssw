@@ -383,6 +383,19 @@ namespace Matriplex {
         internal::sincos4(fArray[i], s.fArray[i], c.fArray[i]);
     }
 
+    // atan2 whose loop vectorises, unlike fast_atan2(), which calls vdt's. float: internal::atan2_poly(), double:
+    // std::atan2.
+    Matriplex& atan2_poly(const Matriplex& y, const Matriplex& x) {
+#pragma omp simd
+      for (idx_t i = 0; i < kTotSize; ++i) {
+        if constexpr (std::is_same<T, float>())
+          fArray[i] = internal::atan2_poly(y.fArray[i], x.fArray[i]);
+        else
+          fArray[i] = std::atan2(y.fArray[i], x.fArray[i]);
+      }
+      return *this;
+    }
+
     //---------------------------------------------------------
 
     void loadElements(idx_t i, idx_t j, const T* src) {
@@ -742,6 +755,12 @@ namespace Matriplex {
   template <typename T, idx_t D1, idx_t D2, idx_t N>
   void sincos4(const MPlex<T, D1, D2, N>& a, MPlex<T, D1, D2, N>& s, MPlex<T, D1, D2, N>& c) {
     a.sincos4(s, c);
+  }
+
+  template <typename T, idx_t D1, idx_t D2, idx_t N>
+  MPlex<T, D1, D2, N> atan2_poly(const MPlex<T, D1, D2, N>& y, const MPlex<T, D1, D2, N>& x) {
+    MPlex<T, D1, D2, N> t;
+    return t.atan2_poly(y, x);
   }
 
   //---------------------------------------------------------

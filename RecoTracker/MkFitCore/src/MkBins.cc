@@ -140,10 +140,9 @@ namespace mkfit {
   //----------------------------------------------------------------------------
 
   void MkBins::determine_bin_windows(const MkBinTrackCovExtract& cov_ex) {
-    MPlexQF xp1, xp2;
-    xp1 = Matriplex::fast_atan2(m_sp1.y, m_sp1.x);
-    xp2 = Matriplex::fast_atan2(m_sp2.y, m_sp2.x);
-    Matriplex::min_max(xp1, xp2, m_phi_min, m_phi_max);
+    m_phi1 = Matriplex::atan2_poly(m_sp1.y, m_sp1.x);
+    m_phi2 = Matriplex::atan2_poly(m_sp2.y, m_sp2.x);
+    Matriplex::min_max(m_phi1, m_phi2, m_phi_min, m_phi_max);
     m_phi_delta = m_phi_max - m_phi_min;
     m_phi_center = 0.5f * (m_phi_max + m_phi_min);
     for (int ii = 0; ii < NN; ++ii) {

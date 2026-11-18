@@ -734,8 +734,8 @@ namespace mkfit {
             pc_on = false;  // no span to interpolate along
           } else {
             pc_gq = std::clamp(((barrel ? z2 : r2) - pc_q1) / dqb, -20.0f, 20.0f);
-            pc_phi1 = vdt::fast_atan2f(y1, x1);
-            pc_gphi = std::clamp(squashPhiGeneral(vdt::fast_atan2f(y2, x2) - pc_phi1) / dqb, -20.0f, 20.0f);
+            pc_phi1 = B.m_phi1[i];
+            pc_gphi = std::clamp(squashPhiGeneral(B.m_phi2[i] - pc_phi1) / dqb, -20.0f, 20.0f);
             pc_tol_q = PreCut::dq_slack * Window::dq_trk_fac * B.m_dq_track[i] * (1.0f + pc_gq * pc_gq);
             pc_tol_phi = PreCut::dphi_slack * Window::dphi_trk_fac * B.m_dphi_track[i];
           }
@@ -968,12 +968,15 @@ namespace mkfit {
       for (int h = 0; h < NN; ++h) {
         const float pn = h3_state.px[h] * module_norm(h, 0, 0) + h3_state.py[h] * module_norm(h, 1, 0) +
                          h3_state.pz[h] * module_norm(h, 2, 0);
-        const float p2 = h3_state.px[h] * h3_state.px[h] + h3_state.py[h] * h3_state.py[h] +
-                         h3_state.pz[h] * h3_state.pz[h];
+        const float p2 =
+            h3_state.px[h] * h3_state.px[h] + h3_state.py[h] * h3_state.py[h] + h3_state.pz[h] * h3_state.pz[h];
         cos2_inc[h] = pn * pn / p2;
       }
     }
     const float min_cos2_inc = Window::min_cos_incidence * Window::min_cos_incidence;
+
+    // phi of each crossing, for the whole batch ahead of the per-hit loop below, which does not vectorise.
+    const MPlexQF h3_phi = Matriplex::atan2_poly(h3_state.y, h3_state.x);
 
     // Post-process hits into the per-candidate queues. The cut is taken on
     // h3_state, the cubic solved onto the hit's module plane.
@@ -986,7 +989,7 @@ namespace mkfit {
         q = hipo(h3_state.x[h], h3_state.y[h]);
       }
       ddq = std::abs(q - L.hit_q(hit_idcs[h]));
-      phi = vdt::fast_atan2f(h3_state.y[h], h3_state.x[h]);
+      phi = h3_phi[h];
       ddphi = cdist(std::abs(phi - L.hit_phi(hit_idcs[h])));
 
       // q error referenced to this module's plane, see surface_referenced_dq().

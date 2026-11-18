@@ -305,7 +305,7 @@ namespace mkfit {
       propPar.aij(1, 0) = tsXyz.y;
       propPar.aij(2, 0) = tsXyz.z;
       propPar.aij(3, 0) = tsXyz.inv_pt;
-      propPar.aij(4, 0) = Matriplex::fast_atan2(tsXyz.py, tsXyz.px);
+      propPar.aij(4, 0) = Matriplex::atan2_poly(tsXyz.py, tsXyz.px);
       propPar.aij(5, 0) = tsXyz.theta;
 
       sPerp = tsXyz.dalpha / (tsXyz.inv_pt * tsXyz.inv_k);
