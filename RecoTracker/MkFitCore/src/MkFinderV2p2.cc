@@ -749,8 +749,11 @@ namespace mkfit {
         const float rho_dq = Window::dq_trk_fac * B.m_dq_track[i] + Window::dq_hit_fac * L.max_hit_q_half_length();
         b.rho_dphi[i] = std::max(b.rho_dphi[i], rho_dphi);
         b.rho_dq[i] = std::max(b.rho_dq[i], rho_dq);
-        const float rho_phi_c = 0.5f * (B.m_phi_min[i] + B.m_phi_max[i]);
-        const float rho_phi_half = 0.5f * (B.m_phi_max[i] - B.m_phi_min[i]) + rho_dphi;
+        // Centre and half-width from MkBins: when the two crossings lie on both sides of
+        // phi = +-pi, m_phi_min and m_phi_max hold them swapped for the cyclic bin walk and
+        // are not the ends of an interval.
+        const float rho_phi_c = B.m_phi_center[i];
+        const float rho_phi_half = B.m_phi_delta[i] + rho_dphi;
         const float rho_q_lo = B.m_q_min[i] - rho_dq;
         const float rho_q_hi = B.m_q_max[i] + rho_dq;
 
@@ -824,7 +827,9 @@ namespace mkfit {
     // can be 0 with a hit about to be scored, so the scored hit is counted too.
     for (int i = 0; i < N_proc; ++i) {
       const float r = std::max(0.1f, std::hypot(B.m_sp2.x[i], B.m_sp2.y[i]));
-      const float w_phi = (B.m_phi_max[i] - B.m_phi_min[i]) + 2.0f * b.rho_dphi[i];
+      // m_phi_delta is the half-width of the crossing span, also across phi = +-pi. The
+      // region is at most the full turn.
+      const float w_phi = std::min(2.0f * (B.m_phi_delta[i] + b.rho_dphi[i]), Const::TwoPI);
       const float w_q = (B.m_q_max[i] - B.m_q_min[i]) + 2.0f * b.rho_dq[i];
       const float area = std::max(1e-4f, w_phi * r * w_q);
       b.cand[i]->m_log_rho = std::log(std::max(1e-6f, (b.n_scanned[i] + 1.0f) / area));
