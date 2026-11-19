@@ -1286,8 +1286,10 @@ namespace mkfit {
     m_nodes_harvested.clear();
     for (const auto& o : m_kalman_out) {
       // Also rejects NaN. A negative chi2 means the predicted covariance is broken
-      // (design notes, "Grazing incidence"); the score would reward it.
-      if (!(o.chi2_acc < mp_job->v2p2().hit_chi2_cut && o.chi2_acc >= 0.0f && o.chi2 >= 0.0f))
+      // (design notes, "Grazing incidence"); the score would reward it. So does det V <= 0:
+      // the residual covariance is then indefinite, chi2 can still come out >= 0 along the
+      // residual, and ln(det V), floored below, would give the hit a large bonus.
+      if (!(o.chi2_acc < mp_job->v2p2().hit_chi2_cut && o.chi2_acc >= 0.0f && o.chi2 >= 0.0f && o.det_v > 0.0f))
         continue;
       CandNode n;
       n.m_cand = o.cand;
