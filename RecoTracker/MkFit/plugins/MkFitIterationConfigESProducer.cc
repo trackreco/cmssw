@@ -12,6 +12,7 @@
 #include "RecoTracker/MkFitCore/interface/V2p2Params.h"
 
 #include <charconv>
+#include <cmath>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -46,15 +47,28 @@ namespace {
             "= OT PS barrel, strip barrel from layer 10 = OT 2S barrel, strip endcap); negative takes hitEff");
   }
 
+  // A hit efficiency as the score uses it, after the conversion to float: ln(eps / (1 - eps))
+  // is finite only for 0 < eps < 1 (V2p2Score.h).
+  void checkEff(float eps, const char *name, const char *what) {
+    if (!(eps > 0.0f && eps < 1.0f))
+      throw cms::Exception("Configuration")
+          << "v2p2." << name << "." << what << " must be in (0, 1) as a float, got " << eps;
+  }
+
   mkfit::V2p2ScoreParams readScore(const edm::ParameterSet &ps, const mkfit::V2p2ScoreParams &base, const char *name) {
     mkfit::V2p2ScoreParams p = base;
     p.hit_eff = ps.getParameter<double>("hitEff");
+    checkEff(p.hit_eff, name, "hitEff");
     const auto grp = ps.getParameter<std::vector<double>>("hitEffByGroup");
     if (grp.size() != mkfit::V2p2ScoreParams::n_hit_eff_grp)
       throw cms::Exception("Configuration") << "v2p2." << name << ".hitEffByGroup needs "
                                             << mkfit::V2p2ScoreParams::n_hit_eff_grp << " values, got " << grp.size();
-    for (int i = 0; i < mkfit::V2p2ScoreParams::n_hit_eff_grp; ++i)
+    for (int i = 0; i < mkfit::V2p2ScoreParams::n_hit_eff_grp; ++i) {
       p.hit_eff_grp[i] = grp[i];
+      // Negative takes hitEff; anything else is an efficiency.
+      if (!(p.hit_eff_grp[i] < 0.0f))
+        checkEff(p.hit_eff_grp[i], name, "hitEffByGroup");
+    }
     return p;
   }
 
@@ -66,8 +80,10 @@ namespace {
     p.hit_chi2_cut = ps.getParameter<double>("hitChi2Cut");
     p.max_presel_hits = ps.getParameter<int>("maxPreselHits");
     p.max_hits_per_layer = ps.getParameter<int>("maxHitsPerLayer");
-    if (!(p.chi2_trk_fac > 0))
-      throw cms::Exception("Configuration") << "v2p2.hitChi2TrackFactor must be > 0, got " << p.chi2_trk_fac;
+    if (!(p.chi2_trk_fac > 0 && std::isfinite(p.chi2_trk_fac)))
+      throw cms::Exception("Configuration") << "v2p2.hitChi2TrackFactor must be finite and > 0, got " << p.chi2_trk_fac;
+    if (!(p.hit_chi2_cut > 0 && std::isfinite(p.hit_chi2_cut)))
+      throw cms::Exception("Configuration") << "v2p2.hitChi2Cut must be finite and > 0, got " << p.hit_chi2_cut;
     if (p.max_presel_hits < 1 || p.max_presel_hits > mkfit::V2p2Params::max_presel_hits_limit)
       throw cms::Exception("Configuration")
           << "v2p2.maxPreselHits must be in [1, " << mkfit::V2p2Params::max_presel_hits_limit << "], got "
