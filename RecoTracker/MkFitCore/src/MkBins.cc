@@ -12,10 +12,6 @@ namespace mkfit {
 
   using namespace Config::V2p2;
 
-  // Largest phi margin added on each side of the crossing span: just under pi,
-  // since at pi the two endpoints coincide and the arc degenerates to a point.
-  static constexpr float kMaxHalfPhiWindow = 3.14f;
-
   namespace mp = mini_propagators;
 
   //==============================================================================
@@ -197,11 +193,11 @@ namespace mkfit {
       if (i < m_n_proc) {
         // Fetch what the cut can accept, using the layer's largest hit extent since
         // the hit is not known yet, then extend by whole bins on the bin index.
-        // The margin is clamped below pi: a larger one wraps to a small arc.
+        // The margin is capped at Window::dphi_max_rad.
         // See doc/MkFinderV2p2-DesignNotes.md, "Search window".
         const float phi_hit_term =
             Window::phi_per_hit ? Window::dphi_hit_fac * loh.max_hit_phi_half_extent() : Window::dphi_flat_rad;
-        const float cut_dphi = std::min(Window::dphi_trk_fac * m_dphi_track[i] + phi_hit_term, kMaxHalfPhiWindow);
+        const float cut_dphi = Window::capped_dphi(Window::dphi_trk_fac * m_dphi_track[i] + phi_hit_term);
         auto pr = loh.phiRangeBins(m_phi_min[i] - cut_dphi, m_phi_max[i] + cut_dphi);
         bl.p1[i] = loh.phiMaskApply(pr.begin - Window::phi_extra_bins);
         bl.p2[i] = loh.phiMaskApply(pr.end + Window::phi_extra_bins);

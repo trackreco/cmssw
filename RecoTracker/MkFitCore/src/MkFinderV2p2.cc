@@ -737,7 +737,7 @@ namespace mkfit {
             pc_phi1 = B.m_phi1[i];
             pc_gphi = std::clamp(squashPhiGeneral(B.m_phi2[i] - pc_phi1) / dqb, -20.0f, 20.0f);
             pc_tol_q = PreCut::dq_slack * Window::dq_trk_fac * B.m_dq_track[i] * (1.0f + pc_gq * pc_gq);
-            pc_tol_phi = PreCut::dphi_slack * Window::dphi_trk_fac * B.m_dphi_track[i];
+            pc_tol_phi = PreCut::dphi_slack * Window::capped_dphi(Window::dphi_trk_fac * B.m_dphi_track[i]);
           }
         }
 
@@ -745,7 +745,7 @@ namespace mkfit {
         // window with the cut's padding of this sub-layer, as the fetch.
         const float phi_hit_term =
             Window::phi_per_hit ? Window::dphi_hit_fac * L.max_hit_phi_half_extent() : Window::dphi_flat_rad;
-        const float rho_dphi = std::min(Window::dphi_trk_fac * B.m_dphi_track[i] + phi_hit_term, 3.14f);
+        const float rho_dphi = Window::capped_dphi(Window::dphi_trk_fac * B.m_dphi_track[i] + phi_hit_term);
         const float rho_dq = Window::dq_trk_fac * B.m_dq_track[i] + Window::dq_hit_fac * L.max_hit_q_half_length();
         b.rho_dphi[i] = std::max(b.rho_dphi[i], rho_dphi);
         b.rho_dq[i] = std::max(b.rho_dq[i], rho_dq);
@@ -1006,9 +1006,9 @@ namespace mkfit {
 
       // The pre-selection cut. See doc/MkFinderV2p2-DesignNotes.md, "Search window".
       const float dq_cut = Window::dq_trk_fac * dq_trk + Window::dq_hit_fac * L.hit_q_half_length(hit_idcs[h]);
-      const float dphi_cut =
+      const float dphi_cut = Window::capped_dphi(
           Window::dphi_trk_fac * B.m_dphi_track[cand_idcs[h]] +
-          (Window::phi_per_hit ? Window::dphi_hit_fac * L.hit_phi_half_extent(hit_idcs[h]) : Window::dphi_flat_rad);
+          (Window::phi_per_hit ? Window::dphi_hit_fac * L.hit_phi_half_extent(hit_idcs[h]) : Window::dphi_flat_rad));
       const bool dqdphi_presel = ddq < dq_cut && ddphi < dphi_cut;
 
       // For every hit, not only those that pass: the debug printout shows it.

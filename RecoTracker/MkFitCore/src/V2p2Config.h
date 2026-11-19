@@ -4,6 +4,8 @@
 #include "RecoTracker/MkFitCore/interface/Config.h"
 #include "RecoTracker/MkFitCore/interface/V2p2Params.h"
 
+#include <algorithm>
+
 //==============================================================================
 // Tunable parameters of MkFinderV2p2 and of the v2p2 window in MkBins.
 //
@@ -53,6 +55,12 @@ namespace mkfit {
       MKFIT_V2P2_KNOB(float, dphi_hit_fac, 3.0f);             // on hit_phi_half_extent
       MKFIT_V2P2_KNOB(float, dphi_flat_rad, 2.0f * 0.0123f);  // flat hit term [rad] when phi_per_hit is off
       MKFIT_V2P2_KNOB(int, phi_extra_bins, 0);                // spare phi bins in the fetch
+      // Upper bound on the phi margin, track term and hit term together [rad], in the fetch,
+      // the cut, the line pre-cut (times PreCut::dphi_slack) and the density region. Keep it
+      // below 1.5: a window is then at most pi + 3 rad wide, short of the full turn, which the
+      // phi bin walk from p1 to p2 on the masked axis cannot tell from an empty range.
+      MKFIT_V2P2_KNOB(float, dphi_max_rad, 0.05f);
+      inline float capped_dphi(float m) { return std::min(m, dphi_max_rad); }
 
       // Hits whose module the track crosses at |cos(incidence)| below this are not taken;
       // 0 takes all. Design notes, "Grazing incidence".

@@ -337,7 +337,7 @@ is lost without any sign.
 
 ```
 |dq|   < dq_trk_fac   * T_q   + dq_hit_fac   * H_q
-|dphi| < dphi_trk_fac * T_phi + dphi_hit_fac * H_phi
+|dphi| < min(dphi_trk_fac * T_phi + dphi_hit_fac * H_phi, dphi_max_rad)
 ```
 
 dq and dphi are the residuals between the hit and the track's crossing with the
@@ -348,6 +348,18 @@ half-extents (see [Hit extents](#hit-extents)). The factors are 1.5 and 1.2 in
 q, 2 and 3 in phi, so the track terms are 4.5 and 6 sigma. In the code T_q is
 `dq_trk`, made from `dq_track` at fixed path length, T_phi is `dphi_track`, and
 H_q and H_phi are `hit_q_half_length` and `hit_phi_half_extent`.
+
+**The phi margin is capped at `dphi_max_rad` = 0.05 rad**, in the fetch, the cut,
+the line pre-cut (times `dphi_slack`) and the density region. Without it the
+margin reached 1.34 rad: low-pT candidates carried over long steps at high
+|eta|, and loopers of a few tens of MeV in the backward search. No hit further
+than 0.031 rad in phi from the track ends on a final track, and the
+pre-selection queue keeps the hits closest in phi anyway. Over 100 PU200 events
+the cap changes found, fake and duplicate tracks by nothing and the reco tracks
+by one. With the crossing span at most pi, a window is at most pi + 0.1 rad
+wide. The phi bins are walked from p1 to p2 on the masked axis, which cannot
+tell a window over the full turn from an empty one, so the knob must stay below
+1.5.
 
 **Two factors per coordinate.** Which term dominates depends on the layer. The
 median q half-length of a hit (on the I50 events) is 0.0075 cm in the pixel
@@ -472,7 +484,7 @@ looser than the real cut.
 ```
 q:   dq_slack   * dq_trk_fac * dq_track * (1 + g^2) + dq_hit_fac * hit_q_half_length
        + qbar_fac * |g| * hit_qbar_half_extent
-phi: dphi_slack * dphi_trk_fac * dphi_track + (hit term of the real cut)
+phi: dphi_slack * min(dphi_trk_fac * dphi_track, dphi_max_rad) + (hit term of the real cut)
        + qbar_fac * |g_phi| * hit_qbar_half_extent
 ```
 
