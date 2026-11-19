@@ -5,6 +5,7 @@
 #include "RecoTracker/MkFitCore/interface/PropagationConfig.h"
 #include "RecoTracker/MkFitCore/interface/Config.h"
 #include <algorithm>
+#include <functional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -198,7 +199,7 @@ namespace mkfit {
     // NOTE: offset of the last element is used in write/read_bin file.
     bool m_final_member_for_streaming = false;
 
-    // Not streamed: derived by TrackerInfo::setup_double_layers().
+    // Not streamed: set by TrackerInfo::setup_double_layers().
     bool m_is_double_layer = false;
     int m_double_layer_partner = -1;
 
@@ -267,10 +268,11 @@ namespace mkfit {
 
     int n_layers() const { return m_layers.size(); }
     const LayerInfo& layer(int l) const { return m_layers[l]; }
-    // Double layers: in phase 2 the two sensor layers of an outer-tracker module pair are two
-    // adjacent mkFit layers of the same kind, the stereo (P) sensor first (LayerNumberConverter).
-    // setup_double_layers() marks them; call it once the layers are complete.
-    void setup_double_layers();
+    // Double layers: the two sensor layers of a module pair, two adjacent mkFit layers. The
+    // geometry builder knows them (LayerNumberConverter::doubleLayerPartner()) and calls
+    // setup_double_layers() once the layers are complete, with partner(l) the other layer of
+    // l's pair or -1.
+    void setup_double_layers(const std::function<int(int)>& partner);
     bool is_double_layer(int l) const { return m_layers[l].is_double_layer(); }
     // The pair a layer belongs to, lower id first; (l, l) for a single layer.
     std::pair<int, int> get_double_layers(int l) const {

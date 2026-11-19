@@ -1548,8 +1548,8 @@ namespace mkfit {
 
   // InLayer::sister_hole_drop: remove from m_sel the holes that a path of the same
   // TrackCand dominates by taking the sister sensor of its last hit. A sister pair
-  // is two adjacent layers, the lower one stereo and the upper one not, and the
-  // upper sensor's detid is the lower one's + 1; either may be crossed first. A
+  // is a double layer (TrackerInfo::get_double_layers()), and the two sensors of one
+  // module have detids one apart; either may be crossed first. A
   // track through one sensor of a module crosses the other a few mm away, so
   // when a path took the sister hit, the hole is the worse explanation of the
   // same crossing. The first hit of the path is the one tested. Written for the
@@ -1569,8 +1569,7 @@ namespace mkfit {
       if (e.node_idx < 0 && e.add_fake) {
         const TrackCand& tc = ccand[e.tcand_idx];
         const int pl = tc.getLastHitLyr(), pi = tc.getLastHitIdx();
-        const int lo = std::min(pl, lay), hi = std::max(pl, lay);
-        if (pi >= 0 && hi == lo + 1 && ti.layer(lo).is_stereo() && !ti.layer(hi).is_stereo()) {
+        if (pi >= 0 && ti.layer(lay).double_layer_partner() == pl) {
           const unsigned int d_prev = detid_of(pl, pi);
           for (const SelEntry& f : m_sel) {
             if (f.node_idx < 0 || f.tcand_idx != e.tcand_idx)
@@ -1582,7 +1581,7 @@ namespace mkfit {
             if (InLayer::sister_hole_chi2 > 0.0f && !(r.m_chi2 < InLayer::sister_hole_chi2))
               continue;
             const unsigned int d_this = detid_of(r.m_hot.layer, r.m_hot.index);
-            if (pl < lay ? d_this == d_prev + 1 : d_prev == d_this + 1) {
+            if (d_this == d_prev + 1 || d_prev == d_this + 1) {
               drop = true;
               break;
             }

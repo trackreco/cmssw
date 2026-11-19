@@ -984,9 +984,12 @@ Neither is always the order in which the track meets them. So when the fit
 reaches a physical layer, it takes all of the track's hits on that layer and
 fits them nearest module plane first. The distance is measured along a straight
 line, from the state at the start of the layer. Which two sensor layers make up
-one physical layer comes from the geometry: a stereo strip layer followed by a
-non-stereo strip layer of the same type (`TrackerInfo::setup_double_layers()`,
-run when the geometry is set up; not stored in the geometry file).
+one physical layer comes from `LayerNumberConverter::doubleLayerPartner()`: the
+mono and the stereo layer of each CMS layer or disk with stereo modules, the
+stereo layer first in phase 2 and the mono layer first in phase 1. The geometry
+builders, `MkFitGeometryESProducer` and the standalone's geometry plugins, pass it
+to `TrackerInfo::setup_double_layers()`; the pairs are not stored in the geometry
+file.
 
 Measured on 20 events, against the order of the sim hits: before the change the
 fit met the hits of a physical layer in the wrong order in 50.5 % of the

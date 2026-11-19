@@ -366,23 +366,16 @@ namespace mkfit {
     read_std_vec(fp, m_mat_vec.vector());
 
     fclose(fp);
-
-    setup_double_layers();
   }
 
-  void TrackerInfo::setup_double_layers() {
-    for (auto& li : m_layers) {
-      li.m_is_double_layer = false;
-      li.m_double_layer_partner = -1;
-    }
-    for (int l = 0; l + 1 < n_layers(); ++l) {
-      LayerInfo &a = m_layers[l], &b = m_layers[l + 1];
-      if (a.is_strip() && b.is_strip() && a.is_stereo() && !b.is_stereo() && a.layer_type() == b.layer_type() &&
-          !a.m_is_double_layer) {
-        a.m_is_double_layer = b.m_is_double_layer = true;
-        a.m_double_layer_partner = l + 1;
-        b.m_double_layer_partner = l;
-      }
+  void TrackerInfo::setup_double_layers(const std::function<int(int)>& partner) {
+    for (int l = 0; l < n_layers(); ++l) {
+      const int p = partner(l);
+      if (p != -1 && (p < 0 || p >= n_layers() || p == l || partner(p) != l))
+        throw std::runtime_error("TrackerInfo::setup_double_layers: partner(" + std::to_string(l) +
+                                 ") = " + std::to_string(p) + " does not name a pair");
+      m_layers[l].m_is_double_layer = p != -1;
+      m_layers[l].m_double_layer_partner = p;
     }
   }
 
