@@ -990,8 +990,8 @@ namespace mkfit {
         for (bidx_t pi = pb1; pi != pb2; pi = L.phiMaskApply(pi + 1)) {
           // Limit to central Q-bin
           if (qi == qb && L.isBinDead(pi, qi) == true) {
-            dprint("dead module for track in layer=" << L.layer_id() << " qb=" << qi << " pi=" << pi << " q="
-                                                     << B.q_c[itrack] << " phi=" << B.phi_c[itrack]);
+            dprint("dead module for track in layer=" << L.layer_id() << " qb=" << qi << " pi=" << pi
+                                                     << " q=" << B.q_c[itrack] << " phi=" << B.phi_c[itrack]);
             m_XWsrResult[itrack].m_in_gap = true;
           }
 

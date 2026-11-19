@@ -298,8 +298,8 @@ namespace mkfit {
     uint64_t layers = 0;
     for (int idx = tc.lastCcIndex(); idx >= 0; idx = cc.hot_node(idx).m_prev_idx) {
       const HitOnTrack &hot = cc.hot_node(idx).m_hot;
-      if (idx > cc.lastHitIdxBeforeBkwSearch() && hot.index >= 0 &&
-          hot.layer < std::numeric_limits<uint64_t>::digits && trk_info[hot.layer].is_pixel())
+      if (idx > cc.lastHitIdxBeforeBkwSearch() && hot.index >= 0 && hot.layer < std::numeric_limits<uint64_t>::digits &&
+          trk_info[hot.layer].is_pixel())
         layers |= uint64_t(1) << hot.layer;
     }
     return std::popcount(layers) >= m_bkw_min_pixel_layers[i];

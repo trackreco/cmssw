@@ -557,8 +557,7 @@ namespace {
 #pragma omp simd
 #endif
       for (int n = nmin; n < nmax; ++n) {
-        vdt::fast_sincosf(id[n - nmin] * ipt[n - nmin] * kinv[n - nmin] * 0.5f,
-                          sinah[n - nmin], cosah[n - nmin]);
+        vdt::fast_sincosf(id[n - nmin] * ipt[n - nmin] * kinv[n - nmin] * 0.5f, sinah[n - nmin], cosah[n - nmin]);
       }
 
 #pragma omp simd
