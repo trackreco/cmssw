@@ -296,6 +296,11 @@ namespace mkfit {
     }
 
     void compute_pars() {
+      // Computed at full width: the free lanes take lane 0, as pad_free_lanes() does for the
+      // other inputs in do_kalman_stuff(), so that no lane works on a previous batch's values
+      // or on memory never loaded.
+      for (int i = N_filled; i < NN; ++i)
+        tsXyz.copyIn(i, tsXyz, 0);
       // The search's crossing on the module plane (tsXyz) becomes propPar and the
       // transverse path length sPerp; tsPar keeps the parameters at the previous
       // hit, which the jacobian needs. The crossing is the Hermite cubic solved
