@@ -266,6 +266,7 @@ namespace mkfit {
     while (done_count != N_proc) {
       int fit_node[NN];  // HoT node fitted in this step, -1 if none
       std::fill_n(fit_node, NN, -1);
+      bool err_curv_current = false;
       int here_count = 0;
       for (int i = 0; i < N_proc; ++i) {
         if (done_flag[i])
@@ -280,7 +281,16 @@ namespace mkfit {
           ++done_count;
 
           TrackCand &trk = *m_TrkCand[i];
-          m_Err[iC].copyOut(i, trk.errors_nc().Array());
+          // the fit runs in CCS; the candidates hold curvilinear errors with Config::useCurvTrackErrors
+          if (Config::useCurvTrackErrors) {
+            if (!err_curv_current) {
+              trackErrsFromCCS(iC);
+              err_curv_current = true;
+            }
+            copyOutErrCurv(m_ErrCurv[iC], i, trk.errors_nc().Array());
+          } else {
+            m_Err[iC].copyOut(i, trk.errors_nc().Array());
+          }
           m_Par[iC].copyOut(i, trk.parameters_nc().Array());
           trk.setCharge(m_Chg[i]);
           trk.setChi2(m_Chi2[i]);

@@ -674,6 +674,7 @@ std::unique_ptr<MkFitGeometry> MkFitGeometryESProducer::produce(const TrackerRec
     using namespace mkfit;
     Config::usePropToPlane = true;
     Config::usePtMultScat = true;
+    Config::useCurvTrackErrors = true;
 #endif
     layerNrConv_.reset(mkfit::TkLayout::phase2);
     trackerInfo->create_layers(16, 22, 22);

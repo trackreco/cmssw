@@ -74,6 +74,13 @@
 #include <unordered_map>
 
 namespace {
+  // Squared position error of a candidate state: the trace of the CCS position block, or, with curvilinear track
+  // errors, var(x_perp) + var(y_perp) (the same trace for a state converted from curvilinear).
+  float posErrSq(const mkfit::TrackState& st) {
+    return mkfit::Config::useCurvTrackErrors ? st.errors.At(3, 3) + st.errors.At(4, 4)
+                                             : st.errors.At(0, 0) + st.errors.At(1, 1) + st.errors.At(2, 2);
+  }
+
   // a final-fit state on a hit's module (mkfit::HitStateOnTrack: that module's local frame)
   TrajectoryStateOnSurface toTSOS(const mkfit::HitStateOnTrack& st, const GeomDet& det, const MagneticField& mf) {
     AlgebraicSymMatrix55 m;
@@ -452,16 +459,15 @@ void MkFitOutputTrackConverter::convertCandidates(const MkFitOutputWrapper& mkFi
     if (cand.state().invpT() > qualityMaxInvPt_ || (qualitySignPt_ && cand.state().invpT() < 0) ||
         cand.state().theta() < qualityMinTheta_ || (M_PI - cand.state().theta()) < qualityMinTheta_ ||
         cand.state().posRsq() > qualityMaxRsq_ || std::abs(cand.state().z()) > qualityMaxZ_ ||
-        (cand.state().errors.At(0, 0) + cand.state().errors.At(1, 1) + cand.state().errors.At(2, 2)) >
-            qualityMaxPosErrSq_ ||
-        edm::isNotFinite(cand.chi2()) || cand.chi2() < 0.f) {
+        posErrSq(cand.state()) > qualityMaxPosErrSq_ || edm::isNotFinite(cand.chi2()) || cand.chi2() < 0.f) {
       edm::LogInfo("MkFitOutputTrackConverter") << "Candidate " << candIndex << " failed state quality checks"
                                                 << cand.state().parameters << " chi2 " << cand.chi2();
       continue;
     }
 
     auto state = cand.state();  // copy because have to modify
-    state.convertFromCCSToGlbCurvilinear();
+    // With curvilinear track errors only the parameters are converted.
+    state.convertFromCCSToGlbCurvilinear(!mkfit::Config::useCurvTrackErrors);
     const auto& param = state.parameters;
     const auto& err = state.errors;
     AlgebraicSymMatrix55 cov;

@@ -129,7 +129,8 @@ mkfit::TrackVec MkFitSeedConverter::convertSeeds(const edm::View<TrajectorySeed>
     }
 
     mkfit::TrackState state(tsos.charge(), pos, mom, err);
-    state.convertFromGlbCurvilinearToCCS();
+    // With curvilinear track errors only the parameters go to CCS.
+    state.convertFromGlbCurvilinearToCCS(!mkfit::Config::useCurvTrackErrors);
     ret.emplace_back(state, 0, seed_index, 0, nullptr);
     LogTrace("MkFitSeedConverter") << "Inserted seed with index " << seed_index;
 

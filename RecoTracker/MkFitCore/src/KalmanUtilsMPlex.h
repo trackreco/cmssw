@@ -152,6 +152,22 @@ namespace mkfit {
                                      const PropagationFlags& propFlags,
                                      const bool propToHit);
 
+  // The same with the covariance in curvilinear coordinates (q/p, lambda, phi, x_perp, y_perp), the parameters in CCS.
+  void kalmanPropagateAndUpdatePlane(const MPlex5S& psErr,
+                                     const MPlexLV& psPar,
+                                     MPlexQI& Chg,
+                                     const MPlexHS& msErr,
+                                     const MPlexHV& msPar,
+                                     const MPlexHV& plNrm,
+                                     const MPlexHV& plDir,
+                                     const MPlexHV& plPnt,
+                                     MPlex5S& outErr,
+                                     MPlexLV& outPar,
+                                     MPlexQI& outFailFlag,
+                                     const int N_proc,
+                                     const PropagationFlags& propFlags,
+                                     const bool propToHit);
+
   void kalmanComputeChi2Plane(const MPlexLS& psErr,
                               const MPlexLV& psPar,
                               const MPlexQI& inChg,
@@ -164,6 +180,22 @@ namespace mkfit {
                               const int N_proc);
 
   void kalmanPropagateAndComputeChi2Plane(const MPlexLS& psErr,
+                                          const MPlexLV& psPar,
+                                          const MPlexQI& inChg,
+                                          const MPlexHS& msErr,
+                                          const MPlexHV& msPar,
+                                          const MPlexHV& plNrm,
+                                          const MPlexHV& plDir,
+                                          const MPlexHV& plPnt,
+                                          MPlexQF& outChi2,
+                                          MPlexLV& propPar,
+                                          MPlexQI& outFailFlag,
+                                          const int N_proc,
+                                          const PropagationFlags& propFlags,
+                                          const bool propToHit);
+
+  // The same with the covariance in curvilinear coordinates (q/p, lambda, phi, x_perp, y_perp), the parameters in CCS.
+  void kalmanPropagateAndComputeChi2Plane(const MPlex5S& psErr,
                                           const MPlexLV& psPar,
                                           const MPlexQI& inChg,
                                           const MPlexHS& msErr,
@@ -202,6 +234,24 @@ namespace mkfit {
                                  const MPlexHV& plDir,
                                  const MPlexHV& plPnt,
                                  MPlexLS& outErr,
+                                 MPlexLV& outPar,
+                                 MPlexQF& outChi2,
+                                 const int N_proc,
+                                 const MPlexQI* doCPE = nullptr,
+                                 cpe_func cpe_corr_func = nullptr,
+                                 bool use_param_b_field = false);
+
+  // The same with the covariance in curvilinear coordinates (q/p, lambda, phi, x_perp, y_perp), the parameters in CCS.
+  void kalmanOperationPlaneLocal(const int kfOp,
+                                 const MPlex5S& psErr,
+                                 const MPlexLV& psPar,
+                                 const MPlexQI& Chg,
+                                 const MPlexHS& msErr,
+                                 const MPlexHV& msPar,
+                                 const MPlexHV& plNrm,
+                                 const MPlexHV& plDir,
+                                 const MPlexHV& plPnt,
+                                 MPlex5S& outErr,
                                  MPlexLV& outPar,
                                  MPlexQF& outChi2,
                                  const int N_proc,

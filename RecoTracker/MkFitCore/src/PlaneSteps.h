@@ -130,6 +130,12 @@ namespace mkfit {
     // Covariance at the destination: J C J^T.
     void transport_cov(const MPlexLL& J, const MPlexLS& inErr, MPlexLS& outErr);
 
+    // The same two steps for a covariance in curvilinear coordinates (q/p, lambda, phi, x_perp, y_perp): the
+    // transport Jacobian between the curvilinear frames of the start and the end state, and J C J^T with it.
+    void jacobian(
+        const TrackRef& in, const StartTrig& t, const MPlexLV& outPar, const FieldAt& f, const MPlexQF& s, MPlex55& J);
+    void transport_cov(const MPlex55& J, const MPlex5S& inErr, MPlex5S& outErr);
+
     // Material at the destination: from the (|z|, r) grid at par, or given per lane.  None on the lanes
     // masked by noMatEffPtr and beyond N_proc.
     void material_grid(
@@ -149,9 +155,17 @@ namespace mkfit {
                         MPlexLV& par,
                         const int N_proc,
                         const float* ms_ref_p = nullptr);
+    // The same on a curvilinear covariance, with the terms computed in curvilinear coordinates.
+    void apply_material(const MaterialAt& m,
+                        const MPlexHV& plNrm,
+                        MPlex5S& err,
+                        MPlexLV& par,
+                        const int N_proc,
+                        const float* ms_ref_p = nullptr);
 
     // Phi into [-pi, pi), and the start state (in, inErr) restored on lanes whose propagation failed.
     void finish(const TrackRef& in, const MPlexLS& inErr, const MPlexQI& failFlag, MPlexLV& par, MPlexLS& err);
+    void finish(const TrackRef& in, const MPlex5S& inErr, const MPlexQI& failFlag, MPlexLV& par, MPlex5S& err);
 
     // ---- Kalman operation on a plane (KalmanUtilsMPlex.cc)
 
@@ -159,9 +173,16 @@ namespace mkfit {
     // fit_b_field: the parametrised field of the final fit (Config::bFieldFromZRFit)
     void local_field(const TrackRef& pred, const bool use_param_b_field, MPlexQF& bFld, const bool fit_b_field = false);
 
-    // The predicted state and its covariance psErr in the local frame of the plane (pl.nrm, plDir).
+    // The predicted state and its covariance psErr in the local frame of the plane (pl.nrm, plDir).  psErr in
+    // CCS, or in curvilinear coordinates.
     void to_local(const TrackRef& pred,
                   const MPlexLS& psErr,
+                  const PlaneRef& pl,
+                  const MPlexHV& plDir,
+                  const MPlexQF& bFld,
+                  LocalPred& L);
+    void to_local(const TrackRef& pred,
+                  const MPlex5S& psErr,
                   const PlaneRef& pl,
                   const MPlexHV& plDir,
                   const MPlexQF& bFld,
@@ -186,7 +207,9 @@ namespace mkfit {
     // Kalman gain and the updated local state.
     void update(const LocalPred& L, const Residual& R, LocalUpd& U);
 
-    // The updated state back in global coordinates (CCS): parameters and covariance.
+    // The updated state back in global coordinates (CCS): parameters and covariance, the covariance in CCS or
+    // in curvilinear coordinates.  The curvilinear q/p is signed, so a charge flip in the update needs no change
+    // of the covariance.
     void to_global(const LocalUpd& U,
                    const LocalPred& L,
                    const PlaneRef& pl,
@@ -194,6 +217,13 @@ namespace mkfit {
                    const MPlexQF& bFld,
                    MPlexLV& outPar,
                    MPlexLS& outErr);
+    void to_global(const LocalUpd& U,
+                   const LocalPred& L,
+                   const PlaneRef& pl,
+                   const MPlexQI& inChg,
+                   const MPlexQF& bFld,
+                   MPlexLV& outPar,
+                   MPlex5S& outErr);
 
   }  // namespace plane
 
