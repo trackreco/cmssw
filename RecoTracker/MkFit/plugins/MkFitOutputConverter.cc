@@ -29,6 +29,10 @@
 #include "TrackingTools/KalmanUpdators/interface/KFUpdator.h"
 #include "TrackingTools/KalmanUpdators/interface/Chi2MeasurementEstimator.h"
 #include "TrackingTools/TrackFitters/interface/KFTrajectoryFitter.h"
+#include "TrackingTools/DetLayers/interface/DetLayer.h"
+
+#include <algorithm>
+#include <tuple>
 #include "RecoTracker/TransientTrackingRecHit/interface/TkClonerImpl.h"
 #include "RecoTracker/TransientTrackingRecHit/interface/TkTransientTrackingRecHitBuilder.h"
 #include "TrackingTools/MaterialEffects/interface/PropagatorWithMaterial.h"
@@ -64,6 +68,13 @@ namespace {
   bool isPhase1Endcap(T subdet) {
     return subdet == PixelSubdetector::PixelEndcap || subdet == StripSubdetector::TID ||
            subdet == StripSubdetector::TEC;
+  }
+
+  // mkFit's entries for a layer the candidate crossed without a hit (kept on the tracks with exportMissingHits)
+  bool isBuildingMiss(int idx) {
+    using mkfit::Hit;
+    return idx == Hit::kHitMissIdx || idx == Hit::kHitStopIdx || idx == Hit::kHitEdgeIdx ||
+           idx == Hit::kHitMaxClusterIdx || idx == Hit::kHitInGapIdx;
   }
 }  // namespace
 
@@ -328,7 +339,7 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
           (algoCandMinPtRelaxedCut_ > 0 && std::abs(cand.momEta()) > algoCandMinAbsEtaForRelaxedCut_)
               ? algoCandMinPtRelaxedCut_
               : algoCandMinPtCut_;
-      if (cand.pT() < minPtCutForCand || cand.nTotalHits() < algoCandMinNHitsCut_)
+      if (cand.pT() < minPtCutForCand || cand.nFoundHits() < algoCandMinNHitsCut_)
         continue;
     }
     auto state = cand.state();  // copy because have to modify
@@ -380,6 +391,27 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
     //std::cout << candIndex << ": " << nhits << " " << cand.nFoundHits() << std::endl;
     bool lastHitInvalid = false;
     const auto isPhase1 = mkFitGeom.isPhase1();
+    // The layers crossed without a hit between the first and the last hit (on the tracks only with the producer's
+    // exportMissingHits): a miss becomes a missing hit, a gap at an inactive module an inactive one, on the module
+    // the track crosses; the other entries (edge of the sensitive area, stopped candidate, too large cluster) are not
+    // lost hits.
+    std::vector<std::pair<int, TrackingRecHit::Type>> missedLayers;
+    {
+      int first = -1, last = -1;
+      for (int i = 0; i < nhits; ++i)
+        if (cand.getHitOnTrack(i).index >= 0) {
+          if (first < 0)
+            first = i;
+          last = i;
+        }
+      for (int i = first + 1; i < last; ++i) {
+        const auto& hot = cand.getHitOnTrack(i);
+        if (hot.index == mkfit::Hit::kHitMissIdx)
+          missedLayers.emplace_back(hot.layer, TrackingRecHit::missing);
+        else if (hot.index == mkfit::Hit::kHitInGapIdx)
+          missedLayers.emplace_back(hot.layer, TrackingRecHit::inactive);
+      }
+    }
     for (int i = 0; i < nhits; ++i) {
       const auto& hitOnTrack = cand.getHitOnTrack(i);
       LogTrace("MkFitOutputConverter") << " hit on layer " << hitOnTrack.layer << " index " << hitOnTrack.index;
@@ -401,7 +433,9 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
         // In principle an InvalidTrackingRecHitNoDet could be
         // inserted here, but it seems that it is best to deal with
         // them in the TrackProducer.
-        lastHitInvalid = true;
+        // (the building's own entries are recorded below, and do not make the backward fit start from an invalid hit)
+        if (!isBuildingMiss(hitOnTrack.index))
+          lastHitInvalid = true;
       } else {
         auto const isPixel = eventOfHits[hitOnTrack.layer].is_pixel();
         auto const& hits = isPixel ? pixelClusterIndexToHit.hits() : stripClusterIndexToHit.hits();
@@ -501,6 +535,9 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
     // to be consistent with TransientInitialStateEstimator::innerState used in CkfTrackCandidateMakerBase
     // Error is only rescaled for candidates propagated to first layer;
     // otherwise, candidates undergo backwardFit where error is already rescaled
+    // the state before the rescaling, for the navigation to the layers crossed without a hit (the rescaled errors
+    // would fail the conservative isInside test of the modules)
+    const FreeTrajectoryState ftsNotRescaled = fts;
     if (mkFitOutput.propagatedToFirstLayer() && doErrorRescale_)
       fts.rescaleError(100.);
     auto tsosDet = mkFitOutput.propagatedToFirstLayer()
@@ -517,6 +554,44 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
       edm::LogInfo("MkFitOutputConverter")
           << "Backward fit of candidate " << candIndex << " failed, ignoring the candidate";
       continue;
+    }
+
+    // The layers crossed without a hit, as invalid hits on the modules the track crosses, found from the state at the
+    // innermost hit; each is placed along the track by the distance of its crossing from the origin, as the hits are
+    // sorted above.  The CKF fit then records them as lost hits, as for the CKF building's own.
+    if (!missedLayers.empty()) {
+      Chi2MeasurementEstimator estimator(30., -3.0, 0.5, 2.0, 0.5, 1.e12);  // as for the missing hits of TrackProducer
+      std::vector<std::tuple<float, const GeomDet*, TrackingRecHit::Type>> missed;
+      TrajectoryStateOnSurface missStart = tsosDet.first;
+      if (mkFitOutput.propagatedToFirstLayer() && doErrorRescale_) {
+        missStart = propagatorAlong.propagate(ftsNotRescaled, tsosDet.second->surface());
+        if (!missStart.isValid())
+          missStart = propagatorOpposite.propagate(ftsNotRescaled, tsosDet.second->surface());
+      }
+      for (const auto& [layer, type] : missedLayers) {
+        const auto* detLayer = detLayers.at(layer);
+        if (detLayer == nullptr || detLayer->basicComponents().empty())
+          continue;
+        if (!missStart.isValid())
+          break;
+        auto const& detWithState = detLayer->compatibleDets(missStart, propagatorAlong, estimator);
+        if (detWithState.empty())
+          continue;
+        missed.emplace_back(detWithState.front().second.globalPosition().mag2(), detWithState.front().first, type);
+      }
+      std::sort(
+          missed.begin(), missed.end(), [](const auto& a, const auto& b) { return std::get<0>(a) < std::get<0>(b); });
+      if (!missed.empty()) {
+        edm::OwnVector<TrackingRecHit> withMissed;
+        unsigned int m = 0;
+        for (const auto& hit : recHits) {
+          const float r2 = hit.globalPosition().mag2();
+          for (; m < missed.size() && std::get<0>(missed[m]) < r2; ++m)
+            withMissed.push_back(new InvalidTrackingRecHit(*std::get<1>(missed[m]), std::get<2>(missed[m])));
+          withMissed.push_back(hit.clone());
+        }
+        recHits.swap(withMissed);
+      }
     }
 
     // convert to persistent, from CkfTrackCandidateMakerBase
