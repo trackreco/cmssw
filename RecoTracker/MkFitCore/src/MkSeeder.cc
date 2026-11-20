@@ -57,6 +57,8 @@ namespace mkfit {
       have.insert(l), have.insert(l + 22);
     for (int l : have)
       m_hits.add_layer(l, ti[l], ti[l].is_barrel() ? 2.0 : 1.0);
+    if (cfg.fk_ot1 > 0)
+      m_hits.add_layer(4, ti[4], 2.0);
     if (cfg.fk_ot2 > 0)
       for (int l : {4, 6})
         m_hits.add_layer(l, ti[l], 2.0);
@@ -130,6 +132,8 @@ namespace mkfit {
       B.fk_score_fwd = cfg.fk_score_fwd, B.fk_cot_fwd = std::sinh(cfg.fk_eta_fwd);
       B.ot2_aphi = cfg.ot2_win[0], B.ot2_bphi = cfg.ot2_win[1], B.ot2_aq = cfg.ot2_win[2], B.ot2_bq = cfg.ot2_win[3];
       B.ot2_phimin = cfg.ot2_phimin;
+      B.fk_ot1 = cfg.fk_ot1, B.fk_ot1_cot = cfg.fk_ot1_eta >= 10 ? 1e30f : std::sinh(cfg.fk_ot1_eta);
+      B.fk_ot1_gate = cfg.fk_ot1_gate, B.fk_ot2_sig = cfg.fk_ot2_sig, B.fk_ot2_gate = cfg.fk_ot2_gate;
       for (const SeederConfig::ShapeWin &w : cfg.shape_win) {
         if (w.layer < 0 || w.layer > 3 || w.bin_width <= 0 || w.lo.empty() || w.lo.size() != w.hi.size())
           throw std::invalid_argument("MkSeeder::configure: bad shape_win for layer " + std::to_string(w.layer));
@@ -213,7 +217,7 @@ namespace mkfit {
     // one 32-bit key for the (stable) radix sort: the tier in the top 3 bits, then the score's float
     // bits without their 3 lowest (the score is >= 0, so its bits sort as the value; relative 1e-6)
     std::vector<unsigned int> &key = m_cl_key, &rank = m_cl_rank;
-    key.resize(nc);
+    seedmem::resize(key, nc);
     for (int i = 0; i < nc; ++i) {
       int t = 0;
       for (int l : layers[i])
@@ -244,7 +248,7 @@ namespace mkfit {
           if (!found)
             base.push_back({src[l].hits, total}), total += src[l].hits->size();
         }
-      m_cl_pos.resize(total);
+      seedmem::resize(m_cl_pos, total);
       for (int l = 0; l < nl; ++l)
         if (src[l].idx) {
           size_t b0 = 0;
@@ -258,7 +262,7 @@ namespace mkfit {
         }
     }
     std::vector<std::array<unsigned int, 4>> &gh = m_cl_gh;
-    gh.resize(nc);
+    seedmem::resize(gh, nc);
     for (int i = 0; i < nc; ++i) {
       const auto &ll = layers[i];
       for (int k = 0; k < 4; ++k)
@@ -267,7 +271,7 @@ namespace mkfit {
     }
     std::vector<CleanHL> &hl = m_cl_hl;
     if (hl.size() < off[nl])
-      hl.resize(off[nl]);
+      seedmem::resize(hl, off[nl]);
     std::vector<std::pair<int, int>> &link = m_cl_link;
     link.clear();
     // a kept quad sharing >= N of the 4 hits holds at least one of any 5 - N of them: walk the

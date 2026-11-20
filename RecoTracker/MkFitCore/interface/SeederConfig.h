@@ -68,9 +68,59 @@ namespace mkfit {
     float fk_ot2 = 0;
     std::array<float, 4> ot2_win = {-8.1e-4f, 5.92e-3f, 0.3084f, 0.0909f};
     float ot2_phimin = 1.31e-3f;
+    // fk_ot1 > 0: a quad of four pixel hits whose a-d line has |eta| < fk_ot1_eta needs a hit on OT1-P (layer 4)
+    // for the helix through b, c, d, with score (dphi / sphi)^2 + (dz / sz)^2 < fk_ot1^2 (the sigmas of
+    // SeedChainFinder::next_hit()). Quads whose helix does not reach OT1-P inside |z| < zmax - 2 cm pass. 0: off.
+    // fk_ot1_gate: the OT1-P check only for quads whose fake score (the residual score of fk_score, computed when
+    // fk_score > 0 or fk_shape) is >= fk_ot1_gate; 0: every quad.
+    // fk_ot2_sig > 0: in the OT2-P check (fk_ot2 > 0), the best hit also needs next_hit()'s score below
+    // fk_ot2_sig^2, for quads whose fake score is >= fk_ot2_gate. 0: off.
+    // Added after the working point 2026-10-06-transwin: a file without these keys gets these defaults.
+    float fk_ot1 = 0;
+    float fk_ot1_eta = 99;
+    float fk_ot1_gate = 0;
+    float fk_ot2_sig = 0;
+    float fk_ot2_gate = 0;
 
     // the cleaning: drop a quad sharing >= dedup hits with a better kept one; 0: off
     int dedup = 0;
+
+    // The duplicate cleaning of the fitted seeds (seeder_clean_duplicates(), MkSeeder.h), after the fit. A seed
+    // is dropped when a better kept seed shares >= dup_shared hits with it and its helix is compatible: q/pT and
+    // cot(theta) within dup_sig sigma (the two seeds' fit errors added), phi and z at the point
+    // of closest approach to the beam line within dup_dphi (rad) and dup_dz (cm). Better: fewer outer-tracker
+    // hits, then the lower cleaning score. dup_sig 0: off.
+    // Added 2026-10-17: a file without these keys gets these defaults.
+    float dup_sig = 0;
+    int dup_shared = 1;
+    float dup_dphi = 0.05f;
+    float dup_dz = 1.0f;
+    // dup_merge: the kept seed takes the hits of the seeds removed for it and is refitted (seeder_clean_duplicates()):
+    // 1 hits on modules it has no hit on, 2 hits on layers it has no hit on; 0: off
+    int dup_merge = 0;
+    // dup_noshare_eta: seeds with |eta| >= dup_noshare_eta are also compared with the kept seeds that share no hit
+    // with them, within |delta eta| < dup_deta and the windows above; 99: off
+    float dup_noshare_eta = 99;
+    float dup_deta = 0.02f;
+    // the windows of that comparison, when > 0 (else dup_sig, dup_dphi, dup_dz)
+    float dup_ns_sig = 0;
+    float dup_ns_dphi = 0;
+    float dup_ns_dz = 0;
+    // dup_ns_merge: the seeds removed in that comparison give their hits to the kept seed too (dup_merge); 0: they don't
+    int dup_ns_merge = 1;
+
+    // The outward extension of barrel seeds (seeder_extend_seeds(), MkSeeder.h), after the duplicate cleaning: a
+    // seed whose hits are all in the pixel barrel or OT1-P (layers 0-4), with |eta| < ext_eta, takes the best hit
+    // on each of OT1-P, OT2-P and OT3-P beyond its last hit, for the helix through its last three hits, when the
+    // hit's score (dphi / sphi)^2 + (dz / sz)^2 (the sigmas of the OT1-P check) is below ext_sig^2, and is refitted.
+    // ext_ot 0: off. Added 2026-10-18: a file without these keys gets these defaults.
+    int ext_ot = 0;
+    float ext_sig = 3;
+    float ext_eta = 99;
+    // ext_nlay: how many of OT1-P, OT2-P, OT3-P, from OT1-P outwards, the extension looks at
+    int ext_nlay = 3;
+    // ext_any: also seeds with hits in the pixel discs (the transition region), not only in the pixel barrel and OT1-P
+    int ext_any = 0;
 
     // The seed fit (seeder_make_seeds(), MkSeeder.h): the state and covariance of a seed from its quad.
     // mode 1: the helix through the first, a middle and the last hit, at the first hit, with the prior
@@ -84,6 +134,16 @@ namespace mkfit {
       float prior_scale = 1.0f;
       int pos_from_hit0 = 0;
       std::array<float, 6> fake_sigma = {0.002f, 0.002f, 0.002f, 0.03f, 0.0015f, 0.0008f};
+      // beamline_state 1 (a test, for the phase-2 HLT): after the last step of the seeder (seeder_beamline_states(),
+      // MkSeeder.h), each seed is fitted inward over its hits, from its state at the last hit with the covariance
+      // times bl_err_rescale, and the state at its first hit is propagated without material onto its last hit's
+      // module plane. The seed keeps its state at the last hit, but taken back to the beam line without material it
+      // gives the fit of all its hits at the first hit. At the HLT, LST's input (LSTInputProducer) and the pixel
+      // tracks for the vertices (TrackFromSeedProducer) read the seed's state at the beam line that way; the state
+      // of the forward fit, optimal at the last hit, is a poor one there. 0: off.
+      // Added 2026-10-23: a file without these keys gets these defaults.
+      int beamline_state = 0;
+      float bl_err_rescale = 100.f;
     };
     Fit fit;
 

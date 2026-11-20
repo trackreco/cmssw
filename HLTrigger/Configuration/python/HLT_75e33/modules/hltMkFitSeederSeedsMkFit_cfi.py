@@ -8,5 +8,7 @@ hltMkFitSeederSeedsMkFit = cms.EDProducer("MkFitSeederProducer",
     config = cms.ESInputTag("", "hltMkFitSeederConfig"),
     algorithm = cms.string("initialStep"),
     maxNSeeds = cms.uint32(500000),
+    # also the same seeds with the state of the inward fit ('beamline'), for the pixel tracks and vertices
+    beamlineSeeds = cms.bool(True),
     mightGet = cms.optional.untracked.vstring
 )

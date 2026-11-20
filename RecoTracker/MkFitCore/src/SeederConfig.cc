@@ -28,7 +28,8 @@ namespace mkfit {
   SEEDCONF_DEFINE_TYPE_NON_INTRUSIVE(SeederConfig::EtaWin, lo, hi, aphi, bphi, aq, bq)
   SEEDCONF_DEFINE_TYPE_NON_INTRUSIVE(SeederConfig::Pattern, layers, win, bwin, sref, eta_win)
   SEEDCONF_DEFINE_TYPE_NON_INTRUSIVE(SeederConfig::ShapeWin, layer, bin_width, lo, hi)
-  SEEDCONF_DEFINE_TYPE_NON_INTRUSIVE(SeederConfig::Fit, mode, prior_sigma, prior_scale, pos_from_hit0, fake_sigma)
+  SEEDCONF_DEFINE_TYPE_NON_INTRUSIVE(
+      SeederConfig::Fit, mode, prior_sigma, prior_scale, pos_from_hit0, fake_sigma, beamline_state, bl_err_rescale)
   SEEDCONF_DEFINE_TYPE_NON_INTRUSIVE(SeederConfig,
                                      pt_min,
                                      d0_max,
@@ -59,15 +60,46 @@ namespace mkfit {
                                      fk_ot2,
                                      ot2_win,
                                      ot2_phimin,
+                                     fk_ot1,
+                                     fk_ot1_eta,
+                                     fk_ot1_gate,
+                                     fk_ot2_sig,
+                                     fk_ot2_gate,
                                      dedup,
+                                     dup_sig,
+                                     dup_shared,
+                                     dup_dphi,
+                                     dup_dz,
+                                     dup_merge,
+                                     dup_noshare_eta,
+                                     dup_deta,
+                                     dup_ns_sig,
+                                     dup_ns_dphi,
+                                     dup_ns_dz,
+                                     dup_ns_merge,
+                                     ext_ot,
+                                     ext_sig,
+                                     ext_eta,
+                                     ext_nlay,
+                                     ext_any,
                                      fit)
 
   void SeederConfig::load(const std::string &json_file) {
     std::ifstream ifs(json_file);
     if (!ifs)
       throw std::runtime_error("SeederConfig::load: cannot open '" + json_file + "'");
-    // every member must be present: a file that misses one is a file written for another version
-    const nlohmann::ordered_json j = nlohmann::ordered_json::parse(ifs);
+    // every member must be present: a file that misses one is a file written for another version. The members
+    // added after the working point 2026-10-06-transwin are the exception: a file without them gets the default,
+    // which is the behaviour before them.
+    nlohmann::ordered_json j = nlohmann::ordered_json::parse(ifs);
+    const nlohmann::ordered_json defaults = SeederConfig();
+    for (const char *key : {"fk_ot1", "fk_ot1_eta", "fk_ot1_gate", "fk_ot2_sig", "fk_ot2_gate", "dup_sig", "dup_shared", "dup_dphi", "dup_dz", "dup_merge", "dup_noshare_eta", "dup_deta", "dup_ns_sig", "dup_ns_dphi", "dup_ns_dz", "dup_ns_merge", "ext_ot", "ext_sig", "ext_eta", "ext_nlay", "ext_any"})
+      if (!j.contains(key))
+        j[key] = defaults[key];
+    if (j.contains("fit"))
+      for (const char *key : {"beamline_state", "bl_err_rescale"})
+        if (!j["fit"].contains(key))
+          j["fit"][key] = defaults["fit"][key];
     *this = j.get<SeederConfig>();
   }
 

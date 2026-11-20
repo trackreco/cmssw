@@ -47,6 +47,7 @@ private:
   void produce(edm::StreamID, edm::Event& iEvent, const edm::EventSetup& iSetup) const override;
 
   const edm::EDGetTokenT<MkFitSeedWrapper> mkFitSeedsToken_;
+  edm::EDGetTokenT<MkFitSeedWrapper> mkFitSeedsBeamlineToken_;
   const edm::EDGetTokenT<MkFitClusterIndexToHit> pixelClusterIndexToHitToken_;
   const edm::EDGetTokenT<MkFitClusterIndexToHit> stripClusterIndexToHitToken_;
   const edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
@@ -55,6 +56,7 @@ private:
   const edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatorOppositeToken_;
   const edm::EDPutTokenT<TrajectorySeedCollection> seedPutToken_;
   const edm::EDPutTokenT<MkFitSeedWrapper> mkFitSeedPutToken_;
+  edm::EDPutTokenT<TrajectorySeedCollection> beamlineSeedPutToken_;
 };
 
 MkFitTrajectorySeedConverter::MkFitTrajectorySeedConverter(edm::ParameterSet const& iConfig)
@@ -66,7 +68,13 @@ MkFitTrajectorySeedConverter::MkFitTrajectorySeedConverter(edm::ParameterSet con
       propagatorAlongToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("propagatorAlong"))},
       propagatorOppositeToken_{esConsumes(iConfig.getParameter<edm::ESInputTag>("propagatorOpposite"))},
       seedPutToken_{produces<TrajectorySeedCollection>()},
-      mkFitSeedPutToken_{produces<MkFitSeedWrapper>()} {}
+      mkFitSeedPutToken_{produces<MkFitSeedWrapper>()} {
+  const auto& beamline = iConfig.getParameter<edm::InputTag>("mkFitSeedsBeamline");
+  if (!beamline.label().empty()) {
+    mkFitSeedsBeamlineToken_ = consumes(beamline);
+    beamlineSeedPutToken_ = produces<TrajectorySeedCollection>("beamline");
+  }
+}
 
 void MkFitTrajectorySeedConverter::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
@@ -75,6 +83,10 @@ void MkFitTrajectorySeedConverter::fillDescriptions(edm::ConfigurationDescriptio
       ->setComment("The pixel hits' TrackingRecHits by cluster index (MkFitClusterIndexToHit)");
   desc.add("mkFitStripHits", edm::InputTag{"mkFitSiPhase2Hits"})
       ->setComment("The outer-tracker hits' TrackingRecHits by cluster index (MkFitClusterIndexToHit)");
+  desc.add("mkFitSeedsBeamline", edm::InputTag{})
+      ->setComment("If set: the same mkFit seeds, in the same order, with the state for consumers at the beam line "
+                   "(MkFitSeederProducer 'beamline'); then also put out their TrajectorySeeds ('beamline'), one to one "
+                   "with the main ones. A seed whose state fails to convert in either is dropped from both.");
   desc.add("propagatorAlong", edm::ESInputTag{"", "PropagatorWithMaterial"});
   desc.add("propagatorOpposite", edm::ESInputTag{"", "PropagatorWithMaterialOpposite"});
   descriptions.addWithDefaultLabel(desc);
@@ -91,6 +103,32 @@ void MkFitTrajectorySeedConverter::produce(edm::StreamID, edm::Event& iEvent, co
 
   const auto& seeds = mkFitSeeds.seeds();
   const auto& quality = mkFitSeeds.quality();
+  const bool doBeamline = !mkFitSeedsBeamlineToken_.isUninitialized();
+  const mkfit::TrackVec* beamlineSeeds = doBeamline ? &iEvent.get(mkFitSeedsBeamlineToken_).seeds() : nullptr;
+  if (doBeamline && beamlineSeeds->size() != seeds.size())
+    throw cms::Exception("LogicError") << "MkFitTrajectorySeedConverter: " << beamlineSeeds->size()
+                                       << " beam-line seeds for " << seeds.size() << " seeds";
+  TrajectorySeedCollection outBeamline;
+  // a seed's state, onto its last hit's module surface; invalid if it cannot be converted
+  auto toSurface = [&](const mkfit::Track& seed, const GeomDet* lastDet) {
+    auto state = seed.state();
+    state.convertFromCCSToGlbCurvilinear();
+    const auto& par = state.parameters;
+    AlgebraicSymMatrix55 cov;
+    for (int i = 0; i < 5; ++i)
+      for (int j = i; j < 5; ++j)
+        cov[i][j] = state.errors.At(i, j);
+    const FreeTrajectoryState fts(
+        GlobalTrajectoryParameters(
+            GlobalPoint(par[0], par[1], par[2]), GlobalVector(par[3], par[4], par[5]), state.charge, &mf),
+        CurvilinearTrajectoryError(cov));
+    if (!fts.curvilinearError().posDef())
+      return TrajectoryStateOnSurface();
+    auto tsos = propagatorAlong.propagate(fts, lastDet->surface());
+    if (!tsos.isValid())
+      tsos = propagatorOpposite.propagate(fts, lastDet->surface());
+    return tsos;
+  };
   TrajectorySeedCollection out;
   out.reserve(seeds.size());
   mkfit::TrackVec outMkFit;
@@ -122,29 +160,17 @@ void MkFitTrajectorySeedConverter::produce(edm::StreamID, edm::Event& iEvent, co
 
     // the state, at the last hit: mkFit's CCS state to a curvilinear FreeTrajectoryState, as
     // MkFitOutputConverter converts a candidate, then onto the last hit's module surface
-    auto state = seed.state();
-    state.convertFromCCSToGlbCurvilinear();
-    const auto& par = state.parameters;
-    AlgebraicSymMatrix55 cov;
-    for (int i = 0; i < 5; ++i)
-      for (int j = i; j < 5; ++j)
-        cov[i][j] = state.errors.At(i, j);
-    const FreeTrajectoryState fts(
-        GlobalTrajectoryParameters(
-            GlobalPoint(par[0], par[1], par[2]), GlobalVector(par[3], par[4], par[5]), state.charge, &mf),
-        CurvilinearTrajectoryError(cov));
-    if (!fts.curvilinearError().posDef()) {
-      ++nFailed;
-      continue;
-    }
-    auto tsos = propagatorAlong.propagate(fts, lastDet->surface());
-    if (!tsos.isValid())
-      tsos = propagatorOpposite.propagate(fts, lastDet->surface());
-    if (!tsos.isValid()) {
+    const auto tsos = toSurface(seed, lastDet);
+    const auto tsosBeamline = doBeamline ? toSurface((*beamlineSeeds)[is], lastDet) : TrajectoryStateOnSurface();
+    if (!tsos.isValid() || (doBeamline && !tsosBeamline.isValid())) {
       ++nFailed;
       continue;
     }
 
+    if (doBeamline)
+      outBeamline.emplace_back(trajectoryStateTransform::persistentState(tsosBeamline, lastDet->geographicalId().rawId()),
+                               edm::OwnVector<TrackingRecHit>(recHits),
+                               alongMomentum);
     out.emplace_back(trajectoryStateTransform::persistentState(tsos, lastDet->geographicalId().rawId()),
                      std::move(recHits),
                      alongMomentum);
@@ -158,6 +184,8 @@ void MkFitTrajectorySeedConverter::produce(edm::StreamID, edm::Event& iEvent, co
         << nFailed << " of " << seeds.size() << " seeds failed the state conversion and were dropped";
 
   iEvent.emplace(seedPutToken_, std::move(out));
+  if (doBeamline)
+    iEvent.emplace(beamlineSeedPutToken_, std::move(outBeamline));
   iEvent.emplace(mkFitSeedPutToken_, std::move(outMkFit), std::move(outQuality));
 }
 

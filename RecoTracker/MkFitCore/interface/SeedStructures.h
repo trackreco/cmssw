@@ -28,12 +28,54 @@
 #include "RecoTracker/MkFitCore/interface/TrackerInfo.h"
 #include "RecoTracker/MkFitCore/interface/binnor.h"
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
 #include <map>
 #include <memory>
 #include <vector>
 
 namespace mkfit {
+
+  // The growth of the seeder's buffers. They keep their capacity from event to event. std::vector's push_back and
+  // resize double the capacity when they need more, which at PU200 sizes (a million doublets per event) leaves up to
+  // half of a buffer unused; here a buffer grows by kGrowth. A queue whose size is not known before it is filled
+  // starts each event at kGrowth times the size it reached in the previous event (reserve_expected), and is shrunk to
+  // that when it holds more than twice as much. None of this changes what a buffer contains.
+  namespace seedmem {
+    constexpr double kGrowth = 1.2;
+    constexpr std::size_t kMinCapacity = 64;
+
+    inline std::size_t grown(std::size_t n) { return std::max(kMinCapacity, std::size_t(n * kGrowth)); }
+
+    // room for n elements: at least kGrowth times the present capacity when it has to grow
+    template <class V>
+    inline void reserve_for(V &v, std::size_t n) {
+      if (n > v.capacity())
+        v.reserve(std::max(n, grown(v.capacity())));
+    }
+    template <class V>
+    inline void resize(V &v, std::size_t n) {
+      reserve_for(v, n);
+      v.resize(n);
+    }
+    template <class V, class T>
+    inline void push_back(V &v, const T &x) {
+      if (v.size() == v.capacity())
+        v.reserve(grown(v.size()));
+      v.push_back(x);
+    }
+    // an empty queue at the start of an event, which reached size last in the previous one
+    template <class V>
+    inline void reserve_expected(V &v, std::size_t last) {
+      const std::size_t want = grown(last);
+      if (v.capacity() > 2 * want) {
+        V().swap(v);
+        v.reserve(want);
+      } else if (v.capacity() < want)
+        v.reserve(want);
+    }
+  }  // namespace seedmem
 
   // Per-stage counts of one seeding run.
   struct SeedCounters {

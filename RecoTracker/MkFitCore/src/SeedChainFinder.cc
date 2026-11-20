@@ -37,6 +37,8 @@ namespace mkfit {
           hole_pos_[si].push_back({q, q > c.starts[si].first});
     Q2_.assign(n, {});
     Q3_.assign(n, {});
+    last2_.assign(n, 0);
+    last3_.assign(n, 0);
     // the gap map's skipped layer per gap start, where there is exactly one with a map
     gap_lid_.assign(c.starts.size(), -1);
     if (c.gap_map)
@@ -150,8 +152,16 @@ namespace mkfit {
     for (int p = 0; p < n; ++p)
       if (auto it = L.find(C->order[p]); it != L.end())
         lay_[p] = it->second;
+    // the queues, empty between events, at the size each reached in the previous event (forward() consumes position
+    // p's queues only after every push to them: candidates are routed to later positions only)
+    for (int p = 0; p < n; ++p) {
+      seedmem::reserve_expected(Q2_[p], last2_[p]);
+      seedmem::reserve_expected(Q3_[p], last3_[p]);
+    }
     auto it = L.find(6);
     lay_ot2_ = it == L.end() ? nullptr : it->second;
+    it = L.find(4);
+    lay_ot1_ = it == L.end() ? nullptr : it->second;
     // the gap map's ray tables, in this event's beam frame
     if (C->gap_map) {
       const SeedLayerOfHits *any = nullptr;
@@ -460,6 +470,7 @@ namespace mkfit {
     const float fks = fk_score > 0 ? fk_score : 1e30f;
     const bool fk_on = fk_score > 0 || fk_shape;
     const SeedLayerOfHits *lay_ot2 = fk_ot2 > 0 ? lay_ot2_ : nullptr;
+    const SeedLayerOfHits *lay_ot1 = fk_ot1 > 0 ? lay_ot1_ : nullptr;
     const int nn = n;
     auto idx_c = [&](const Cand &c, int p) { return Ch.idx_c_[(c.pos[0] * nn + c.pos[1]) * nn + p]; };
     auto idx_d = [&](const Cand &c, int p) { return Ch.idx_d_[((c.pos[0] * nn + c.pos[1]) * nn + c.pos[2]) * nn + p]; };
@@ -473,7 +484,7 @@ namespace mkfit {
         }
         Cand c = make(i);
         c.st = w_st[i];
-        Q[q].push_back(c);
+        seedmem::push_back(Q[q], c);
       }
     };
 
@@ -607,6 +618,7 @@ namespace mkfit {
         if (phases)
           cyc_c += seedchain::cycles() - tc0;
       }
+      last2_[p] = Qd.size();
       Qd.clear();
 
       // -- stage d: the triplets queued at p
@@ -706,9 +718,31 @@ namespace mkfit {
                   const int kn = next_hit(*lay_ot2, H3, pte, wp2, wz2, zm, dpb, dzb, scb);
                   if (kn != -2 && std::abs(zm) < lay_ot2->m_q_hi - 2) {
                     ++n_ot2_tested;
-                    const bool pass = kn >= 0 && std::abs(dpb) < wp2 && std::abs(dzb) < wz2;
+                    const bool pass = kn >= 0 && std::abs(dpb) < wp2 && std::abs(dzb) < wz2 &&
+                                      (fk_ot2_sig <= 0 || c.sc + fk_d < fk_ot2_gate || scb < fk_ot2_sig * fk_ot2_sig);
                     if (!pass) {
                       ++n_fk_ot2;
+                      return;
+                    }
+                  }
+                }
+                const int ld = Ch.order[p];
+                if (lay_ot1 && (ld <= 3 || (ld >= 16 && ld <= 27) || (ld >= 38 && ld <= 49)) &&
+                    std::abs(c.cot) < fk_ot1_cot && c.sc + fk_d >= fk_ot1_gate) {
+                  // OT1-P for the helix through b, c, d of a quad of four pixel hits
+                  const SeedLayerOfHits &Lb = *lay[c.pos[1]], &Lc = *lay[c.pos[2]];
+                  const unsigned kb = c.k[1], kc = c.k[2];
+                  HelixF H3;
+                  H3.make(
+                      Lb.m_x[kb], Lb.m_y[kb], Lb.m_z[kb], Lc.m_x[kc], Lc.m_y[kc], Lc.m_z[kc], hx_[kd], hy_[kd], hz[kd]);
+                  float zm = 0, dpb = 0, dzb = 0, scb = 0;
+                  const float pt1 = std::max(0.5f, pte);
+                  const float wp1 = fk_ot1 * (0.0005f + 3.2e-3f / pt1), wz1 = fk_ot1 * (0.075f + 0.0316f / pt1);
+                  const int kn = next_hit(*lay_ot1, H3, pte, wp1, wz1, zm, dpb, dzb, scb);
+                  if (kn != -2 && std::abs(zm) < lay_ot1->m_q_hi - 2) {
+                    ++n_ot1_tested;
+                    if (kn < 0 || scb >= fk_ot1 * fk_ot1) {
+                      ++n_fk_ot1;
                       return;
                     }
                   }
@@ -856,6 +890,7 @@ namespace mkfit {
         if (phases)
           cyc_d += seedchain::cycles() - td0;
       }
+      last3_[p] = Qt.size();
       Qt.clear();
     }
     cnt.c_touched += n_ct, cnt.triplets += n_tr, cnt.d_touched += n_dt, cnt.quads += n_qd;
