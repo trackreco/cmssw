@@ -297,7 +297,7 @@ namespace mkfit {
     // The capacity is reserved for the larger of the forward and backward widths
     // (MkJob::max_max_cands()); the search direction's own maxCandsPerSeed applies.
     ccrep.m_max_cands = std::min((int)ccand.capacity(), mp_job->params_cur().maxCandsPerSeed);
-    if (InLayer::late_max_cands > 0 && ccand.size() > 0 && ccand[0].nFoundHits() > InLayer::late_max_cands_hits &&
+    if (InLayer::late_max_cands > 0 && !ccand.empty() && ccand[0].nFoundHits() > InLayer::late_max_cands_hits &&
         !long_step_to_layer(ccand[0])) {
       ccrep.m_max_cands = std::min(ccrep.m_max_cands, (int)InLayer::late_max_cands);
       V2P2_COUNT(n_late_max_cands);
