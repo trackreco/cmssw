@@ -313,6 +313,7 @@ from RecoLocalTracker.SiPixelClusterizer.SiPixelClusterizer_cfi import siPixelCl
 from Configuration.Eras.Modifier_trackingLowPU_cff import trackingLowPU
 trackingLowPU.toReplaceWith(siPixelClusters, _siPixelClusters)
 from Configuration.Eras.Modifier_trackingPhase2PU140_cff import trackingPhase2PU140
+trackingPhase2PU140.toModify(initialStepTrackCandidatesMkFitPreSplitting, exportMissingHits = True)
 (trackingPhase2PU140 & ~splitClustersInPhase2Pixel).toReplaceWith(siPixelClusters, _siPixelClusters)
 _InitialStepPreSplittingTask_LowPU = cms.Task(
     siPixelClusters ,

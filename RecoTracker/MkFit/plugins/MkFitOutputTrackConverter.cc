@@ -689,10 +689,37 @@ void MkFitOutputTrackConverter::convertCandidates(const MkFitOutputWrapper& mkFi
     // Lost hits between the innermost and the outermost hit (beyond them, the navigation below finds the missing
     // ones): the hits the final fit removed as outliers, recorded on their own modules as the CKF fit records its
     // outliers. They follow the valid hits, so the track hits of the hit pattern stay in step with the rec hits.
+    // with exportMissingHits, also the building misses between the same two valid hits: kHitMissIdx as missing and
+    // kHitInGapIdx as inactive, on the compatible det, from the state at the previous valid hit
     {
+      const bool perHit = !mkFitOutput.hitStates().empty();
       const auto [firstPos, lastPos] = std::minmax_element(hot.begin(), hot.end());
+      int prev = -1;  // index in recHits of the valid hit before pos
       for (int pos = *firstPos + 1; pos < *lastPos; ++pos) {
         const auto& lostHoT = cand.getHitOnTrack(pos);
+        if (cand.getHitOnTrack(pos - 1).index >= 0)
+          for (unsigned int k = 0; k < hot.size(); ++k)
+            if (hot[k] == pos - 1)
+              prev = k;
+        if (lostHoT.index == mkfit::Hit::kHitMissIdx || lostHoT.index == mkfit::Hit::kHitInGapIdx) {
+          const auto* missLayer = detLayers.at(lostHoT.layer);
+          if (missLayer == nullptr || missLayer->basicComponents().empty())
+            continue;
+          TrajectoryStateOnSurface start = tsosState;
+          if (perHit && prev >= 0) {
+            const auto& st = mkFitOutput.hitStates()[candIndex][hot[prev]];
+            if (st.valid)
+              start = toTSOS(st, *recHits[prev].det(), mf);
+          }
+          auto const& detWithState = missLayer->compatibleDets(start, propagatorAlong, estimator);
+          if (detWithState.empty())
+            continue;
+          InvalidTrackingRecHit missHit(
+              *detWithState.front().first,
+              lostHoT.index == mkfit::Hit::kHitMissIdx ? TrackingRecHit::missing : TrackingRecHit::inactive);
+          trk.appendHitPattern(missHit, tTopo);
+          continue;
+        }
         if (!mkfit::Hit::isFitOutlierIdx(lostHoT.index))
           continue;
         auto const& hits =

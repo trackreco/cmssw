@@ -247,6 +247,7 @@ highPtTripletStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
     config = ('', 'highPtTripletStepTrackCandidatesMkFitConfig'),
     clustersToSkip = 'highPtTripletStepClusters',
 )
+trackingPhase2PU140.toModify(highPtTripletStepTrackCandidatesMkFit, exportMissingHits = True)
 (~trackingPhase2PU140 & trackingMkFitHighPtTripletStep).toReplaceWith(highPtTripletStepTrackCandidates, mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
     seeds = 'highPtTripletStepSeeds',
     mkFitSeeds = 'highPtTripletStepTrackCandidatesMkFitSeeds',

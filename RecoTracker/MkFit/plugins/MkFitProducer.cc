@@ -60,6 +60,7 @@ private:
   const bool seedCleaning_;
   const bool backwardFitInCMSSW_;
   const bool removeDuplicates_;
+  const bool exportMissingHits_;
   const bool mkFitSilent_;
   const bool limitConcurrency_;
 };
@@ -78,6 +79,7 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
       seedCleaning_{iConfig.getParameter<bool>("seedCleaning")},
       backwardFitInCMSSW_{iConfig.getParameter<bool>("backwardFitInCMSSW")},
       removeDuplicates_{iConfig.getParameter<bool>("removeDuplicates")},
+      exportMissingHits_{iConfig.getParameter<bool>("exportMissingHits")},
       mkFitSilent_{iConfig.getUntrackedParameter<bool>("mkFitSilent")},
       limitConcurrency_{iConfig.getUntrackedParameter<bool>("limitConcurrency")} {
   const auto clustersToSkip = iConfig.getParameter<edm::InputTag>("clustersToSkip");
@@ -121,6 +123,9 @@ void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& description
       ->setComment("ESProduct that has the mkFit configuration parameters for this iteration");
   desc.add("seedCleaning", true)->setComment("Clean seeds within mkFit");
   desc.add("removeDuplicates", true)->setComment("Run duplicate removal within mkFit");
+  desc.add("exportMissingHits", false)
+      ->setComment(
+          "Keep the layers crossed without a hit on the output tracks, for the converters to record as lost hits");
   desc.add("backwardFitInCMSSW", false)
       ->setComment("Do backward fit (to innermost hit) in CMSSW (true) or mkFit (false)");
   desc.addUntracked("mkFitSilent", true)->setComment("Allows to enables printouts from mkFit with 'False'");
@@ -206,7 +211,8 @@ void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::Ev
                             tracks,
                             seedCleaning_,
                             not backwardFitInCMSSW_,
-                            removeDuplicates_);
+                            removeDuplicates_,
+                            exportMissingHits_);
   };
 
   if (limitConcurrency_) {

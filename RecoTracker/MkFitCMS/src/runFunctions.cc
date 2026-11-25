@@ -33,7 +33,8 @@ namespace mkfit {
                         TrackVec &out_tracks,
                         bool do_seed_clean,
                         bool do_backward_fit,
-                        bool do_remove_duplicates) {
+                        bool do_remove_duplicates,
+                        bool keep_missing_hits) {
     IterationMaskIfcCmssw it_mask_ifc(trackerInfo, hit_masks);
 
     MkJob job({trackerInfo, itconf, eoh, eoh.refBeamSpot(), &it_mask_ifc});
@@ -103,7 +104,8 @@ namespace mkfit {
     if (do_backward_fit && itconf.m_backward_search)
       builder.endBkwSearch();
 
-    builder.export_best_comb_cands(out_tracks, true);
+    // keep_missing_hits: keep the building misses on the exported tracks, for the converters
+    builder.export_best_comb_cands(out_tracks, !keep_missing_hits);
 
     if (do_remove_duplicates && itconf.m_duplicate_cleaner) {
       itconf.m_duplicate_cleaner(out_tracks, itconf, trackerInfo, eoh.refBeamSpot());
