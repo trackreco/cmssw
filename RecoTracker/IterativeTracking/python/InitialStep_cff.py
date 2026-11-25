@@ -254,6 +254,7 @@ initialStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
     seeds = 'initialStepTrackCandidatesMkFitSeeds',
     config = ('', 'initialStepTrackCandidatesMkFitConfig'),
 )
+trackingPhase2PU140.toModify(initialStepTrackCandidatesMkFit, exportMissingHits = True)
 trackingMkFitInitialStep.toReplaceWith(initialStepTrackCandidates, mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
     seeds = 'initialStepSeeds',
     mkFitSeeds = 'initialStepTrackCandidatesMkFitSeeds',
