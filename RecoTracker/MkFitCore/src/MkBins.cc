@@ -48,7 +48,43 @@ namespace mkfit {
   // covariance at the layer".
   //----------------------------------------------------------------------------
 
+  namespace {
+    // C = J E J^T, 3 x 3 from 3 x K and K x K.
+    template <int K>
+    void position_cov(const MPlexQF (&J)[3][K], const MPlexQF (&E)[K][K], MPlexQF (&C)[3][3]) {
+      MPlexQF M[3][K];
+      for (int r = 0; r < 3; ++r)
+        for (int c = 0; c < K; ++c) {
+          M[r][c] = J[r][0] * E[0][c];
+          for (int m = 1; m < K; ++m)
+            M[r][c] += J[r][m] * E[m][c];
+        }
+      for (int r = 0; r < 3; ++r)
+        for (int c = r; c < 3; ++c) {
+          C[r][c] = M[r][0] * J[c][0];
+          for (int m = 1; m < K; ++m)
+            C[r][c] += M[r][m] * J[c][m];
+          C[c][r] = C[r][c];
+        }
+    }
+  }  // namespace
+
   void MkBins::transport_position_cov(const MPlexLV& par0, const MPlexLS& err0, MkBinTrackCovExtract& tce) const {
+    transport_position_cov_impl(par0, &err0, nullptr, nullptr, tce);
+  }
+
+  void MkBins::transport_position_cov(const MPlexLV& par0,
+                                      const MPlex5S& err0,
+                                      const MPlexQI& chg0,
+                                      MkBinTrackCovExtract& tce) const {
+    transport_position_cov_impl(par0, nullptr, &err0, &chg0, tce);
+  }
+
+  void MkBins::transport_position_cov_impl(const MPlexLV& par0,
+                                           const MPlexLS* err0,
+                                           const MPlex5S* err0_curv,
+                                           const MPlexQI* chg0,
+                                           MkBinTrackCovExtract& tce) const {
     // All NN lanes; the caller fills unused ones with a valid state.
     using MPF = MPlexQF;
 
@@ -95,26 +131,35 @@ namespace mkfit {
     J[2][4] = 0.0f;
     J[2][5] = -ak * iptinv;
 
-    // M = J C0, then C = M J^T.
-    MPF E[6][6];
-    for (int m = 0; m < 6; ++m)
-      for (int c = m; c < 6; ++c)
-        E[m][c] = E[c][m] = err0.ReduceFixedIJ(m, c);
-    MPF M[3][6];
-    for (int r = 0; r < 3; ++r)
-      for (int c = 0; c < 6; ++c) {
-        M[r][c] = J[r][0] * E[0][c];
-        for (int m = 1; m < 6; ++m)
-          M[r][c] += J[r][m] * E[m][c];
-      }
     MPF C[3][3];
-    for (int r = 0; r < 3; ++r)
-      for (int c = r; c < 3; ++c) {
-        C[r][c] = M[r][0] * J[c][0];
-        for (int m = 1; m < 6; ++m)
-          C[r][c] += M[r][m] * J[c][m];
-        C[c][r] = C[r][c];
+    if (err0_curv) {
+      // C0 in curvilinear coordinates (q/p, lambda, phi, x_perp, y_perp): J times the derivatives of the
+      // CCS parameters by the curvilinear ones (jacobianCurvToCCS()). The position ones are the unit
+      // vectors u, v normal to the momentum, which P_in leaves as they are.
+      const MPF dipt_dqp = Matriplex::negate_if_ltz(1.0f / st, *chg0);
+      const MPF dipt_dl = ipt * cot;
+      const MPF u[3] = {-sp, cp, MPF(0.0f)};
+      const MPF v[3] = {-ct * cp, -ct * sp, st};
+      MPF Jc[3][5];
+      for (int r = 0; r < 3; ++r) {
+        Jc[r][0] = J[r][3] * dipt_dqp;
+        Jc[r][1] = J[r][3] * dipt_dl - J[r][5];
+        Jc[r][2] = J[r][4];
+        Jc[r][3] = u[r];
+        Jc[r][4] = v[r];
       }
+      MPF E[5][5];
+      for (int m = 0; m < 5; ++m)
+        for (int c = m; c < 5; ++c)
+          E[m][c] = E[c][m] = err0_curv->ReduceFixedIJ(m, c);
+      position_cov(Jc, E, C);
+    } else {
+      MPF E[6][6];
+      for (int m = 0; m < 6; ++m)
+        for (int c = m; c < 6; ++c)
+          E[m][c] = E[c][m] = err0->ReduceFixedIJ(m, c);
+      position_cov(J, E, C);
+    }
 
     // Project onto the plane normal to the momentum at m_sp2: P C P.
     const MPF pinv = 1.0f / Matriplex::sqrt(m_sp2.px * m_sp2.px + m_sp2.py * m_sp2.py + m_sp2.pz * m_sp2.pz);

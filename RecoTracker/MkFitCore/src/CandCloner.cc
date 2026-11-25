@@ -203,14 +203,14 @@ namespace mkfit {
               if (mp_iteration_params->recheckOverlap) {
                 // Special overlap_list if the overlap hit needs to be re-checked after primary update.
                 mp_kalman_overlap_list->emplace_back(
-                    UpdateIndices(m_start_seed + is, n_pushed, h2a.hitIdx, hm->m_hit_idx));
+                    UpdateIndices(m_start_seed + is, n_pushed, h2a.hitIdx, hm->m_hit_idx, h2a.propIdx));
               } else {
                 tc.addHitIdx(hm->m_hit_idx, m_layer, 0);
                 tc.incOverlapCount();
-                mp_kalman_update_list->emplace_back(UpdateIndices(m_start_seed + is, n_pushed, h2a.hitIdx, -1));
+                mp_kalman_update_list->emplace_back(UpdateIndices(m_start_seed + is, n_pushed, h2a.hitIdx, -1, h2a.propIdx));
               }
             } else {
-              mp_kalman_update_list->emplace_back(UpdateIndices(m_start_seed + is, n_pushed, h2a.hitIdx, -1));
+              mp_kalman_update_list->emplace_back(UpdateIndices(m_start_seed + is, n_pushed, h2a.hitIdx, -1, h2a.propIdx));
             }
           }
 

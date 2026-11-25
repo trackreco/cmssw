@@ -54,6 +54,13 @@
 #include "DataFormats/VertexReco/interface/Vertex.h"
 
 namespace {
+  // Squared position error of a candidate state: the trace of the CCS position block, or, with curvilinear track
+  // errors, var(x_perp) + var(y_perp) (the same trace for a state converted from curvilinear).
+  float posErrSq(const mkfit::TrackState& st) {
+    return mkfit::Config::useCurvTrackErrors ? st.errors.At(3, 3) + st.errors.At(4, 4)
+                                             : st.errors.At(0, 0) + st.errors.At(1, 1) + st.errors.At(2, 2);
+  }
+
   template <typename T>
   bool isPhase1Barrel(T subdet) {
     return subdet == PixelSubdetector::PixelBarrel || subdet == StripSubdetector::TIB ||
@@ -317,8 +324,7 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
     if (cand.state().invpT() > qualityMaxInvPt_ || (qualitySignPt_ && cand.state().invpT() < 0) ||
         cand.state().theta() < qualityMinTheta_ || (M_PI - cand.state().theta()) < qualityMinTheta_ ||
         cand.state().posRsq() > qualityMaxRsq_ || std::abs(cand.state().z()) > qualityMaxZ_ ||
-        (cand.state().errors.At(0, 0) + cand.state().errors.At(1, 1) + cand.state().errors.At(2, 2)) >
-            qualityMaxPosErrSq_) {
+        posErrSq(cand.state()) > qualityMaxPosErrSq_) {
       edm::LogInfo("MkFitOutputConverter")
           << "Candidate " << candIndex << " failed state quality checks" << cand.state().parameters;
       continue;
@@ -332,7 +338,8 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
         continue;
     }
     auto state = cand.state();  // copy because have to modify
-    state.convertFromCCSToGlbCurvilinear();
+    // With curvilinear track errors only the parameters are converted.
+    state.convertFromCCSToGlbCurvilinear(!mkfit::Config::useCurvTrackErrors);
     const auto& param = state.parameters;
     const auto& err = state.errors;
     AlgebraicSymMatrix55 cov;

@@ -15,6 +15,7 @@
 #include "MkFitter.h"
 #include "MkFinder.h"
 #include "MkFinderV2p2.h"
+#include "PropagationMPlex.h"
 
 #ifdef MKFIT_STANDALONE
 #include "RecoTracker/MkFitCore/standalone/Event.h"
@@ -262,6 +263,49 @@ namespace {
 //------------------------------------------------------------------------------
 
 namespace mkfit {
+
+  namespace {
+    // Convert the errors of all candidates of seeds [start_seed, end_seed) between CCS (6x6) and curvilinear (5x5,
+    // in the first 15 elements of the 6x6 storage, the rest zero), NN candidates at a time.
+    void convertCandErrs(EventOfCombCandidates &eoccs, int start_seed, int end_seed, bool to_curv) {
+      MPlexLV par;
+      MPlexQI chg;
+      MPlexLS errCCS;
+      MPlex5S errCurv;
+      TrackCand *cands[NN];
+      int n = 0;
+      const auto flush = [&]() {
+        for (int i = 0; i < n; ++i) {
+          par.copyIn(i, cands[i]->parameters().Array());
+          chg(i, 0, 0) = cands[i]->charge();
+          if (to_curv)
+            errCCS.copyIn(i, cands[i]->errors().Array());
+          else
+            errCurv.copyIn(i, cands[i]->errors().Array());
+        }
+        if (to_curv) {
+          convertErrCCSToCurv(errCCS, par, chg, errCurv);
+          for (int i = 0; i < n; ++i)
+            copyOutErrCurv(errCurv, i, cands[i]->errors_nc().Array());
+        } else {
+          convertErrCurvToCCS(errCurv, par, chg, errCCS);
+          for (int i = 0; i < n; ++i)
+            errCCS.copyOut(i, cands[i]->errors_nc().Array());
+        }
+        n = 0;
+      };
+      for (int iseed = start_seed; iseed < end_seed; ++iseed) {
+        CombCandidate &ccand = eoccs[iseed];
+        for (int ic = 0; ic < (int)ccand.size(); ++ic) {
+          cands[n++] = &ccand[ic];
+          if (n == NN)
+            flush();
+        }
+      }
+      if (n > 0)
+        flush();
+    }
+  }  // namespace
 
   std::unique_ptr<MkBuilder> MkBuilder::make_builder(bool silent) { return std::make_unique<MkBuilder>(silent); }
 
@@ -1234,6 +1278,13 @@ namespace mkfit {
 
     cloner.begin_eta_bin(&eoccs, &seed_cand_update_idx, &seed_cand_overlap_idx, &extra_cands, start_seed, n_seeds);
 
+    // With prop-to-plane the candidates hold curvilinear errors during the layer loop: they already do with
+    // Config::useCurvTrackErrors, else they are converted at its start and end.
+    const bool convert_errs = Config::usePropToPlane && !Config::useCurvTrackErrors;
+    if (convert_errs)
+      convertCandErrs(eoccs, start_seed, end_seed, true);
+    mkfndr->m_cand_err_curv = Config::usePropToPlane;
+
     // Loop over layers, starting from after the seed.
 
     auto layer_plan_it = st_par.make_iterator(iteration_dir);
@@ -1298,6 +1349,7 @@ namespace mkfit {
         continue;
 
       cloner.begin_layer(curr_layer);
+      mkfndr->m_prop_states.clear();
 
       //vectorized loop
       for (int itrack = 0; itrack < theEndCand; itrack += NN) {
@@ -1327,8 +1379,13 @@ namespace mkfit {
 
         // propagate to current layer
         mkfndr->clearFailFlag();
-        (mkfndr->*fnd_foos.m_propagate_foo)(
-            layer_info.propagate_to(), end - itrack, prop_config.finding_inter_layer_pflags);
+        if (Config::usePropToPlane) {
+          // only the position errors are needed (hit selection)
+          mkfndr->propagateTracksToLayerCurv(layer_info, end - itrack, prop_config.finding_inter_layer_pflags);
+        } else {
+          (mkfndr->*fnd_foos.m_propagate_foo)(
+              layer_info.propagate_to(), end - itrack, prop_config.finding_inter_layer_pflags);
+        }
 
         dprint("now get hit range");
 
@@ -1449,6 +1506,10 @@ namespace mkfit {
         eoccs[iseed].addPreBkwSearchHoles();
       eoccs[iseed].mergeCandsAndBestShortOne(m_job->params(), final_scorer, true, true);
     }
+
+    if (convert_errs)
+      convertCandErrs(eoccs, start_seed, end_seed, false);
+    mkfndr->m_cand_err_curv = false;
   }
 
   //==============================================================================
@@ -1634,9 +1695,9 @@ namespace mkfit {
         // input tracks
         mkfndr->bkFitInputTracks(eoccs, icand, end);
         // fit tracks back to first layer
-        if (m_cands_from_v2p2)
+        if (m_cands_from_v2p2) {
           mkfndr->bkFitFitTracksV2p2(m_job->m_event_of_hits, st_par, end - icand, chi_debug);
-        else
+        } else
           mkfndr->bkFitFitTracksProp2Plane(m_job->m_event_of_hits, st_par, end - icand, chi_debug);
         // tracks are put back into correcponding TrackCand when finsihed in the above function
         // now move one last time to PCA
@@ -1648,6 +1709,8 @@ namespace mkfit {
           // state survives. scale_errors=false because that state is already
           // fitted; scaling here would inflate its covariance a second time.
           mkfndr->bkFitInputTracks(eoccs, icand, end, false);
+          if (Config::useCurvTrackErrors)
+            mkfndr->trackErrsToCCS(MkBase::iC);
           mkfndr->bkFitPropTracksToPCA(end - icand);
           mkfndr->bkFitOutputTracks(eoccs, icand, end, prop_config.backward_fit_to_pca);
         }

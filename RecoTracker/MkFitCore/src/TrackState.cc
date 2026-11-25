@@ -72,7 +72,7 @@ namespace mkfit {
     return jac;
   }
 
-  void TrackState::convertFromGlbCurvilinearToCCS() {
+  void TrackState::convertFromGlbCurvilinearToCCS(bool convertErrors) {
     //assume we are currently in global state with curvilinear error and want to move to ccs
     const float px = parameters.At(3);
     const float py = parameters.At(4);
@@ -83,11 +83,13 @@ namespace mkfit {
     parameters.At(3) = 1.f / pt;
     parameters.At(4) = phi;
     parameters.At(5) = theta;
+    if (!convertErrors)
+      return;
     SMatrix66 jac = jacobianCurvilinearToCCS(px, py, pz, charge);
     errors = ROOT::Math::Similarity(jac, errors);
   }
 
-  void TrackState::convertFromCCSToGlbCurvilinear() {
+  void TrackState::convertFromCCSToGlbCurvilinear(bool convertErrors) {
     //assume we are currently in ccs coordinates and want to move to global state with curvilinear error
     const float invpt = parameters.At(3);
     const float phi = parameters.At(4);
@@ -100,6 +102,8 @@ namespace mkfit {
     parameters.At(3) = cosP * pt;
     parameters.At(4) = sinP * pt;
     parameters.At(5) = cosT * pt / sinT;
+    if (!convertErrors)
+      return;
     SMatrix66 jac = jacobianCCSToCurvilinear(invpt, cosP, sinP, cosT, sinT, charge);
     errors = ROOT::Math::Similarity(jac, errors);
   }

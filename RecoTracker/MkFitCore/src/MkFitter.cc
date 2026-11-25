@@ -3,6 +3,7 @@
 #include "RecoTracker/MkFitCore/interface/cms_common_macros.h"
 #include "KalmanUtilsMPlex.h"
 #include "FinalFit.h"
+#include "PropagationMPlex.h"
 #include "MatriplexPackers.h"
 
 //#define DEBUG
@@ -39,6 +40,10 @@ namespace mkfit {
     m_Chi2.setVal(0);
     mtp.pack(m_Err[iC], m_Par[iC]);
     m_Err[iC].scale(100.0f);
+    if (Config::useCurvTrackErrors)
+      copyErrCurvFromLS(m_Err[iC], m_ErrCurv[iC]);
+    else
+      convertErrCCSToCurv(m_Err[iC], m_Par[iC], m_Chg, m_ErrCurv[iC]);
   }
 
   void MkFitter::bkReFitInputTracks(TrackVec &cands, std::vector<int> inds, int beg, int end, int nFoundHits) {
@@ -73,6 +78,10 @@ namespace mkfit {
 
     mtp.pack(m_Err[index], m_Par[index]);
     m_Err[index].scale(100.0f);
+    if (Config::useCurvTrackErrors)
+      copyErrCurvFromLS(m_Err[index], m_ErrCurv[index]);
+    else
+      convertErrCCSToCurv(m_Err[index], m_Par[index], m_Chg, m_ErrCurv[index]);
   }
 
   void MkFitter::reFitOutputTracks(TrackVec &cands, std::vector<int> inds, int beg, int end, int nFoundHits, bool bkw) {
@@ -84,6 +93,9 @@ namespace mkfit {
       iO = iC;
     else
       iO = iP;
+
+    if (!Config::useCurvTrackErrors)
+      convertErrCurvToCCS(m_ErrCurv[iO], m_Par[iO], m_Chg, m_Err[iO]);
 
     int itrack = 0;
     for (int i = beg; i < end; ++i, ++itrack) {
@@ -112,7 +124,21 @@ namespace mkfit {
         continue;
       }
 
-      m_Err[iO].copyOut(itrack, trk.errors_nc().Array());
+      if (Config::useCurvTrackErrors) {
+        float *e = trk.errors_nc().Array();
+        copyOutErrCurv(m_ErrCurv[iO], itrack, e);
+        // A charge flip in the update changes m_Chg, but the track keeps its charge and 1/pT, i.e. its q/p changes
+        // sign: flip the q/p row of the error to match (as the conversion to CCS with the new charge and back with
+        // the track's does).
+        if (m_Chg(itrack, 0, 0) != trk.charge()) {
+          e[1] = -e[1];    // (1,0)
+          e[3] = -e[3];    // (2,0)
+          e[6] = -e[6];    // (3,0)
+          e[10] = -e[10];  // (4,0)
+        }
+      } else {
+        m_Err[iO].copyOut(itrack, trk.errors_nc().Array());
+      }
       m_Par[iO].copyOut(itrack, trk.parameters_nc().Array());
 
 #ifdef DEBUG_FIT_BKW
@@ -365,7 +391,7 @@ namespace mkfit {
         fwdLoc.updErr = &m_fwdLocErr[h];
         fwdLoc.pzSign = &m_fwdPzSign[h];
       }
-      final_fit::propagate_update(m_Err[i1],
+      final_fit::propagate_update(m_ErrCurv[i1],
                                   m_Par[i1],
                                   m_Chg,
                                   m_msErr,
@@ -373,7 +399,7 @@ namespace mkfit {
                                   norm,
                                   dir,
                                   pnt,
-                                  m_Err[i2],
+                                  m_ErrCurv[i2],
                                   m_Par[i2],
                                   m_FailFlag,
                                   outChi2,
@@ -576,7 +602,7 @@ namespace mkfit {
         }
         bkLoc.pzSign = &bkPzSign;
       }
-      final_fit::propagate_update(m_Err[i1],
+      final_fit::propagate_update(m_ErrCurv[i1],
                                   m_Par[i1],
                                   m_Chg,
                                   m_msErr,
@@ -584,7 +610,7 @@ namespace mkfit {
                                   norm,
                                   dir,
                                   pnt,
-                                  m_Err[i2],
+                                  m_ErrCurv[i2],
                                   m_Par[i2],
                                   m_FailFlag,
                                   outChi2,

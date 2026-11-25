@@ -100,6 +100,28 @@ namespace mkfit {
                           const ModuleMaterial* modMat,
                           const LocalStatesOut* localStates = nullptr);
 
+    // The same with the covariance in curvilinear coordinates (q/p, lambda, phi, x_perp, y_perp), the parameters in
+    // CCS: transported with the curvilinear Jacobian and taken to and from the local frame of the plane directly.
+    void propagate_update(const MPlex5S& psErr,
+                          const MPlexLV& psPar,
+                          MPlexQI& Chg,
+                          const MPlexHS& msErr,
+                          const MPlexHV& msPar,
+                          const MPlexHV& plNrm,
+                          const MPlexHV& plDir,
+                          const MPlexHV& plPnt,
+                          MPlex5S& outErr,
+                          MPlexLV& outPar,
+                          MPlexQI& outFailFlag,
+                          MPlexQF& outChi2,
+                          const int N_proc,
+                          const Pass& pass,
+                          const MPlexQI* noMatEffPtr,
+                          const MPlexQI* doCPE,
+                          cpe_func cpe_corr_func,
+                          const ModuleMaterial* modMat,
+                          const LocalStatesOut* localStates = nullptr);
+
     // Two-filter smoother on one module plane: combine two independent local estimates of the same state (the
     // forward updated and the backward predicted one): xs = xf + Cf S^-1 (xb - xf), Cs = Cf S^-1 Cb (computed in Joseph
     // form), S = Cf + Cb.

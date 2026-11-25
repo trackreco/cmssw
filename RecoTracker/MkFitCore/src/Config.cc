@@ -6,6 +6,7 @@ namespace mkfit {
 
     bool usePropToPlane = false;
     bool usePtMultScat = false;
+    bool useCurvTrackErrors = false;
 
     // track building: the constants of CMSSW's ParabolicMf (portableParabolicMagneticField::Parameters)
     float mag_c1 = 3.8114;

@@ -16,6 +16,7 @@ namespace mkfit {
     float chi2;           // total chi2 (used for sorting)
     float chi2_hit;       // chi2 of the added hit
     float score;          // score used for candidate ranking
+    int propIdx;          // propagated state saved by the chi2 step (MkFinder::m_prop_states), -1 if none
 
     // Zero initialization
     void reset() {
@@ -23,6 +24,7 @@ namespace mkfit {
       hitIdx = trkIdx = 0;
       nhits = ntailholes = noverlaps = nholes = 0;
       pt = chi2 = chi2_hit = score = 0;
+      propIdx = -1;
     }
   };
 

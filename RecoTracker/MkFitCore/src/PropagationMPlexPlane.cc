@@ -120,23 +120,25 @@ namespace {
 
   //*****************************************************************************************************
 
-  // Transport Jacobian of a helix step of path length s from inPar to outPar, in the field bFld [T]
-  // (Bz along z, the field the step was taken in).
-  void errPropFromPathL_impl(const MPlexLV& __restrict__ inPar,
-                             const MPlexQI& __restrict__ inChg,
-                             const MPlexQF& __restrict__ sinPin,
-                             const MPlexQF& __restrict__ cosPin,
-                             const MPlexQF& __restrict__ sinT,
-                             const MPlexQF& __restrict__ cosT,
-                             const MPlexLV& __restrict__ outPar,
-                             const MPlexQF& __restrict__ bFld,
-                             const MPlexQF& __restrict__ s,
-                             MPlexLL& __restrict__ errorProp,
-                             const int N_proc) {
+  // Transport Jacobian in curvilinear coordinates (q/p, lambda, phi, x_perp, y_perp) of a helix step of path
+  // length s from inPar to outPar, in the field bFld [T] (Bz along z, the field the step was taken in).
+  // sinPout, cosPout: the end state's phi trigonometry, for the caller's conversion to CCS.
+  void errPropCurvFromPathL_impl(const MPlexLV& __restrict__ inPar,
+                                 const MPlexQI& __restrict__ inChg,
+                                 const MPlexQF& __restrict__ sinPin,
+                                 const MPlexQF& __restrict__ cosPin,
+                                 const MPlexQF& __restrict__ sinT,
+                                 const MPlexQF& __restrict__ cosT,
+                                 const MPlexLV& __restrict__ outPar,
+                                 const MPlexQF& __restrict__ bFld,
+                                 const MPlexQF& __restrict__ s,
+                                 MPlex55& __restrict__ errorPropCurv,
+                                 MPlexQF& __restrict__ sinPout,
+                                 MPlexQF& __restrict__ cosPout,
+                                 const int N_proc) {
     namespace mpt = Matriplex;
     using MPF = MPlexQF;
 
-    MPF sinPout, cosPout;
     mpt::fast_sincos(outPar(4, 0), sinPout, cosPout);
 
     // use code from AnalyticalCurvilinearJacobian::computeFullJacobian for error propagation in curvilinear coordinates, then convert to CCS
@@ -183,9 +185,8 @@ namespace {
     const MPF v21 = -cosT * u22;
     const MPF v22 = cosT * u21;
     const MPF v23 = sinT;
-    // now prepare the transport matrix
-
-    MPlex55 errorPropCurv{0.0f};
+    // now prepare the transport matrix: every element is set below, the structural zeros too, so no zero fill
+    // first (on 8 lanes the fill is a rep stos of 800 bytes, a third of the time of this function)
     //   1/p - doesn't change since |p1| = |p2|
     errorPropCurv.aij(0, 0) = 1.f;
     for (int i = 1; i < 5; ++i)
@@ -238,6 +239,10 @@ namespace {
         errorPropCurv(n, 4, 0) = secondOrder51 + (thirdOrder51 + fourthOrder51);
       }
     }
+    for (int n = N_proc; n < NN; ++n) {
+      errorPropCurv(n, 3, 0) = 0.f;
+      errorPropCurv(n, 4, 0) = 0.f;
+    }
 
     errorPropCurv.aij(3, 1) = (sint * (v11 * u21 + v12 * u22) + omcost * (-v12 * u21 + v11 * u22)) / q;
     errorPropCurv.aij(3, 2) = (sint * (u11 * u21 + u12 * u22) + omcost * (-u12 * u21 + u11 * u22)) * sinT / q;
@@ -259,6 +264,27 @@ namespace {
       }
     }
 #endif
+  }
+
+  // Transport Jacobian of a helix step of path length s from inPar to outPar, in the field bFld [T]
+  // (Bz along z, the field the step was taken in).
+  void errPropFromPathL_impl(const MPlexLV& __restrict__ inPar,
+                             const MPlexQI& __restrict__ inChg,
+                             const MPlexQF& __restrict__ sinPin,
+                             const MPlexQF& __restrict__ cosPin,
+                             const MPlexQF& __restrict__ sinT,
+                             const MPlexQF& __restrict__ cosT,
+                             const MPlexLV& __restrict__ outPar,
+                             const MPlexQF& __restrict__ bFld,
+                             const MPlexQF& __restrict__ s,
+                             MPlexLL& __restrict__ errorProp,
+                             const int N_proc) {
+    namespace mpt = Matriplex;
+
+    MPlex55 errorPropCurv;
+    MPlexQF sinPout, cosPout;
+    errPropCurvFromPathL_impl(
+        inPar, inChg, sinPin, cosPin, sinT, cosT, outPar, bFld, s, errorPropCurv, sinPout, cosPout, N_proc);
 
     //now we need jacobians to convert to/from curvilinear and CCS
     // code from TrackState::jacobianCCSToCurvilinear
@@ -570,6 +596,15 @@ namespace mkfit::plane {
     MultHelixPlanePropTransp(J, temp, outErr);
   }
 
+  void jacobian(
+      const TrackRef& in, const StartTrig& t, const MPlexLV& outPar, const FieldAt& f, const MPlexQF& s, MPlex55& J) {
+    MPlexQF sinPout, cosPout;
+    errPropCurvFromPathL_impl(
+        in.par, in.chg, t.sinP, t.cosP, t.sinT, t.cosT, outPar, f.b, s, J, sinPout, cosPout, in.n_proc);
+  }
+
+  void transport_cov(const MPlex55& J, const MPlex5S& inErr, MPlex5S& outErr) { similarityCurvProp(J, inErr, outErr); }
+
   void material_grid(
       const TrackerInfo& tinfo, const MPlexLV& par, const MPlexQI* noMatEffPtr, const int N_proc, MaterialAt& m) {
 #if !defined(__clang__)
@@ -611,7 +646,13 @@ namespace mkfit::plane {
     applyMaterialEffects(m.radl, m.xi, m.sign, plNrm, err, par, N_proc, ms_ref_p);
   }
 
-  void finish(const TrackRef& in, const MPlexLS& inErr, const MPlexQI& failFlag, MPlexLV& par, MPlexLS& err) {
+  void apply_material(
+      const MaterialAt& m, const MPlexHV& plNrm, MPlex5S& err, MPlexLV& par, const int N_proc, const float* ms_ref_p) {
+    applyMaterialEffects(m.radl, m.xi, m.sign, plNrm, err, par, N_proc, ms_ref_p);
+  }
+
+  template <class ErrT>
+  void finish_impl(const TrackRef& in, const ErrT& inErr, const MPlexQI& failFlag, MPlexLV& par, ErrT& err) {
     squashPhiMPlex(par, in.n_proc);  // ensure phi is between |pi|
 
     // PROP-FAIL-ENABLE To keep physics changes minimal, we always restore the
@@ -624,6 +665,14 @@ namespace mkfit::plane {
       }
     }
     // }
+  }
+
+  void finish(const TrackRef& in, const MPlexLS& inErr, const MPlexQI& failFlag, MPlexLV& par, MPlexLS& err) {
+    finish_impl(in, inErr, failFlag, par, err);
+  }
+
+  void finish(const TrackRef& in, const MPlex5S& inErr, const MPlexQI& failFlag, MPlexLV& par, MPlex5S& err) {
+    finish_impl(in, inErr, failFlag, par, err);
   }
 
 }  // namespace mkfit::plane
@@ -659,6 +708,71 @@ namespace mkfit {
       pathL[n] = p.s[n];
   }
 
+  namespace {
+    // ErrT is MPlexLS (CCS error, CCS Jacobian) or MPlex5S (curvilinear error, curvilinear Jacobian)
+    template <class ErrT>
+    using PlaneJacFor = std::conditional_t<std::is_same_v<ErrT, MPlex5S>, MPlex55, MPlexLL>;
+
+    template <class ErrT>
+    void propagateHelixToPlane_impl(const ErrT& inErr,
+                                    const MPlexLV& inPar,
+                                    const MPlexQI& inChg,
+                                    const MPlexHV& plPnt,
+                                    const MPlexHV& plNrm,
+                                    ErrT& outErr,
+                                    MPlexLV& outPar,
+                                    MPlexQI& outFailFlag,
+                                    const int N_proc,
+                                    const PropagationFlags& pflags,
+                                    const MPlexQI* noMatEffPtr) {
+      // debug = true;
+
+      const TrackRef in{inPar, inChg, N_proc};
+      const PlaneRef pl{plPnt, plNrm};
+
+      // jacobian() sets every element of the curvilinear Jacobian
+      PlaneJacFor<ErrT> errorProp;
+      if constexpr (!std::is_same_v<ErrT, MPlex5S>)
+        errorProp.setVal(0.0f);
+      outFailFlag.setVal(0.f);
+
+      FieldAt f;
+      field_at_start(in, pflags, f);
+      StartTrig t;
+      start_trig(in, t);
+      PathSolve p;
+      path_solve(in, t, pl, f, p);
+      drift(in, t, f, p.s, outPar);
+      jacobian(in, t, outPar, f, p.s, errorProp);
+
+#ifdef DEBUG
+      for (int n = 0; n < N_proc; ++n) {
+        dprint_np(n,
+                  "propagation to plane end, dump parameters\n"
+                      << "   pos = " << outPar(n, 0, 0) << " " << outPar(n, 1, 0) << " " << outPar(n, 2, 0) << "\t\t r="
+                      << std::sqrt(outPar(n, 0, 0) * outPar(n, 0, 0) + outPar(n, 1, 0) * outPar(n, 1, 0)) << std::endl
+                      << "   mom = " << outPar(n, 3, 0) << " " << outPar(n, 4, 0) << " " << outPar(n, 5, 0) << std::endl
+                      << " charge = " << inChg(n, 0, 0) << std::endl
+                      << " cart= " << std::cos(outPar(n, 4, 0)) / outPar(n, 3, 0) << " "
+                      << std::sin(outPar(n, 4, 0)) / outPar(n, 3, 0) << " "
+                      << 1. / (outPar(n, 3, 0) * tan(outPar(n, 5, 0))) << "\t\tpT=" << 1. / std::abs(outPar(n, 3, 0))
+                      << std::endl);
+      }
+#endif
+
+      transport_cov(errorProp, inErr, outErr);
+
+      if (pflags.apply_material) {
+        MaterialAt m;
+        material_grid(*pflags.tracker_info, outPar, noMatEffPtr, N_proc, m);
+        eloss_sign_from_path(p.s, noMatEffPtr, N_proc, m);
+        apply_material(m, plNrm, outErr, outPar, N_proc);
+      }
+
+      finish(in, inErr, outFailFlag, outPar, outErr);
+    }
+  }  // namespace
+
   void propagateHelixToPlaneMPlex(const MPlexLS& inErr,
                                   const MPlexLV& inPar,
                                   const MPlexQI& inChg,
@@ -670,48 +784,236 @@ namespace mkfit {
                                   const int N_proc,
                                   const PropagationFlags& pflags,
                                   const MPlexQI* noMatEffPtr) {
-    // debug = true;
+    propagateHelixToPlane_impl(
+        inErr, inPar, inChg, plPnt, plNrm, outErr, outPar, outFailFlag, N_proc, pflags, noMatEffPtr);
+  }
 
+  void propagateHelixToPlaneMPlex(const MPlex5S& inErr,
+                                  const MPlexLV& inPar,
+                                  const MPlexQI& inChg,
+                                  const MPlexHV& plPnt,
+                                  const MPlexHV& plNrm,
+                                  MPlex5S& outErr,
+                                  MPlexLV& outPar,
+                                  MPlexQI& outFailFlag,
+                                  const int N_proc,
+                                  const PropagationFlags& pflags,
+                                  const MPlexQI* noMatEffPtr) {
+    propagateHelixToPlane_impl(
+        inErr, inPar, inChg, plPnt, plNrm, outErr, outPar, outFailFlag, N_proc, pflags, noMatEffPtr);
+  }
+
+  namespace {
+    // Lane loop of propagateHelixToLayerPosErrCurv(): rows 3 (x_perp) and 4 (y_perp) of the curvilinear transport
+    // (as in errPropCurvFromPathL_impl()) for the path s, the transported 2x2 position error, and its projection on
+    // the layer surface (outErr rows 0-2); also the layer normal at the propagated point for the material step.
+    // Written on raw arrays with scalars only, branch-free and flattened, so that it vectorizes.
+    // pathIn: transverse path length D (barrel) or target z (endcap).
+    template <bool kBarrel>
+    __attribute__((flatten)) void layerPosErrCurvKernel(const MPlex5S& __restrict__ inErr,
+                                                        const MPlexLV& __restrict__ inPar,
+                                                        const MPlexQI& __restrict__ inChg,
+                                                        const MPlexLV& __restrict__ outPar,
+                                                        const MPlexQF& __restrict__ pathIn,
+                                                        const MPlexQF& __restrict__ bF,
+                                                        MPlexLS& __restrict__ outErr,
+                                                        MPlexHV& __restrict__ plNrm) {
+      const float* __restrict__ E = inErr.fArray;  // packed lower triangle: (i,j) -> i(i+1)/2 + j
+      const float* __restrict__ P = inPar.fArray;
+      const float* __restrict__ PO = outPar.fArray;
+      const int* __restrict__ Q = inChg.fArray;
+      const float* __restrict__ S = pathIn.fArray;
+      const float* __restrict__ BF = bF.fArray;
+      float* __restrict__ OE = outErr.fArray;
+      float* __restrict__ NV = plNrm.fArray;
+#pragma omp simd
+      for (int n = 0; n < NN; ++n) {
+        const float x0 = P[0 * NN + n], y0 = P[1 * NN + n], z0 = P[2 * NN + n], ipt = P[3 * NN + n];
+        const float phi = P[4 * NN + n], theta = P[5 * NN + n];
+        const float x1 = PO[0 * NN + n], y1 = PO[1 * NN + n], z1 = PO[2 * NN + n], phi1 = PO[4 * NN + n];
+        const float sinT = vdt::fast_sinf(theta), cosT = vdt::fast_cosf(theta);
+        const float sinPin = vdt::fast_sinf(phi), cosPin = vdt::fast_cosf(phi);
+        const float sinPout = vdt::fast_sinf(phi1), cosPout = vdt::fast_cosf(phi1);
+        const float s = kBarrel ? S[n] / sinT : (S[n] - z0) / cosT;
+        const float qbp = (float)Q[n] * sinT * ipt;
+        const float b = BF[n];
+        const float q = -b * qbp;
+        const float th = q * s;
+        // 1 - cos and theta - sin as in errPropCurvFromPathL_impl(): from the half angle, and the series below 1
+        const float sinth = vdt::fast_sinf(0.5f * th), costh = vdt::fast_cosf(0.5f * th);
+        const float sint = 2.f * sinth * costh;
+        const float omcost = 2.f * sinth * sinth;
+        const float th2 = th * th;
+        const float tmsSeries = th * th2 / 6.f * (1.f - th2 / 20.f * (1.f - th2 / 42.f * (1.f - th2 / 72.f)));
+        // Both forms are computed and blended arithmetically: a select would let the compiler sink one of them into
+        // a branch, which it then cannot if-convert (floating-point ops may trap), and the loop would stay scalar.
+        // The weights are 0 or 1, so the blend gives either form exactly.
+        const float wSeries = std::abs(th) < 1.f ? 1.f : 0.f;
+        const float tmsint = wSeries * tmsSeries + (1.f - wSeries) * (th - sint);
+        const float dx1 = x0 - x1, dx2 = y0 - y1, dx3 = z0 - z1;
+        const float t11 = cosPin * sinT, t12 = sinPin * sinT;
+        const float u11 = -sinPin, u12 = cosPin;
+        const float v11 = -cosT * cosPin, v12 = -cosT * sinPin, v13 = sinT;
+        const float u21 = -sinPout, u22 = cosPout;
+        const float v21 = -cosT * cosPout, v22 = -cosT * sinPout, v23 = sinT;
+
+        // derivatives wrt q/p: exact form for long arcs, series in s otherwise
+        const float pp = 1.f / qbp;
+        const float s2 = s * s, s3 = s2 * s, s4 = s3 * s;
+        const float h2 = b * b, h3 = h2 * b, qbp2 = qbp * qbp;
+        const float temp1 = -t12 * u21 + t11 * u22;
+        const float temp2 = -t11 * u21 - t12 * u22;
+        const float temp3 = -t12 * v21 + t11 * v22;
+        const float temp4 = -t11 * v21 - t12 * v22;
+        const float wLong = std::abs(s * sinT * ipt) > 5.f ? 1.f : 0.f;
+        const float J30l = pp * (u21 * dx1 + u22 * dx2);
+        const float J40l = pp * (v21 * dx1 + v22 * dx2 + v23 * dx3);
+        const float J30s =
+            -0.5f * b * temp1 * s2 + (1.f / 3 * h2 * s3 * qbp * temp2 + 1.f / 8 * h3 * s4 * qbp2 * temp1);
+        const float J40s =
+            -0.5f * b * temp3 * s2 + (1.f / 3 * h2 * s3 * qbp * temp4 + 1.f / 8 * h3 * s4 * qbp2 * temp3);
+        const float J30 = wLong * J30l + (1.f - wLong) * J30s;
+        const float J40 = wLong * J40l + (1.f - wLong) * J40s;
+        const float J31 = (sint * (v11 * u21 + v12 * u22) + omcost * (-v12 * u21 + v11 * u22)) / q;
+        const float J32 = (sint * (u11 * u21 + u12 * u22) + omcost * (-u12 * u21 + u11 * u22)) * sinT / q;
+        const float J33 = u11 * u21 + u12 * u22;
+        const float J34 = v11 * u21 + v12 * u22;
+        const float J41 =
+            (sint * (v11 * v21 + v12 * v22 + v13 * v23) + omcost * (-v12 * v21 + v11 * v22) + tmsint * v23 * v13) / q;
+        const float J42 = (sint * (u11 * v21 + u12 * v22) + omcost * (-u12 * v21 + u11 * v22)) * sinT / q;
+        const float J43 = u11 * v21 + u12 * v22;
+        const float J44 = v11 * v21 + v12 * v22 + v13 * v23;
+
+        // 2x2 block J C J^T of the transported error (rows 3, 4)
+        const float c00 = E[0 * NN + n], c10 = E[1 * NN + n], c11 = E[2 * NN + n], c20 = E[3 * NN + n],
+                    c21 = E[4 * NN + n], c22 = E[5 * NN + n], c30 = E[6 * NN + n], c31 = E[7 * NN + n],
+                    c32 = E[8 * NN + n], c33 = E[9 * NN + n], c40 = E[10 * NN + n], c41 = E[11 * NN + n],
+                    c42 = E[12 * NN + n], c43 = E[13 * NN + n], c44 = E[14 * NN + n];
+        const float a30 = J30 * c00 + J31 * c10 + J32 * c20 + J33 * c30 + J34 * c40;
+        const float a31 = J30 * c10 + J31 * c11 + J32 * c21 + J33 * c31 + J34 * c41;
+        const float a32 = J30 * c20 + J31 * c21 + J32 * c22 + J33 * c32 + J34 * c42;
+        const float a33 = J30 * c30 + J31 * c31 + J32 * c32 + J33 * c33 + J34 * c43;
+        const float a34 = J30 * c40 + J31 * c41 + J32 * c42 + J33 * c43 + J34 * c44;
+        const float a40 = J40 * c00 + J41 * c10 + J42 * c20 + J43 * c30 + J44 * c40;
+        const float a41 = J40 * c10 + J41 * c11 + J42 * c21 + J43 * c31 + J44 * c41;
+        const float a42 = J40 * c20 + J41 * c21 + J42 * c22 + J43 * c32 + J44 * c42;
+        const float a43 = J40 * c30 + J41 * c31 + J42 * c32 + J43 * c33 + J44 * c43;
+        const float a44 = J40 * c40 + J41 * c41 + J42 * c42 + J43 * c43 + J44 * c44;
+        const float e33 = a30 * J30 + a31 * J31 + a32 * J32 + a33 * J33 + a34 * J34;
+        const float e34 = a30 * J40 + a31 * J41 + a32 * J42 + a33 * J43 + a34 * J44;
+        const float e44 = a40 * J40 + a41 * J41 + a42 * J42 + a43 * J43 + a44 * J44;
+
+        // Move along the track direction t onto the layer surface (normal nv): P = (1 - t nv^T / nv.t) [U V]
+        const float tx = sinT * cosPout, ty = sinT * sinPout, tz = cosT;
+        const float Ux = -sinPout, Uy = cosPout;
+        const float Vx = -cosT * cosPout, Vy = -cosT * sinPout, Vz = sinT;
+        float nU, nV, nt, ntmin;
+        if constexpr (kBarrel) {
+          nU = x1 * Ux + y1 * Uy;
+          nV = x1 * Vx + y1 * Vy;
+          nt = x1 * tx + y1 * ty;
+          ntmin = 1e-6f * (std::abs(x1) + std::abs(y1));
+          NV[0 * NN + n] = cosPout;
+          NV[1 * NN + n] = sinPout;
+          NV[2 * NN + n] = 0.f;
+        } else {
+          nU = 0.f;
+          nV = Vz;
+          nt = tz;
+          ntmin = 1e-6f;
+          NV[0 * NN + n] = 0.f;
+          NV[1 * NN + n] = 0.f;
+          NV[2 * NN + n] = 1.f;
+        }
+        nt = std::abs(nt) < ntmin ? std::copysign(ntmin, nt) : nt;
+        const float fU = nU / nt, fV = nV / nt;
+        const float PUx = Ux - fU * tx, PUy = Uy - fU * ty, PUz = -fU * tz;
+        const float PVx = Vx - fV * tx, PVy = Vy - fV * ty, PVz = Vz - fV * tz;
+        // outErr rows 0-2 (packed (0,0) (1,0) (1,1) (2,0) (2,1) (2,2))
+        OE[0 * NN + n] = PUx * PUx * e33 + 2.f * PUx * PVx * e34 + PVx * PVx * e44;
+        OE[1 * NN + n] = PUy * PUx * e33 + (PUy * PVx + PVy * PUx) * e34 + PVy * PVx * e44;
+        OE[2 * NN + n] = PUy * PUy * e33 + 2.f * PUy * PVy * e34 + PVy * PVy * e44;
+        OE[3 * NN + n] = PUz * PUx * e33 + (PUz * PVx + PVz * PUx) * e34 + PVz * PVx * e44;
+        OE[4 * NN + n] = PUz * PUy * e33 + (PUz * PVy + PVz * PUy) * e34 + PVz * PVy * e44;
+        OE[5 * NN + n] = PUz * PUz * e33 + 2.f * PUz * PVz * e34 + PVz * PVz * e44;
+      }
+    }
+  }  // namespace
+
+  void propagateHelixToLayerPosErrCurv(const MPlex5S& inErr,
+                                       const MPlexLV& inPar,
+                                       const MPlexQI& inChg,
+                                       const MPlexQF& msRZ,
+                                       const bool isBarrel,
+                                       MPlexLS& outErr,
+                                       MPlexLV& outPar,
+                                       MPlexQI& outFailFlag,
+                                       const int N_proc,
+                                       const PropagationFlags& pflags) {
+    outPar = inPar;
+
+    // Parameters as in propagateHelixToRMPlex() / propagateHelixToZMPlex().
+    MPlexQF pathIn;
+    if (isBarrel)
+      helixAtRFromIterativeCCSParOnly(inPar, inChg, msRZ, outPar, pathIn, outFailFlag, N_proc, pflags);
+    else {
+      MPlexLL dummyErrorProp;
+      helixAtZ(inPar, inChg, msRZ, outPar, dummyErrorProp, outFailFlag, N_proc, pflags);
+      pathIn = msRZ;
+    }
+
+    // The field of the plane propagation: at the start point.
     const TrackRef in{inPar, inChg, N_proc};
-    const PlaneRef pl{plPnt, plNrm};
-
-    MPlexLL errorProp{0.0f};
-    outFailFlag.setVal(0.f);
-
     FieldAt f;
     field_at_start(in, pflags, f);
-    StartTrig t;
-    start_trig(in, t);
-    PathSolve p;
-    path_solve(in, t, pl, f, p);
-    drift(in, t, f, p.s, outPar);
-    jacobian(in, t, outPar, f, p.s, errorProp);
+    const MPlexQF bF = Const::sol_over_100 * f.b;
+    MPlexHV plNrm;
+    if (isBarrel)
+      layerPosErrCurvKernel<true>(inErr, inPar, inChg, outPar, pathIn, bF, outErr, plNrm);
+    else
+      layerPosErrCurvKernel<false>(inErr, inPar, inChg, outPar, pathIn, bF, outErr, plNrm);
 
-#ifdef DEBUG
-    for (int n = 0; n < N_proc; ++n) {
-      dprint_np(n,
-                "propagation to plane end, dump parameters\n"
-                    << "   pos = " << outPar(n, 0, 0) << " " << outPar(n, 1, 0) << " " << outPar(n, 2, 0) << "\t\t r="
-                    << std::sqrt(outPar(n, 0, 0) * outPar(n, 0, 0) + outPar(n, 1, 0) * outPar(n, 1, 0)) << std::endl
-                    << "   mom = " << outPar(n, 3, 0) << " " << outPar(n, 4, 0) << " " << outPar(n, 5, 0) << std::endl
-                    << " charge = " << inChg(n, 0, 0) << std::endl
-                    << " cart= " << std::cos(outPar(n, 4, 0)) / outPar(n, 3, 0) << " "
-                    << std::sin(outPar(n, 4, 0)) / outPar(n, 3, 0) << " "
-                    << 1. / (outPar(n, 3, 0) * tan(outPar(n, 5, 0))) << "\t\tpT=" << 1. / std::abs(outPar(n, 3, 0))
-                    << std::endl);
-    }
-#endif
-
-    transport_cov(errorProp, inErr, outErr);
-
+    // Material: parameter part (energy loss) as in the CCS propagation; its error terms do not touch the position
+    // block and are dropped.
     if (pflags.apply_material) {
-      MaterialAt m;
-      material_grid(*pflags.tracker_info, outPar, noMatEffPtr, N_proc, m);
-      eloss_sign_from_path(p.s, noMatEffPtr, N_proc, m);
-      apply_material(m, plNrm, outErr, outPar, N_proc);
+      MPlexQF hitsRl;
+      MPlexQF hitsXi;
+      MPlexQF propSign;
+      const TrackerInfo& tinfo = *pflags.tracker_info;
+      for (int n = 0; n < NN; ++n) {
+        if (n < N_proc) {
+          if (isBarrel) {
+            if (outFailFlag(n, 0, 0)) {
+              hitsRl(n, 0, 0) = 0.f;
+              hitsXi(n, 0, 0) = 0.f;
+            } else {
+              const auto mat = tinfo.material_checked(std::abs(outPar(n, 2, 0)), msRZ(n, 0, 0));
+              hitsRl(n, 0, 0) = mat.radl;
+              hitsXi(n, 0, 0) = mat.bbxi;
+            }
+            const float r0 = hipo(inPar(n, 0, 0), inPar(n, 1, 0));
+            propSign(n, 0, 0) = (msRZ(n, 0, 0) > r0 ? 1.f : -1.f);
+          } else {
+            const auto mat = tinfo.material_checked(std::abs(msRZ(n, 0, 0)), hipo(outPar(n, 0, 0), outPar(n, 1, 0)));
+            hitsRl(n, 0, 0) = mat.radl;
+            hitsXi(n, 0, 0) = mat.bbxi;
+            propSign(n, 0, 0) = (std::abs(msRZ(n, 0, 0)) > std::abs(inPar(n, 2, 0)) ? 1.f : -1.f);
+          }
+        } else {
+          hitsRl(n, 0, 0) = 0.f;
+          hitsXi(n, 0, 0) = 0.f;
+        }
+      }
+      MPlexLS dummyErr(0.f);
+      applyMaterialEffects(hitsRl, hitsXi, propSign, plNrm, dummyErr, outPar, N_proc);
     }
 
-    finish(in, inErr, outFailFlag, outPar, outErr);
+    squashPhiMPlex(outPar, N_proc);  // ensure phi is between |pi|
+
+    for (int i = 0; i < N_proc; ++i) {
+      if (outFailFlag(i, 0, 0))
+        outPar.copySlot(i, inPar);
+    }
   }
 
 }  // namespace mkfit

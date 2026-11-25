@@ -523,19 +523,33 @@ namespace mkfit {
     int* tr_layersearch_ids = b.tr_layersearch_ids;
 #endif
 
-    // Covariance position block at m_sp2, transported from the previous hit.
+    // Covariance position block at m_sp2, transported from the previous hit. With
+    // Config::useCurvTrackErrors the candidates hold curvilinear errors.
     MPlexLV par0;
-    MPlexLS err0;
-    for (int i = 0; i < N_proc; ++i) {
-      const TrackCand& tc = cand_ptrs[i]->tcand();
-      par0.copyIn(i, tc.parArray());
-      err0.copyIn(i, tc.errArray());
+    if (Config::useCurvTrackErrors) {
+      MPlex5S err0;
+      MPlexQI chg0;
+      for (int i = 0; i < N_proc; ++i) {
+        const TrackCand& tc = cand_ptrs[i]->tcand();
+        par0.copyIn(i, tc.parArray());
+        err0.copyIn(i, tc.errArray());
+        chg0[i] = tc.charge();
+      }
+      pad_free_lanes(N_proc, par0, err0, chg0);
+      B.transport_position_cov(par0, err0, chg0, TCE);
+    } else {
+      MPlexLS err0;
+      for (int i = 0; i < N_proc; ++i) {
+        const TrackCand& tc = cand_ptrs[i]->tcand();
+        par0.copyIn(i, tc.parArray());
+        err0.copyIn(i, tc.errArray());
+      }
+      for (int i = N_proc; i < NN; ++i) {
+        par0.copyIn(i, par0, 0);
+        err0.copyIn(i, err0, 0);
+      }
+      B.transport_position_cov(par0, err0, TCE);
     }
-    for (int i = N_proc; i < NN; ++i) {
-      par0.copyIn(i, par0, 0);
-      err0.copyIn(i, err0, 0);
-    }
-    B.transport_position_cov(par0, err0, TCE);
 
     B.determine_bin_windows(TCE);
 

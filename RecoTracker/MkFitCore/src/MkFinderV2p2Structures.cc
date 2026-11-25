@@ -5,6 +5,8 @@
 #include "PlaneSteps.h"
 #include "MatriplexPackers.h"
 
+#include <type_traits>
+
 #ifdef MKFIT_TRACE
 #include "RecoTracker/MkFitCore/standalone/DataFormats/RntStructs.h"
 #include "RecoTracker/MkFitCore/standalone/Event.h"
@@ -12,7 +14,21 @@
 
 namespace mkfit {
 
+  namespace {
+    // The candidates' error storage is 6x6; a curvilinear error fills its first 15 elements, the rest zero.
+    inline void copy_err_out(const MPlexLS& err, const int i, float* out) { err.copyOut(i, out); }
+    inline void copy_err_out(const MPlex5S& err, const int i, float* out) { copyOutErrCurv(err, i, out); }
+  }  // namespace
+
   void KalmanOpArgs::do_kalman_stuff() {
+    if (Config::useCurvTrackErrors)
+      do_kalman_stuff_impl(tsErrCurv, propErrCurv);
+    else
+      do_kalman_stuff_impl(tsErr, propErr);
+  }
+
+  template <class ErrT>
+  void KalmanOpArgs::do_kalman_stuff_impl(ErrT& tsE, ErrT& propE) {
     // Propagation to the module plane and the Kalman operation on it, composed from the steps of
     // PlaneSteps.h. m_solve_plane marks steps within one layer (second and later hits of an in-layer
     // path): they take the intra-layer propagation flags and solve for the path to the plane.
@@ -21,7 +37,7 @@ namespace mkfit {
     using namespace plane;
 
     // Computed at full width, see pad_free_lanes(); only the first N_filled lanes are read out.
-    pad_free_lanes(N_filled, tsPar, tsErr, tsChg, sPerp, propPar, msErr, msPar, plNrm, plDir, plPnt);
+    pad_free_lanes(N_filled, tsPar, tsE, tsChg, sPerp, propPar, msErr, msPar, plNrm, plDir, plPnt);
 
     const PropagationFlags& pf =
         m_solve_plane ? prop_config->finding_intra_layer_pflags : prop_config->finding_inter_layer_pflags;
@@ -41,17 +57,21 @@ namespace mkfit {
     } else {
       path_from_perp(in, t, sPerp, s);
     }
-    MPlexLL J{0.0f};
+    // The transport Jacobian in the coordinates of the error: 6x6 CCS or 5x5 curvilinear, of which jacobian()
+    // sets every element.
+    std::conditional_t<std::is_same_v<ErrT, MPlex5S>, MPlex55, MPlexLL> J;
+    if constexpr (!std::is_same_v<ErrT, MPlex5S>)
+      J.setVal(0.0f);
     jacobian(in, t, propPar, f, s, J);
-    transport_cov(J, tsErr, propErr);
+    transport_cov(J, tsE, propE);
     if (pf.apply_material) {
       MaterialAt m;
       material_grid(*pf.tracker_info, propPar, nullptr, NN, m);
       eloss_sign_from_path(s, nullptr, NN, m);
-      apply_material(m, plNrm, propErr, propPar, NN);
+      apply_material(m, plNrm, propE, propPar, NN);
     }
     outFailFlag.setVal(0);
-    finish(in, tsErr, outFailFlag, propPar, propErr);
+    finish(in, tsE, outFailFlag, propPar, propE);
 
 #ifdef MKFIT_TRACE_KALMAN_DEBUG
     // Charge as it goes into the update. Propagation does not change it, but the
@@ -69,7 +89,7 @@ namespace mkfit {
     MPlexQF bFld;
     local_field(pred, false, bFld);
     LocalPred L;
-    to_local(pred, propErr, pl, plDir, bFld, L);
+    to_local(pred, propE, pl, plDir, bFld, L);
     LocalMeas M;
     measurement(L, msPar, msErr, plPnt, M);
     Residual R;
@@ -83,7 +103,7 @@ namespace mkfit {
       tsChi2Acc = tsChi2;
     LocalUpd U;
     update(L, R, U);
-    to_global(U, L, pl, tsChg, bFld, tsPar, tsErr);
+    to_global(U, L, pl, tsChg, bFld, tsPar, tsE);
     kalmanCheckChargeFlip(tsPar, tsChg, NN);
 
     for (int i = 0; i < N_filled; ++i) {
@@ -104,11 +124,11 @@ namespace mkfit {
       // Charges straddle the update on purpose: pre-update on the propagated
       // state, post-update on the updated one.
       propPar.copyOut(i, ku.propagated_state.parArray_nc());
-      propErr.copyOut(i, ku.propagated_state.errArray_nc());
+      copy_err_out(propE, i, ku.propagated_state.errArray_nc());
       ku.propagated_state.charge = chg_pre_update[i];
 
       tsPar.copyOut(i, ku.updated_state.parArray_nc());
-      tsErr.copyOut(i, ku.updated_state.errArray_nc());
+      copy_err_out(tsE, i, ku.updated_state.errArray_nc());
       ku.updated_state.charge = tsChg[i];
 #endif
 
@@ -126,7 +146,7 @@ namespace mkfit {
         o.det_v = tsDetV[i];
         o.chi2_acc = tsChi2Acc[i];
         tsPar.copyOut(i, o.state.parArray_nc());
-        tsErr.copyOut(i, o.state.errArray_nc());
+        copy_err_out(tsE, i, o.state.errArray_nc());
         o.state.charge = tsChg[i];
         o.state.valid = true;
 #ifdef MKFIT_TRACE

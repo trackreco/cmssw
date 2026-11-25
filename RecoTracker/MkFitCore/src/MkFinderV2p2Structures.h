@@ -202,6 +202,10 @@ namespace mkfit {
     MPlexLS propErr{0.0f};  // intermediate: propagated from tsErr and used as input to Kalman
     MPlexLV propPar{0.0f};  // sPerp path: input, the search's crossing (compute_pars()); solve-plane path: output
 
+    // tsErr and propErr in curvilinear coordinates, used in their place with Config::useCurvTrackErrors.
+    MPlex5S tsErrCurv{0.0f};
+    MPlex5S propErrCurv{0.0f};
+
     MPlexQI outFailFlag{0};  // not checked: the crossing is known from the search, or a few cm away within the layer
 
     int N_filled = 0;
@@ -276,15 +280,23 @@ namespace mkfit {
     // an input carrying the already-known intersection.
     void load_state_err_chg(const TrackState& st) {
       tsPar.copyIn(N_filled, st.parArray());
-      tsErr.copyIn(N_filled, st.errArray());
+      load_err(st);
       tsChg[N_filled] = st.charge;
     }
 
     void load_state_err_chg(const mini_propagators::InitialState& params_on_hit, const TrackState& prev_state) {
       tsXyz.copyIn(N_filled, params_on_hit);
       tsPar.copyIn(N_filled, prev_state.parArray());  // the propagation steps need the initial parameters, too
-      tsErr.copyIn(N_filled, prev_state.errArray());
+      load_err(prev_state);
       tsChg[N_filled] = prev_state.charge;
+    }
+
+    // With Config::useCurvTrackErrors the states hold curvilinear errors, in the first 15 elements.
+    void load_err(const TrackState& st) {
+      if (Config::useCurvTrackErrors)
+        tsErrCurv.copyIn(N_filled, st.errArray());
+      else
+        tsErr.copyIn(N_filled, st.errArray());
     }
 
     void load_hit_module(const Hit& hit, const ModuleInfo& mi) {
@@ -317,6 +329,11 @@ namespace mkfit {
     }
 
     void do_kalman_stuff();
+
+  private:
+    // ErrT: MPlexLS (CCS) or MPlex5S (curvilinear).
+    template <class ErrT>
+    void do_kalman_stuff_impl(ErrT& tsE, ErrT& propE);
   };
 
 }  // namespace mkfit

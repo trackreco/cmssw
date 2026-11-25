@@ -190,6 +190,12 @@ namespace mkfit {
     // Computed at full width, see pad_free_lanes(); only the first N_proc lanes are read out.
     pad_free_lanes(N_proc, m_Par[iC], m_Err[iC], m_Chg);
 
+    // With Config::useCurvTrackErrors the fit runs on the curvilinear errors the candidates hold (in the
+    // first 15 elements of m_Err[iC], see bkFitInputTracks()).
+    const bool curv = Config::useCurvTrackErrors;
+    if (curv)
+      copyErrCurvFromLS(m_Err[iC], m_ErrCurv[iC]);
+
 #if defined(DEBUG_PROP_UPDATE)
     const int DSLOT = 0;
     int DSLOT_layer;
@@ -283,7 +289,11 @@ namespace mkfit {
           ++done_count;
 
           TrackCand &trk = *m_TrkCand[i];
-          m_Err[iC].copyOut(i, trk.errors_nc().Array());
+          if (curv) {
+            copyOutErrCurv(m_ErrCurv[iC], i, trk.errors_nc().Array());
+          } else {
+            m_Err[iC].copyOut(i, trk.errors_nc().Array());
+          }
           m_Par[iC].copyOut(i, trk.parameters_nc().Array());
           trk.setCharge(m_Chg[i]);
           trk.setChi2(m_Chi2[i]);
@@ -348,12 +358,21 @@ namespace mkfit {
 
       m_FailFlag.setVal(0);
       const MPlexQI chg_prev = m_Chg;
-      propagateHelixToPlaneMPlex(m_Err[iC], m_Par[iC], m_Chg, plPnt, plNrm,
-                                 m_Err[iP], m_Par[iP], m_FailFlag,
-                                 NN, m_prop_config->backward_fit_pflags, nullptr);
-      kalmanOperationPlaneLocal(KFO_Calculate_Chi2 | KFO_Update_Params | KFO_Local_Cov,
-                                m_Err[iP], m_Par[iP], m_Chg, m_msErr, m_msPar, plNrm, plDir, plPnt,
-                                m_Err[iC], m_Par[iC], tmp_chi2, NN);
+      if (curv) {
+        propagateHelixToPlaneMPlex(m_ErrCurv[iC], m_Par[iC], m_Chg, plPnt, plNrm,
+                                   m_ErrCurv[iP], m_Par[iP], m_FailFlag,
+                                   NN, m_prop_config->backward_fit_pflags, nullptr);
+        kalmanOperationPlaneLocal(KFO_Calculate_Chi2 | KFO_Update_Params | KFO_Local_Cov,
+                                  m_ErrCurv[iP], m_Par[iP], m_Chg, m_msErr, m_msPar, plNrm, plDir, plPnt,
+                                  m_ErrCurv[iC], m_Par[iC], tmp_chi2, NN);
+      } else {
+        propagateHelixToPlaneMPlex(m_Err[iC], m_Par[iC], m_Chg, plPnt, plNrm,
+                                   m_Err[iP], m_Par[iP], m_FailFlag,
+                                   NN, m_prop_config->backward_fit_pflags, nullptr);
+        kalmanOperationPlaneLocal(KFO_Calculate_Chi2 | KFO_Update_Params | KFO_Local_Cov,
+                                  m_Err[iP], m_Par[iP], m_Chg, m_msErr, m_msPar, plNrm, plDir, plPnt,
+                                  m_Err[iC], m_Par[iC], tmp_chi2, NN);
+      }
       kalmanCheckChargeFlip(m_Par[iC], m_Chg, NN);
 
       // Outlier rejection: the hit becomes a missing hit and
@@ -363,7 +382,10 @@ namespace mkfit {
           if (fit_node[i] < 0 || !(tmp_chi2[i] > outlier_chi2) ||
               n_outliers[i] >= max_outliers || m_TrkCand[i]->pT() < outlier_min_pt)
             continue;
-          m_Err[iC].copySlot(i, m_Err[iP]);
+          if (curv)
+            m_ErrCurv[iC].copySlot(i, m_ErrCurv[iP]);
+          else
+            m_Err[iC].copySlot(i, m_Err[iP]);
           m_Par[iC].copySlot(i, m_Par[iP]);
           m_Chg[i] = chg_prev[i];
           tmp_chi2[i] = 0.0f;

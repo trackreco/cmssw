@@ -180,16 +180,22 @@ namespace mkfit::final_fit {
       f.kinv = Matriplex::negate_if_ltz(MPF(-Const::sol_over_100), in.chg) * f.b;
     }
 
+    // The covariance types of the final fit: in CCS (MPlexLS, Jacobian MPlexLL) or in curvilinear coordinates
+    // (MPlex5S, Jacobian MPlex55).
+    template <class ErrT>
+    using JacFor = std::conditional_t<std::is_same_v<ErrT, MPlex5S>, MPlex55, MPlexLL>;
+
     // A helix step from in to the plane pl: the path solve, with the field re-sampled at the chord midpoint
     // after each drift of the refinement when ffflags.b_field_at_mid, then the drift onto the plane and, if J
     // is given, its Jacobian, in the field the step was taken in.
+    template <class JacT>
     void helix_step(const TrackRef& in,
                     const PlaneRef& pl,
                     const PropagationFlags& pflags,
                     const FinalFitFlags& ffflags,
                     MPlexLV& outPar,
                     MPlexQF& s,
-                    MPlexLL* J) {
+                    JacT* J) {
       FieldAt f;
       field_at_start(in, pflags, f);
       StartTrig t;
@@ -220,17 +226,18 @@ namespace mkfit::final_fit {
     // step, half of it as a kick at the start, the helix step from the kicked state, the other half at the end.
     // The Jacobian is that of the helix step: it describes the transport, not the correction, which is a
     // first-order effect on the weighting and not on the mean.
+    template <class JacT>
     void step_to_plane(const TrackRef& in,
                        const PlaneRef& pl,
                        const PropagationFlags& pflags,
                        const FinalFitFlags& ffflags,
                        MPlexLV& outPar,
                        MPlexQF& s,
-                       MPlexLL* J) {
+                       JacT* J) {
       if (pflags.use_param_b_field && pflags.use_fit_b_field && ffflags.radial_field_corr) {
         MPlexLV par0{0.0f};
         MPlexQF s0{0.0f};
-        helix_step(in, pl, pflags, ffflags, par0, s0, nullptr);
+        helix_step<JacT>(in, pl, pflags, ffflags, par0, s0, nullptr);
         const MPF halfD = 0.5f * brDeltaRPphiV(in.par, par0, in.chg);
         MPlexLV parH = in.par;
         applyDpPhiV(parH, halfD, in.n_proc);
@@ -244,12 +251,13 @@ namespace mkfit::final_fit {
     // The end of a propagation to a plane: transport the covariance with J, apply the material at the destination
     // (the energy-loss sign from the pass, or from the path length s), bring phi into range, and restore the start
     // state on lanes that failed.
+    template <class ErrT>
     void finish_on_plane(const TrackRef& in,
-                         const MPlexLS& inErr,
+                         const ErrT& inErr,
                          const MPlexHV& plNrm,
-                         const MPlexLL& J,
+                         const JacFor<ErrT>& J,
                          const MPlexQF& s,
-                         MPlexLS& outErr,
+                         ErrT& outErr,
                          MPlexLV& outPar,
                          MPlexQI& outFailFlag,
                          const Pass& pass,
@@ -387,7 +395,8 @@ namespace mkfit::final_fit {
     }
 
     // The Kalman update of the predicted state (psErr, psPar) with the hits, and its chi2.
-    void update_on_plane(const MPlexLS& psErr,
+    template <class ErrT>
+    void update_on_plane(const ErrT& psErr,
                          const MPlexLV& psPar,
                          const MPlexQI& inChg,
                          const MPlexHS& msErr,
@@ -395,7 +404,7 @@ namespace mkfit::final_fit {
                          const MPlexHV& plNrm,
                          const MPlexHV& plDir,
                          const MPlexHV& plPnt,
-                         MPlexLS& outErr,
+                         ErrT& outErr,
                          MPlexLV& outPar,
                          MPlexQF& outChi2,
                          const int N_proc,
@@ -441,6 +450,175 @@ namespace mkfit::final_fit {
 
   }  // namespace
 
+  namespace {
+
+    template <class ErrT>
+    void propagate_impl(const ErrT& inErr,
+                        const MPlexLV& inPar,
+                        const MPlexQI& inChg,
+                        const MPlexHV& plPnt,
+                        const MPlexHV& plNrm,
+                        ErrT& outErr,
+                        MPlexLV& outPar,
+                        MPlexQI& outFailFlag,
+                        const int N_proc,
+                        const Pass& pass,
+                        const MPlexQI* noMatEffPtr,
+                        const ModuleMaterial* modMat) {
+      const PropagationFlags& pflags = pass.pflags;
+      const TrackRef in{inPar, inChg, N_proc};
+      const PlaneRef pl{plPnt, plNrm};
+
+      // jacobian() sets every element of the curvilinear Jacobian
+      JacFor<ErrT> errorProp;
+      if constexpr (!std::is_same_v<ErrT, MPlex5S>)
+        errorProp.setVal(0.0f);
+      MPlexQF s{0.0f};
+      outFailFlag.setVal(0.f);
+
+      step_to_plane(in, pl, pflags, pass.ffflags, outPar, s, &errorProp);
+
+      finish_on_plane(in, inErr, plNrm, errorProp, s, outErr, outPar, outFailFlag, pass, noMatEffPtr, modMat);
+    }
+
+    template <class ErrT>
+    void propagate_sub_steps_impl(const ErrT& inErr,
+                                  const MPlexLV& inPar,
+                                  const MPlexQI& inChg,
+                                  const MPlexHV& plPnt,
+                                  const MPlexHV& plNrm,
+                                  ErrT& outErr,
+                                  MPlexLV& outPar,
+                                  MPlexQI& outFailFlag,
+                                  const int N_proc,
+                                  const Pass& pass,
+                                  const int nSub,
+                                  const bool* split,
+                                  const MPlexQI* noMatEffPtr,
+                                  const ModuleMaterial* modMat) {
+      const PropagationFlags& pflags = pass.pflags;
+      const FinalFitFlags& ffflags = pass.ffflags;
+      const TrackRef in{inPar, inChg, N_proc};
+      const PlaneRef pl{plPnt, plNrm};
+      outFailFlag.setVal(0);
+
+      // the first nSub - 1 sub-steps, of fixed path length (none with nSub == 1)
+      MPlexLV par = inPar;
+      MPF sTot{0.0f};
+      if (nSub > 1) {
+        MPF step = first_path_estimate(in, pl, pflags);
+        for (int n = 0; n < NN; ++n)
+          step[n] = (n < N_proc && (split == nullptr || split[n])) ? step[n] / nSub : 0.f;
+        for (int ks = 1; ks < nSub; ++ks) {
+          fixed_length_sub_step(par, inChg, step, N_proc, pflags, ffflags);
+          sTot = sTot + step;
+        }
+      }
+
+      // the last sub-step onto the plane, parameters only
+      MPF sLast{0.0f};
+      step_to_plane<JacFor<ErrT>>(TrackRef{par, inChg, N_proc}, pl, pflags, ffflags, outPar, sLast, nullptr);
+      sTot = sTot + sLast;
+
+      // the field of the whole step (at the chord midpoint with b_field_at_mid), and in it the Jacobian errorProp
+      // of the one-step transport from the start over the accumulated path length
+      FieldAt fW;
+      field_at_start(in, pflags, fW);
+      if (pflags.use_param_b_field && ffflags.b_field_at_mid)
+        field_at_mid(in, outPar, pflags, fW);
+      StartTrig t;
+      start_trig(in, t);
+      MPlexLV parJ{0.0f};
+      JacFor<ErrT> errorProp;
+      if constexpr (!std::is_same_v<ErrT, MPlex5S>)
+        errorProp.setVal(0.0f);
+      drift(in, t, fW, sTot, parJ);
+      jacobian(in, t, parJ, fW, sTot, errorProp);
+
+      finish_on_plane(in, inErr, plNrm, errorProp, sTot, outErr, outPar, outFailFlag, pass, noMatEffPtr, modMat);
+    }
+
+    template <class ErrT>
+    void propagate_update_impl(const ErrT& psErr,
+                               const MPlexLV& psPar,
+                               MPlexQI& Chg,
+                               const MPlexHS& msErr,
+                               const MPlexHV& msPar,
+                               const MPlexHV& plNrm,
+                               const MPlexHV& plDir,
+                               const MPlexHV& plPnt,
+                               ErrT& outErr,
+                               MPlexLV& outPar,
+                               MPlexQI& outFailFlag,
+                               MPlexQF& outChi2,
+                               const int N_proc,
+                               const Pass& pass,
+                               const MPlexQI* noMatEffPtr,
+                               const MPlexQI* doCPE,
+                               cpe_func cpe_corr_func,
+                               const ModuleMaterial* modMat,
+                               const LocalStatesOut* localStates) {
+      // Sub-steps for the lanes not yet on their plane.
+      bool split[NN] = {false};
+      bool any_split = false;
+      if (pass.n_sub > 1) {
+        for (int i = 0; i < N_proc; ++i) {
+          const float d = (plPnt.constAt(i, 0, 0) - psPar.constAt(i, 0, 0)) * plNrm.constAt(i, 0, 0) +
+                          (plPnt.constAt(i, 1, 0) - psPar.constAt(i, 1, 0)) * plNrm.constAt(i, 1, 0) +
+                          (plPnt.constAt(i, 2, 0) - psPar.constAt(i, 2, 0)) * plNrm.constAt(i, 2, 0);
+          if (d != 0.f) {
+            split[i] = true;
+            any_split = true;
+          }
+        }
+      }
+
+      ErrT propErr;
+      MPlexLV propPar;
+      if (any_split)
+        propagate_sub_steps_impl(psErr,
+                                 psPar,
+                                 Chg,
+                                 plPnt,
+                                 plNrm,
+                                 propErr,
+                                 propPar,
+                                 outFailFlag,
+                                 N_proc,
+                                 pass,
+                                 pass.n_sub,
+                                 split,
+                                 noMatEffPtr,
+                                 modMat);
+      else
+        propagate_impl(
+            psErr, psPar, Chg, plPnt, plNrm, propErr, propPar, outFailFlag, N_proc, pass, noMatEffPtr, modMat);
+      update_on_plane(propErr,
+                      propPar,
+                      Chg,
+                      msErr,
+                      msPar,
+                      plNrm,
+                      plDir,
+                      plPnt,
+                      outErr,
+                      outPar,
+                      outChi2,
+                      N_proc,
+                      pass.pflags,
+                      doCPE,
+                      cpe_corr_func,
+                      localStates);
+      for (int n = 0; n < NN; ++n) {
+        if (outPar.At(n, 3, 0) < 0) {
+          Chg.At(n, 0, 0) = -Chg.At(n, 0, 0);
+          outPar.At(n, 3, 0) = -outPar.At(n, 3, 0);
+        }
+      }
+    }
+
+  }  // namespace
+
   void propagate(const MPlexLS& inErr,
                  const MPlexLV& inPar,
                  const MPlexQI& inChg,
@@ -453,17 +631,7 @@ namespace mkfit::final_fit {
                  const Pass& pass,
                  const MPlexQI* noMatEffPtr,
                  const ModuleMaterial* modMat) {
-    const PropagationFlags& pflags = pass.pflags;
-    const TrackRef in{inPar, inChg, N_proc};
-    const PlaneRef pl{plPnt, plNrm};
-
-    MPlexLL errorProp{0.0f};
-    MPlexQF s{0.0f};
-    outFailFlag.setVal(0.f);
-
-    step_to_plane(in, pl, pflags, pass.ffflags, outPar, s, &errorProp);
-
-    finish_on_plane(in, inErr, plNrm, errorProp, s, outErr, outPar, outFailFlag, pass, noMatEffPtr, modMat);
+    propagate_impl(inErr, inPar, inChg, plPnt, plNrm, outErr, outPar, outFailFlag, N_proc, pass, noMatEffPtr, modMat);
   }
 
   void propagate_sub_steps(const MPlexLS& inErr,
@@ -480,44 +648,8 @@ namespace mkfit::final_fit {
                            const bool* split,
                            const MPlexQI* noMatEffPtr,
                            const ModuleMaterial* modMat) {
-    const PropagationFlags& pflags = pass.pflags;
-    const FinalFitFlags& ffflags = pass.ffflags;
-    const TrackRef in{inPar, inChg, N_proc};
-    const PlaneRef pl{plPnt, plNrm};
-    outFailFlag.setVal(0);
-
-    // the first nSub - 1 sub-steps, of fixed path length (none with nSub == 1)
-    MPlexLV par = inPar;
-    MPF sTot{0.0f};
-    if (nSub > 1) {
-      MPF step = first_path_estimate(in, pl, pflags);
-      for (int n = 0; n < NN; ++n)
-        step[n] = (n < N_proc && (split == nullptr || split[n])) ? step[n] / nSub : 0.f;
-      for (int ks = 1; ks < nSub; ++ks) {
-        fixed_length_sub_step(par, inChg, step, N_proc, pflags, ffflags);
-        sTot = sTot + step;
-      }
-    }
-
-    // the last sub-step onto the plane, parameters only
-    MPF sLast{0.0f};
-    step_to_plane(TrackRef{par, inChg, N_proc}, pl, pflags, ffflags, outPar, sLast, nullptr);
-    sTot = sTot + sLast;
-
-    // the field of the whole step (at the chord midpoint with b_field_at_mid), and in it the Jacobian errorProp
-    // of the one-step transport from the start over the accumulated path length
-    FieldAt fW;
-    field_at_start(in, pflags, fW);
-    if (pflags.use_param_b_field && ffflags.b_field_at_mid)
-      field_at_mid(in, outPar, pflags, fW);
-    StartTrig t;
-    start_trig(in, t);
-    MPlexLV parJ{0.0f};
-    MPlexLL errorProp{0.0f};
-    drift(in, t, fW, sTot, parJ);
-    jacobian(in, t, parJ, fW, sTot, errorProp);
-
-    finish_on_plane(in, inErr, plNrm, errorProp, sTot, outErr, outPar, outFailFlag, pass, noMatEffPtr, modMat);
+    propagate_sub_steps_impl(
+        inErr, inPar, inChg, plPnt, plNrm, outErr, outPar, outFailFlag, N_proc, pass, nSub, split, noMatEffPtr, modMat);
   }
 
   void propagate_update(const MPlexLS& psErr,
@@ -539,62 +671,65 @@ namespace mkfit::final_fit {
                         cpe_func cpe_corr_func,
                         const ModuleMaterial* modMat,
                         const LocalStatesOut* localStates) {
-    // Sub-steps for the lanes not yet on their plane.
-    bool split[NN] = {false};
-    bool any_split = false;
-    if (pass.n_sub > 1) {
-      for (int i = 0; i < N_proc; ++i) {
-        const float d = (plPnt.constAt(i, 0, 0) - psPar.constAt(i, 0, 0)) * plNrm.constAt(i, 0, 0) +
-                        (plPnt.constAt(i, 1, 0) - psPar.constAt(i, 1, 0)) * plNrm.constAt(i, 1, 0) +
-                        (plPnt.constAt(i, 2, 0) - psPar.constAt(i, 2, 0)) * plNrm.constAt(i, 2, 0);
-        if (d != 0.f) {
-          split[i] = true;
-          any_split = true;
-        }
-      }
-    }
-
-    MPlexLS propErr;
-    MPlexLV propPar;
-    if (any_split)
-      propagate_sub_steps(psErr,
+    propagate_update_impl(psErr,
                           psPar,
                           Chg,
-                          plPnt,
+                          msErr,
+                          msPar,
                           plNrm,
-                          propErr,
-                          propPar,
+                          plDir,
+                          plPnt,
+                          outErr,
+                          outPar,
                           outFailFlag,
+                          outChi2,
                           N_proc,
                           pass,
-                          pass.n_sub,
-                          split,
                           noMatEffPtr,
-                          modMat);
-    else
-      propagate(psErr, psPar, Chg, plPnt, plNrm, propErr, propPar, outFailFlag, N_proc, pass, noMatEffPtr, modMat);
-    update_on_plane(propErr,
-                    propPar,
-                    Chg,
-                    msErr,
-                    msPar,
-                    plNrm,
-                    plDir,
-                    plPnt,
-                    outErr,
-                    outPar,
-                    outChi2,
-                    N_proc,
-                    pass.pflags,
-                    doCPE,
-                    cpe_corr_func,
-                    localStates);
-    for (int n = 0; n < NN; ++n) {
-      if (outPar.At(n, 3, 0) < 0) {
-        Chg.At(n, 0, 0) = -Chg.At(n, 0, 0);
-        outPar.At(n, 3, 0) = -outPar.At(n, 3, 0);
-      }
-    }
+                          doCPE,
+                          cpe_corr_func,
+                          modMat,
+                          localStates);
+  }
+
+  void propagate_update(const MPlex5S& psErr,
+                        const MPlexLV& psPar,
+                        MPlexQI& Chg,
+                        const MPlexHS& msErr,
+                        const MPlexHV& msPar,
+                        const MPlexHV& plNrm,
+                        const MPlexHV& plDir,
+                        const MPlexHV& plPnt,
+                        MPlex5S& outErr,
+                        MPlexLV& outPar,
+                        MPlexQI& outFailFlag,
+                        MPlexQF& outChi2,
+                        const int N_proc,
+                        const Pass& pass,
+                        const MPlexQI* noMatEffPtr,
+                        const MPlexQI* doCPE,
+                        cpe_func cpe_corr_func,
+                        const ModuleMaterial* modMat,
+                        const LocalStatesOut* localStates) {
+    propagate_update_impl(psErr,
+                          psPar,
+                          Chg,
+                          msErr,
+                          msPar,
+                          plNrm,
+                          plDir,
+                          plPnt,
+                          outErr,
+                          outPar,
+                          outFailFlag,
+                          outChi2,
+                          N_proc,
+                          pass,
+                          noMatEffPtr,
+                          doCPE,
+                          cpe_corr_func,
+                          modMat,
+                          localStates);
   }
 
   //==============================================================================

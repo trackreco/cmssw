@@ -59,6 +59,10 @@ namespace mkfit {
   private:
     MPlexQF m_Chi2;
 
+    // Track errors in curvilinear coordinates (q/p, lambda, phi, x_perp, y_perp) used during the fit;
+    // converted from/to the CCS m_Err at input/output.
+    MPlex5S m_ErrCurv[2];
+
     // Hit errors / parameters for update.
     MPlexHS m_msErr{0.0f};
     MPlexHV m_msPar{0.0f};

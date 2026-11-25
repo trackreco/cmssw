@@ -348,6 +348,9 @@ namespace {
   // helixAtR
   //========================================================================================
 
+  // kJac = false: parameters only (bitwise identical to kJac = true), errorProp is not touched.
+  // pathD, if given, receives the transverse path length D (path length s = D / sin(theta)).
+  template <bool kJac>
   void helixAtRFromIterativeCCS_impl(const MPlexLV& __restrict__ inPar,
                                      const MPlexQI& __restrict__ inChg,
                                      const MPlexQF& __restrict__ msRad,
@@ -357,18 +360,21 @@ namespace {
                                      const int nmin,
                                      const int nmax,
                                      const int N_proc,
-                                     const PropagationFlags& pf) {
+                                     const PropagationFlags& pf,
+                                     MPlexQF* __restrict__ pathD = nullptr) {
     // bool debug = true;
 
+    if constexpr (kJac) {
 #pragma omp simd
-    for (int n = nmin; n < nmax; ++n) {
-      //initialize erroProp to identity matrix
-      errorProp(n, 0, 0) = 1.f;
-      errorProp(n, 1, 1) = 1.f;
-      errorProp(n, 2, 2) = 1.f;
-      errorProp(n, 3, 3) = 1.f;
-      errorProp(n, 4, 4) = 1.f;
-      errorProp(n, 5, 5) = 1.f;
+      for (int n = nmin; n < nmax; ++n) {
+        //initialize erroProp to identity matrix
+        errorProp(n, 0, 0) = 1.f;
+        errorProp(n, 1, 1) = 1.f;
+        errorProp(n, 2, 2) = 1.f;
+        errorProp(n, 3, 3) = 1.f;
+        errorProp(n, 4, 4) = 1.f;
+        errorProp(n, 5, 5) = 1.f;
+      }
     }
     float r0[nmax - nmin];
 #pragma omp simd
@@ -580,7 +586,7 @@ namespace {
       }
 
       //update derivatives on total distance
-      if (i + 1 != Config::Niter) {
+      if (kJac && i + 1 != Config::Niter) {
 #pragma omp simd
         for (int n = nmin; n < nmax; ++n) {
           x[n - nmin] = outPar(n, 0, 0);
@@ -667,57 +673,69 @@ namespace {
 #pragma omp simd
     for (int n = nmin; n < nmax; ++n) {
       alpha[n - nmin] = D[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
-      dadx[n - nmin] = dDdx[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
-      dady[n - nmin] = dDdy[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
-      dadipt[n - nmin] = (ipt[n - nmin] * dDdipt[n - nmin] + D[n - nmin]) * kinv[n - nmin];
-      dadphi[n - nmin] = dDdphi[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
+    }
+    if (pathD) {
+      for (int n = nmin; n < nmax; ++n)
+        (*pathD)(n, 0, 0) = D[n - nmin];
     }
 
+    if constexpr (kJac) {
 #pragma omp simd
-    for (int n = nmin; n < nmax; ++n) {
-      vdt::fast_sincosf(alpha[n - nmin], sina[n - nmin], cosa[n - nmin]);
-    }
-#pragma omp simd
-    for (int n = nmin; n < nmax; ++n) {
-      errorProp(n, 0, 0) = 1.f + k[n - nmin] * dadx[n - nmin] *
-                                     (cosPorT[n - nmin] * cosa[n - nmin] - sinPorT[n - nmin] * sina[n - nmin]) *
-                                     pt[n - nmin];
-      errorProp(n, 0, 1) = k[n - nmin] * dady[n - nmin] *
-                           (cosPorT[n - nmin] * cosa[n - nmin] - sinPorT[n - nmin] * sina[n - nmin]) * pt[n - nmin];
-      errorProp(n, 0, 2) = 0.f;
-      errorProp(n, 0, 3) =
-          k[n - nmin] *
-          (cosPorT[n - nmin] * (ipt[n - nmin] * dadipt[n - nmin] * cosa[n - nmin] - sina[n - nmin]) +
-           sinPorT[n - nmin] * ((1.f - cosa[n - nmin]) - ipt[n - nmin] * dadipt[n - nmin] * sina[n - nmin])) *
-          pt[n - nmin] * pt[n - nmin];
-      errorProp(n, 0, 4) = k[n - nmin] *
-                           (cosPorT[n - nmin] * dadphi[n - nmin] * cosa[n - nmin] -
-                            sinPorT[n - nmin] * dadphi[n - nmin] * sina[n - nmin] - sinPorT[n - nmin] * sina[n - nmin] +
-                            cosPorT[n - nmin] * cosa[n - nmin] - cosPorT[n - nmin]) *
-                           pt[n - nmin];
-      errorProp(n, 0, 5) = 0.f;
-    }
+      for (int n = nmin; n < nmax; ++n) {
+        dadx[n - nmin] = dDdx[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
+        dady[n - nmin] = dDdy[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
+        dadipt[n - nmin] = (ipt[n - nmin] * dDdipt[n - nmin] + D[n - nmin]) * kinv[n - nmin];
+        dadphi[n - nmin] = dDdphi[n - nmin] * ipt[n - nmin] * kinv[n - nmin];
+      }
 
 #pragma omp simd
-    for (int n = nmin; n < nmax; ++n) {
-      errorProp(n, 1, 0) = k[n - nmin] * dadx[n - nmin] *
-                           (sinPorT[n - nmin] * cosa[n - nmin] + cosPorT[n - nmin] * sina[n - nmin]) * pt[n - nmin];
-      errorProp(n, 1, 1) = 1.f + k[n - nmin] * dady[n - nmin] *
-                                     (sinPorT[n - nmin] * cosa[n - nmin] + cosPorT[n - nmin] * sina[n - nmin]) *
-                                     pt[n - nmin];
-      errorProp(n, 1, 2) = 0.f;
-      errorProp(n, 1, 3) =
-          k[n - nmin] *
-          (sinPorT[n - nmin] * (ipt[n - nmin] * dadipt[n - nmin] * cosa[n - nmin] - sina[n - nmin]) +
-           cosPorT[n - nmin] * (ipt[n - nmin] * dadipt[n - nmin] * sina[n - nmin] - (1.f - cosa[n - nmin]))) *
-          pt[n - nmin] * pt[n - nmin];
-      errorProp(n, 1, 4) = k[n - nmin] *
-                           (sinPorT[n - nmin] * dadphi[n - nmin] * cosa[n - nmin] +
-                            cosPorT[n - nmin] * dadphi[n - nmin] * sina[n - nmin] + sinPorT[n - nmin] * cosa[n - nmin] +
-                            cosPorT[n - nmin] * sina[n - nmin] - sinPorT[n - nmin]) *
-                           pt[n - nmin];
-      errorProp(n, 1, 5) = 0.f;
-    }
+      for (int n = nmin; n < nmax; ++n) {
+        vdt::fast_sincosf(alpha[n - nmin], sina[n - nmin], cosa[n - nmin]);
+      }
+#pragma omp simd
+      for (int n = nmin; n < nmax; ++n) {
+        errorProp(n, 0, 0) = 1.f + k[n - nmin] * dadx[n - nmin] *
+                                       (cosPorT[n - nmin] * cosa[n - nmin] - sinPorT[n - nmin] * sina[n - nmin]) *
+                                       pt[n - nmin];
+        errorProp(n, 0, 1) = k[n - nmin] * dady[n - nmin] *
+                             (cosPorT[n - nmin] * cosa[n - nmin] - sinPorT[n - nmin] * sina[n - nmin]) * pt[n - nmin];
+        errorProp(n, 0, 2) = 0.f;
+        errorProp(n, 0, 3) =
+            k[n - nmin] *
+            (cosPorT[n - nmin] * (ipt[n - nmin] * dadipt[n - nmin] * cosa[n - nmin] - sina[n - nmin]) +
+             sinPorT[n - nmin] * ((1.f - cosa[n - nmin]) - ipt[n - nmin] * dadipt[n - nmin] * sina[n - nmin])) *
+            pt[n - nmin] * pt[n - nmin];
+        errorProp(n, 0, 4) =
+            k[n - nmin] *
+            (cosPorT[n - nmin] * dadphi[n - nmin] * cosa[n - nmin] -
+             sinPorT[n - nmin] * dadphi[n - nmin] * sina[n - nmin] - sinPorT[n - nmin] * sina[n - nmin] +
+             cosPorT[n - nmin] * cosa[n - nmin] - cosPorT[n - nmin]) *
+            pt[n - nmin];
+        errorProp(n, 0, 5) = 0.f;
+      }
+
+#pragma omp simd
+      for (int n = nmin; n < nmax; ++n) {
+        errorProp(n, 1, 0) = k[n - nmin] * dadx[n - nmin] *
+                             (sinPorT[n - nmin] * cosa[n - nmin] + cosPorT[n - nmin] * sina[n - nmin]) * pt[n - nmin];
+        errorProp(n, 1, 1) = 1.f + k[n - nmin] * dady[n - nmin] *
+                                       (sinPorT[n - nmin] * cosa[n - nmin] + cosPorT[n - nmin] * sina[n - nmin]) *
+                                       pt[n - nmin];
+        errorProp(n, 1, 2) = 0.f;
+        errorProp(n, 1, 3) =
+            k[n - nmin] *
+            (sinPorT[n - nmin] * (ipt[n - nmin] * dadipt[n - nmin] * cosa[n - nmin] - sina[n - nmin]) +
+             cosPorT[n - nmin] * (ipt[n - nmin] * dadipt[n - nmin] * sina[n - nmin] - (1.f - cosa[n - nmin]))) *
+            pt[n - nmin] * pt[n - nmin];
+        errorProp(n, 1, 4) =
+            k[n - nmin] *
+            (sinPorT[n - nmin] * dadphi[n - nmin] * cosa[n - nmin] +
+             cosPorT[n - nmin] * dadphi[n - nmin] * sina[n - nmin] + sinPorT[n - nmin] * cosa[n - nmin] +
+             cosPorT[n - nmin] * sina[n - nmin] - sinPorT[n - nmin]) *
+            pt[n - nmin];
+        errorProp(n, 1, 5) = 0.f;
+      }
+    }  // kJac
 
 #pragma omp simd
     for (int n = nmin; n < nmax; ++n) {
@@ -740,47 +758,59 @@ namespace {
     for (int n = nmin; n < nmax; ++n) {
       outPar(n, 2, 0) =
           inPar(n, 2, 0) + k[n - nmin] * alpha[n - nmin] * cosPorT[n - nmin] * pt[n - nmin] * sinPorT[n - nmin];
-      errorProp(n, 2, 0) = k[n - nmin] * cosPorT[n - nmin] * dadx[n - nmin] * pt[n - nmin] * sinPorT[n - nmin];
-      errorProp(n, 2, 1) = k[n - nmin] * cosPorT[n - nmin] * dady[n - nmin] * pt[n - nmin] * sinPorT[n - nmin];
-      errorProp(n, 2, 2) = 1.f;
-      errorProp(n, 2, 3) = k[n - nmin] * cosPorT[n - nmin] * (ipt[n - nmin] * dadipt[n - nmin] - alpha[n - nmin]) *
-                           pt[n - nmin] * pt[n - nmin] * sinPorT[n - nmin];
-      errorProp(n, 2, 4) = k[n - nmin] * dadphi[n - nmin] * cosPorT[n - nmin] * pt[n - nmin] * sinPorT[n - nmin];
-      errorProp(n, 2, 5) = -k[n - nmin] * alpha[n - nmin] * pt[n - nmin] * sinPorT[n - nmin] * sinPorT[n - nmin];
     }
+
+    if constexpr (kJac) {
+#pragma omp simd
+      for (int n = nmin; n < nmax; ++n) {
+        errorProp(n, 2, 0) = k[n - nmin] * cosPorT[n - nmin] * dadx[n - nmin] * pt[n - nmin] * sinPorT[n - nmin];
+        errorProp(n, 2, 1) = k[n - nmin] * cosPorT[n - nmin] * dady[n - nmin] * pt[n - nmin] * sinPorT[n - nmin];
+        errorProp(n, 2, 2) = 1.f;
+        errorProp(n, 2, 3) = k[n - nmin] * cosPorT[n - nmin] * (ipt[n - nmin] * dadipt[n - nmin] - alpha[n - nmin]) *
+                             pt[n - nmin] * pt[n - nmin] * sinPorT[n - nmin];
+        errorProp(n, 2, 4) = k[n - nmin] * dadphi[n - nmin] * cosPorT[n - nmin] * pt[n - nmin] * sinPorT[n - nmin];
+        errorProp(n, 2, 5) = -k[n - nmin] * alpha[n - nmin] * pt[n - nmin] * sinPorT[n - nmin] * sinPorT[n - nmin];
+      }
+    }  // kJac
 
 #pragma omp simd
     for (int n = nmin; n < nmax; ++n) {
       outPar(n, 3, 0) = ipt[n - nmin];
-      errorProp(n, 3, 0) = 0.f;
-      errorProp(n, 3, 1) = 0.f;
-      errorProp(n, 3, 2) = 0.f;
-      errorProp(n, 3, 3) = 1.f;
-      errorProp(n, 3, 4) = 0.f;
-      errorProp(n, 3, 5) = 0.f;
-    }
-
-#pragma omp simd
-    for (int n = nmin; n < nmax; ++n) {
       outPar(n, 4, 0) = inPar(n, 4, 0) + alpha[n - nmin];
-      errorProp(n, 4, 0) = dadx[n - nmin];
-      errorProp(n, 4, 1) = dady[n - nmin];
-      errorProp(n, 4, 2) = 0.f;
-      errorProp(n, 4, 3) = dadipt[n - nmin];
-      errorProp(n, 4, 4) = 1.f + dadphi[n - nmin];
-      errorProp(n, 4, 5) = 0.f;
+      outPar(n, 5, 0) = theta[n - nmin];
     }
 
+    if constexpr (kJac) {
 #pragma omp simd
-    for (int n = nmin; n < nmax; ++n) {
-      outPar(n, 5, 0) = theta[n - nmin];
-      errorProp(n, 5, 0) = 0.f;
-      errorProp(n, 5, 1) = 0.f;
-      errorProp(n, 5, 2) = 0.f;
-      errorProp(n, 5, 3) = 0.f;
-      errorProp(n, 5, 4) = 0.f;
-      errorProp(n, 5, 5) = 1.f;
-    }
+      for (int n = nmin; n < nmax; ++n) {
+        errorProp(n, 3, 0) = 0.f;
+        errorProp(n, 3, 1) = 0.f;
+        errorProp(n, 3, 2) = 0.f;
+        errorProp(n, 3, 3) = 1.f;
+        errorProp(n, 3, 4) = 0.f;
+        errorProp(n, 3, 5) = 0.f;
+      }
+
+#pragma omp simd
+      for (int n = nmin; n < nmax; ++n) {
+        errorProp(n, 4, 0) = dadx[n - nmin];
+        errorProp(n, 4, 1) = dady[n - nmin];
+        errorProp(n, 4, 2) = 0.f;
+        errorProp(n, 4, 3) = dadipt[n - nmin];
+        errorProp(n, 4, 4) = 1.f + dadphi[n - nmin];
+        errorProp(n, 4, 5) = 0.f;
+      }
+
+#pragma omp simd
+      for (int n = nmin; n < nmax; ++n) {
+        errorProp(n, 5, 0) = 0.f;
+        errorProp(n, 5, 1) = 0.f;
+        errorProp(n, 5, 2) = 0.f;
+        errorProp(n, 5, 3) = 0.f;
+        errorProp(n, 5, 4) = 0.f;
+        errorProp(n, 5, 5) = 1.f;
+      }
+    }  // kJac
 
     for (int n = nmin; n < nmax; ++n) {
       dprint_np(
@@ -823,7 +853,22 @@ namespace mkfit {
     errorProp.setVal(0.f);
     outFailFlag.setVal(0.f);
 
-    helixAtRFromIterativeCCS_impl(inPar, inChg, msRad, outPar, errorProp, outFailFlag, 0, NN, N_proc, pflags);
+    helixAtRFromIterativeCCS_impl<true>(inPar, inChg, msRad, outPar, errorProp, outFailFlag, 0, NN, N_proc, pflags);
+  }
+
+  void helixAtRFromIterativeCCSParOnly(const MPlexLV& inPar,
+                                       const MPlexQI& inChg,
+                                       const MPlexQF& msRad,
+                                       MPlexLV& outPar,
+                                       MPlexQF& pathD,
+                                       MPlexQI& outFailFlag,
+                                       const int N_proc,
+                                       const PropagationFlags& pflags) {
+    MPlexLL dummy;
+    outFailFlag.setVal(0.f);
+
+    helixAtRFromIterativeCCS_impl<false>(
+        inPar, inChg, msRad, outPar, dummy, outFailFlag, 0, NN, N_proc, pflags, &pathD);
   }
 
   void propagateHelixToRMPlex(const MPlexLS& inErr,

@@ -56,6 +56,11 @@ namespace mkfit {
     // constexpr bool usePtMultScat = true;
     extern bool usePropToPlane;
     extern bool usePtMultScat;
+    // Track errors (seeds, candidates, output tracks) in curvilinear coordinates (q/p, lambda, phi, x_perp, y_perp),
+    // in the first 15 elements of the 6x6 storage, the rest zero; false = CCS. Requires usePropToPlane. Set with it
+    // for Phase-2 in CMSSW (MkFitGeometryESProducer); the CCS-only steps (V2p2 search and backward fit, propagation
+    // to the PCA) convert at their boundaries.
+    extern bool useCurvTrackErrors;
 
     // MkFinderV2p2 parameters live in two places:
     // - interface/V2p2Params.h: per iteration (IterationConfig::m_v2p2), set from python in CMSSW;

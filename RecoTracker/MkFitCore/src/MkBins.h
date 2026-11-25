@@ -57,6 +57,16 @@ namespace mkfit {
 
     // Covariance position block at m_sp2 from the previous-hit state (par0, err0).
     void transport_position_cov(const MPlexLV& par0, const MPlexLS& err0, MkBinTrackCovExtract& tce) const;
+    // The same from a curvilinear covariance (Config::useCurvTrackErrors); chg0 the charges.
+    void transport_position_cov(const MPlexLV& par0,
+                                const MPlex5S& err0,
+                                const MPlexQI& chg0,
+                                MkBinTrackCovExtract& tce) const;
+    void transport_position_cov_impl(const MPlexLV& par0,
+                                     const MPlexLS* err0,
+                                     const MPlex5S* err0_curv,
+                                     const MPlexQI* chg0,
+                                     MkBinTrackCovExtract& tce) const;
 
     void determine_bin_windows(const MkBinTrackCovExtract& cov_ex);
 #if defined(MKFIT_STANDALONE)

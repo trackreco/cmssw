@@ -90,8 +90,9 @@ namespace mkfit {
     SMatrix66 jacobianCCSToCartesian(float invpt, float phi, float theta) const;
     SMatrix66 jacobianCartesianToCCS(float px, float py, float pz) const;
 
-    void convertFromGlbCurvilinearToCCS();
-    void convertFromCCSToGlbCurvilinear();
+    // convertErrors = false: the parameters only, the (curvilinear) errors are kept as they are
+    void convertFromGlbCurvilinearToCCS(bool convertErrors = true);
+    void convertFromCCSToGlbCurvilinear(bool convertErrors = true);
     //last row/column are zeros
     SMatrix66 jacobianCCSToCurvilinear(float invpt, float cosP, float sinP, float cosT, float sinT, short charge) const;
     SMatrix66 jacobianCurvilinearToCCS(float px, float py, float pz, short charge) const;
